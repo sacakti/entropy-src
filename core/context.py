@@ -1,32 +1,50 @@
-from dataclasses import dataclass
+"""
+Application runtime context.
+"""
+
+from __future__ import annotations
+
 from typing import Optional
 
-from config.config_loader import Configuration
-from lib.output.output import OutputManager
-
-
-@dataclass
-class ReleaseContext:
-
-    release_id: Optional[str] = None
-
-    target: Optional[str] = None
-
-    workflow: Optional[str] = None
-
-    step: int = 0
-
-    plugin: Optional[str] = None
+from lib.output import output
 
 
 class EntropyContext:
+    """
+    Shared runtime context.
+
+    This object is passed across the application instead of
+    passing multiple objects individually.
+    """
 
     def __init__(self):
 
-        self.config: Optional[Configuration] = None
+        #
+        # Application configuration
+        #
+        self.config = None
 
-        self.output: Optional[OutputManager] = None
+        #
+        # Output manager
+        #
+        self.output = output
 
-        self.database = None
+        #
+        # Current workflow
+        #
+        self.workflow: Optional[dict] = None
 
-        self.release = ReleaseContext()
+        #
+        # Current release
+        #
+        self.release = None
+
+        #
+        # Plugin manager
+        #
+        self.plugin_manager = None
+
+        #
+        # Linux Executor
+        #
+        self.executor = None

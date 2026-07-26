@@ -1,0 +1,86 @@
+{
+    "name": "Default Deployment Workflow",
+    "version": "1.0",
+    "description": "Default deployment workflow for Entropy.",
+
+    "steps": [
+
+        {
+            "id": "validate_environment",
+            "order": 1,
+            "name": "Validate Environment",
+            "plugin": "validate_environment",
+            "enabled": true
+        },
+
+        {
+            "id": "execute_database",
+            "order": 2,
+            "name": "Execute Database Scripts",
+            "plugin": "execute_database",
+            "enabled": true,
+            "config": {
+                "master_script": "master_calling.sql",
+                "validate_only": false,
+                "stop_on_error": true
+            }
+        },
+
+        {
+            "id": "update_configmap",
+            "order": 3,
+            "name": "Update ConfigMap",
+            "plugin": "update_configmap",
+            "enabled": true,
+            "config": {
+                "directory": "configmaps",
+                "replace": true
+            }
+        },
+
+        {
+            "id": "update_secret",
+            "order": 4,
+            "name": "Update Secret",
+            "plugin": "update_secret",
+            "enabled": true,
+            "config": {
+                "directory": "secrets",
+                "replace": true
+            }
+        },
+
+        {
+            "id": "execute_shell",
+            "order": 5,
+            "name": "Execute Shell Scripts",
+            "plugin": "execute_shell",
+            "enabled": true,
+            "config": {
+                "directory": "shell",
+                "stop_on_error": true
+            }
+        },
+
+        {
+            "id": "deploy_openshift",
+            "order": 6,
+            "name": "Deploy OpenShift Resources",
+            "plugin": "deploy_oc",
+            "enabled": true,
+            "config": {
+                "directory": "oc",
+                "replace": true
+            }
+        },
+
+        {
+            "id": "generate_report",
+            "order": 7,
+            "name": "Generate HTML Report",
+            "plugin": "generate_report",
+            "enabled": true
+        }
+
+    ]
+}
