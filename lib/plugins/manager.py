@@ -7,12 +7,15 @@ Responsible for loading and caching plugin instances.
 from __future__ import annotations
 
 import importlib
+from time import perf_counter
 
 from core.constants import SEARCH_PATHS
 from core.context import EntropyContext
 
 from .base import BasePlugin
 from .exception import (
+    PluginError,
+    PluginExecutionError,
     PluginNotFoundError,
     PluginValidationError,
 )
@@ -50,16 +53,6 @@ class PluginManager:
         if name in self._cache:
             return self._cache[name]
 
-        # module_name = f"plugins.{name}"
-
-        # class_name = (
-        #     "".join(
-        #         part.capitalize()
-        #         for part in name.split("_")
-        #     )
-        #     + "Plugin"
-        # )
-
         for package in SEARCH_PATHS:
             module_name = f"{package}.{name}"
 
@@ -68,36 +61,17 @@ class PluginManager:
                 break
 
             except ModuleNotFoundError as exc:
-                # Ignore only if the missing module is the plugin itself.
                 if exc.name == module_name:
                     continue
                 raise
         else:
-            raise PluginNotFoundError(f"Unknown plugin '{name}'")
-
-        # try:
-        #     module = importlib.import_module(module_name)
-
-        # except ImportError as exc:
-        #     raise PluginNotFoundError(
-        #         f"Unknown plugin '{name}'"
-        #     ) from exc
-
-        # try:
-        #     plugin_class = getattr(module, class_name)
-
-        # except AttributeError as exc:
-        #     raise PluginValidationError(
-        #         f"Plugin class '{class_name}' not found."
-        #     ) from exc
-
-        # if not issubclass(plugin_class, BasePlugin):
-        #     raise PluginValidationError(
-        #         f"{class_name} must inherit BasePlugin."
-        #     )
+            raise PluginNotFoundError(
+                f"Unknown plugin '{name}'"
+            )
 
         try:
             class_name = module.PLUGIN_CLASS
+
         except AttributeError as exc:
             raise PluginValidationError(
                 f"{module.__name__} does not define PLUGIN_CLASS."
@@ -105,10 +79,16 @@ class PluginManager:
 
         try:
             plugin_class = getattr(module, class_name)
+
         except AttributeError as exc:
             raise PluginValidationError(
                 f"Plugin class '{class_name}' not found."
             ) from exc
+
+        if not issubclass(plugin_class, BasePlugin):
+            raise PluginValidationError(
+                f"{class_name} must inherit BasePlugin."
+            )
 
         plugin = plugin_class(self.context)
 
@@ -120,11 +100,42 @@ class PluginManager:
         self,
         name: str,
         config: dict,
-    ) -> None:
+    ) -> float:
         """
-        Execute a plugin.
+        Validate and execute a plugin.
+
+        Returns
+        -------
+        float
+            Execution duration in seconds.
         """
 
         plugin = self.load(name)
 
-        plugin.execute(config)
+        #
+        # Validate configuration
+        #
+        plugin.validate(config)
+
+        start = perf_counter()
+
+        try:
+            plugin.execute(config)
+
+        except PluginError:
+            raise
+
+        except Exception as exc:
+            raise PluginExecutionError(
+                f"Plugin '{name}' execution failed."
+            ) from exc
+
+        finally:
+            duration = perf_counter() - start
+
+        self.context.output.plugin.success(
+            f"Plugin '{name}' completed "
+            f"({duration:.2f}s)"
+        )
+
+        return duration

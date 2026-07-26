@@ -10,6 +10,7 @@ class WorkflowStep:
     plugin: str
     enabled: bool
     config: dict[str, Any] = field(default_factory=dict)
+    stop_on_error: bool = True
 
 
 @dataclass

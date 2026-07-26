@@ -87,7 +87,15 @@ class Workflow:
                 step.name,
             )
 
-            self.context.plugin_manager.execute(
-                step.plugin,
-                step.config,
-            )
+            try:
+                self.context.plugin_manager.execute(
+                    step.plugin,
+                    step.config,
+                )
+
+            except Exception as exc:
+
+                self.context.output.workflow.error(str(exc))
+
+                if step.stop_on_error:
+                    raise

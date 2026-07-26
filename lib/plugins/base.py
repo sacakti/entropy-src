@@ -1,7 +1,3 @@
-"""
-Base plugin class.
-"""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -18,22 +14,26 @@ class BasePlugin(ABC):
     def __init__(self, context: EntropyContext):
 
         self.context = context
+        self.output = context.output
+        self.executor = context.executor
 
-    @property
-    def output(self):
-        return self.context.output
+    def validate(
+        self,
+        config: dict[str, Any],
+    ) -> None:
+        """
+        Validate plugin configuration.
 
-    @property
-    def executor(self):
-        return self.context.executor
+        Plugins may override this method.
+        """
+
+        return
 
     @abstractmethod
-    def execute(self, config: dict[str, Any]) -> bool:
+    def execute(
+        self,
+        config: dict[str, Any],
+    ) -> None:
         """
         Execute the plugin.
-
-        Returns
-        -------
-        bool
-            True if the plugin completed successfully.
         """
