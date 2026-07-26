@@ -5,10 +5,11 @@ Application bootstrap.
 from pathlib import Path
 
 from core.environment import Environment
-from lib.console.console import console
-from lib.logger.logger import logger_manager
+# from lib.console_bkp.console import console
+# from lib.logger_bkp.logger import logger_manager
+from lib.output.output import OutputManager
 from version import APP_NAME, VERSION
-
+from config.config_loader import config
 
 class Application:
 
@@ -16,12 +17,23 @@ class Application:
 
         Environment.prepare()
 
-        logger_manager.initialize(Path("logs"))
+        config.load()
 
-        logger = logger_manager.get_logger("entropy")
+        # logger_manager.initialize(Path("logs"))
 
-        console.banner(APP_NAME, VERSION)
+        # logger = logger_manager.get_logger("entropy")
 
-        logger.info("Application started")
+        # console.banner(APP_NAME, VERSION)
 
-        console.success("Environment initialized")
+        # logger.info("Application started")
+
+        # console.success("Environment initialized")
+        output = OutputManager()
+
+        output.initialize(Path("logs"))
+
+        output.banner(APP_NAME, VERSION)
+
+        output.system.info("Application started")
+
+        output.system.success("Environment initialized")
