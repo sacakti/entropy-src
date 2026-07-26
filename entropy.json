@@ -1,0 +1,9 @@
+{
+    "logging": {
+        "level": "INFO",
+        "directory": "./logs",
+        "rotate_mb": 20,
+        "backup_count": 10,
+        "console": true
+    }
+}
