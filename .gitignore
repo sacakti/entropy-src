@@ -1,0 +1,198 @@
+# ==========================================================
+# Entropy - .gitignore
+# ==========================================================
+
+###############################
+# Python
+###############################
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.pyo
+
+###############################
+# Virtual Environment
+###############################
+
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+###############################
+# Build / Distribution
+###############################
+
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+###############################
+# Unit Test / Coverage
+###############################
+
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.cache/
+
+###############################
+# Logs
+###############################
+
+logs/
+*.log
+*.out
+*.err
+
+###############################
+# Runtime
+###############################
+
+*.pid
+*.pid.lock
+*.lock
+
+###############################
+# SQLite Database
+###############################
+
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+database/*.sqlite3
+
+###############################
+# Reports
+###############################
+
+reports/
+*.html
+
+###############################
+# Runtime Release Files
+###############################
+
+releases/*
+!releases/.gitkeep
+
+###############################
+# Downloaded OpenShift Resources
+###############################
+
+repository/*
+!repository/.gitkeep
+
+###############################
+# Temporary Files
+###############################
+
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*.orig
+
+###############################
+# Rich Console Cache
+###############################
+
+.rich_cache/
+
+###############################
+# IDE
+###############################
+
+.vscode/
+.idea/
+
+###############################
+# Operating System
+###############################
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+###############################
+# Environment Files
+###############################
+
+.env
+.env.*
+*.env
+
+###############################
+# Secrets
+###############################
+
+*.pem
+*.key
+*.crt
+*.pfx
+*.jks
+*.keystore
+
+###############################
+# Backup Files
+###############################
+
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
+
+###############################
+# Generated Configurations
+###############################
+
+generated/
+output/
+
+###############################
+# Process State
+###############################
+
+run/
+runtime/
+state/
+
+###############################
+# Local User Configuration
+###############################
+
+entropy.local.json
+config.local.json
+settings.local.json
+
+###############################
+# Keep Sample Configurations
+###############################
+
+!entropy.json
+!workflow.json
+!deployment_flow.json
+!sample_cm.json
+
+###############################
+# Keep Empty Directories
+###############################
+
+!logs/.gitkeep
+!reports/.gitkeep
+!database/.gitkeep
+!repository/.gitkeep
+!releases/.gitkeep
