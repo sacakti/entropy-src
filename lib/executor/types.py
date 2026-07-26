@@ -1,6 +1,6 @@
 from pathlib import Path
-from typing import TypeAlias
+from typing import Dict, List, Union
 
-PathLike: TypeAlias = Path
-Command: TypeAlias = str | list[str]
-Environment: TypeAlias = dict[str, str]
+PathLike = Path
+Command = Union[str, List[str]]
+Environment = Dict[str, str]

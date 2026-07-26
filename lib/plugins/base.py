@@ -1,24 +1,39 @@
 """
-Base plugin.
+Base plugin class.
 """
 
 from __future__ import annotations
 
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+from typing import Any
+
+from core.context import EntropyContext
 
 
-class Plugin(ABC):
+class BasePlugin(ABC):
+    """
+    Base class for all Entropy plugins.
+    """
 
-    NAME = ""
-
-    def __init__(self, context):
+    def __init__(self, context: EntropyContext):
 
         self.context = context
 
+    @property
+    def output(self):
+        return self.context.output
+
+    @property
+    def executor(self):
+        return self.context.executor
+
     @abstractmethod
-    def execute(self, config: dict) -> None:
+    def execute(self, config: dict[str, Any]) -> bool:
         """
         Execute the plugin.
+
+        Returns
+        -------
+        bool
+            True if the plugin completed successfully.
         """
-        raise NotImplementedError

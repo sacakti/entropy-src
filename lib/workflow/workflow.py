@@ -75,4 +75,7 @@ class Workflow:
                 step["name"],
             )
 
-            self.context.plugin_manager.execute(step)
+            self.context.plugin_manager.execute(
+                step["plugin"],
+                step.get("config", {}),
+            )

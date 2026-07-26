@@ -1,0 +1,219 @@
+"""
+Entropy Output Manager.
+
+Single public interface for:
+    - Console output
+    - Logging
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from .banner import Banner
+from .category import CategoryLogger
+from .console import ConsoleEngine
+from .logger import LoggerEngine
+
+
+class OutputManager:
+
+    CATEGORIES = (
+        "system",
+        "workflow",
+        "database",
+        "shell",
+        "oc",
+        "plugin",
+        "process",
+        "report",
+        "git",
+    )
+
+    def __init__(self):
+
+        self._console = ConsoleEngine()
+
+        self._logger = LoggerEngine()
+
+        #
+        # Create category loggers
+        #
+        for category in self.CATEGORIES:
+
+            setattr(
+                self,
+                category,
+                CategoryLogger(
+                    self,
+                    category,
+                ),
+            )
+
+    # ------------------------------------------------------------------
+    # Initialize
+    # ------------------------------------------------------------------
+
+    def initialize(
+        self,
+        log_directory: Path,
+        level: str = "INFO",
+    ):
+
+        self._logger.initialize(
+            log_directory=log_directory,
+            level=level,
+        )
+
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
+
+    def emit(
+        self,
+        level: str,
+        category: str,
+        message: str,
+        exception: bool = False,
+        **kwargs,
+    ):
+
+        #
+        # Write log
+        #
+        self._logger.write(
+            level=level,
+            category=category,
+            message=message,
+            exception=exception,
+        )
+
+        #
+        # Console
+        #
+        level = level.upper()
+
+        task = kwargs.get("task")
+
+        if level == "INFO":
+
+            self._console.info(message)
+
+        elif level == "DEBUG":
+
+            self._console.debug(message)
+
+        elif level == "SUCCESS":
+
+            self._console.success(
+                message,
+                task,
+            )
+
+        elif level == "WARNING":
+
+            self._console.warning(
+                message,
+                task,
+            )
+
+        elif level == "ERROR":
+
+            self._console.error(
+                message,
+                task,
+            )
+
+    # ------------------------------------------------------------------
+    # Banner
+    # ------------------------------------------------------------------
+
+    def banner(
+        self,
+        app_name: str,
+        version: str,
+    ):
+
+        self._console.banner(
+            Banner.build(
+                app_name,
+                version,
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Progress
+    # ------------------------------------------------------------------
+
+    def progress(
+        self,
+        message: str,
+    ):
+
+        return self._console.progress(message)
+
+    # ------------------------------------------------------------------
+    # Workflow
+    # ------------------------------------------------------------------
+
+    def step(
+        self,
+        step_no: int,
+        title: str,
+    ):
+
+        self._console.step(
+            step_no,
+            title,
+        )
+
+    def sub(
+        self,
+        message: str,
+    ):
+
+        self._console.sub(message)
+
+    # ------------------------------------------------------------------
+    # Generic
+    # ------------------------------------------------------------------
+
+    def print(
+        self,
+        *args,
+        **kwargs,
+    ):
+
+        self._console.print(
+            *args,
+            **kwargs,
+        )
+
+    def rule(
+        self,
+        title: str = "",
+    ):
+
+        self._console.rule(title)
+
+    def table(
+        self,
+        title,
+        columns,
+        rows,
+    ):
+
+        self._console.table(
+            title,
+            columns,
+            rows,
+        )
+
+    def shutdown(self):
+
+        self._console.shutdown()
+
+        self._logger.shutdown()
+
+
+output = OutputManager()

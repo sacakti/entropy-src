@@ -1,5 +1,6 @@
-from lib.plugins.base import Plugin
+from lib.plugins.base import BasePlugin as Plugin
 
+PLUGIN_CLASS = "ValidateEnvironmentPlugin"
 
 class ValidateEnvironmentPlugin(Plugin):
 
