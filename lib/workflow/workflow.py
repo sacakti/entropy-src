@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 
+from lib.models.workflow import WorkflowDefinition, WorkflowStep
 from lib.workflow.validator import WorkflowValidator
 from core.constants import WORKFLOW_DIR
 
@@ -45,7 +46,7 @@ class Workflow:
             encoding="utf-8",
         ) as fp:
 
-            self.data = json.load(fp)
+            raw = json.load(fp)
 
         self.context.output.workflow.success(
             f"Workflow '{workflow_name}' loaded",
@@ -54,28 +55,39 @@ class Workflow:
 
         validator = WorkflowValidator(self.context)
 
-        validator.validate(self.data)
+        validator.validate(raw)
 
-        self.context.workflow = self.data
+        workflow = WorkflowDefinition(
+            name=raw["name"],
+            version=raw["version"],
+            steps=[
+                WorkflowStep(**step)
+                for step in raw["steps"]
+            ],
+        )
 
-        return self.data
+        self.data = workflow
+
+        self.context.workflow = workflow
+
+        return workflow
 
     def execute(self):
 
         for step in sorted(
-            self.data["steps"],
-            key=lambda x: x["order"],
+            self.data.steps,
+            key=lambda step: step.order,
         ):
 
-            if not step["enabled"]:
+            if not step.enabled:
                 continue
 
             self.context.output.step(
-                step["order"],
-                step["name"],
+                step.order,
+                step.name,
             )
 
             self.context.plugin_manager.execute(
-                step["plugin"],
-                step.get("config", {}),
+                step.plugin,
+                step.config,
             )

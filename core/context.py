@@ -7,6 +7,9 @@ from __future__ import annotations
 from typing import Optional
 
 from lib.output import output
+from typing import Optional
+
+from lib.models.workflow import WorkflowDefinition
 
 
 class EntropyContext:
@@ -32,7 +35,8 @@ class EntropyContext:
         #
         # Current workflow
         #
-        self.workflow: Optional[dict] = None
+        # self.workflow: Optional[dict] = None
+        self.workflow: Optional[WorkflowDefinition] = None
 
         #
         # Current release

@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 
-@dataclass(slots=True)
+@dataclass
 class LogRecord:
 
     timestamp: datetime = field(default_factory=datetime.now)
