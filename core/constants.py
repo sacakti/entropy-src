@@ -14,8 +14,6 @@ RESOURCE_DIR = PROJECT_ROOT / "resources"
 
 LOG_DIR = PROJECT_ROOT / "logs"
 
-REPORT_DIR = PROJECT_ROOT / "reports"
-
 DATABASE_DIR = PROJECT_ROOT / "lib" / "database"
 
 DATABASE_FILE = DATABASE_DIR / "entropy.db"
@@ -28,13 +26,15 @@ STATE_DIR = RUNTIME_DIR / "state"
 
 LOCK_DIR = RUNTIME_DIR / "locks"
 
-RELEASE_DIR = PROJECT_ROOT / "releases"
-
 PLUGIN_DIR = PROJECT_ROOT / "lib" / "plugins"
 
 CONFIG_DIR = RESOURCE_DIR / "config"
 
+RELEASE_DIR = RESOURCE_DIR / "releases"
+
 WORKFLOW_DIR = RESOURCE_DIR / "workflows"
+
+REPORT_DIR = RESOURCE_DIR / "reports"
 
 CONFIG_FILE = CONFIG_DIR / "entropy.json"
 
