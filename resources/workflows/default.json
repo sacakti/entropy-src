@@ -10,16 +10,16 @@
             "order": 1,
             "name": "Validate Environment",
             "plugin": "validate_environment",
-            "enabled": true,
+            "enabled": false,
             "on_failure": "continue",
             "retry_count": 3
         },
 
         {
-            "id": "execute_database",
+            "id": "execute_db",
             "order": 2,
             "name": "Execute Database Scripts",
-            "plugin": "execute_database",
+            "plugin": "execute_db",
             "enabled": true,
             "on_failure": "continue",
             "retry_count": 3,

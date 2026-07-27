@@ -1,0 +1,7 @@
+{
+    "name": "execute_db",
+    "version": "1.0.0",
+    "description": "Oracle SQL files execution plugin",
+    "author": "Aravinthan Selvaraj",
+    "license": "ENT"
+}

@@ -6,7 +6,7 @@
 
  "console": {
     "banner": false,
-    "level": "NORMAL"
+    "level": "DEBUG"
   },
 
   "logging": {

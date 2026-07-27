@@ -1,39 +1,50 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any
+# from abc import ABC, abstractmethod
+# from typing import Any
 
-from core.context import EntropyContext
+# from core.context import EntropyContext
+from lib.plugins.exception import PluginNotImplementedError
 
 
-class BasePlugin(ABC):
-    """
-    Base class for all Entropy plugins.
-    """
+class BasePlugin:
 
-    def __init__(self, context: EntropyContext):
+    def __init__(self, context):
 
         self.context = context
-        self.output = context.output
-        self.executor = context.executor
+
+    def initialize(self) -> None:
+        """
+        Initialize the plugin.
+        """
+
+        pass
 
     def validate(
         self,
-        config: dict[str, Any],
+        config: dict,
     ) -> None:
         """
         Validate plugin configuration.
-
-        Plugins may override this method.
         """
 
-        return
+        pass
 
-    @abstractmethod
     def execute(
         self,
-        config: dict[str, Any],
+        config: dict,
     ) -> None:
         """
         Execute the plugin.
         """
+
+        raise PluginNotImplementedError(
+            "Plugin execution has not been implemented."
+        )
+
+    def dispose(self) -> None:
+        """
+        Dispose plugin resources.
+        """
+
+        pass

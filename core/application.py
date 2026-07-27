@@ -98,6 +98,8 @@ class Application:
         self.context.command_manager.discover()
 
         self.context.generator_manager.discover()
+
+        self.context.plugin_manager.discover()
         
     def run(self) -> None:
 

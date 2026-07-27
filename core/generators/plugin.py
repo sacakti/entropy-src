@@ -22,6 +22,7 @@ class PluginGenerator(BaseGenerator):
     FILES = [
         (PluginTemplates.INIT, "__init__.py"),
         (PluginTemplates.MANIFEST, "plugin.json"),
+        (PluginTemplates.PLUGIN, "plugin.py"),
     ]
 
     def build_context(self, name: str) -> dict:

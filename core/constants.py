@@ -18,7 +18,7 @@ DATABASE_DIR = PROJECT_ROOT / "lib" / "database"
 
 TEMPLATE_DIR = PROJECT_ROOT / "templates"
 
-PLUGIN_DIR = PROJECT_ROOT / "plugins" / "custom"
+PLUGIN_DIR = PROJECT_ROOT / "plugins" 
 
 DATABASE_FILE = DATABASE_DIR / "entropy.db"
 
@@ -115,3 +115,4 @@ class PluginTemplates:
 
     INIT = "plugin/__init__.py.j2"
     MANIFEST = "plugin/plugin.json.j2"
+    PLUGIN = "plugin/plugin.py.j2"
