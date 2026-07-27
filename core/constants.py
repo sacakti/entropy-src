@@ -68,3 +68,20 @@ SEARCH_PATHS = (
     "plugins.custom",
     "plugins.builtin",
 )
+
+# ------------------------------------------------------------------
+# Logger contants
+# ------------------------------------------------------------------
+
+CATEGORIES = (
+    "system",
+    "cli",
+    "workflow",
+    "database",
+    "shell",
+    "oc",
+    "plugin",
+    "process",
+    "report",
+    "git",
+)

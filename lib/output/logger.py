@@ -9,20 +9,10 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from core.constants import CATEGORIES
+
 
 class LoggerEngine:
-
-    LOGGERS = (
-        "system",
-        "workflow",
-        "database",
-        "shell",
-        "oc",
-        "plugin",
-        "process",
-        "report",
-        "git",
-    )
 
     def __init__(self):
 
@@ -56,7 +46,7 @@ class LoggerEngine:
             logging.INFO,
         )
 
-        for name in self.LOGGERS:
+        for name in CATEGORIES:
 
             logger = logging.getLogger(name)
 

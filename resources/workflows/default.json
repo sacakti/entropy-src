@@ -92,8 +92,8 @@
             "name": "Generate HTML Report",
             "plugin": "generate_report",
             "enabled": true,
-            "on_failure": "abort",
-            "retry_count": 3
+            "on_failure": "continue",
+            "retry_count": 10
         }
 
     ]

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from core.constants import CATEGORIES
+
 from .banner import Banner
 from .category import CategoryLogger
 from .console import ConsoleEngine
@@ -17,18 +19,6 @@ from .logger import LoggerEngine
 
 
 class OutputManager:
-
-    CATEGORIES = (
-        "system",
-        "workflow",
-        "database",
-        "shell",
-        "oc",
-        "plugin",
-        "process",
-        "report",
-        "git",
-    )
 
     def __init__(self):
 
@@ -39,7 +29,7 @@ class OutputManager:
         #
         # Create category loggers
         #
-        for category in self.CATEGORIES:
+        for category in CATEGORIES:
 
             setattr(
                 self,
