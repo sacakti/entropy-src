@@ -48,3 +48,21 @@ class BasePlugin:
         """
 
         pass
+
+    def commands(self):
+        """
+        Commands
+        """
+        return []
+
+    def generators(self):
+        """
+        Generators
+        """
+        return []
+
+    def hooks(self):
+        """
+        Hooks
+        """
+        return []
