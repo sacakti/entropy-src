@@ -9,7 +9,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from core.constants import CATEGORIES
+from core.constants import CATEGORIES, LEVELS
 
 
 class LoggerEngine:
@@ -19,6 +19,7 @@ class LoggerEngine:
         self._loggers = {}
 
         self._initialized = False
+        
 
     def initialize(
         self,
@@ -31,6 +32,8 @@ class LoggerEngine:
         if self._initialized:
             return
 
+        self._level = level.upper()
+        
         log_directory.mkdir(
             parents=True,
             exist_ok=True,
@@ -110,6 +113,14 @@ class LoggerEngine:
 
         else:
             logger.info(message)
+
+    def should_emit(self, level: str) -> bool:
+    
+        return (
+            LEVELS[level]
+            >=
+            LEVELS[self._level]
+        )
 
     def shutdown(self):
 

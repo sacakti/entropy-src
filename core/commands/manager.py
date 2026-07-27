@@ -70,7 +70,7 @@ class CommandManager:
 
     def discover(self) -> None:
 
-        self.context.output.cli.info(
+        self.context.output.cli.debug(
             "Discovering commands..."
         )
 
@@ -98,9 +98,6 @@ class CommandManager:
                     cls(self.context)
                 )
 
-        # self.context.output.cli.success(
-        #     f"{len(self._commands)} command(s) loaded."
-        # )
         self.context.output.cli.success(
             f"{len(self.list())} command(s) loaded."
         )

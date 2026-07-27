@@ -29,10 +29,7 @@ class MakeCommand(BaseCommand):
 
     def execute(self, args):
 
-        self.context.output.system.info(
-            f"Generator : {args.type}"
-        )
-
-        self.context.output.system.info(
-            f"Name      : {args.name}"
+        self.context.generator_manager.generate(
+            args.type,
+            args,
         )

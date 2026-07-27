@@ -3,6 +3,7 @@ Application constants.
 """
 
 from pathlib import Path
+# from enum import StrEnum
 
 # ------------------------------------------------------------------
 # Paths
@@ -16,6 +17,10 @@ LOG_DIR = PROJECT_ROOT / "logs"
 
 DATABASE_DIR = PROJECT_ROOT / "lib" / "database"
 
+TEMPLATE_DIR = PROJECT_ROOT / "templates"
+
+PLUGIN_DIR = PROJECT_ROOT / "plugins" / "custom"
+
 DATABASE_FILE = DATABASE_DIR / "entropy.db"
 
 RUNTIME_DIR = PROJECT_ROOT / "runtime"
@@ -25,8 +30,6 @@ PID_DIR = RUNTIME_DIR / "pid"
 STATE_DIR = RUNTIME_DIR / "state"
 
 LOCK_DIR = RUNTIME_DIR / "locks"
-
-PLUGIN_DIR = PROJECT_ROOT / "lib" / "plugins"
 
 CONFIG_DIR = RESOURCE_DIR / "config"
 
@@ -85,3 +88,25 @@ CATEGORIES = (
     "report",
     "git",
 )
+
+LEVELS = {
+    "DEBUG": 10,
+    "INFO": 20,
+    "SUCCESS": 20,
+    "WARNING": 30,
+    "ERROR": 40,
+    "EXCEPTION": 40,
+    "CRITICAL": 50,
+}
+
+# ------------------------------------------------------------------
+# Template constants
+# ------------------------------------------------------------------
+
+class PluginTemplates:
+    """
+    Plugin template paths.
+    """
+
+    INIT = "plugin/__init__.py.j2"
+    MANIFEST = "plugin/plugin.json.j2"

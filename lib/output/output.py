@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.constants import CATEGORIES
+from core.constants import CATEGORIES, LEVELS
 
 from .banner import Banner
 from .category import CategoryLogger
@@ -54,7 +54,7 @@ class OutputManager:
             log_directory=log_directory,
             level=level,
         )
-
+    
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
@@ -67,6 +67,11 @@ class OutputManager:
         exception: bool = False,
         **kwargs,
     ):
+        
+        level = level.upper()
+
+        if not self._logger.should_emit(level):
+            return
 
         #
         # Write log
@@ -81,7 +86,6 @@ class OutputManager:
         #
         # Console
         #
-        level = level.upper()
 
         task = kwargs.get("task")
 

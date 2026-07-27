@@ -5,6 +5,8 @@ Application bootstrap.
 from pathlib import Path
 import argparse
 
+from core.constants import PLUGIN_DIR
+from core.generators.manager import GeneratorManager
 from version import APP_NAME, VERSION
 
 from core.context import EntropyContext
@@ -15,7 +17,8 @@ from lib.configuration.config_loader import config
 from lib.executor import LinuxExecutor
 from lib.output.output import OutputManager
 from lib.plugins.manager import PluginManager
-
+from core.template import PluginTemplates
+from core.template import TemplateEngine
 
 class Application:
 
@@ -41,6 +44,14 @@ class Application:
             self.context
         )
 
+        self.context.generator_manager = GeneratorManager(
+            self.context
+        )
+
+        self.context.template = TemplateEngine(
+            self.context,
+        )
+        
     # ------------------------------------------------------------------
     # Initialize
     # ------------------------------------------------------------------
@@ -72,39 +83,7 @@ class Application:
 
         self.context.command_manager.discover()
 
-    # ------------------------------------------------------------------
-    # Run
-    # ------------------------------------------------------------------
-
-    # def run(self) -> None:
-
-    #     parser = argparse.ArgumentParser(
-    #         prog="entropy",
-    #         add_help=False,
-    #     )
-
-    #     subparsers = parser.add_subparsers(
-    #         dest="command",
-    #     )
-
-    #     for command in self.context.command_manager.list():
-
-    #         subparser = subparsers.add_parser(
-    #             command.metadata.name,
-    #             help=command.metadata.description,
-    #         )
-
-    #         command.configure(subparser)
-
-    #     args = parser.parse_args()
-
-    #     command_name = args.command or "help"
-
-    #     command = self.context.command_manager.get(
-    #         command_name
-    #     )
-
-    #     command.execute(args)
+        self.context.generator_manager.discover()
 
     def run(self) -> None:
 
