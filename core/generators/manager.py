@@ -59,7 +59,7 @@ class GeneratorManager:
                     cls(self.context)
                 )
 
-        self.context.output.cli.success(
+        self.context.output.cli.debug(
             f"{len(self.list())} generator(s) loaded."
         )
 

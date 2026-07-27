@@ -11,6 +11,8 @@ from rich.progress import TextColumn
 from rich.table import Table
 from rich.rule import Rule
 
+from core.constants import CONSOLE_LEVELS
+
 from .theme import Theme
 
 
@@ -28,10 +30,17 @@ class ConsoleEngine:
         )
 
         self._started = False
+        self._level = "NORMAL"
 
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
+
+    def initialize(
+        self,
+        level: str = "NORMAL",
+    ):
+        self._level = level.upper()
 
     def _start_progress(self):
 
@@ -53,6 +62,31 @@ class ConsoleEngine:
         if self._started:
             self._progress.stop()
             self._started = False
+
+    # ------------------------------------------------------------------
+    # Console Filtering
+    # ------------------------------------------------------------------
+
+    def should_emit(
+        self,
+        level: str,
+    ) -> bool:
+
+        mapping = {
+            "SUCCESS": "NORMAL",
+            "WARNING": "NORMAL",
+            "ERROR": "NORMAL",
+            "INFO": "VERBOSE",
+            "DEBUG": "DEBUG",
+        }
+
+        message_level = mapping.get(level.upper(), "NORMAL")
+
+        return (
+            CONSOLE_LEVELS[self._level]
+            >=
+            CONSOLE_LEVELS[message_level]
+        )
 
     # ------------------------------------------------------------------
     # Spinner

@@ -48,11 +48,16 @@ class OutputManager:
         self,
         log_directory: Path,
         level: str = "INFO",
+        console_level: str = "NORMAL",
     ):
 
         self._logger.initialize(
             log_directory=log_directory,
             level=level,
+        )
+
+        self._console.initialize(
+            console_level,
         )
     
     # ------------------------------------------------------------------
@@ -67,15 +72,13 @@ class OutputManager:
         exception: bool = False,
         **kwargs,
     ):
-        
+
         level = level.upper()
 
-        if not self._logger.should_emit(level):
-            return
+        #
+        # Always log
+        #
 
-        #
-        # Write log
-        #
         self._logger.write(
             level=level,
             category=category,
@@ -84,35 +87,33 @@ class OutputManager:
         )
 
         #
-        # Console
+        # Console filtering
         #
+
+        if not self._console.should_emit(level):
+            return
 
         task = kwargs.get("task")
 
         if level == "INFO":
-
             self._console.info(message)
 
         elif level == "DEBUG":
-
             self._console.debug(message)
 
         elif level == "SUCCESS":
-
             self._console.success(
                 message,
                 task,
             )
 
         elif level == "WARNING":
-
             self._console.warning(
                 message,
                 task,
             )
 
         elif level == "ERROR":
-
             self._console.error(
                 message,
                 task,

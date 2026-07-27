@@ -9,7 +9,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from core.constants import CATEGORIES, LEVELS
+from core.constants import CATEGORIES, CONSOLE_LEVELS, LEVELS
 
 
 class LoggerEngine:
@@ -113,14 +113,6 @@ class LoggerEngine:
 
         else:
             logger.info(message)
-
-    def should_emit(self, level: str) -> bool:
-    
-        return (
-            LEVELS[level]
-            >=
-            LEVELS[self._level]
-        )
 
     def shutdown(self):
 

@@ -3,7 +3,6 @@ Application constants.
 """
 
 from pathlib import Path
-# from enum import StrEnum
 
 # ------------------------------------------------------------------
 # Paths
@@ -97,6 +96,12 @@ LEVELS = {
     "ERROR": 40,
     "EXCEPTION": 40,
     "CRITICAL": 50,
+}
+
+CONSOLE_LEVELS = {
+    "NORMAL": 0,
+    "VERBOSE": 1,
+    "DEBUG": 2,
 }
 
 # ------------------------------------------------------------------

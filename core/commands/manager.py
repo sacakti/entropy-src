@@ -98,7 +98,7 @@ class CommandManager:
                     cls(self.context)
                 )
 
-        self.context.output.cli.success(
+        self.context.output.cli.debug(
             f"{len(self.list())} command(s) loaded."
         )
 

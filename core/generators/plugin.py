@@ -18,32 +18,42 @@ class PluginGenerator(BaseGenerator):
 
     def generate(self, args) -> None:
 
-        self.context.output.cli.info(
+        task = self.context.output.progress(
             f"Generating plugin '{args.name}'..."
         )
 
-        name = args.name
+        try:
+            name = args.name
 
-        plugin_directory = PLUGIN_DIR / name
+            plugin_directory = PLUGIN_DIR / name
 
-        self.context.executor.mkdir(plugin_directory)
+            self.context.executor.mkdir(plugin_directory)
 
-        self.context.template.render(
-            PluginTemplates.INIT,
-            plugin_directory / "__init__.py",
-            {
-                "name": name,
-            },
-        )
+            self.context.template.render(
+                PluginTemplates.INIT,
+                plugin_directory / "__init__.py",
+                {
+                    "name": name,
+                },
+            )
 
-        self.context.template.render(
-            PluginTemplates.MANIFEST,
-            plugin_directory / "plugin.json",
-            {
-                "name": name,
-            },
-        )
+            self.context.template.render(
+                PluginTemplates.MANIFEST,
+                plugin_directory / "plugin.json",
+                {
+                    "name": name,
+                },
+            )
 
-        self.context.output.cli.success(
-            f"Plugin '{name}' created."
-        )
+            self.context.output.cli.success(
+                f"Plugin '{name}' created.",
+                task=task,
+            )
+        except Exception:
+
+            self.context.output.cli.error(
+                f"Plugin '{name}' failed.",
+                task=task,
+            )
+
+            raise

@@ -60,31 +60,45 @@ class Application:
 
         Environment.prepare()
 
-        self.context.output.initialize(
-            Path("logs")
-        )
-
-        self.context.output.banner(
-            APP_NAME,
-            VERSION,
-        )
-
-        self.context.output.system.info(
-            "Application started"
-        )
-
-        self.context.output.system.success(
-            "Environment initialized"
-        )
-
         config.load()
 
         self.context.config = config
 
+        self.context.output.initialize(
+            log_directory=Path(
+                config.get("logging.directory")
+            ),
+            level=config.get(
+                "logging.level",
+                "INFO",
+            ),
+            console_level=config.get(
+                "console.level",
+                "NORMAL",
+            ),
+        )
+
+        if config.get(
+            "console.banner",
+            False,
+        ):
+            self.context.output.banner(
+                APP_NAME,
+                VERSION,
+            )
+
+        self.context.output.system.debug(
+            "Application started"
+        )
+
+        self.context.output.system.debug(
+            "Environment initialized"
+        )
+
         self.context.command_manager.discover()
 
         self.context.generator_manager.discover()
-
+        
     def run(self) -> None:
 
         self.context.command_manager.run()
