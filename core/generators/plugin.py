@@ -2,6 +2,9 @@
 Plugin generator.
 """
 
+import time
+
+from core.generators.validators.plugin import PluginValidator
 from core.constants import PLUGIN_DIR, PluginTemplates
 from core.generators.base import (
     BaseGenerator,
@@ -16,6 +19,21 @@ class PluginGenerator(BaseGenerator):
         description="Generate a new plugin.",
     )
 
+    FILES = [
+        (PluginTemplates.INIT, "__init__.py"),
+        (PluginTemplates.MANIFEST, "plugin.json"),
+    ]
+
+    def build_context(self, name: str) -> dict:
+
+        return {
+            "name": name,
+            "version": "1.0.0",
+            "description": "",
+            "author": "",
+            "license": "ENT",
+        }
+
     def generate(self, args) -> None:
 
         task = self.context.output.progress(
@@ -23,32 +41,47 @@ class PluginGenerator(BaseGenerator):
         )
 
         try:
+
             name = args.name
+
+            context = self.build_context(name)
+            
+            PluginValidator.validate(name)
 
             plugin_directory = PLUGIN_DIR / name
 
-            self.context.executor.mkdir(plugin_directory)
+            temp_directory = PLUGIN_DIR / f".{name}.tmp"
 
-            self.context.template.render(
-                PluginTemplates.INIT,
-                plugin_directory / "__init__.py",
-                {
-                    "name": name,
-                },
-            )
+            self.context.executor.mkdir(temp_directory)
 
-            self.context.template.render(
-                PluginTemplates.MANIFEST,
-                plugin_directory / "plugin.json",
-                {
-                    "name": name,
-                },
-            )
+            try:
+                for template, filename in self.FILES:
 
-            self.context.output.cli.success(
-                f"Plugin '{name}' created.",
-                task=task,
-            )
+                    self.context.template.render(
+                        template,
+                        temp_directory / filename,
+                        context,
+                    )
+                
+                self.context.executor.move(
+                    temp_directory,
+                    plugin_directory,
+                )
+
+                self.context.output.cli.success(
+                    f"Plugin '{name}' created at {plugin_directory}.",
+                    task=task,
+                )
+            except Exception:
+
+                self.context.executor.remove(temp_directory)
+                self.context.output.cli.error(
+                    f"Plugin '{name}' failed.",
+                    task=task,
+                )
+
+                raise
+
         except Exception:
 
             self.context.output.cli.error(

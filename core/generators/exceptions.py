@@ -6,6 +6,16 @@ Generator exceptions.
 class GeneratorError(Exception):
     """Base generator exception."""
 
+class InvalidGeneratorError(GeneratorError):
+    """Generator validation failed."""
+
+
+class PluginAlreadyExistsError(InvalidGeneratorError):
+    """Plugin already exists."""
+
+
+class InvalidPluginNameError(InvalidGeneratorError):
+    """Invalid plugin name."""
 
 class GeneratorNotFoundError(GeneratorError):
 
