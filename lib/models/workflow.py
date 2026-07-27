@@ -1,5 +1,18 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
+
+
+class FailurePolicy(Enum):
+    ABORT = "abort"
+    CONTINUE = "continue"
+    ROLLBACK = "rollback"
+    SKIP_REMAINING = "skip_remaining"
+
+
+class WorkflowAction(Enum):
+    CONTINUE = "continue"
+    ABORT_WORKFLOW = "abort_workflow"
 
 
 @dataclass
@@ -8,9 +21,14 @@ class WorkflowStep:
     id: str
     name: str
     plugin: str
-    enabled: bool
+
+    enabled: bool = True
+
     config: dict[str, Any] = field(default_factory=dict)
-    stop_on_error: bool = True
+
+    retry_count: int = 0
+
+    on_failure: FailurePolicy = FailurePolicy.ABORT
 
 
 @dataclass

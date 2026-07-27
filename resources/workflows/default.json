@@ -2,8 +2,7 @@
     "name": "Default Deployment Workflow",
     "version": "1.0",
     "description": "Default deployment workflow for Entropy.",
-    "stop_on_error": true,
-
+    
     "steps": [
 
         {
@@ -11,7 +10,9 @@
             "order": 1,
             "name": "Validate Environment",
             "plugin": "validate_environment",
-            "enabled": true
+            "enabled": true,
+            "on_failure": "continue",
+            "retry_count": 3
         },
 
         {
@@ -20,11 +21,12 @@
             "name": "Execute Database Scripts",
             "plugin": "execute_database",
             "enabled": true,
-            "stop_on_error": false,
+            "on_failure": "continue",
+            "retry_count": 3,
             "config": {
                 "master_script": "master_calling.sql",
                 "validate_only": false,
-                "stop_on_error": true
+                "on_failure": "abort"
             }
         },
 
@@ -34,7 +36,8 @@
             "name": "Update ConfigMap",
             "plugin": "update_configmap",
             "enabled": true,
-            "stop_on_error": false,
+            "on_failure": "continue",
+            "retry_count": 3,
             "config": {
                 "directory": "configmaps",
                 "replace": true
@@ -47,7 +50,8 @@
             "name": "Update Secret",
             "plugin": "update_secret",
             "enabled": true,
-            "stop_on_error": false,
+            "on_failure": "continue",
+            "retry_count": 3,
             "config": {
                 "directory": "secrets",
                 "replace": true
@@ -60,10 +64,11 @@
             "name": "Execute Shell Scripts",
             "plugin": "execute_shell",
             "enabled": true,
-            "stop_on_error": false,
+            "on_failure": "continue",
+            "retry_count": 3,
             "config": {
                 "directory": "shell",
-                "stop_on_error": true
+                "on_failure": "abort"
             }
         },
 
@@ -73,7 +78,8 @@
             "name": "Deploy OpenShift Resources",
             "plugin": "deploy_oc",
             "enabled": true,
-            "stop_on_error": false,
+            "on_failure": "continue",
+            "retry_count": 3,
             "config": {
                 "directory": "oc",
                 "replace": true
@@ -86,7 +92,8 @@
             "name": "Generate HTML Report",
             "plugin": "generate_report",
             "enabled": true,
-            "stop_on_error": false
+            "on_failure": "abort",
+            "retry_count": 3
         }
 
     ]
