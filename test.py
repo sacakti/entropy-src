@@ -1,13 +1,13 @@
 from pathlib import Path
 from time import sleep
 
-from lib.output import output as op
+from lib.output.output import OutputManager
 from version import APP_NAME, VERSION
 
 
 def test_console():
 
-    output = op.OutputManager()
+    output = OutputManager()
     
     output.initialize(Path("logs"))
 
