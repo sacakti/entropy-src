@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+from core.bootstrap import bootstrap
+
+bootstrap()
+
 from core.application import Application
 
 # from test import test_console

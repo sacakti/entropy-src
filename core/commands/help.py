@@ -26,7 +26,7 @@ class HelpCommand(BaseCommand):
             if command.metadata.hidden:
                 continue
 
-            self.context.output.cli.info(
+            self.context.output.print(
 
                 f"{command.metadata.name:<18}"
 

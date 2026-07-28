@@ -10,29 +10,23 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+APPLICATION_ROOT = PROJECT_ROOT / "entropy.py"
+
 ENTROPY_HOME = Path.home() / ".entropy"
 
 RESOURCE_DIR = PROJECT_ROOT / "resources"
 
 LOG_DIR = PROJECT_ROOT / "logs"
 
-DATABASE_DIR = PROJECT_ROOT / "lib" / "database"
-
 TEMPLATE_DIR = PROJECT_ROOT / "templates"
 
-PLUGIN_DIR = PROJECT_ROOT / "plugins" 
+PLUGIN_DIR = PROJECT_ROOT / "plugins"
 
-DATABASE_FILE = DATABASE_DIR / "entropy.db"
+DEFAULT_CONFIG_FILE = PROJECT_ROOT / "lib" / "install" / "entropy.json.config"
 
-RUNTIME_DIR = PROJECT_ROOT / "runtime"
+# RUNTIME_DIR = PROJECT_ROOT / "runtime"
 
-PID_DIR = RUNTIME_DIR / "pid"
-
-STATE_DIR = RUNTIME_DIR / "state"
-
-LOCK_DIR = RUNTIME_DIR / "locks"
-
-CONFIG_DIR = RESOURCE_DIR / "config"
+# CONFIG_DIR = RESOURCE_DIR / "config"
 
 RELEASE_DIR = RESOURCE_DIR / "releases"
 
@@ -40,11 +34,31 @@ WORKFLOW_DIR = RESOURCE_DIR / "workflows"
 
 REPORT_DIR = RESOURCE_DIR / "reports"
 
-CONFIG_FILE = CONFIG_DIR / "entropy.json"
+CONFIG_DIR = ENTROPY_HOME / "config"
+
+RUNTIME_DIR = ENTROPY_HOME / "runtime"
+
+PACKAGE_DIR = ENTROPY_HOME / "site-packages"
 
 DATABASE_DIR = ENTROPY_HOME / "database"
 
 DATABASE_FILE = DATABASE_DIR / "entropy.db"
+
+CONFIG_FILE = CONFIG_DIR / "entropy.json"
+
+PID_DIR = RUNTIME_DIR / "pid"
+
+STATE_DIR = RUNTIME_DIR / "state"
+
+LOCK_DIR = RUNTIME_DIR / "locks"
+
+# ------------------------------------------------------------------
+# Wheels constants
+# ------------------------------------------------------------------
+VENDOR_DIR = PROJECT_ROOT / "core" / "vendor"
+REQUIREMENT_FILE =  VENDOR_DIR / "requirements.txt"
+LAUNCHER_DIR_WIN = Path.home() / "AppData" / "Local" / "Programs" / "Entropy" / "ent.cmd"
+LAUNCHER_DIR_UNIX = Path.home() / ".local" / "bin" / "ent"
 
 # ------------------------------------------------------------------
 # Database migration constants
