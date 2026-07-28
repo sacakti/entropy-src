@@ -10,6 +10,8 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+ENTROPY_HOME = Path.home() / ".entropy"
+
 RESOURCE_DIR = PROJECT_ROOT / "resources"
 
 LOG_DIR = PROJECT_ROOT / "logs"
@@ -39,6 +41,18 @@ WORKFLOW_DIR = RESOURCE_DIR / "workflows"
 REPORT_DIR = RESOURCE_DIR / "reports"
 
 CONFIG_FILE = CONFIG_DIR / "entropy.json"
+
+DATABASE_DIR = ENTROPY_HOME / "database"
+
+DATABASE_FILE = DATABASE_DIR / "entropy.db"
+
+# ------------------------------------------------------------------
+# Database migration constants
+# ------------------------------------------------------------------
+
+DATABASE_MIGRATION_PACKAGE = (
+    "lib.database.migrations"
+)
 
 # ------------------------------------------------------------------
 # Linux Executor constants

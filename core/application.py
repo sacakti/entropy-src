@@ -3,21 +3,23 @@ Application bootstrap.
 """
 
 from pathlib import Path
-import argparse
+# import argparse
 
-from core.constants import PLUGIN_DIR
+# from core.constants import PLUGIN_DIR
 from core.generators.manager import GeneratorManager
+from lib.database.manager import DatabaseManager
 from version import APP_NAME, VERSION
 
 from core.context import EntropyContext
 from core.environment import Environment
 from core.commands.manager import CommandManager
 
-from lib.configuration.config_loader import config
+# from lib.configuration.config_loader import config
+from lib.configuration import ConfigurationManager
 from lib.executor import LinuxExecutor
 from lib.output.output import OutputManager
 from lib.plugins.manager import PluginManager
-from core.template import PluginTemplates
+# from core.template import PluginTemplates
 from core.template import TemplateEngine
 
 class Application:
@@ -31,6 +33,12 @@ class Application:
     # ------------------------------------------------------------------
 
     def bootstrap(self) -> None:
+
+        self.context.configuration = ConfigurationManager()
+
+        self.context.database_manager = DatabaseManager(
+            self.context
+        )
 
         self.context.executor = LinuxExecutor()
 
@@ -60,25 +68,25 @@ class Application:
 
         Environment.prepare()
 
-        config.load()
+        self.context.configuration.load()
 
-        self.context.config = config
+        # self.context.config = config
 
         self.context.output.initialize(
             log_directory=Path(
-                config.get("logging.directory")
+                self.context.configuration.get("logging.directory")
             ),
-            level=config.get(
+            level=self.context.configuration.get(
                 "logging.level",
                 "INFO",
             ),
-            console_level=config.get(
+            console_level=self.context.configuration.get(
                 "console.level",
                 "NORMAL",
             ),
         )
 
-        if config.get(
+        if self.context.configuration.get(
             "console.banner",
             False,
         ):

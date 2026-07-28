@@ -7,7 +7,8 @@ from core.commands.base import (
     CommandMetadata,
 )
 
-from lib.workflow import Workflow
+# from lib.workflow import Workflow
+from lib.workflow import WorkflowManager
 
 
 class DeployCommand(BaseCommand):
@@ -27,7 +28,7 @@ class DeployCommand(BaseCommand):
 
     def execute(self, args):
 
-        workflow = Workflow(self.context)
+        workflow = WorkflowManager(self.context)
 
         workflow.load(args.workflow)
 

@@ -1,1 +1,1 @@
-from .workflow import Workflow
+from .manager import WorkflowManager

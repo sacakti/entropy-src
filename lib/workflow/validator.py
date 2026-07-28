@@ -2,79 +2,38 @@
 Workflow validator.
 """
 
-from __future__ import annotations
+from lib.models.workflow import WorkflowDefinition
 
 
 class WorkflowValidator:
 
-    REQUIRED = (
-        "name",
-        "version",
-        "steps",
-    )
+    def validate(
+        self,
+        workflow: WorkflowDefinition,
+    ):
 
-    STEP_REQUIRED = (
-        "order",
-        "id",
-        "name",
-        "plugin",
-        "enabled",
-    )
+        errors = []
 
-    def __init__(self, context):
+        if not workflow.name:
+            errors.append("Workflow name is required.")
 
-        self.context = context
+        if not workflow.version:
+            errors.append("Workflow version is required.")
 
-    def validate(self, workflow):
-
-        task = self.context.output.progress(
-            f"Validating workflow '{workflow['name']}'"
-        )
-
-        #
-        # Mandatory keys
-        #
-        for key in self.REQUIRED:
-
-            if key not in workflow:
-
-                self.context.output.workflow.error(
-                    f"Missing '{key}'",
-                    task=task,
-                )
-
-                raise ValueError(
-                    f"Missing workflow key '{key}'"
-                )
-
-        #
-        # Validate steps
-        #
         orders = set()
 
-        for step in workflow["steps"]:
+        for step in workflow.steps:
 
-            for key in self.STEP_REQUIRED:
+            if step.order in orders:
 
-                if key not in step:
-
-                    raise ValueError(
-                        f"Step missing '{key}'"
-                    )
-
-            if step["order"] in orders:
-
-                raise ValueError(
-                    f"Duplicate order {step['order']}"
+                errors.append(
+                    f"Duplicate step order {step.order}"
                 )
 
-            orders.add(step["order"])
+            orders.add(step.order)
 
-        self.context.output.workflow.success(
-            "Workflow validation successful",
-            task=task,
-        )
+        if errors:
 
-        self.context.output.workflow.info(
-            f"Workflow contains {len(workflow['steps'])} steps"
-        )
+            raise ValueError(
+                "\n".join(errors)
+            )

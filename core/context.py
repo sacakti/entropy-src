@@ -52,3 +52,8 @@ class EntropyContext:
         # Linux Executor
         #
         self.executor = None
+
+        #
+        # Database manager
+        #
+        self.database_manager = None

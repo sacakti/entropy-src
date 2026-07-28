@@ -5,7 +5,6 @@ A lightweight proxy that binds a log category to the OutputManager.
 """
 
 from typing import Any
-# from .output import OutputManager
 
 class CategoryLogger:
 
