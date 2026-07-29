@@ -131,7 +131,7 @@ class ProcessMixin:
 
     def run_bash(
         self,
-        command: Command,
+        command: str,
         cwd: PathLike | None = None,
         timeout: int | None = None,
         env: Environment | None = None,

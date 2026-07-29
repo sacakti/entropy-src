@@ -7,6 +7,7 @@ Responsible for importing and caching plugin instances.
 from __future__ import annotations
 
 import importlib
+from typing import Type, cast
 
 from core.context import EntropyContext
 
@@ -74,26 +75,41 @@ class PluginLoader:
         try:
             class_name = module.PLUGIN_CLASS
 
-        except AttributeError as exc:
+        except AttributeError as err:
 
-            raise PluginValidationError(f"{module_name} does not define PLUGIN_CLASS.") from exc
+            raise PluginValidationError(
+                metadata.name,
+                [
+                    f"{module_name} does not define PLUGIN_CLASS.",
+                ],
+            ) from err
 
         try:
-            plugin_class = getattr(
-                module,
-                class_name,
+            plugin_class = cast(
+                Type[BasePlugin],
+                getattr(module, class_name),
             )
 
-        except AttributeError as exc:
+        except AttributeError as err:
 
-            raise PluginValidationError(f"Plugin class '{class_name}' not found.") from exc
+            raise PluginValidationError(
+                metadata.name,
+                [
+                    f"Plugin class '{class_name}' not found.",
+                ],
+            ) from err
 
         if not issubclass(
             plugin_class,
             BasePlugin,
         ):
 
-            raise PluginValidationError(f"{class_name} must inherit BasePlugin.")
+            raise PluginValidationError(
+                metadata.name,
+                [
+                    f"{class_name} must inherit BasePlugin.",
+                ],
+            )
 
         instance = plugin_class(self.context)
 

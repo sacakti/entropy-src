@@ -60,7 +60,7 @@ class Application:
     # ------------------------------------------------------------------
 
     def run(self) -> None:
-
+        assert self.context.command_manager is not None
         self.context.command_manager.run()
 
     # ------------------------------------------------------------------
@@ -69,7 +69,7 @@ class Application:
 
     def _bootstrap_core(self) -> None:
 
-        self.context.configuration = ConfigurationManager()
+        self.context.configuration = ConfigurationManager(self.context)
 
         self.context.executor = LinuxExecutor()
 
@@ -111,6 +111,8 @@ class Application:
 
         Environment.prepare()
 
+        assert self.context.configuration is not None
+
         self.context.configuration.load()
 
     # ------------------------------------------------------------------
@@ -118,6 +120,8 @@ class Application:
     # ------------------------------------------------------------------
 
     def _initialize_output(self) -> None:
+
+        assert self.context.configuration is not None
 
         self.context.output.initialize(
             log_directory=Path(self.context.configuration.get("logging.directory")),
@@ -151,6 +155,8 @@ class Application:
 
     def _initialize_database(self) -> None:
 
+        assert self.context.database_manager is not None
+
         self.context.database_manager.initialize()
 
     # ------------------------------------------------------------------
@@ -162,6 +168,7 @@ class Application:
         #
         # Repositories
         #
+        assert self.context.database_manager is not None
 
         self.context.user_repository = UserRepository(
             self.context.database_manager.connection,
@@ -190,6 +197,10 @@ class Application:
     # ------------------------------------------------------------------
 
     def _discover(self) -> None:
+
+        assert self.context.command_manager is not None
+        assert self.context.generator_manager is not None
+        assert self.context.plugin_manager is not None
 
         self.context.command_manager.discover()
 

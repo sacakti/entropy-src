@@ -3,6 +3,7 @@ Password service.
 """
 
 from dataclasses import dataclass
+from typing import cast
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
@@ -35,7 +36,7 @@ class PasswordService:
         password: str,
     ) -> str:
 
-        return self._hasher.hash(password)
+        return cast(str, self._hasher.hash(password))
 
     # ------------------------------------------------------------------
     # Verify
@@ -56,8 +57,9 @@ class PasswordService:
 
             return PasswordVerification(
                 valid=True,
-                needs_rehash=self._hasher.check_needs_rehash(
-                    password_hash,
+                needs_rehash=cast(
+                    bool,
+                    self._hasher.check_needs_rehash(password_hash),
                 ),
             )
 

@@ -5,6 +5,7 @@ User management command.
 from __future__ import annotations
 
 from argparse import ArgumentParser, Namespace
+from typing import Any
 
 from core.commands.base import BaseCommand, CommandMetadata
 from lib.users.exceptions import (
@@ -335,7 +336,7 @@ class UserCommand(BaseCommand):
     def _confirm(
         self,
         message: str,
-    ) -> bool:
+    ) -> Any:
 
         return self.context.output.confirm(message)
 
@@ -348,7 +349,7 @@ class UserCommand(BaseCommand):
             username,
         )
 
-    def _read_password(self) -> str:
+    def _read_password(self) -> Any:
 
         password = self.context.output.prompt(
             "Password",

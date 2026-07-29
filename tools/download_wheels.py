@@ -197,16 +197,13 @@ def main():
         # print(f"Platform Tag     : {SUPPORTED_PLATFORMS}")
         return
 
+    platforms: list[str]
+
     if args.all:
-
-        platforms = SUPPORTED_PLATFORMS.keys()
-
+        platforms = list(SUPPORTED_PLATFORMS.keys())
     elif args.platform:
-
         platforms = [args.platform]
-
     else:
-
         platforms = [current_platform()]
 
     for platform_name in platforms:

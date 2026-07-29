@@ -11,6 +11,8 @@ from core.constants import SESSION_DIRECTORY, SESSION_FILE
 from core.context import EntropyContext
 from lib.auth.exceptions import AuthenticationRequiredError
 from lib.auth.session import Session
+from lib.executor.linux import LinuxExecutor
+from lib.users.manager import UserManager
 
 
 class SessionManager:
@@ -18,11 +20,13 @@ class SessionManager:
     def __init__(
         self,
         context: EntropyContext,
-    ):
+    ) -> None:
 
-        self._users = context.user_manager
-        self._executor = context.executor
-        self._output = context.output
+        assert context.user_manager is not None
+        assert context.executor is not None
+
+        self._users: UserManager = context.user_manager
+        self._executor: LinuxExecutor = context.executor
         self._log = context.output.auth
 
     # ------------------------------------------------------------------
@@ -104,6 +108,8 @@ class SessionManager:
 
         if existing is not None:
             self._delete()
+
+        assert user.id is not None
 
         session = Session(
             user_id=user.id,

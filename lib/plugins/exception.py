@@ -39,9 +39,7 @@ class PluginNotImplementedError(PluginError):
     """Raised when a plugin method is not implemented."""
 
 
-class PluginAlreadyRegisteredError(
-    PluginValidationError,
-):
+class PluginAlreadyRegisteredError(PluginError):
     """
-    Plugin already registered.
+    Raised when a plugin is already registered.
     """

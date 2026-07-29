@@ -17,13 +17,15 @@ class ConfigurationManager:
     Configuration manager.
     """
 
-    def __init__(self):
+    def __init__(self, context):
 
-        self._loader = ConfigurationLoader()
+        self._loader = ConfigurationLoader(context)
 
         self._validator = ConfigurationValidator()
 
         self._configuration = None
+
+        self.context = context
 
     def load(
         self,

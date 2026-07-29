@@ -4,6 +4,8 @@ SQLite connection.
 
 import sqlite3
 from pathlib import Path
+from sqlite3 import Connection
+from typing import Optional
 
 
 class DatabaseConnection:
@@ -13,10 +15,10 @@ class DatabaseConnection:
         database: Path,
     ):
         self._database = database
-        self._connection = None
+        self._connection: Optional[Connection] = None
 
     @property
-    def connection(self):
+    def connection(self) -> Connection:
 
         if self._connection is None:
 
@@ -24,9 +26,10 @@ class DatabaseConnection:
 
             self._connection.row_factory = sqlite3.Row
 
+        assert self._connection is not None
         return self._connection
 
-    def close(self):
+    def close(self) -> None:
 
         if self._connection:
 

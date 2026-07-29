@@ -1,29 +1,16 @@
-"""
-Base migration.
-"""
-
 from abc import ABC, abstractmethod
 
 
 class BaseMigration(ABC):
 
-    VERSION = None
+    VERSION: int = 0
+    DESCRIPTION: str = ""
 
-    DESCRIPTION = ""
-
-    @abstractmethod
-    def validate(self):
-
-        pass
-
-    def upgrade(
-        self,
-        connection,
-    ):
-
-        raise NotImplementedError()
+    def validate(self) -> None:  # noqa: B027
+        """Optional validation before upgrade."""
 
     @abstractmethod
-    def dispose(self):
+    def upgrade(self, connection) -> None: ...
 
-        pass
+    def dispose(self) -> None:  # noqa: B027
+        """Optional cleanup after upgrade."""

@@ -69,7 +69,7 @@ class PluginExecutor:
         finally:
 
             try:
-                plugin.cleanup()
+                plugin.dispose()
 
             except Exception as exc:
                 self.context.output.plugin.exception(

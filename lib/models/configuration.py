@@ -2,6 +2,8 @@
 Configuration model.
 """
 
+from typing import Any
+
 
 class ConfigurationModel:
     """
@@ -10,7 +12,7 @@ class ConfigurationModel:
 
     def __init__(
         self,
-        configuration: dict,
+        configuration: dict[str, Any],
     ):
 
         self._configuration = configuration
@@ -18,13 +20,13 @@ class ConfigurationModel:
     def get(
         self,
         path: str,
-        default=None,
-    ):
+        default: Any = None,
+    ) -> Any:
         """
         Get a configuration value.
         """
 
-        current = self._configuration
+        current: Any = self._configuration
 
         for key in path.split("."):
 
@@ -54,6 +56,5 @@ class ConfigurationModel:
             is not object()
         )
 
-    def all(self) -> dict:
-
+    def all(self) -> dict[str, Any]:
         return self._configuration.copy()

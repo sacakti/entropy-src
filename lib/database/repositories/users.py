@@ -4,13 +4,17 @@ User repository.
 
 from datetime import datetime
 
+from lib.database.connection import DatabaseConnection
 from lib.models.users import User
+from lib.users.exceptions import UserNotFoundError
 
 
 class UserRepository:
 
-    def __init__(self, connection):
-
+    def __init__(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
         self._connection = connection
 
     # ------------------------------------------------------------------
@@ -64,6 +68,8 @@ class UserRepository:
 
         user.id = cursor.lastrowid
 
+        assert user.id is not None
+
         return self.get(user.id)
 
     # ------------------------------------------------------------------
@@ -84,7 +90,12 @@ class UserRepository:
             (user_id,),
         )
 
-        return self._map(cursor.fetchone())
+        row = cursor.fetchone()
+
+        if row is None:
+            raise UserNotFoundError(str(user_id))
+
+        return self._map(row)
 
     # ------------------------------------------------------------------
     # Get by username
@@ -104,7 +115,12 @@ class UserRepository:
             (username,),
         )
 
-        return self._map(cursor.fetchone())
+        row = cursor.fetchone()
+
+        if row is None:
+            raise UserNotFoundError(str(username))
+
+        return self._map(row)
 
     def exists(
         self,
@@ -215,9 +231,6 @@ class UserRepository:
         row,
     ) -> User:
 
-        if row is None:
-            return None
-
         return User(
             id=row["id"],
             username=row["username"],
@@ -240,7 +253,11 @@ class UserRepository:
             """
         )
 
-        return cursor.fetchone()[0]
+        row = cursor.fetchone()
+
+        assert row is not None
+
+        return int(row[0])
 
     def system_user(self) -> User:
 

@@ -3,6 +3,7 @@ Application constants.
 """
 
 from pathlib import Path
+from typing import Literal
 
 # ------------------------------------------------------------------
 # Paths
@@ -81,7 +82,14 @@ SUPPORTED_ARCHIVES = {
     ".txz": "xztar",
 }
 
-TAR_MODES = {
+TarMode = Literal[
+    "w",
+    "w:gz",
+    "w:bz2",
+    "w:xz",
+]
+
+TAR_MODES: dict[str, TarMode] = {
     "tar": "w",
     "gztar": "w:gz",
     "bztar": "w:bz2",

@@ -52,7 +52,7 @@ class EnvironmentMixin:
     def which(
         self,
         command: Command,
-    ) -> Path | None:
+    ) -> Path:
         """
         Locate an executable in PATH.
 
@@ -67,10 +67,12 @@ class EnvironmentMixin:
             Absolute executable path or None.
         """
 
-        executable = shutil.which(command)
+        executable_name = command[0] if isinstance(command, list) else command
+
+        executable = shutil.which(executable_name)
 
         if executable is None:
-            return None
+            raise FileNotFoundError(f"Executable '{executable_name}' was not found in PATH.")
 
         return Path(executable)
 

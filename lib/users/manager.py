@@ -2,17 +2,22 @@
 User manager.
 """
 
+from typing import Optional
+
 from core.context import EntropyContext
+from lib.database.repositories.users import UserRepository
 from lib.models.users import User
+from lib.output.category import CategoryLogger
+from lib.output.manager import OutputManager
 from lib.users.exceptions import (
     AuthenticationError,
     InvalidUsernameError,
     SystemUserError,
     UserAlreadyExistsError,
     UserInactiveError,
-    UserNotFoundError,
     WeakPasswordError,
 )
+from lib.users.password import PasswordService
 
 
 class UserManager:
@@ -20,12 +25,15 @@ class UserManager:
     def __init__(
         self,
         context: EntropyContext,
-    ):
+    ) -> None:
 
-        self._repository = context.user_repository
-        self._password = context.password_service
-        self._console = context.output
-        self._log = context.output.user
+        assert context.user_repository is not None
+        assert context.password_service is not None
+
+        self._repository: UserRepository = context.user_repository
+        self._password: PasswordService = context.password_service
+        self._console: OutputManager = context.output
+        self._log: CategoryLogger = context.output.user
 
     # ------------------------------------------------------------------
     # Initialize
@@ -73,9 +81,9 @@ class UserManager:
         self,
         username: str,
         password: str,
-        full_name: str = None,
-        email: str = None,
-        group_id: int = None,
+        full_name: Optional[str] = None,
+        email: Optional[str] = None,
+        group_id: Optional[int] = None,
         system: bool = False,
     ) -> User:
 
@@ -167,6 +175,8 @@ class UserManager:
 
         self._log.success(f"Password changed for '{user.username}'.")
 
+        assert user.id is not None
+
         return self._repository.get(user.id)
 
     # ------------------------------------------------------------------
@@ -179,9 +189,6 @@ class UserManager:
     ) -> User:
 
         user = self._repository.get_by_username(username)
-
-        if user is None:
-            raise UserNotFoundError(username)
 
         return user
 
@@ -206,6 +213,8 @@ class UserManager:
 
         if user.system:
             raise SystemUserError(user.username)
+
+        assert user.id is not None
 
         self._repository.delete(user.id)
 
@@ -242,9 +251,6 @@ class UserManager:
 
         user = self.get(username)
 
-        if user is None:
-            raise UserNotFoundError(username)
-
         if user.system and not active:
             raise SystemUserError(username)
 
@@ -267,27 +273,7 @@ class UserManager:
         username: str,
     ) -> User:
 
-        user = self.get(username)
-
-        if user is None:
-            raise UserNotFoundError(username)
-
-        #
-        # Reserved for future account lock support.
-        #
-
-        # user.failed_login_attempts = 0
-        # user.locked_until = None
-
-        # self._repository.update(user)
-
-        # self._log.success(
-        #     f"User '{username}' unlocked."
-        # )
-
         raise NotImplementedError("Account locking is not implemented.")
-
-        return user
 
     # ------------------------------------------------------------------
     # Private

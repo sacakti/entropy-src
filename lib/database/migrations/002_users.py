@@ -1,16 +1,10 @@
-from abc import abstractmethod
-
 from lib.database.migrations.base import BaseMigration
 
 
 class UsersMigration(BaseMigration):
 
     VERSION = 2
-
     DESCRIPTION = "Create users table"
-
-    @abstractmethod
-    def validate(self): ...
 
     def upgrade(self, connection):
 

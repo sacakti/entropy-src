@@ -4,9 +4,11 @@ Rich console rendering.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 from rich.table import Table
@@ -39,16 +41,19 @@ class ConsoleEngine:
     def initialize(
         self,
         level: str = "NORMAL",
-    ):
+    ) -> None:
         self._level = level.upper()
 
-    def _start_progress(self):
+    def _start_progress(self) -> None:
 
         if not self._started:
             self._progress.start()
             self._started = True
 
-    def _finish_progress(self, task_id: int | None):
+    def _finish_progress(
+        self,
+        task_id: TaskID | None,
+    ) -> None:
 
         if task_id is not None:
             self._progress.remove_task(task_id)
@@ -57,7 +62,7 @@ class ConsoleEngine:
             self._progress.stop()
             self._started = False
 
-    def shutdown(self):
+    def shutdown(self) -> None:
 
         if self._started:
             self._progress.stop()
@@ -88,22 +93,23 @@ class ConsoleEngine:
     # Spinner
     # ------------------------------------------------------------------
 
-    def progress(self, message: str):
+    def progress(
+        self,
+        message: str,
+    ) -> TaskID:
 
         self._start_progress()
 
-        task_id = self._progress.add_task(
+        return self._progress.add_task(
             f"[cyan]{message}",
             total=None,
         )
 
-        return task_id
-
     def success(
         self,
         message: str,
-        task_id: int | None = None,
-    ):
+        task_id: TaskID | None = None,
+    ) -> None:
 
         self._finish_progress(task_id)
 
@@ -112,8 +118,8 @@ class ConsoleEngine:
     def warning(
         self,
         message: str,
-        task_id: int | None = None,
-    ):
+        task_id: TaskID | None = None,
+    ) -> None:
 
         self._finish_progress(task_id)
 
@@ -122,8 +128,8 @@ class ConsoleEngine:
     def error(
         self,
         message: str,
-        task_id: int | None = None,
-    ):
+        task_id: TaskID | None = None,
+    ) -> None:
 
         self._finish_progress(task_id)
 
@@ -133,11 +139,11 @@ class ConsoleEngine:
     # Information
     # ------------------------------------------------------------------
 
-    def info(self, message: str):
+    def info(self, message: str) -> None:
 
         self.console.print(f"[{Theme.INFO}]ℹ[/] {message}")
 
-    def debug(self, message: str):
+    def debug(self, message: str) -> None:
 
         self.console.print(f"[{Theme.DEBUG}]•[/] {message}")
 
@@ -149,7 +155,7 @@ class ConsoleEngine:
         self,
         step_no: int,
         title: str,
-    ):
+    ) -> None:
 
         self.console.print()
 
@@ -157,7 +163,7 @@ class ConsoleEngine:
 
         self.console.print(f"[bold cyan]▶ Step {step_no} : {title}[/]")
 
-    def sub(self, message: str):
+    def sub(self, message: str) -> None:
 
         self.console.print(f"    {message}")
 
@@ -165,24 +171,24 @@ class ConsoleEngine:
     # Generic
     # ------------------------------------------------------------------
 
-    def banner(self, banner):
+    def banner(self, banner: Any) -> None:
 
         self.console.print(banner)
 
-    def print(self, *args, **kwargs):
+    def print(self, *args: Any, **kwargs: Any) -> None:
 
         self.console.print(*args, **kwargs)
 
-    def rule(self, title=""):
+    def rule(self, title="") -> None:
 
         self.console.rule(title)
 
     def table(
         self,
-        title,
-        columns,
-        rows,
-    ):
+        title: str,
+        columns: list[str],
+        rows: list[list[Any]],
+    ) -> None:
 
         table = Table(title=title)
 
@@ -205,9 +211,15 @@ class ConsoleEngine:
         password: bool = False,
     ) -> str:
 
+        if default is None:
+            return Prompt.ask(
+                message,
+                password=password,
+            )
+
         return Prompt.ask(
             message,
-            default=default,
+            default=cast(str, default),
             password=password,
         )
 

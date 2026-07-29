@@ -6,8 +6,8 @@ Responsible for discovering and registering plugin metadata.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from typing import Any
 
 from core.constants import PLUGIN_DIR
 from core.context import EntropyContext
@@ -36,17 +36,9 @@ class PluginRegistry:
     def _read_manifest(
         self,
         manifest: Path,
-    ) -> dict:
-        """
-        Read a plugin manifest.
-        """
-
-        with open(
-            manifest,
-            encoding="utf-8",
-        ) as fp:
-
-            return json.load(fp)
+    ) -> Any:
+        assert self.context.executor is not None
+        return self.context.executor.read_json(manifest)
 
     def discover(self) -> None:
 

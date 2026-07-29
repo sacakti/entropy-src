@@ -66,7 +66,7 @@ class ArchiveMixin:
 
         else:
 
-            with tarfile.open(archive, "r:*") as fp:
+            with tarfile.open(name=archive, mode="r:*") as fp:
                 fp.extractall(destination)
 
         return destination
@@ -121,8 +121,8 @@ class ArchiveMixin:
             return archive
 
         with tarfile.open(
-            archive,
-            TAR_MODES[archive_type],
+            name=archive,
+            mode=TAR_MODES[archive_type],
         ) as fp:
             fp.add(source, arcname=source.name)
 

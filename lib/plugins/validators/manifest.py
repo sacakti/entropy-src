@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 from lib.models.plugin import Plugin
 
@@ -34,6 +35,9 @@ class ManifestValidator(BaseValidator):
         "plugin.json",
     )
 
+    def __init__(self) -> None:
+        self._errors: list[str] = []
+
     def validate(
         self,
         namespace: str,
@@ -42,8 +46,6 @@ class ManifestValidator(BaseValidator):
         """
         Validate a plugin directory.
         """
-
-        self._errors = []
 
         manifest = directory / "plugin.json"
 
@@ -88,7 +90,7 @@ class ManifestValidator(BaseValidator):
 
     def _validate_fields(
         self,
-        data: dict,
+        data: dict[str, Any],
     ) -> None:
 
         for field in self.REQUIRED_FIELDS:
@@ -99,7 +101,7 @@ class ManifestValidator(BaseValidator):
 
     def _validate_version(
         self,
-        data: dict,
+        data: dict[str, Any],
     ) -> None:
 
         version = data.get("version")
@@ -114,7 +116,7 @@ class ManifestValidator(BaseValidator):
     def _validate_directory(
         self,
         directory: Path,
-        data: dict,
+        data: dict[str, Any],
     ) -> None:
 
         name = data.get("name")

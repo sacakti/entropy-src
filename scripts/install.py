@@ -4,7 +4,7 @@
 Entropy installer.
 """
 
-from ..lib.install.manager import InstallManager
+from lib.install.manager import InstallManager
 
 
 def main():

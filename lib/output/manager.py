@@ -9,6 +9,9 @@ Single public interface for:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
+
+from rich.progress import TaskID
 
 from core.constants import CATEGORIES
 
@@ -23,21 +26,23 @@ class OutputManager:
     def __init__(self):
 
         self._console = ConsoleEngine()
-
         self._logger = LoggerEngine()
 
-        #
-        # Create category loggers
-        #
-        for category in CATEGORIES:
+        self.system: CategoryLogger
+        self.user: CategoryLogger
+        self.workflow: CategoryLogger
+        self.database: CategoryLogger
+        self.plugin: CategoryLogger
+        self.generator: CategoryLogger
+        self.auth: CategoryLogger
+        self.report: CategoryLogger
+        self.oc: CategoryLogger
 
+        for category in CATEGORIES:
             setattr(
                 self,
                 category,
-                CategoryLogger(
-                    self,
-                    category,
-                ),
+                CategoryLogger(self, category),
             )
 
     # ------------------------------------------------------------------
@@ -49,7 +54,7 @@ class OutputManager:
         log_directory: Path,
         level: str = "INFO",
         console_level: str = "NORMAL",
-    ):
+    ) -> None:
 
         self._logger.initialize(
             log_directory=log_directory,
@@ -71,7 +76,7 @@ class OutputManager:
         message: str,
         exception: bool = False,
         **kwargs,
-    ):
+    ) -> None:
 
         level = level.upper()
 
@@ -127,7 +132,7 @@ class OutputManager:
         self,
         app_name: str,
         version: str,
-    ):
+    ) -> None:
 
         self._console.banner(
             Banner.build(
@@ -143,7 +148,7 @@ class OutputManager:
     def progress(
         self,
         message: str,
-    ):
+    ) -> TaskID:
 
         return self._console.progress(message)
 
@@ -155,7 +160,7 @@ class OutputManager:
         self,
         step_no: int,
         title: str,
-    ):
+    ) -> None:
 
         self._console.step(
             step_no,
@@ -165,7 +170,7 @@ class OutputManager:
     def sub(
         self,
         message: str,
-    ):
+    ) -> None:
 
         self._console.sub(message)
 
@@ -177,7 +182,7 @@ class OutputManager:
         self,
         *args,
         **kwargs,
-    ):
+    ) -> None:
 
         self._console.print(
             *args,
@@ -187,7 +192,7 @@ class OutputManager:
     def rule(
         self,
         title: str = "",
-    ):
+    ) -> None:
 
         self._console.rule(title)
 
@@ -196,7 +201,7 @@ class OutputManager:
         title,
         columns,
         rows,
-    ):
+    ) -> None:
 
         self._console.table(
             title,
@@ -208,10 +213,17 @@ class OutputManager:
         self,
         title,
         lines,
-    ):
+    ) -> None:
+
         self._console.panel(title, lines)
 
-    def prompt(self, message: str, default: None = None, password: bool = False):
+    def prompt(
+        self,
+        message: str,
+        default: Optional[str] = None,
+        password: bool = False,
+    ) -> str:
+
         return self._console.prompt(message=message, default=default, password=password)
 
     def confirm(
@@ -222,7 +234,7 @@ class OutputManager:
 
         return self._console.confirm(message=message, default=default)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
 
         self._console.shutdown()
 

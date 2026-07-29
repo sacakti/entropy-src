@@ -11,6 +11,7 @@ import os
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
+from typing import IO, Any, cast
 
 from lib.executor.types import PathLike
 
@@ -297,16 +298,15 @@ class FileSystemMixin:
     def read_json(
         self,
         path: PathLike,
-    ):
-
-        return json.loads(self.read_text(path))
+    ) -> dict[str, Any]:
+        return cast(dict[str, Any], json.loads(self.read_text(path)))
 
     def write_json(
         self,
         path: PathLike,
-        data,
+        data: Any,
         indent: int = 4,
-    ):
+    ) -> Path:
 
         return self.write_text(
             path,
@@ -458,7 +458,7 @@ class FileSystemMixin:
         path: PathLike,
         mode: str = "r",
         encoding: str = "utf-8",
-    ):
+    ) -> IO[str]:
         """
         Open a text file.
 
@@ -477,7 +477,7 @@ class FileSystemMixin:
         self,
         path: PathLike,
         mode: str = "rb",
-    ):
+    ) -> IO[bytes]:
         """
         Open a binary file.
 
