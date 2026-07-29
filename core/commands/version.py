@@ -5,7 +5,7 @@ Help command.
 from __future__ import annotations
 
 from core.commands.base import BaseCommand, CommandMetadata
-from version import APP_NAME, VERSION
+from core.version import APP_NAME, VERSION
 
 
 class HelpCommand(BaseCommand):

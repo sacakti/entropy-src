@@ -4,6 +4,7 @@ Configuration exceptions
 
 from core.exceptions import EntropyException
 
+
 class ConfigurationException(EntropyException):
      """Base class for all configuration-related errors."""
 

@@ -34,4 +34,3 @@ class LogRecord:
 
     file: Optional[str] = None
 
-    

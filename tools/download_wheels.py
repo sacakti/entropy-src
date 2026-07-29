@@ -13,7 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 VENDOR_DIR = PROJECT_ROOT / "core" / "vendor"
@@ -98,10 +97,10 @@ def current_platform():
 
     try:
         return mapping[system]
-    except KeyError:
+    except KeyError as err:
         raise RuntimeError(
             f"Unsupported platform: {system}"
-        )
+        ) from err
 
 
 def download(platform_name, python_version, clean):
@@ -187,7 +186,7 @@ def main():
     args = parse_arguments()
 
     if args.info:
-    
+
         print(f"Operating System : {platform.system()}")
         print(f"Architecture     : {platform.machine()}")
         # print(f"Platform Tag     : {SUPPORTED_PLATFORMS}")

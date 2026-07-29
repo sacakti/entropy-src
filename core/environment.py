@@ -6,13 +6,13 @@ from pathlib import Path
 
 from core.constants import (
     DATABASE_DIR,
-    LOG_DIR,
-    REPORT_DIR,
-    RELEASE_DIR,
-    RUNTIME_DIR,
-    PID_DIR,
-    STATE_DIR,
     LOCK_DIR,
+    LOG_DIR,
+    PID_DIR,
+    RELEASE_DIR,
+    REPORT_DIR,
+    RUNTIME_DIR,
+    STATE_DIR,
 )
 
 

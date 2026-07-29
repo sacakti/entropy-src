@@ -5,11 +5,11 @@ Entropy configuration manager.
 from pathlib import Path
 
 from core.constants import CONFIG_FILE
+from lib.configuration.exceptions import ConfigurationNotLoadedError
+from lib.models.configuration import ConfigurationModel
 
 from .loader import ConfigurationLoader
 from .validator import ConfigurationValidator
-from lib.models.configuration import ConfigurationModel
-from lib.configuration.exceptions import ConfigurationNotLoadedError
 
 
 class ConfigurationManager:

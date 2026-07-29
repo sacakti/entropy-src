@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import tarfile
 import zipfile
-
 from pathlib import Path
+
 from core.constants import SUPPORTED_ARCHIVES, TAR_MODES
 from lib.executor.types import PathLike
+
 
 class ArchiveMixin:
     """

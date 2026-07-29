@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from lib.install.manager import InstallManager
-from core.constants import ENTROPY_HOME
+from ..core.constants import ENTROPY_HOME
+from ..lib.install.manager import InstallManager
 
 
 def confirm() -> bool:

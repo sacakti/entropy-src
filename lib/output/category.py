@@ -4,7 +4,10 @@ Category Logger
 A lightweight proxy that binds a log category to the OutputManager.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .manager import OutputManager
 
 class CategoryLogger:
 

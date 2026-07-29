@@ -3,7 +3,6 @@ User manager.
 """
 
 from core.context import EntropyContext
-
 from lib.models.users import User
 from lib.users.exceptions import (
     AuthenticationError,
@@ -222,7 +221,7 @@ class UserManager:
 
         if user.system:
             raise SystemUserError(user.username)
-    
+
         self._repository.delete(user.id)
 
         self._log.success(
@@ -321,7 +320,7 @@ class UserManager:
         self,
         password: str,
     ) -> None:
-        
+
         if not password or len(password) < 8:
             raise WeakPasswordError(
                 "Password must contain at least 8 characters."
@@ -345,4 +344,3 @@ class UserManager:
             f"Password hash upgraded for '{user.username}'."
         )
 
-    

@@ -4,6 +4,7 @@ Template exceptions.
 
 from core.exceptions import EntropyException
 
+
 class TemplateError(EntropyException):
     """
     Base template exception.

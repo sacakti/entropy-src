@@ -3,6 +3,7 @@ License repository.
 """
 
 from lib.models.database import License
+
 from ..repository import Repository
 
 

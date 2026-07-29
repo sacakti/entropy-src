@@ -5,8 +5,8 @@ Base command.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from argparse import ArgumentParser, Namespace
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

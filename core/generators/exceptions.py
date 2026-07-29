@@ -4,6 +4,7 @@ Generator exceptions.
 
 from core.exceptions import EntropyException
 
+
 class GeneratorError(EntropyException):
     """Base generator exception."""
 

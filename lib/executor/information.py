@@ -7,7 +7,6 @@ Provides file metadata and checksum utilities.
 from __future__ import annotations
 
 import hashlib
-
 from pathlib import Path
 
 from lib.executor.types import PathLike

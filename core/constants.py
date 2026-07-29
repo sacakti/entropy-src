@@ -55,7 +55,7 @@ LOCK_DIR = RUNTIME_DIR / "locks"
 # ------------------------------------------------------------------
 # Wheels constants
 # ------------------------------------------------------------------
-VENDOR_DIR = PROJECT_ROOT / "core" / "vendor"
+VENDOR_DIR = RESOURCE_DIR / "wheels"
 REQUIREMENT_FILE =  VENDOR_DIR / "requirements.txt"
 LAUNCHER_DIR_WIN = Path.home() / "AppData" / "Local" / "Programs" / "Entropy" / "ent.cmd"
 LAUNCHER_DIR_UNIX = Path.home() / ".local" / "bin" / "ent"

@@ -1,3 +1,3 @@
-from .manager import OutputManager
+from .manager import OutputManager as OutputManager
 
-__all__ = ["manager"]
+__all__ = ["OutputManager"]

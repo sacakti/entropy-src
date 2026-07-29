@@ -110,7 +110,7 @@ class MigrationExecutor:
 
             self._record(
                 migration
-                
+
             )
 
             self._connection.connection.commit()
@@ -137,7 +137,7 @@ class MigrationExecutor:
             )
 
             raise
-        
+
     def _create_history(self):
 
         self._connection.connection.execute(

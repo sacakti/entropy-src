@@ -4,6 +4,7 @@ Authentication exceptions
 
 from core.exceptions import EntropyException
 
+
 class AuthenticationException(EntropyException):
     """
     Base class for all authentication exception

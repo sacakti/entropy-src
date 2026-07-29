@@ -152,3 +152,33 @@ Desktop.ini
 plugins/local/
 resources/workflows/local/
 resources/config/*.local.json
+
+# -----------------------------------------------------------------------------
+# Application packaging
+# -----------------------------------------------------------------------------
+
+# Ruff
+.ruff_cache/
+
+# Bandit
+.bandit
+
+# Nuitka
+*.build
+*.dist
+*.onefile-build
+*.onefile-temp
+
+# Signing
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+
+# Build Artifacts
+artifacts/
+
+# Temporary
+tmp/*
+!tmp/.gitkeep

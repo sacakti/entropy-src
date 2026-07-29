@@ -2,7 +2,7 @@
 Base migration.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 
 
 class BaseMigration(ABC):
@@ -11,6 +11,7 @@ class BaseMigration(ABC):
 
     DESCRIPTION = ""
 
+    @abstractmethod
     def validate(self):
 
         pass
@@ -22,6 +23,7 @@ class BaseMigration(ABC):
 
         raise NotImplementedError()
 
+    @abstractmethod
     def dispose(self):
 
         pass

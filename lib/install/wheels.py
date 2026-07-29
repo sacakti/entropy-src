@@ -2,10 +2,11 @@
 Offline wheel installer.
 """
 
-from pathlib import Path
 import subprocess
-from core.constants import PACKAGE_DIR, VENDOR_DIR, REQUIREMENT_FILE
 import sys
+
+from core.constants import PACKAGE_DIR, REQUIREMENT_FILE, VENDOR_DIR
+
 
 class WheelInstaller:
 
@@ -33,12 +34,12 @@ class WheelInstaller:
             raise FileNotFoundError(
                 f"Wheel directory not found: {wheel_directory}"
             )
-        
+
         PACKAGE_DIR.mkdir(
             parents=True,
             exist_ok=True,
         )
-        
+
         command = [
             sys.executable,
             "-m",

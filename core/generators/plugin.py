@@ -2,14 +2,13 @@
 Plugin generator.
 """
 
-import time
 
-from core.generators.validators.plugin import PluginValidator
 from core.constants import PLUGIN_DIR, PluginTemplates
 from core.generators.base import (
     BaseGenerator,
     GeneratorMetadata,
 )
+from core.generators.validators.plugin import PluginValidator
 
 
 class PluginGenerator(BaseGenerator):
@@ -46,7 +45,7 @@ class PluginGenerator(BaseGenerator):
             name = args.name
 
             context = self.build_context(name)
-            
+
             PluginValidator.validate(name)
 
             plugin_directory = PLUGIN_DIR / name
@@ -63,7 +62,7 @@ class PluginGenerator(BaseGenerator):
                         temp_directory / filename,
                         context,
                     )
-                
+
                 self.context.executor.move(
                     temp_directory,
                     plugin_directory,

@@ -4,15 +4,15 @@ User management command.
 
 from __future__ import annotations
 
-import getpass
+from argparse import ArgumentParser, Namespace
 
-from argparse import ArgumentParser
-from argparse import Namespace
-
-from core.commands.base import BaseCommand
-from core.commands.base import CommandMetadata
-
-from lib.users.exceptions import PasswordsNotMatchError, SystemUserError, UserError, UserAlreadyExistsError
+from core.commands.base import BaseCommand, CommandMetadata
+from lib.users.exceptions import (
+    PasswordsNotMatchError,
+    SystemUserError,
+    UserAlreadyExistsError,
+    UserError,
+)
 
 
 class UserCommand(BaseCommand):

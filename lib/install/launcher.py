@@ -6,13 +6,13 @@ Creates and removes the Entropy command launcher.
 
 from __future__ import annotations
 
-import os
 import stat
 import sys
 from pathlib import Path
 
+from core.constants import APPLICATION_ROOT, LAUNCHER_DIR_UNIX, LAUNCHER_DIR_WIN
+
 from .platform import Platform
-from core.constants import APPLICATION_ROOT, LAUNCHER_DIR_WIN, LAUNCHER_DIR_UNIX
 
 
 class Launcher:

@@ -27,7 +27,7 @@ class DatabaseConnection:
             self._connection.row_factory = sqlite3.Row
 
         return self._connection
-    
+
     def close(self):
 
         if self._connection:

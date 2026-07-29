@@ -11,8 +11,8 @@ import pkgutil
 
 from core.commands import __path__
 from core.commands.base import BaseCommand
-from core.exceptions import EntropyException
 from core.commands.exceptions import CommandNotFoundError
+from core.exceptions import EntropyException
 
 
 class CommandManager:
@@ -215,4 +215,3 @@ class CommandManager:
             self.context.output.cli.error(
                 str(ex)
             )
-        

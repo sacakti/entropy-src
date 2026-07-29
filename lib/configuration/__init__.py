@@ -1,1 +1,3 @@
-from .manager import ConfigurationManager
+from .manager import ConfigurationManager as ConfigurationManager
+
+__all__ = ["ConfigurationManager"]

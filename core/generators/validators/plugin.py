@@ -1,7 +1,6 @@
 import re
 
 from core.constants import PLUGIN_DIR
-
 from core.generators.exceptions import (
     InvalidPluginNameError,
     PluginAlreadyExistsError,
@@ -37,7 +36,8 @@ class PluginValidator:
 
         if not cls.NAME_PATTERN.fullmatch(name):
             raise InvalidPluginNameError(
-                "Plugin name must start with a lowercase letter and contain only lowercase letters, digits and underscores."
+                "Plugin name must start with a lowercase letter and contain only "
+                "lowercase letters, digits and underscores."
             )
 
     @classmethod

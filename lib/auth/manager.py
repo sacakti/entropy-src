@@ -4,13 +4,11 @@ Session manager.
 
 from __future__ import annotations
 
+import secrets
 from datetime import datetime, timedelta
 
-import secrets
-
+from core.constants import SESSION_DIRECTORY, SESSION_FILE
 from core.context import EntropyContext
-from core.constants import SESSION_DIRECTORY
-from core.constants import SESSION_FILE
 from lib.auth.exceptions import AuthenticationRequiredError
 from lib.auth.session import Session
 
@@ -155,7 +153,7 @@ class SessionManager:
         self._log.info(
             f"User '{session.username}' logged out."
         )
-        
+
     # ------------------------------------------------------------------
     # Current
     # ------------------------------------------------------------------

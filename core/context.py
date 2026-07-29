@@ -6,10 +6,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from lib.output import manager
-from typing import Optional
-
 from lib.models.workflow import WorkflowDefinition
+from lib.output import manager
 
 
 class EntropyContext:

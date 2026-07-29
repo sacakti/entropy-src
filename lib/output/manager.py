@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.constants import CATEGORIES, LEVELS
+from core.constants import CATEGORIES
 
 from .banner import Banner
 from .category import CategoryLogger
@@ -59,7 +59,7 @@ class OutputManager:
         self._console.initialize(
             console_level,
         )
-    
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------

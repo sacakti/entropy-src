@@ -1,14 +1,14 @@
 from pathlib import Path
 from time import sleep
 
+from core.version import APP_NAME, VERSION
 from lib.output.manager import OutputManager
-from version import APP_NAME, VERSION
 
 
 def test_console():
 
     output = OutputManager()
-    
+
     output.initialize(Path("logs"))
 
     output.banner(APP_NAME, VERSION)

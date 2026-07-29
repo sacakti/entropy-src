@@ -2,9 +2,9 @@
 Settings repository.
 """
 
-from datetime import datetime
 
 from lib.models.database import Setting
+
 from ..repository import Repository
 
 

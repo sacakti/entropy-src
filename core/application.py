@@ -6,27 +6,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from version import APP_NAME
-from version import VERSION
-
+from core.commands.manager import CommandManager
 from core.context import EntropyContext
 from core.environment import Environment
-
-from core.commands.manager import CommandManager
 from core.generators.manager import GeneratorManager
 from core.template import TemplateEngine
-
+from core.version import APP_NAME, VERSION
+from lib.auth.manager import SessionManager
 from lib.configuration import ConfigurationManager
 from lib.database.manager import DatabaseManager
 from lib.database.repositories.users import UserRepository
 from lib.executor import LinuxExecutor
 from lib.output.manager import OutputManager
 from lib.plugins.manager import PluginManager
-
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
-
-from lib.auth.manager import SessionManager
 
 
 class Application:

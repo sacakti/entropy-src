@@ -5,15 +5,11 @@ Rich console rendering.
 from __future__ import annotations
 
 from rich.console import Console
-from rich.progress import Progress
-from rich.progress import SpinnerColumn
-from rich.progress import TextColumn
-from rich.table import Table
-from rich.rule import Rule
 from rich.panel import Panel
-from rich.prompt import Prompt
-from rich.prompt import Confirm
-from rich.prompt import IntPrompt
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.prompt import Confirm, Prompt
+from rich.rule import Rule
+from rich.table import Table
 
 from core.constants import CONSOLE_LEVELS
 

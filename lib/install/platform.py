@@ -2,8 +2,8 @@
 Platform detection.
 """
 
-from enum import Enum
 import platform
+from enum import Enum
 
 
 class Platform(Enum):

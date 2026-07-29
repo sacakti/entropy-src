@@ -5,11 +5,10 @@ Entropy logging engine.
 from __future__ import annotations
 
 import logging
-
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from core.constants import CATEGORIES, CONSOLE_LEVELS, LEVELS
+from core.constants import CATEGORIES
 
 
 class LoggerEngine:
@@ -19,7 +18,7 @@ class LoggerEngine:
         self._loggers = {}
 
         self._initialized = False
-        
+
 
     def initialize(
         self,
@@ -33,7 +32,7 @@ class LoggerEngine:
             return
 
         self._level = level.upper()
-        
+
         log_directory.mkdir(
             parents=True,
             exist_ok=True,
@@ -99,10 +98,7 @@ class LoggerEngine:
         if level == "DEBUG":
             logger.debug(message)
 
-        elif level == "INFO":
-            logger.info(message)
-
-        elif level == "SUCCESS":
+        elif level == "INFO" or level == "SUCCESS":
             logger.info(message)
 
         elif level == "WARNING":

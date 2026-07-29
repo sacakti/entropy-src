@@ -9,10 +9,7 @@ from __future__ import annotations
 import subprocess
 import time
 
-from pathlib import Path
-from typing import Mapping
-
-from lib.executor.types import PathLike, Command, Environment
+from lib.executor.types import Command, Environment, PathLike
 
 from .result import ExecutionResult
 
@@ -77,10 +74,11 @@ class ProcessMixin:
 
         duration = time.perf_counter() - start
 
-        if isinstance(command, list):
-            command_text = " ".join(map(str, command))
-        else:
-            command_text = command
+        command_text = (
+            " ".join(map(str, command))
+            if isinstance(command, list)
+            else command
+        )
 
         return ExecutionResult(
             command=command_text,

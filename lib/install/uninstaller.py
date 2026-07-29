@@ -6,9 +6,9 @@ import shutil
 
 from core.constants import ENTROPY_HOME
 
+from .installer import InstallerResult
 from .launcher import Launcher
 from .platform import PlatformDetector
-from .installer import InstallerResult
 
 
 class Uninstaller:
@@ -40,7 +40,7 @@ class Uninstaller:
     # ------------------------------------------------------------------
 
     def _remove_home(self):
-    
+
         if ENTROPY_HOME.exists():
 
             shutil.rmtree(

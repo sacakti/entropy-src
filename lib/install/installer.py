@@ -4,19 +4,15 @@ Entropy installer.
 """
 
 import os
-from pathlib import Path
 import shutil
 from dataclasses import dataclass
-from core.constants import (
-    DATABASE_DIR,
-    DEFAULT_CONFIG_FILE,
-    ENTROPY_HOME,
-    CONFIG_DIR,
-    CONFIG_FILE
-)
+
+from core.constants import CONFIG_DIR, CONFIG_FILE, DATABASE_DIR, DEFAULT_CONFIG_FILE, ENTROPY_HOME
+
 from .launcher import Launcher
 from .platform import PlatformDetector
 from .wheels import WheelInstaller
+
 
 @dataclass
 class InstallerResult:
@@ -66,7 +62,7 @@ class Installer:
             #
             # Create config
             #
-            
+
             self._create_config()
 
             #
@@ -79,11 +75,11 @@ class Installer:
 
             #
             # Verify PATH
-            # 
+            #
             path_resp = self._verify_path(launcher)
 
             message = success_msg + path_resp
-            
+
             return InstallerResult(
                 success=True,
                 message=message,
@@ -121,7 +117,7 @@ class Installer:
         ).install()
 
     def _verify_path(self, launcher):
-        
+
         launcher_dir = str(launcher.parent)
 
         paths = os.environ.get("PATH", "").split(os.pathsep)
@@ -141,17 +137,17 @@ class Installer:
 The launcher directory is not on your PATH.
 
 Add the following line to your shell profile (~/.zshrc, ~/.bashrc, etc.):
-    
+
     export PATH="$HOME/.local/bin:$PATH"
-    
+
 Then reload your shell:
-    
+
     {reload_cmd}
 
 or open a new terminal.
 
 After that, run:
-    
+
     ent
 '''
         if path_exists:

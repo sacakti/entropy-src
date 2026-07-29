@@ -9,9 +9,8 @@ from __future__ import annotations
 import json
 import os
 import shutil
-
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from lib.executor.types import PathLike
 

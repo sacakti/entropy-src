@@ -35,7 +35,7 @@ class Session:
     def from_dict(
         cls,
         data: dict,
-    ) -> "Session":
+    ) -> Session:
 
         return cls(
             user_id=data["user_id"],

@@ -4,6 +4,7 @@ User exceptions.
 
 from core.exceptions import EntropyException
 
+
 class UserError(EntropyException):
     """Base exception for all user-related errors."""
 
@@ -75,13 +76,12 @@ class SystemUserError(UserError):
 
     def __init__(self, *args):
         super().__init__(
-            f"System user cannot be disabled or deleted."
-        ) 
+            "System user cannot be disabled or deleted."
+        )
 
 class PasswordsNotMatchError(UserError):
     def __init__(self):
-    
+
             super().__init__(
                 "Passwords do not match."
             )
-    

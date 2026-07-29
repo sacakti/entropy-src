@@ -11,11 +11,11 @@ from pathlib import Path
 
 from core.constants import PLUGIN_DIR
 from core.context import EntropyContext
-
 from lib.models.plugin import Plugin
 
 from .exception import PluginAlreadyRegisteredError
 from .validators.manifest import ManifestValidator
+
 
 class PluginRegistry:
     """
@@ -43,7 +43,6 @@ class PluginRegistry:
 
         with open(
             manifest,
-            "r",
             encoding="utf-8",
         ) as fp:
 
