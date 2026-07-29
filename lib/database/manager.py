@@ -50,3 +50,11 @@ class DatabaseManager:
         # self._registry.discover()
 
         # self._executor.execute()
+
+    # --------------------------------------
+    # Helper
+    # --------------------------------------
+    @property
+    def connection(self):
+
+        return self._connection

@@ -5,7 +5,7 @@ Entropy configuration loader.
 import json
 from pathlib import Path
 
-from core.exceptions import ConfigurationException
+from lib.configuration.exceptions import ConfigurationFileNotFoundError, InvalidConfigurationError
 
 
 class ConfigurationLoader:
@@ -23,8 +23,8 @@ class ConfigurationLoader:
 
         if not config_file.exists():
 
-            raise ConfigurationException(
-                f"Configuration file not found: {config_file}"
+            raise ConfigurationFileNotFoundError(
+                config_file
             )
 
         try:
@@ -38,6 +38,6 @@ class ConfigurationLoader:
 
         except json.JSONDecodeError as exc:
 
-            raise ConfigurationException(
-                f"Invalid configuration: {exc}"
+            raise InvalidConfigurationError(
+                exc
             ) from exc

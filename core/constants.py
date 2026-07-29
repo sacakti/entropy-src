@@ -20,19 +20,15 @@ LOG_DIR = PROJECT_ROOT / "logs"
 
 TEMPLATE_DIR = PROJECT_ROOT / "templates"
 
-PLUGIN_DIR = PROJECT_ROOT / "plugins"
-
 DEFAULT_CONFIG_FILE = PROJECT_ROOT / "lib" / "install" / "entropy.json.config"
-
-# RUNTIME_DIR = PROJECT_ROOT / "runtime"
-
-# CONFIG_DIR = RESOURCE_DIR / "config"
 
 RELEASE_DIR = RESOURCE_DIR / "releases"
 
 WORKFLOW_DIR = RESOURCE_DIR / "workflows"
 
 REPORT_DIR = RESOURCE_DIR / "reports"
+
+PLUGIN_DIR = RESOURCE_DIR / "plugins"
 
 CONFIG_DIR = ENTROPY_HOME / "config"
 
@@ -105,6 +101,7 @@ SEARCH_PATHS = (
 
 CATEGORIES = (
     "system",
+    "user",
     "cli",
     "workflow",
     "database",

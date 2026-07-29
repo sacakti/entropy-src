@@ -30,12 +30,16 @@ class UserRepository:
                 password_hash,
                 full_name,
                 email,
+                group_id,
+                system,
                 is_active,
                 created_at,
                 updated_at
             )
             VALUES
             (
+                ?,
+                ?,
                 ?,
                 ?,
                 ?,
@@ -50,6 +54,8 @@ class UserRepository:
                 user.password_hash,
                 user.full_name,
                 user.email,
+                user.group_id,
+                int(user.system),
                 int(user.is_active),
             ),
         )
@@ -100,6 +106,23 @@ class UserRepository:
 
         return self._map(cursor.fetchone())
 
+    def exists(
+        self,
+        username: str,
+    ) -> bool:
+
+        cursor = self._connection.connection.execute(
+            """
+            SELECT 1
+            FROM users
+            WHERE username = ?
+            LIMIT 1
+            """,
+            (username,),
+        )
+
+        return cursor.fetchone() is not None
+
     # ------------------------------------------------------------------
     # List
     # ------------------------------------------------------------------
@@ -119,6 +142,18 @@ class UserRepository:
             for row in cursor.fetchall()
         ]
 
+    def any(self) -> bool:
+
+        cursor = self._connection.connection.execute(
+            """
+            SELECT 1
+            FROM users
+            LIMIT 1
+            """
+        )
+
+        return cursor.fetchone() is not None
+
     # ------------------------------------------------------------------
     # Update
     # ------------------------------------------------------------------
@@ -135,6 +170,8 @@ class UserRepository:
                 password_hash = ?,
                 full_name = ?,
                 email = ?,
+                group_id = ?,
+                system = ?,
                 is_active = ?,
                 updated_at = datetime('now')
             WHERE id = ?
@@ -143,6 +180,8 @@ class UserRepository:
                 user.password_hash,
                 user.full_name,
                 user.email,
+                user.group_id,
+                int(user.system),
                 int(user.is_active),
                 user.id,
             ),
@@ -188,6 +227,8 @@ class UserRepository:
             password_hash=row["password_hash"],
             full_name=row["full_name"],
             email=row["email"],
+            group_id=row["group_id"],
+            system=bool(row["system"]),
             is_active=bool(row["is_active"]),
             created_at=datetime.fromisoformat(
                 row["created_at"]
@@ -196,3 +237,27 @@ class UserRepository:
                 row["updated_at"]
             ) if row["updated_at"] else None,
         )
+
+    def count(self) -> int:
+
+        cursor = self._connection.connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM users
+            """
+        )
+
+        return cursor.fetchone()[0]
+
+    def system_user(self) -> User:
+
+        cursor = self._connection.connection.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE system = 1
+            LIMIT 1
+            """
+        )
+
+        return self._map(cursor.fetchone())

@@ -2,8 +2,9 @@
 Generator exceptions.
 """
 
+from core.exceptions import EntropyException
 
-class GeneratorError(Exception):
+class GeneratorError(EntropyException):
     """Base generator exception."""
 
 class InvalidGeneratorError(GeneratorError):

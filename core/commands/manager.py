@@ -11,6 +11,7 @@ import pkgutil
 
 from core.commands import __path__
 from core.commands.base import BaseCommand
+from core.exceptions import EntropyException
 from core.commands.exceptions import CommandNotFoundError
 
 
@@ -175,7 +176,16 @@ class CommandManager:
 
         args = parser.parse_args()
 
-        self.execute(
-            args.command or "help",
-            args,
-        )
+        try:
+
+            self.execute(
+                args.command or "help",
+                args,
+            )
+
+        except EntropyException as ex:
+
+            self.context.output.cli.error(
+                str(ex)
+            )
+        

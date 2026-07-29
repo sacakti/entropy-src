@@ -2,7 +2,9 @@
 Workflow exceptions.
 """
 
-class WorkflowStepExecutionError(Exception):
+from core.exceptions import EntropyException
+
+class WorkflowStepExecutionError(EntropyException):
 
     def __init__(self, step, cause):
 

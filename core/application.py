@@ -6,6 +6,9 @@ from pathlib import Path
 # import argparse
 
 # from core.constants import PLUGIN_DIR
+from lib.users.manager import UserManager
+from lib.users.password import PasswordService
+from lib.database.repositories.users import UserRepository
 from core.generators.manager import GeneratorManager
 from lib.database.manager import DatabaseManager
 from version import APP_NAME, VERSION
@@ -17,7 +20,8 @@ from core.commands.manager import CommandManager
 # from lib.configuration.config_loader import config
 from lib.configuration import ConfigurationManager
 from lib.executor import LinuxExecutor
-from lib.output.output import OutputManager
+# from lib.output.manager import OutputManager
+from lib.output.manager import OutputManager
 from lib.plugins.manager import PluginManager
 # from core.template import PluginTemplates
 from core.template import TemplateEngine
@@ -43,6 +47,8 @@ class Application:
         self.context.executor = LinuxExecutor()
 
         self.context.output = OutputManager()
+
+        self.context.password_service = PasswordService()
 
         self.context.plugin_manager = PluginManager(
             self.context
@@ -108,6 +114,26 @@ class Application:
         self.context.generator_manager.discover()
 
         self.context.plugin_manager.discover()
+
+        #
+        # Initialize database
+        #
+
+        self.context.database_manager.initialize()
+
+        #
+        # User subsystem
+        #
+
+        self.context.user_repository = UserRepository(
+            self.context.database_manager.connection,
+        )
+
+        self.context.user_manager = UserManager(
+            self.context,
+        )
+
+        self.context.user_manager.initialize()
         
     def run(self) -> None:
 

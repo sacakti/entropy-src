@@ -2,8 +2,10 @@
 Command exceptions.
 """
 
+from core.exceptions import EntropyException
 
-class CommandError(Exception):
+
+class CommandError(EntropyException):
     """Base command exception."""
 
 

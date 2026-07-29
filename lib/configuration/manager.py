@@ -7,8 +7,9 @@ from pathlib import Path
 from core.constants import CONFIG_FILE
 
 from .loader import ConfigurationLoader
-from lib.models.configuration import ConfigurationModel
 from .validator import ConfigurationValidator
+from lib.models.configuration import ConfigurationModel
+from lib.configuration.exceptions import ConfigurationNotLoadedError
 
 
 class ConfigurationManager:
@@ -55,7 +56,7 @@ class ConfigurationManager:
 
         if self._configuration is None:
 
-            raise RuntimeError(
+            raise ConfigurationNotLoadedError(
                 "Configuration has not been loaded."
             )
 

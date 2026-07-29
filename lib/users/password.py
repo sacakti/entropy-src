@@ -2,15 +2,29 @@
 Password service.
 """
 
+from dataclasses import dataclass
+
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import VerificationError
+
+
+@dataclass(frozen=True)
+class PasswordVerification:
+
+    valid: bool
+
+    needs_rehash: bool
 
 
 class PasswordService:
 
     def __init__(self):
 
-        self._hasher = PasswordHasher()
+        self._hasher = PasswordHasher(
+            time_cost=3,
+            memory_cost=65536,
+            parallelism=4,
+        )
 
     # ------------------------------------------------------------------
     # Hash
@@ -31,15 +45,25 @@ class PasswordService:
         self,
         password: str,
         password_hash: str,
-    ) -> bool:
+    ) -> PasswordVerification:
 
         try:
 
-            return self._hasher.verify(
+            self._hasher.verify(
                 password_hash,
                 password,
             )
 
-        except VerifyMismatchError:
+            return PasswordVerification(
+                valid=True,
+                needs_rehash=self._hasher.check_needs_rehash(
+                    password_hash,
+                ),
+            )
 
-            return False
+        except VerificationError:
+
+            return PasswordVerification(
+                valid=False,
+                needs_rehash=False,
+            )

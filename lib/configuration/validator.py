@@ -2,7 +2,7 @@
 Entropy configuration validator.
 """
 
-from core.exceptions import ConfigurationException
+from lib.configuration.exceptions import InvalidConfigurationError
 
 
 class ConfigurationValidator:
@@ -47,6 +47,6 @@ class ConfigurationValidator:
                 )
             )
 
-            raise ConfigurationException(
+            raise InvalidConfigurationError(
                 message
             )

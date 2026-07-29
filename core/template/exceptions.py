@@ -2,8 +2,9 @@
 Template exceptions.
 """
 
+from core.exceptions import EntropyException
 
-class TemplateError(Exception):
+class TemplateError(EntropyException):
     """
     Base template exception.
     """

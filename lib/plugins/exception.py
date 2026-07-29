@@ -2,8 +2,10 @@
 Plugin exceptions.
 """
 
+from core.exceptions import EntropyException
 
-class PluginError(Exception):
+
+class PluginError(EntropyException):
     """Base class for all plugin-related errors."""
 
 

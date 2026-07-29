@@ -16,8 +16,16 @@ class User:
 
     email: Optional[str] = None
 
+    group_id: Optional[int] = None
+
+    system: bool = False
+
     is_active: bool = True
 
     created_at: Optional[datetime] = None
 
     updated_at: Optional[datetime] = None
+
+    @property
+    def is_new(self) -> bool:
+        return self.id is None

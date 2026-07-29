@@ -4,8 +4,14 @@ from __future__ import annotations
 # from typing import Any
 
 # from core.context import EntropyContext
-from lib.plugins.exception import PluginNotImplementedError
-
+# from lib.plugins.exception import PluginNotImplementedError
+from lib.plugins.exception import (
+    PluginNotFoundError,
+    PluginValidationError,
+    PluginExecutionError,
+    PluginNotImplementedError,
+    PluginAlreadyRegisteredError
+)
 
 class BasePlugin:
 
