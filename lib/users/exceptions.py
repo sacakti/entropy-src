@@ -77,3 +77,11 @@ class SystemUserError(UserError):
         super().__init__(
             f"System user cannot be disabled or deleted."
         ) 
+
+class PasswordsNotMatchError(UserError):
+    def __init__(self):
+    
+            super().__init__(
+                "Passwords do not match."
+            )
+    

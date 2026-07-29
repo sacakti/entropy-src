@@ -25,6 +25,7 @@ class UserManager:
 
         self._repository = context.user_repository
         self._password = context.password_service
+        self._console = context.output
         self._log = context.output.user
 
 
@@ -53,6 +54,19 @@ class UserManager:
 
         self._log.success(
             "Default administrator account created."
+        )
+
+        self._console.panel(
+            title="Default Administrator",
+            lines=[
+                "Username : admin",
+                "Password : admin123",
+                "",
+                "Please change the password immediately.",
+                "",
+                "Command:",
+                "    ent user password admin",
+            ],
         )
 
     # ------------------------------------------------------------------
@@ -180,7 +194,12 @@ class UserManager:
         username: str,
     ) -> User:
 
-        return self._repository.get_by_username(username)
+        user = self._repository.get_by_username(username)
+
+        if user is None:
+            raise UserNotFoundError(username)
+
+        return user
 
     # ------------------------------------------------------------------
     # List
@@ -198,6 +217,8 @@ class UserManager:
         self,
         user: User,
     ) -> None:
+
+        user = self.get(user.username)
 
         if user.system:
             raise SystemUserError(user.username)
@@ -300,8 +321,8 @@ class UserManager:
         self,
         password: str,
     ) -> None:
-
-        if len(password) < 8:
+        
+        if not password or len(password) < 8:
             raise WeakPasswordError(
                 "Password must contain at least 8 characters."
             )

@@ -10,6 +10,10 @@ from rich.progress import SpinnerColumn
 from rich.progress import TextColumn
 from rich.table import Table
 from rich.rule import Rule
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.prompt import Confirm
+from rich.prompt import IntPrompt
 
 from core.constants import CONSOLE_LEVELS
 
@@ -217,3 +221,54 @@ class ConsoleEngine:
             )
 
         self.console.print(table)
+
+    # ------------------------------------------------------------------
+    # Input
+    # ------------------------------------------------------------------
+
+    def prompt(
+        self,
+        message: str,
+        default: str | None = None,
+        password: bool = False,
+    ) -> str:
+
+        return Prompt.ask(
+            message,
+            default=default,
+            password=password,
+        )
+
+
+    def confirm(
+        self,
+        message: str,
+        default: bool = False,
+    ) -> bool:
+
+        return Confirm.ask(
+            message,
+            default=default,
+        )
+
+    # ------------------------------------------------------------------
+    # Panel
+    # ------------------------------------------------------------------
+
+    def panel(
+        self,
+        title: str,
+        lines: list[str],
+        style: str = Theme.INFO,
+    ) -> None:
+
+        content = "\n".join(lines)
+
+        self.console.print(
+            Panel(
+                content,
+                title=title,
+                border_style=style,
+                expand=False,
+            )
+        )

@@ -12,7 +12,7 @@ from argparse import Namespace
 from core.commands.base import BaseCommand
 from core.commands.base import CommandMetadata
 
-from lib.users.exceptions import UserError
+from lib.users.exceptions import PasswordsNotMatchError, SystemUserError, UserError, UserAlreadyExistsError
 
 
 class UserCommand(BaseCommand):
@@ -49,13 +49,13 @@ class UserCommand(BaseCommand):
             "username",
         )
 
-        create.add_argument(
-            "--full-name",
-        )
+        # create.add_argument(
+        #     "--full-name",
+        # )
 
-        create.add_argument(
-            "--email",
-        )
+        # create.add_argument(
+        #     "--email",
+        # )
 
         #
         # delete
@@ -161,36 +161,23 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        password = getpass.getpass(
-            "Password: "
+        username = args.username
+
+        # Validate first
+        if self.context.user_manager.exists(username):
+            raise UserAlreadyExistsError(username)
+
+        full_name = self._prompt("Full Name")
+        email = self._prompt("Email")
+
+        password = self._read_password()
+
+        self.context.user_manager.create(
+            username=username,
+            password=password,
+            full_name=full_name,
+            email=email,
         )
-
-        confirm = getpass.getpass(
-            "Confirm password: "
-        )
-
-        if password != confirm:
-
-            self.context.output.user.error(
-                "Passwords do not match."
-            )
-
-            return
-
-        try:
-
-            self.context.user_manager.create(
-                username=args.username,
-                password=password,
-                full_name=args.full_name,
-                email=args.email,
-            )
-
-        except UserError as ex:
-
-            self.context.output.user.error(
-                str(ex),
-            )
 
     # ------------------------------------------------------------------
     # Delete
@@ -213,11 +200,12 @@ class UserCommand(BaseCommand):
 
             return
 
-        answer = input(
-            f"Delete '{user.username}'? [y/N]: "
-        )
+        if user.system:
+            raise SystemUserError()
 
-        if answer.lower() != "y":
+        if not self._confirm(
+            f"Delete '{user.username}'?"
+        ):
             return
 
         self.context.user_manager.delete(
@@ -278,21 +266,7 @@ class UserCommand(BaseCommand):
 
             return
 
-        password = getpass.getpass(
-            "New password: "
-        )
-
-        confirm = getpass.getpass(
-            "Confirm password: "
-        )
-
-        if password != confirm:
-
-            self.context.output.user.error(
-                "Passwords do not match."
-            )
-
-            return
+        password = self._read_password()
 
         try:
 
@@ -316,16 +290,10 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        try:
-
-            self.context.user_manager.set_active(
-                args.username,
-                True,
-            )
-
-        except UserError as ex:
-
-            self.context.output.user.error(str(ex))
+        self.context.user_manager.set_active(
+            args.username,
+            True,
+        )
 
     # ------------------------------------------------------------------
     # Disable
@@ -336,16 +304,10 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        try:
-
-            self.context.user_manager.set_active(
-                args.username,
-                False,
-            )
-
-        except UserError as ex:
-
-            self.context.output.user.error(str(ex))
+        self.context.user_manager.set_active(
+            args.username,
+            False,
+        )
 
     # ------------------------------------------------------------------
     # Unlock
@@ -356,12 +318,53 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        try:
 
-            self.context.user_manager.unlock(
-                args.username,
-            )
+        self.context.user_manager.unlock(
+            args.username,
+        )
 
-        except UserError as ex:
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
-            self.context.output.user.error(str(ex))
+    def _prompt(
+        self,
+        message: str,
+    ) -> str | None:
+
+        value = self.context.output.prompt(message)
+
+        return value or None
+
+    def _confirm(
+        self,
+        message: str,
+    ) -> bool:
+
+        return self.context.output.confirm(message)
+
+    def _require_user(
+        self,
+        username: str,
+    ):
+
+        return self.context.user_manager.get(
+            username,
+        )
+
+    def _read_password(self) -> str:
+
+        password = self.context.output.prompt(
+            "Password",
+            password=True,
+        )
+
+        confirm = self.context.output.prompt(
+            "Confirm Password",
+            password=True,
+        )
+
+        if password != confirm:
+            raise PasswordsNotMatchError()
+
+        return password
