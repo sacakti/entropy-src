@@ -82,11 +82,7 @@ class ConsoleEngine:
 
         message_level = mapping.get(level.upper(), "NORMAL")
 
-        return (
-            CONSOLE_LEVELS[self._level]
-            >=
-            CONSOLE_LEVELS[message_level]
-        )
+        return CONSOLE_LEVELS[self._level] >= CONSOLE_LEVELS[message_level]
 
     # ------------------------------------------------------------------
     # Spinner
@@ -111,10 +107,7 @@ class ConsoleEngine:
 
         self._finish_progress(task_id)
 
-        self.console.print(
-            f"[{Theme.SUCCESS}]✔[/] {message}"
-        )
-
+        self.console.print(f"[{Theme.SUCCESS}]✔[/] {message}")
 
     def warning(
         self,
@@ -124,10 +117,7 @@ class ConsoleEngine:
 
         self._finish_progress(task_id)
 
-        self.console.print(
-            f"[{Theme.WARNING}]⚠[/] {message}"
-        )
-
+        self.console.print(f"[{Theme.WARNING}]⚠[/] {message}")
 
     def error(
         self,
@@ -137,9 +127,7 @@ class ConsoleEngine:
 
         self._finish_progress(task_id)
 
-        self.console.print(
-            f"[{Theme.ERROR}]✖[/] {message}"
-        )
+        self.console.print(f"[{Theme.ERROR}]✖[/] {message}")
 
     # ------------------------------------------------------------------
     # Information
@@ -147,15 +135,11 @@ class ConsoleEngine:
 
     def info(self, message: str):
 
-        self.console.print(
-            f"[{Theme.INFO}]ℹ[/] {message}"
-        )
+        self.console.print(f"[{Theme.INFO}]ℹ[/] {message}")
 
     def debug(self, message: str):
 
-        self.console.print(
-            f"[{Theme.DEBUG}]•[/] {message}"
-        )
+        self.console.print(f"[{Theme.DEBUG}]•[/] {message}")
 
     # ------------------------------------------------------------------
     # Workflow
@@ -169,19 +153,13 @@ class ConsoleEngine:
 
         self.console.print()
 
-        self.console.print(
-            Rule(style="bright_black")
-        )
+        self.console.print(Rule(style="bright_black"))
 
-        self.console.print(
-            f"[bold cyan]▶ Step {step_no} : {title}[/]"
-        )
+        self.console.print(f"[bold cyan]▶ Step {step_no} : {title}[/]")
 
     def sub(self, message: str):
 
-        self.console.print(
-            f"    {message}"
-        )
+        self.console.print(f"    {message}")
 
     # ------------------------------------------------------------------
     # Generic
@@ -212,9 +190,7 @@ class ConsoleEngine:
             table.add_column(column)
 
         for row in rows:
-            table.add_row(
-                *[str(item) for item in row]
-            )
+            table.add_row(*[str(item) for item in row])
 
         self.console.print(table)
 
@@ -234,7 +210,6 @@ class ConsoleEngine:
             default=default,
             password=password,
         )
-
 
     def confirm(
         self,

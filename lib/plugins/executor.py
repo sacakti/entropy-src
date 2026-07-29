@@ -1,4 +1,3 @@
-
 """
 Plugin executor.
 
@@ -62,14 +61,10 @@ class PluginExecutor:
             raise
 
         except NotImplementedError as exc:
-            raise PluginExecutionError(
-                f"Plugin '{name}' execution is not implemented."
-            ) from exc
+            raise PluginExecutionError(f"Plugin '{name}' execution is not implemented.") from exc
 
         except Exception as exc:
-            raise PluginExecutionError(
-                f"Plugin '{name}' execution failed."
-            ) from exc
+            raise PluginExecutionError(f"Plugin '{name}' execution failed.") from exc
 
         finally:
 
@@ -84,9 +79,6 @@ class PluginExecutor:
 
             duration = perf_counter() - start
 
-        self.context.output.plugin.success(
-            f"Plugin '{name}' completed "
-            f"({duration:.2f}s)"
-        )
+        self.context.output.plugin.success(f"Plugin '{name}' completed " f"({duration:.2f}s)")
 
         return duration

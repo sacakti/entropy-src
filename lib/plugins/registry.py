@@ -58,9 +58,7 @@ class PluginRegistry:
             if not namespace.is_dir():
                 continue
 
-            self.context.output.plugin.debug(
-                f"Searching for plugins in: {namespace}"
-            )
+            self.context.output.plugin.debug(f"Searching for plugins in: {namespace}")
 
             for directory in namespace.iterdir():
 
@@ -74,9 +72,7 @@ class PluginRegistry:
 
                 self.register(plugin)
 
-        self.context.output.plugin.debug(
-            f"Discovered {len(self._plugins)} plugin(s)."
-        )
+        self.context.output.plugin.debug(f"Discovered {len(self._plugins)} plugin(s).")
 
     def register(
         self,
@@ -88,9 +84,7 @@ class PluginRegistry:
 
         if plugin.name in self._plugins:
 
-            raise PluginAlreadyRegisteredError(
-                f"Plugin '{plugin.name}' is already registered."
-            )
+            raise PluginAlreadyRegisteredError(f"Plugin '{plugin.name}' is already registered.")
 
         self._plugins[plugin.name] = plugin
 
@@ -109,9 +103,7 @@ class PluginRegistry:
         Return all registered plugins.
         """
 
-        return list(
-            self._plugins.values()
-        )
+        return list(self._plugins.values())
 
     def clear(self) -> None:
         """

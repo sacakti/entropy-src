@@ -26,14 +26,10 @@ class WorkflowValidator:
 
             if step.order in orders:
 
-                errors.append(
-                    f"Duplicate step order {step.order}"
-                )
+                errors.append(f"Duplicate step order {step.order}")
 
             orders.add(step.order)
 
         if errors:
 
-            raise ValueError(
-                "\n".join(errors)
-            )
+            raise ValueError("\n".join(errors))

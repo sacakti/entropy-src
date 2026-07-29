@@ -23,9 +23,7 @@ class ConfigurationLoader:
 
         if not config_file.exists():
 
-            raise ConfigurationFileNotFoundError(
-                config_file
-            )
+            raise ConfigurationFileNotFoundError(config_file)
 
         try:
 
@@ -38,6 +36,4 @@ class ConfigurationLoader:
 
         except json.JSONDecodeError as exc:
 
-            raise InvalidConfigurationError(
-                exc
-            ) from exc
+            raise InvalidConfigurationError(exc) from exc

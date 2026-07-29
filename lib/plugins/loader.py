@@ -48,22 +48,14 @@ class PluginLoader:
         metadata = self.registry.get(name)
 
         if metadata is None:
-            raise PluginNotFoundError(
-                f"Unknown plugin '{name}'."
-            )
+            raise PluginNotFoundError(f"Unknown plugin '{name}'.")
 
-        module_name = (
-            f"{metadata.package}.{metadata.name}.plugin"
-        )
+        module_name = f"{metadata.package}.{metadata.name}.plugin"
 
-        self.context.output.plugin.debug(
-            f"Importing module: {module_name}"
-        )
+        self.context.output.plugin.debug(f"Importing module: {module_name}")
 
         try:
-            module = importlib.import_module(
-                metadata.module
-            )
+            module = importlib.import_module(metadata.module)
 
         except ModuleNotFoundError as exc:
 
@@ -72,9 +64,7 @@ class PluginLoader:
             #
             if exc.name == module_name:
 
-                raise PluginNotFoundError(
-                    f"Plugin module '{module_name}' not found."
-                ) from exc
+                raise PluginNotFoundError(f"Plugin module '{module_name}' not found.") from exc
 
             #
             # Dependency inside the plugin failed.
@@ -86,9 +76,7 @@ class PluginLoader:
 
         except AttributeError as exc:
 
-            raise PluginValidationError(
-                f"{module_name} does not define PLUGIN_CLASS."
-            ) from exc
+            raise PluginValidationError(f"{module_name} does not define PLUGIN_CLASS.") from exc
 
         try:
             plugin_class = getattr(
@@ -98,22 +86,16 @@ class PluginLoader:
 
         except AttributeError as exc:
 
-            raise PluginValidationError(
-                f"Plugin class '{class_name}' not found."
-            ) from exc
+            raise PluginValidationError(f"Plugin class '{class_name}' not found.") from exc
 
         if not issubclass(
             plugin_class,
             BasePlugin,
         ):
 
-            raise PluginValidationError(
-                f"{class_name} must inherit BasePlugin."
-            )
+            raise PluginValidationError(f"{class_name} must inherit BasePlugin.")
 
-        instance = plugin_class(
-            self.context
-        )
+        instance = plugin_class(self.context)
 
         self._cache[name] = instance
 
@@ -151,6 +133,4 @@ class PluginLoader:
         Return cached plugin instances.
         """
 
-        return list(
-            self._cache.values()
-        )
+        return list(self._cache.values())

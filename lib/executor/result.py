@@ -74,8 +74,4 @@ class ExecutionResult:
         """
         status = "SUCCESS" if self.success else "FAILED"
 
-        return (
-            f"{status} "
-            f"(exit_code={self.exit_code}, "
-            f"duration={self.duration:.3f}s)"
-        )
+        return f"{status} " f"(exit_code={self.exit_code}, " f"duration={self.duration:.3f}s)"

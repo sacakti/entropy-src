@@ -17,18 +17,10 @@ class StepExecutor:
         self.context = context
 
         self._handlers = {
-
-            FailurePolicy.ABORT:
-                self._abort,
-
-            FailurePolicy.CONTINUE:
-                self._continue,
-
-            FailurePolicy.ROLLBACK:
-                self._rollback,
-
-            FailurePolicy.SKIP_REMAINING:
-                self._skip,
+            FailurePolicy.ABORT: self._abort,
+            FailurePolicy.CONTINUE: self._continue,
+            FailurePolicy.ROLLBACK: self._rollback,
+            FailurePolicy.SKIP_REMAINING: self._skip,
         }
 
     def execute(self, step):
@@ -77,9 +69,7 @@ class StepExecutor:
 
                 if attempt < attempts:
 
-                    self.context.output.system.warning(
-                        f"Retry {attempt}/{step.retry_count}"
-                    )
+                    self.context.output.system.warning(f"Retry {attempt}/{step.retry_count}")
 
         raise WorkflowStepExecutionError(
             step,
@@ -88,9 +78,7 @@ class StepExecutor:
 
     def _continue(self, step, exc):
 
-        self.context.output.system.warning(
-            f"Continuing after '{step.id}'"
-        )
+        self.context.output.system.warning(f"Continuing after '{step.id}'")
 
         return WorkflowAction.CONTINUE
 

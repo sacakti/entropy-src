@@ -10,8 +10,7 @@ class UsersMigration(BaseMigration):
     DESCRIPTION = "Create users table"
 
     @abstractmethod
-    def validate(self):
-        ...
+    def validate(self): ...
 
     def upgrade(self, connection):
 

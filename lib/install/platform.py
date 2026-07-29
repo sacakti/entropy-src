@@ -31,6 +31,4 @@ class PlatformDetector:
         if system == "Windows":
             return Platform.WINDOWS
 
-        raise RuntimeError(
-            f"Unsupported platform: {system}"
-        )
+        raise RuntimeError(f"Unsupported platform: {system}")

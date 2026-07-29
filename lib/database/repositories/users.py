@@ -137,10 +137,7 @@ class UserRepository:
             """
         )
 
-        return [
-            self._map(row)
-            for row in cursor.fetchall()
-        ]
+        return [self._map(row) for row in cursor.fetchall()]
 
     def any(self) -> bool:
 
@@ -230,12 +227,8 @@ class UserRepository:
             group_id=row["group_id"],
             system=bool(row["system"]),
             is_active=bool(row["is_active"]),
-            created_at=datetime.fromisoformat(
-                row["created_at"]
-            ) if row["created_at"] else None,
-            updated_at=datetime.fromisoformat(
-                row["updated_at"]
-            ) if row["updated_at"] else None,
+            created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
+            updated_at=datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None,
         )
 
     def count(self) -> int:

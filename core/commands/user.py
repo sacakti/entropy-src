@@ -195,18 +195,14 @@ class UserCommand(BaseCommand):
 
         if user is None:
 
-            self.context.output.user.error(
-                "User not found."
-            )
+            self.context.output.user.error("User not found.")
 
             return
 
         if user.system:
             raise SystemUserError()
 
-        if not self._confirm(
-            f"Delete '{user.username}'?"
-        ):
+        if not self._confirm(f"Delete '{user.username}'?"):
             return
 
         self.context.user_manager.delete(
@@ -228,12 +224,14 @@ class UserCommand(BaseCommand):
 
         for user in users:
 
-            rows.append([
-                user.username,
-                "Yes" if user.is_active else "No",
-                user.full_name or "",
-                user.email or "",
-            ])
+            rows.append(
+                [
+                    user.username,
+                    "Yes" if user.is_active else "No",
+                    user.full_name or "",
+                    user.email or "",
+                ]
+            )
 
         self.context.output.table(
             title="Users",
@@ -261,9 +259,7 @@ class UserCommand(BaseCommand):
 
         if user is None:
 
-            self.context.output.user.error(
-                "User not found."
-            )
+            self.context.output.user.error("User not found.")
 
             return
 
@@ -318,7 +314,6 @@ class UserCommand(BaseCommand):
         self,
         args: Namespace,
     ) -> None:
-
 
         self.context.user_manager.unlock(
             args.username,

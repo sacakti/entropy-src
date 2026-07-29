@@ -67,9 +67,7 @@ class CommandManager:
 
     def _resolve_command(self, args):
 
-        return self.get(
-            args.command or "help"
-        )
+        return self.get(args.command or "help")
 
     # ---------------------------------------------------------
     # Discovery
@@ -77,37 +75,26 @@ class CommandManager:
 
     def discover(self) -> None:
 
-        self.context.output.cli.debug(
-            "Discovering commands..."
-        )
+        self.context.output.cli.debug("Discovering commands...")
 
         for _, module_name, _ in pkgutil.iter_modules(__path__):
 
             if module_name in ("base", "manager", "exceptions"):
                 continue
 
-            module = importlib.import_module(
-                f"core.commands.{module_name}"
-            )
+            module = importlib.import_module(f"core.commands.{module_name}")
 
             for _, cls in inspect.getmembers(
                 module,
                 inspect.isclass,
             ):
 
-                if (
-                    not issubclass(cls, BaseCommand)
-                    or cls is BaseCommand
-                ):
+                if not issubclass(cls, BaseCommand) or cls is BaseCommand:
                     continue
 
-                self.register(
-                    cls(self.context)
-                )
+                self.register(cls(self.context))
 
-        self.context.output.cli.debug(
-            f"{len(self.list())} command(s) loaded."
-        )
+        self.context.output.cli.debug(f"{len(self.list())} command(s) loaded.")
 
     # ---------------------------------------------------------
     # Register
@@ -120,15 +107,11 @@ class CommandManager:
 
         metadata = command.metadata
 
-        self._commands[
-            metadata.name
-        ] = command
+        self._commands[metadata.name] = command
 
         for alias in metadata.aliases:
 
-            self._commands[
-                alias
-            ] = command
+            self._commands[alias] = command
 
     # ---------------------------------------------------------
     # Access
@@ -148,10 +131,7 @@ class CommandManager:
         #
         # Remove aliases
         #
-        commands = {
-            id(command): command
-            for command in self._commands.values()
-        }
+        commands = {id(command): command for command in self._commands.values()}
 
         return sorted(
             commands.values(),
@@ -212,6 +192,4 @@ class CommandManager:
 
         except EntropyException as ex:
 
-            self.context.output.cli.error(
-                str(ex)
-            )
+            self.context.output.cli.error(str(ex))

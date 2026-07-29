@@ -15,9 +15,7 @@ class DatabaseManager:
 
         self._context = context
 
-        self._connection = DatabaseConnection(
-            DATABASE_FILE
-        )
+        self._connection = DatabaseConnection(DATABASE_FILE)
 
         self._registry = MigrationRegistry()
 

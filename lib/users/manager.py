@@ -27,7 +27,6 @@ class UserManager:
         self._console = context.output
         self._log = context.output.user
 
-
     # ------------------------------------------------------------------
     # Initialize
     # ------------------------------------------------------------------
@@ -51,9 +50,7 @@ class UserManager:
             system=True,
         )
 
-        self._log.success(
-            "Default administrator account created."
-        )
+        self._log.success("Default administrator account created.")
 
         self._console.panel(
             title="Default Administrator",
@@ -103,9 +100,7 @@ class UserManager:
 
         user = self._repository.create(user)
 
-        self._log.success(
-            f"User '{username}' created."
-        )
+        self._log.success(f"User '{username}' created.")
 
         return user
 
@@ -123,17 +118,13 @@ class UserManager:
 
         if user is None:
 
-            self._log.warning(
-                f"Authentication failed for '{username}'."
-            )
+            self._log.warning(f"Authentication failed for '{username}'.")
 
             raise AuthenticationError()
 
         if not user.is_active:
 
-            self._log.warning(
-                f"Inactive user '{username}' attempted to authenticate."
-            )
+            self._log.warning(f"Inactive user '{username}' attempted to authenticate.")
 
             raise UserInactiveError(username)
 
@@ -144,9 +135,7 @@ class UserManager:
 
         if not verification.valid:
 
-            self._log.warning(
-                f"Authentication failed for '{username}'."
-            )
+            self._log.warning(f"Authentication failed for '{username}'.")
 
             raise AuthenticationError()
 
@@ -156,9 +145,7 @@ class UserManager:
             verification.needs_rehash,
         )
 
-        self._log.info(
-            f"User '{username}' authenticated."
-        )
+        self._log.info(f"User '{username}' authenticated.")
 
         return user
 
@@ -178,9 +165,7 @@ class UserManager:
 
         self._repository.update(user)
 
-        self._log.success(
-            f"Password changed for '{user.username}'."
-        )
+        self._log.success(f"Password changed for '{user.username}'.")
 
         return self._repository.get(user.id)
 
@@ -224,9 +209,7 @@ class UserManager:
 
         self._repository.delete(user.id)
 
-        self._log.success(
-            f"User '{user.username}' deleted."
-        )
+        self._log.success(f"User '{user.username}' deleted.")
 
     # ------------------------------------------------------------------
     # Exists
@@ -246,7 +229,6 @@ class UserManager:
     def any(self) -> bool:
 
         return self._repository.any()
-
 
     # ------------------------------------------------------------------
     # Set Active
@@ -272,12 +254,9 @@ class UserManager:
 
         action = "enabled" if active else "disabled"
 
-        self._log.success(
-            f"User '{username}' {action}."
-        )
+        self._log.success(f"User '{username}' {action}.")
 
         return user
-
 
     # ------------------------------------------------------------------
     # Unlock
@@ -306,9 +285,7 @@ class UserManager:
         #     f"User '{username}' unlocked."
         # )
 
-        raise NotImplementedError(
-            "Account locking is not implemented."
-        )
+        raise NotImplementedError("Account locking is not implemented.")
 
         return user
 
@@ -322,9 +299,7 @@ class UserManager:
     ) -> None:
 
         if not password or len(password) < 8:
-            raise WeakPasswordError(
-                "Password must contain at least 8 characters."
-            )
+            raise WeakPasswordError("Password must contain at least 8 characters.")
 
     def _rehash_password(
         self,
@@ -340,7 +315,4 @@ class UserManager:
 
         self._repository.update(user)
 
-        self._log.info(
-            f"Password hash upgraded for '{user.username}'."
-        )
-
+        self._log.info(f"Password hash upgraded for '{user.username}'.")

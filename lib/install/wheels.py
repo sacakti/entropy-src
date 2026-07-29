@@ -14,26 +14,17 @@ class WheelInstaller:
 
         self._platform = platform
 
-    def install(
-        self
-    ):
+    def install(self):
 
         if not REQUIREMENT_FILE.exists():
 
-            raise FileNotFoundError(
-                f"Requirements file not found: {REQUIREMENT_FILE}"
-            )
+            raise FileNotFoundError(f"Requirements file not found: {REQUIREMENT_FILE}")
 
-        wheel_directory = (
-            VENDOR_DIR /
-            self._platform.value
-        )
+        wheel_directory = VENDOR_DIR / self._platform.value
 
         if not wheel_directory.exists():
 
-            raise FileNotFoundError(
-                f"Wheel directory not found: {wheel_directory}"
-            )
+            raise FileNotFoundError(f"Wheel directory not found: {wheel_directory}")
 
         PACKAGE_DIR.mkdir(
             parents=True,
@@ -65,8 +56,6 @@ class WheelInstaller:
             print(result.stdout)
             print(result.stderr)
 
-            raise RuntimeError(
-                "Failed to install Python packages."
-            )
+            raise RuntimeError("Failed to install Python packages.")
 
         # print(f"Python Packages installed sucessfully.")

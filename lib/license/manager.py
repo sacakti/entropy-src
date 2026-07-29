@@ -46,10 +46,7 @@ class LicenseManager:
 
             return True
 
-        return (
-            license.expires_at >=
-            datetime.utcnow()
-        )
+        return license.expires_at >= datetime.utcnow()
 
     def is_expired(self):
 
@@ -66,10 +63,7 @@ class LicenseManager:
 
         edition = self.edition()
 
-        return (
-            feature in
-            FEATURES.get(
-                edition,
-                set(),
-            )
+        return feature in FEATURES.get(
+            edition,
+            set(),
         )

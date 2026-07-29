@@ -95,6 +95,4 @@ class EnvironmentMixin:
         "/home/oracle/releases"
         """
 
-        return Path(
-            os.path.expandvars(str(path))
-        )
+        return Path(os.path.expandvars(str(path)))

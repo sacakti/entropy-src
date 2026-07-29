@@ -9,10 +9,7 @@ from ..lib.install.manager import InstallManager
 
 def main():
 
-    result = (
-        InstallManager()
-        .install()
-    )
+    result = InstallManager().install()
 
     print(result.message)
 

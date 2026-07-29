@@ -66,9 +66,7 @@ class InformationMixin:
         try:
             digest = hashlib.new(algorithm)
         except ValueError as exc:
-            raise ValueError(
-                f"Unsupported hash algorithm: {algorithm}"
-            ) from exc
+            raise ValueError(f"Unsupported hash algorithm: {algorithm}") from exc
 
         with path.open("rb") as fp:
             while chunk := fp.read(chunk_size):
@@ -79,10 +77,8 @@ class InformationMixin:
     def md5(self, path: Path) -> str:
         return self.checksum(path, "md5")
 
-
     def sha1(self, path: Path) -> str:
         return self.checksum(path, "sha1")
-
 
     def sha256(self, path: Path) -> str:
         return self.checksum(path, "sha256")

@@ -27,9 +27,7 @@ class GeneratorManager:
 
     def discover(self) -> None:
 
-        self.context.output.cli.debug(
-            "Discovering generators..."
-        )
+        self.context.output.cli.debug("Discovering generators...")
 
         for _, module_name, _ in pkgutil.iter_modules(__path__):
 
@@ -40,28 +38,19 @@ class GeneratorManager:
             ):
                 continue
 
-            module = importlib.import_module(
-                f"core.generators.{module_name}"
-            )
+            module = importlib.import_module(f"core.generators.{module_name}")
 
             for _, cls in inspect.getmembers(
                 module,
                 inspect.isclass,
             ):
 
-                if (
-                    not issubclass(cls, BaseGenerator)
-                    or cls is BaseGenerator
-                ):
+                if not issubclass(cls, BaseGenerator) or cls is BaseGenerator:
                     continue
 
-                self.register(
-                    cls(self.context)
-                )
+                self.register(cls(self.context))
 
-        self.context.output.cli.debug(
-            f"{len(self.list())} generator(s) loaded."
-        )
+        self.context.output.cli.debug(f"{len(self.list())} generator(s) loaded.")
 
     # ---------------------------------------------------------
     # Register
@@ -72,9 +61,7 @@ class GeneratorManager:
         generator: BaseGenerator,
     ) -> None:
 
-        self._generators[
-            generator.metadata.name
-        ] = generator
+        self._generators[generator.metadata.name] = generator
 
     # ---------------------------------------------------------
     # Access

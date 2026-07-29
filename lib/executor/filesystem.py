@@ -299,10 +299,7 @@ class FileSystemMixin:
         path: PathLike,
     ):
 
-        return json.loads(
-            self.read_text(path)
-        )
-
+        return json.loads(self.read_text(path))
 
     def write_json(
         self,
@@ -378,9 +375,7 @@ class FileSystemMixin:
         Return the immediate contents of a directory.
         """
 
-        return sorted(
-            directory.iterdir()
-        )
+        return sorted(directory.iterdir())
 
     def find(
         self,
@@ -394,13 +389,9 @@ class FileSystemMixin:
 
         if recursive:
 
-            return sorted(
-                directory.rglob(pattern)
-            )
+            return sorted(directory.rglob(pattern))
 
-        return sorted(
-            directory.glob(pattern)
-        )
+        return sorted(directory.glob(pattern))
 
     def walk(
         self,

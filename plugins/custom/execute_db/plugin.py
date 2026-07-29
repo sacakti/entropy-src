@@ -28,9 +28,7 @@ class Plugin(BasePlugin):
         Execute the plugin.
         """
 
-        raise NotImplementedError(
-            "Plugin execution has not been implemented."
-        )
+        raise NotImplementedError("Plugin execution has not been implemented.")
 
 
 PLUGIN_CLASS = "Plugin"

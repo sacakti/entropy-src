@@ -84,8 +84,6 @@ class LicenseRepository(Repository):
 
     def delete(self):
 
-        self.execute(
-            "DELETE FROM licenses"
-        )
+        self.execute("DELETE FROM licenses")
 
         self.commit()

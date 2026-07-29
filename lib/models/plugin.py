@@ -40,18 +40,15 @@ class Plugin:
 
         return self.path / "plugin.py"
 
-
     @property
     def init_file(self) -> Path:
 
         return self.path / "__init__.py"
 
-
     @property
     def templates(self) -> Path:
 
         return self.path / "templates"
-
 
     @property
     def resources(self) -> Path:

@@ -120,11 +120,7 @@ class Application:
     def _initialize_output(self) -> None:
 
         self.context.output.initialize(
-            log_directory=Path(
-                self.context.configuration.get(
-                    "logging.directory"
-                )
-            ),
+            log_directory=Path(self.context.configuration.get("logging.directory")),
             level=self.context.configuration.get(
                 "logging.level",
                 "INFO",
@@ -145,13 +141,9 @@ class Application:
                 VERSION,
             )
 
-        self.context.output.system.debug(
-            "Application started"
-        )
+        self.context.output.system.debug("Application started")
 
-        self.context.output.system.debug(
-            "Environment initialized"
-        )
+        self.context.output.system.debug("Environment initialized")
 
     # ------------------------------------------------------------------
     # Database

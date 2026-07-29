@@ -13,9 +13,7 @@ class InvalidUsernameError(UserError):
 
     def __init__(self):
 
-        super().__init__(
-            "Username cannot be empty."
-        )
+        super().__init__("Username cannot be empty.")
 
 
 class UserAlreadyExistsError(UserError):
@@ -25,9 +23,7 @@ class UserAlreadyExistsError(UserError):
         username: str,
     ):
 
-        super().__init__(
-            f"User '{username}' already exists."
-        )
+        super().__init__(f"User '{username}' already exists.")
 
 
 class UserNotFoundError(UserError):
@@ -37,9 +33,7 @@ class UserNotFoundError(UserError):
         username: str,
     ):
 
-        super().__init__(
-            f"User '{username}' does not exist."
-        )
+        super().__init__(f"User '{username}' does not exist.")
 
 
 class WeakPasswordError(UserError):
@@ -56,9 +50,7 @@ class AuthenticationError(UserError):
 
     def __init__(self):
 
-        super().__init__(
-            "Invalid username or password."
-        )
+        super().__init__("Invalid username or password.")
 
 
 class UserInactiveError(UserError):
@@ -68,20 +60,16 @@ class UserInactiveError(UserError):
         username: str,
     ):
 
-        super().__init__(
-            f"User '{username}' is inactive."
-        )
+        super().__init__(f"User '{username}' is inactive.")
+
 
 class SystemUserError(UserError):
 
     def __init__(self, *args):
-        super().__init__(
-            "System user cannot be disabled or deleted."
-        )
+        super().__init__("System user cannot be disabled or deleted.")
+
 
 class PasswordsNotMatchError(UserError):
     def __init__(self):
 
-            super().__init__(
-                "Passwords do not match."
-            )
+        super().__init__("Passwords do not match.")

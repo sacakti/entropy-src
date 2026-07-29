@@ -32,9 +32,7 @@ class TemplateEngine:
         # )
 
         self._environment = Environment(
-            loader=FileSystemLoader(
-                TEMPLATE_DIR
-            ),
+            loader=FileSystemLoader(TEMPLATE_DIR),
             autoescape=False,
             keep_trailing_newline=True,
             trim_blocks=True,

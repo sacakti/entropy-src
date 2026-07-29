@@ -20,9 +20,7 @@ def confirm() -> bool:
     print("  • Runtime files")
     print()
 
-    response = input(
-        "Continue? [y/N]: "
-    ).strip().lower()
+    response = input("Continue? [y/N]: ").strip().lower()
 
     return response in ("y", "yes")
 
@@ -35,10 +33,7 @@ def main():
 
         return
 
-    result = (
-        InstallManager()
-        .uninstall()
-    )
+    result = InstallManager().uninstall()
 
     print(result.message)
 

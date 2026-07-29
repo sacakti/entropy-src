@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .manager import OutputManager
 
+
 class CategoryLogger:
 
     def __init__(self, manager: "OutputManager", category: str):

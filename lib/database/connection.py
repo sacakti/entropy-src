@@ -20,9 +20,7 @@ class DatabaseConnection:
 
         if self._connection is None:
 
-            self._connection = sqlite3.connect(
-                self._database
-            )
+            self._connection = sqlite3.connect(self._database)
 
             self._connection.row_factory = sqlite3.Row
 

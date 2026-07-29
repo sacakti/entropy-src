@@ -28,8 +28,5 @@ class HelpCommand(BaseCommand):
                 continue
 
             self.context.output.print(
-
-                f"{command.metadata.name:<18}"
-
-                f"{command.metadata.description}"
+                f"{command.metadata.name:<18}" f"{command.metadata.description}"
             )

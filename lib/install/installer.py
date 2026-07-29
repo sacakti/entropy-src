@@ -1,4 +1,3 @@
-
 """
 Entropy installer.
 """
@@ -21,6 +20,7 @@ class InstallerResult:
 
     message: str
 
+
 success_msg = f"""
 ==================================================
 Entropy installed successfully.
@@ -36,6 +36,7 @@ Launcher
     ~/.local/bin/ent
 
 """
+
 
 class Installer:
 
@@ -133,7 +134,7 @@ class Installer:
 
         path_exists = launcher_dir in paths
 
-        launcher_not_exists = f'''
+        launcher_not_exists = f"""
 The launcher directory is not on your PATH.
 
 Add the following line to your shell profile (~/.zshrc, ~/.bashrc, etc.):
@@ -149,7 +150,7 @@ or open a new terminal.
 After that, run:
 
     ent
-'''
+"""
         if path_exists:
             return """
 You can now start Entropy by running:

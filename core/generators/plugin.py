@@ -2,7 +2,6 @@
 Plugin generator.
 """
 
-
 from core.constants import PLUGIN_DIR, PluginTemplates
 from core.generators.base import (
     BaseGenerator,
@@ -36,9 +35,7 @@ class PluginGenerator(BaseGenerator):
 
     def generate(self, args) -> None:
 
-        task = self.context.output.progress(
-            f"Generating plugin '{args.name}'..."
-        )
+        task = self.context.output.progress(f"Generating plugin '{args.name}'...")
 
         try:
 

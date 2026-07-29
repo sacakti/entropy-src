@@ -56,7 +56,7 @@ LOCK_DIR = RUNTIME_DIR / "locks"
 # Wheels constants
 # ------------------------------------------------------------------
 VENDOR_DIR = RESOURCE_DIR / "wheels"
-REQUIREMENT_FILE =  VENDOR_DIR / "requirements.txt"
+REQUIREMENT_FILE = VENDOR_DIR / "requirements.txt"
 LAUNCHER_DIR_WIN = Path.home() / "AppData" / "Local" / "Programs" / "Entropy" / "ent.cmd"
 LAUNCHER_DIR_UNIX = Path.home() / ".local" / "bin" / "ent"
 
@@ -64,9 +64,7 @@ LAUNCHER_DIR_UNIX = Path.home() / ".local" / "bin" / "ent"
 # Database migration constants
 # ------------------------------------------------------------------
 
-DATABASE_MIGRATION_PACKAGE = (
-    "lib.database.migrations"
-)
+DATABASE_MIGRATION_PACKAGE = "lib.database.migrations"
 
 # ------------------------------------------------------------------
 # Linux Executor constants
@@ -137,6 +135,7 @@ CONSOLE_LEVELS = {
 # ------------------------------------------------------------------
 # Template constants
 # ------------------------------------------------------------------
+
 
 class PluginTemplates:
     """

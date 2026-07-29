@@ -43,6 +43,4 @@ class Uninstaller:
 
         if ENTROPY_HOME.exists():
 
-            shutil.rmtree(
-                ENTROPY_HOME
-            )
+            shutil.rmtree(ENTROPY_HOME)

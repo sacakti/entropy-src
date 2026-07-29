@@ -38,19 +38,14 @@ class SessionManager:
             SESSION_DIRECTORY,
         )
 
-        self._executor.write_json(
-            SESSION_FILE,
-                session.to_dict()
-        )
+        self._executor.write_json(SESSION_FILE, session.to_dict())
 
         self._executor.chmod(
             SESSION_FILE,
             0o600,
         )
 
-        self._log.debug(
-            f"Session saved for '{session.username}'."
-        )
+        self._log.debug(f"Session saved for '{session.username}'.")
 
     # ------------------------------------------------------------------
     # Load
@@ -65,15 +60,11 @@ class SessionManager:
         ):
             return None
 
-        data = self._executor.read_json(
-            SESSION_FILE
-        )
+        data = self._executor.read_json(SESSION_FILE)
 
         session = Session.from_dict(data)
 
-        self._log.debug(
-            f"Session loaded for '{session.username}'."
-        )
+        self._log.debug(f"Session loaded for '{session.username}'.")
 
         return session
 
@@ -87,9 +78,7 @@ class SessionManager:
             SESSION_FILE,
         )
 
-        self._log.debug(
-            "Session deleted."
-        )
+        self._log.debug("Session deleted.")
 
     # ------------------------------------------------------------------
     # Login
@@ -126,9 +115,7 @@ class SessionManager:
 
         self._save(session)
 
-        self._log.info(
-            f"User '{user.username}' authenticated."
-        )
+        self._log.info(f"User '{user.username}' authenticated.")
 
         return session
 
@@ -150,9 +137,7 @@ class SessionManager:
 
         self._delete()
 
-        self._log.info(
-            f"User '{session.username}' logged out."
-        )
+        self._log.info(f"User '{session.username}' logged out.")
 
     # ------------------------------------------------------------------
     # Current
@@ -171,9 +156,7 @@ class SessionManager:
 
             self._delete()
 
-            self._log.info(
-                f"Session expired for '{session.username}'."
-            )
+            self._log.info(f"Session expired for '{session.username}'.")
 
             return None
 

@@ -33,17 +33,11 @@ class ConfigurationManager:
         Load configuration.
         """
 
-        configuration = self._loader.load(
-            config_file
-        )
+        configuration = self._loader.load(config_file)
 
-        self._validator.validate(
-            configuration
-        )
+        self._validator.validate(configuration)
 
-        self._configuration = ConfigurationModel(
-            configuration
-        )
+        self._configuration = ConfigurationModel(configuration)
 
     def get(
         self,
@@ -56,9 +50,7 @@ class ConfigurationManager:
 
         if self._configuration is None:
 
-            raise ConfigurationNotLoadedError(
-                "Configuration has not been loaded."
-            )
+            raise ConfigurationNotLoadedError("Configuration has not been loaded.")
 
         return self._configuration.get(
             path,

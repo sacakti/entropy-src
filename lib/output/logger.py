@@ -19,7 +19,6 @@ class LoggerEngine:
 
         self._initialized = False
 
-
     def initialize(
         self,
         log_directory: Path,
@@ -38,9 +37,7 @@ class LoggerEngine:
             exist_ok=True,
         )
 
-        formatter = logging.Formatter(
-            "%(asctime)s | %(levelname)-8s | %(name)-10s | %(message)s"
-        )
+        formatter = logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)-10s | %(message)s")
 
         log_level = getattr(
             logging,

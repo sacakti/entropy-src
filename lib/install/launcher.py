@@ -39,9 +39,7 @@ class Launcher:
             encoding="utf-8",
         )
 
-        launcher.chmod(
-            launcher.stat().st_mode | stat.S_IEXEC
-        )
+        launcher.chmod(launcher.stat().st_mode | stat.S_IEXEC)
 
         return launcher
 
@@ -65,13 +63,9 @@ class Launcher:
 
         if self._platform == Platform.WINDOWS:
 
-            return (
-                LAUNCHER_DIR_WIN
-            )
+            return LAUNCHER_DIR_WIN
 
-        return (
-            LAUNCHER_DIR_UNIX
-        )
+        return LAUNCHER_DIR_UNIX
 
     def _script(self) -> str:
 
@@ -79,14 +73,6 @@ class Launcher:
 
         if self._platform == Platform.WINDOWS:
 
-            return (
-                "@echo off\n"
-                f"\"{sys.executable}\" "
-                f"\"{entropy}\" %*\n"
-            )
+            return "@echo off\n" f'"{sys.executable}" ' f'"{entropy}" %*\n'
 
-        return (
-            "#!/usr/bin/env bash\n\n"
-            f'exec "{sys.executable}" '
-            f'"{entropy}" "$@"\n'
-        )
+        return "#!/usr/bin/env bash\n\n" f'exec "{sys.executable}" ' f'"{entropy}" "$@"\n'

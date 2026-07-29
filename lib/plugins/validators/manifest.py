@@ -18,9 +18,7 @@ class ManifestValidator(BaseValidator):
     Validates plugin manifests.
     """
 
-    VERSION_PATTERN = re.compile(
-        r"^\d+\.\d+\.\d+$"
-    )
+    VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 
     REQUIRED_FIELDS = (
         "name",
@@ -51,9 +49,7 @@ class ManifestValidator(BaseValidator):
 
         if not manifest.exists():
 
-            self._add_error(
-                "Missing plugin.json."
-            )
+            self._add_error("Missing plugin.json.")
 
             self._raise(directory)
 
@@ -68,9 +64,7 @@ class ManifestValidator(BaseValidator):
 
         except json.JSONDecodeError as exc:
 
-            self._add_error(
-                f"Invalid JSON: {exc.msg}"
-            )
+            self._add_error(f"Invalid JSON: {exc.msg}")
 
             self._raise(directory)
 
@@ -101,9 +95,7 @@ class ManifestValidator(BaseValidator):
 
             if field not in data:
 
-                self._add_error(
-                    f"Missing required field '{field}'."
-                )
+                self._add_error(f"Missing required field '{field}'.")
 
     def _validate_version(
         self,
@@ -117,9 +109,7 @@ class ManifestValidator(BaseValidator):
 
         if not self.VERSION_PATTERN.fullmatch(version):
 
-            self._add_error(
-                f"Invalid version '{version}'."
-            )
+            self._add_error(f"Invalid version '{version}'.")
 
     def _validate_directory(
         self,
@@ -150,9 +140,7 @@ class ManifestValidator(BaseValidator):
 
             if not (directory / filename).exists():
 
-                self._add_error(
-                    f"Missing required file '{filename}'."
-                )
+                self._add_error(f"Missing required file '{filename}'.")
 
     def _add_error(
         self,
@@ -169,12 +157,8 @@ class ManifestValidator(BaseValidator):
         if not self._errors:
             return
 
-        message = (
-            f"Invalid plugin '{directory.name}':\n\n"
-            + "\n".join(
-                f"  • {error}"
-                for error in self._errors
-            )
+        message = f"Invalid plugin '{directory.name}':\n\n" + "\n".join(
+            f"  • {error}" for error in self._errors
         )
 
         raise ValueError(message)

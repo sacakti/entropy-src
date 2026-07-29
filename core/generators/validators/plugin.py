@@ -9,9 +9,7 @@ from core.generators.exceptions import (
 
 class PluginValidator:
 
-    NAME_PATTERN = re.compile(
-        r"^[a-z][a-z0-9_]*$"
-    )
+    NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
     @classmethod
     def validate(
@@ -30,9 +28,7 @@ class PluginValidator:
     ) -> None:
 
         if not name:
-            raise InvalidPluginNameError(
-                "Plugin name is required."
-            )
+            raise InvalidPluginNameError("Plugin name is required.")
 
         if not cls.NAME_PATTERN.fullmatch(name):
             raise InvalidPluginNameError(
@@ -49,6 +45,4 @@ class PluginValidator:
         plugin = PLUGIN_DIR / name
 
         if plugin.exists():
-            raise PluginAlreadyExistsError(
-                f"Plugin '{name}' already exists."
-            )
+            raise PluginAlreadyExistsError(f"Plugin '{name}' already exists.")

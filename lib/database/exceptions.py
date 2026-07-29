@@ -6,4 +6,4 @@ from core.exceptions import EntropyException
 
 
 class DatabseExceptions(EntropyException):
-     """Base class for all database-related errors."""
+    """Base class for all database-related errors."""

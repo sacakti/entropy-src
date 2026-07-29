@@ -46,9 +46,7 @@ class WorkflowLoader:
                     enabled=step.get("enabled", True),
                     config=step.get("config", {}),
                     retry_count=step.get("retry_count", 0),
-                    on_failure=FailurePolicy(
-                        step.get("on_failure", "abort")
-                    ),
+                    on_failure=FailurePolicy(step.get("on_failure", "abort")),
                 )
                 for step in raw["steps"]
             ],

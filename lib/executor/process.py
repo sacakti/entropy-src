@@ -74,11 +74,7 @@ class ProcessMixin:
 
         duration = time.perf_counter() - start
 
-        command_text = (
-            " ".join(map(str, command))
-            if isinstance(command, list)
-            else command
-        )
+        command_text = " ".join(map(str, command)) if isinstance(command, list) else command
 
         return ExecutionResult(
             command=command_text,

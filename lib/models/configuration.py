@@ -46,10 +46,13 @@ class ConfigurationModel:
         path: str,
     ) -> bool:
 
-        return self.get(
-            path,
-            default=object(),
-        ) is not object()
+        return (
+            self.get(
+                path,
+                default=object(),
+            )
+            is not object()
+        )
 
     def all(self) -> dict:
 

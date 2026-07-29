@@ -17,28 +17,16 @@ class Edition(str, Enum):
 
 
 FEATURES = {
-
     Edition.COMMUNITY: set(),
-
     Edition.PROFESSIONAL: {
-
         Feature.REPORTS,
-
         Feature.API,
-
     },
-
     Edition.ENTERPRISE: {
-
         Feature.REPORTS,
-
         Feature.API,
-
         Feature.PARALLEL,
-
         Feature.AGENTS,
-
         Feature.PLUGIN_STORE,
-
     },
 }

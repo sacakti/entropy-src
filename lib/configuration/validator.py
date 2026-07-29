@@ -32,21 +32,10 @@ class ConfigurationValidator:
 
             if section not in configuration:
 
-                errors.append(
-                    f"Missing configuration section "
-                    f"'{section}'."
-                )
+                errors.append(f"Missing configuration section " f"'{section}'.")
 
         if errors:
 
-            message = (
-                "Invalid configuration:\n\n"
-                + "\n".join(
-                    f"  • {error}"
-                    for error in errors
-                )
-            )
+            message = "Invalid configuration:\n\n" + "\n".join(f"  • {error}" for error in errors)
 
-            raise InvalidConfigurationError(
-                message
-            )
+            raise InvalidConfigurationError(message)

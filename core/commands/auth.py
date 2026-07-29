@@ -56,6 +56,7 @@ class AuthCommand(BaseCommand):
             "status",
             help="Show current session.",
         )
+
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -87,15 +88,11 @@ class AuthCommand(BaseCommand):
 
         if session:
 
-            self.context.output.auth.success(
-                f"Already authenticated as '{session.username}'."
-            )
+            self.context.output.auth.success(f"Already authenticated as '{session.username}'.")
 
             return
 
-        username = self.context.output.prompt(
-            "Username"
-        )
+        username = self.context.output.prompt("Username")
 
         password = self.context.output.prompt(
             "Password",
@@ -107,9 +104,7 @@ class AuthCommand(BaseCommand):
             password,
         )
 
-        self.context.output.auth.success(
-            f"Authenticated as '{session.username}'."
-        )
+        self.context.output.auth.success(f"Authenticated as '{session.username}'.")
 
     def _logout(
         self,
@@ -118,17 +113,13 @@ class AuthCommand(BaseCommand):
 
         if not self.context.session_manager.authenticated():
 
-            self.context.output.auth.info(
-                "No active session."
-            )
+            self.context.output.auth.info("No active session.")
 
             return
 
         self.context.session_manager.logout()
 
-        self.context.output.auth.success(
-            "Logged out."
-        )
+        self.context.output.auth.success("Logged out.")
 
     def _status(
         self,
@@ -139,16 +130,11 @@ class AuthCommand(BaseCommand):
 
         if session is None:
 
-            self.context.output.auth.info(
-                "Not authenticated."
-            )
+            self.context.output.auth.info("Not authenticated.")
 
             return
 
         self.context.output.panel(
-            lines=[
-                f"Username : {session.username}\n",
-                f"Expires  : {session.expires_at}"
-            ],
+            lines=[f"Username : {session.username}\n", f"Expires  : {session.expires_at}"],
             title="Authenticated Session",
         )

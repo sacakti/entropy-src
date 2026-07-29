@@ -40,9 +40,7 @@ class BasePlugin:
         Execute the plugin.
         """
 
-        raise PluginNotImplementedError(
-            "Plugin execution has not been implemented."
-        )
+        raise PluginNotImplementedError("Plugin execution has not been implemented.")
 
     def dispose(self) -> None:
         """

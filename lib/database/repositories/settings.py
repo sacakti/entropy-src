@@ -2,7 +2,6 @@
 Settings repository.
 """
 
-
 from lib.models.database import Setting
 
 from ..repository import Repository

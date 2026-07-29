@@ -209,22 +209,10 @@ class OutputManager:
         title,
         lines,
     ):
-        self._console.panel(
-            title,
-            lines
-        )
+        self._console.panel(title, lines)
 
-    def prompt(
-        self,
-        message:str,
-        default:None = None,
-        password:bool = False
-    ):
-        return self._console.prompt(
-            message=message,
-            default=default,
-            password=password
-        )
+    def prompt(self, message: str, default: None = None, password: bool = False):
+        return self._console.prompt(message=message, default=default, password=password)
 
     def confirm(
         self,
@@ -232,10 +220,7 @@ class OutputManager:
         default: bool = False,
     ) -> bool:
 
-        return self._console.confirm(
-            message=message,
-            default=default
-        )
+        return self._console.confirm(message=message, default=default)
 
     def shutdown(self):
 

@@ -67,9 +67,11 @@ def parse_arguments():
 
     return parser.parse_args()
 
+
 def current_machine():
 
     return platform.machine().lower()
+
 
 def mac_platform():
 
@@ -81,9 +83,8 @@ def mac_platform():
     if machine == "x86_64":
         return "macosx_10_9_x86_64"
 
-    raise RuntimeError(
-        f"Unsupported macOS architecture: {machine}"
-    )
+    raise RuntimeError(f"Unsupported macOS architecture: {machine}")
+
 
 def current_platform():
 
@@ -98,9 +99,7 @@ def current_platform():
     try:
         return mapping[system]
     except KeyError as err:
-        raise RuntimeError(
-            f"Unsupported platform: {system}"
-        ) from err
+        raise RuntimeError(f"Unsupported platform: {system}") from err
 
 
 def download(platform_name, python_version, clean):
@@ -150,28 +149,34 @@ def download(platform_name, python_version, clean):
 
     if platform_name == "mac":
 
-        command.extend([
-            "--platform",
-            mac_platform(),
-        ])
+        command.extend(
+            [
+                "--platform",
+                mac_platform(),
+            ]
+        )
 
     else:
 
-        command.extend([
-            "--platform",
-            SUPPORTED_PLATFORMS[platform_name],
-        ])
+        command.extend(
+            [
+                "--platform",
+                SUPPORTED_PLATFORMS[platform_name],
+            ]
+        )
 
-    command.extend([
-        "--implementation",
-        "cp",
-        "--python-version",
-        version,
-        "--abi",
-        f"cp{version}",
-        "-r",
-        str(REQUIREMENTS),
-    ])
+    command.extend(
+        [
+            "--implementation",
+            "cp",
+            "--python-version",
+            version,
+            "--abi",
+            f"cp{version}",
+            "-r",
+            str(REQUIREMENTS),
+        ]
+    )
 
     print(f"\nDownloading {platform_name} wheels...")
 
