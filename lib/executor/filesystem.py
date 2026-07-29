@@ -6,6 +6,7 @@ Provides common file and directory operations using pathlib and shutil.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 
@@ -293,6 +294,31 @@ class FileSystemMixin:
             fp.write(text)
 
         return path
+
+    def read_json(
+        self,
+        path: PathLike,
+    ):
+
+        return json.loads(
+            self.read_text(path)
+        )
+
+
+    def write_json(
+        self,
+        path: PathLike,
+        data,
+        indent: int = 4,
+    ):
+
+        return self.write_text(
+            path,
+            json.dumps(
+                data,
+                indent=indent,
+            ),
+        )
 
     def touch(
         self,

@@ -13,6 +13,7 @@ class HelpCommand(BaseCommand):
     metadata = CommandMetadata(
         name="version",
         description="Display entropy version.",
+        authentication_required=False,
     )
 
     def configure(self, parser):

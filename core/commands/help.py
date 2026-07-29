@@ -12,6 +12,7 @@ class HelpCommand(BaseCommand):
     metadata = CommandMetadata(
         name="help",
         description="Display available commands.",
+        authentication_required=False,
     )
 
     def configure(self, parser):

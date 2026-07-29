@@ -150,6 +150,5 @@ Desktop.ini
 # -----------------------------------------------------------------------------
 
 plugins/local/
-core/vendor/
 resources/workflows/local/
 resources/config/*.local.json

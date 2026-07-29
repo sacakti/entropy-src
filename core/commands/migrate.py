@@ -18,6 +18,7 @@ class MigrateCommand(BaseCommand):
     metadata = CommandMetadata(
         name="migrate",
         description="Execute pending database migrations.",
+        authentication_required=True,
     )
 
     def configure(

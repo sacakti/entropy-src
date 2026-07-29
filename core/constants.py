@@ -38,6 +38,10 @@ PACKAGE_DIR = ENTROPY_HOME / "site-packages"
 
 DATABASE_DIR = ENTROPY_HOME / "database"
 
+SESSION_DIRECTORY = ENTROPY_HOME / "sessions"
+
+SESSION_FILE = SESSION_DIRECTORY / "current.json"
+
 DATABASE_FILE = DATABASE_DIR / "entropy.db"
 
 CONFIG_FILE = CONFIG_DIR / "entropy.json"
@@ -102,6 +106,7 @@ SEARCH_PATHS = (
 CATEGORIES = (
     "system",
     "user",
+    "auth",
     "cli",
     "workflow",
     "database",

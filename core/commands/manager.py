@@ -17,6 +17,12 @@ from core.commands.exceptions import CommandNotFoundError
 
 class CommandManager:
 
+    PUBLIC_COMMANDS = {
+        "auth",
+        "help",
+        "version",
+    }
+
     def __init__(self, context):
 
         self.context = context
@@ -156,6 +162,20 @@ class CommandManager:
     # Execute
     # ---------------------------------------------------------
 
+    # def execute(
+    #     self,
+    #     name: str,
+    #     args,
+    # ) -> None:
+
+    #     command = self.get(name)
+
+    #     if command is None:
+
+    #         raise CommandNotFoundError(name)
+
+    #     command.execute(args)
+
     def execute(
         self,
         name: str,
@@ -165,8 +185,15 @@ class CommandManager:
         command = self.get(name)
 
         if command is None:
-
             raise CommandNotFoundError(name)
+
+        if command.metadata.name not in self.PUBLIC_COMMANDS:
+
+            self.context.session_manager.require()
+
+        # if command.metadata.authentication_required:
+
+        #     self.context.session_manager.require()
 
         command.execute(args)
 

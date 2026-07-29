@@ -12,6 +12,7 @@ class MakeCommand(BaseCommand):
     metadata = CommandMetadata(
         name="make",
         description="Generate framework artifacts.",
+        authentication_required=True,
     )
 
     def configure(self, parser):

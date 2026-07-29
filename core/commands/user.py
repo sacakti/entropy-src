@@ -20,6 +20,7 @@ class UserCommand(BaseCommand):
     metadata = CommandMetadata(
         name="user",
         description="Manage users.",
+        authentication_required=False,
     )
 
     # ------------------------------------------------------------------

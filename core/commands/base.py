@@ -22,6 +22,8 @@ class CommandMetadata:
 
     requires_admin: bool = False
 
+    authentication_required: bool = True
+
 
 class BaseCommand(ABC):
 
