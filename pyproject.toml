@@ -153,7 +153,11 @@ ignore_missing_imports = true
 ##########################################################
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+minversion = "8.0"
+
+testpaths = [
+    "tests",
+]
 
 python_files = [
     "test_*.py",
@@ -170,6 +174,10 @@ python_functions = [
 addopts = [
     "-ra",
     "--strict-markers",
+]
+
+filterwarnings = [
+    "error",
 ]
 
 ##########################################################

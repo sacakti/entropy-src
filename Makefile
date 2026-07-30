@@ -1,4 +1,4 @@
-.PHONY: format lint typecheck test check fix clean
+.PHONY: format lint typecheck test check coverage clean fix
 
 format:
 	black .
@@ -12,10 +12,14 @@ typecheck:
 test:
 	pytest
 
-check: lint
+coverage:
+	pytest --cov=core --cov=lib --cov-report=term-missing
+
+check:
+	ruff check .
 	black --check .
-	$(MAKE) typecheck
-	$(MAKE) test
+	mypy .
+	pytest
 
 fix:
 	ruff check . --fix

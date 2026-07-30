@@ -15,6 +15,7 @@ from lib.users.exceptions import (
     SystemUserError,
     UserAlreadyExistsError,
     UserInactiveError,
+    UserNotFoundError,
     WeakPasswordError,
 )
 from lib.users.password import PasswordService
@@ -122,7 +123,11 @@ class UserManager:
         password: str,
     ) -> User:
 
-        user = self._repository.get_by_username(username)
+        try:
+            user = self._repository.get_by_username(username)
+        except UserNotFoundError:
+            self._log.warning(f"Authentication failed for '{username}'.")
+            raise AuthenticationError() from None
 
         if user is None:
 

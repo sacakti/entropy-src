@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from core.constants import SESSION_DIRECTORY, SESSION_FILE
 from core.context import EntropyContext
@@ -20,11 +21,16 @@ class SessionManager:
     def __init__(
         self,
         context: EntropyContext,
+        session_file: Path = SESSION_FILE,
+        session_directory: Path = SESSION_DIRECTORY,
     ) -> None:
 
         assert context.user_manager is not None
         assert context.executor is not None
 
+        self._now = datetime.now
+        self.session_file = session_file
+        self.session_directory = session_directory
         self._users: UserManager = context.user_manager
         self._executor: LinuxExecutor = context.executor
         self._log = context.output.auth
@@ -39,13 +45,13 @@ class SessionManager:
     ) -> None:
 
         self._executor.mkdir(
-            SESSION_DIRECTORY,
+            self.session_directory,
         )
 
-        self._executor.write_json(SESSION_FILE, session.to_dict())
+        self._executor.write_json(self.session_file, session.to_dict())
 
         self._executor.chmod(
-            SESSION_FILE,
+            self.session_file,
             0o600,
         )
 
@@ -60,11 +66,11 @@ class SessionManager:
     ) -> Session | None:
 
         if not self._executor.exists(
-            SESSION_FILE,
+            self.session_file,
         ):
             return None
 
-        data = self._executor.read_json(SESSION_FILE)
+        data = self._executor.read_json(self.session_file)
 
         session = Session.from_dict(data)
 
@@ -79,7 +85,7 @@ class SessionManager:
     def _delete(self) -> None:
 
         self._executor.remove(
-            SESSION_FILE,
+            self.session_file,
         )
 
         self._log.debug("Session deleted.")
@@ -102,7 +108,7 @@ class SessionManager:
             password,
         )
 
-        now = datetime.now()
+        now = self._now()
 
         existing = self.current()
 
@@ -158,7 +164,7 @@ class SessionManager:
         if session is None:
             return None
 
-        if datetime.now() >= session.expires_at:
+        if self._now() >= session.expires_at:
 
             self._delete()
 

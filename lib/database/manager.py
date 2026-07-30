@@ -2,6 +2,8 @@
 Database manager.
 """
 
+from pathlib import Path
+
 from core.constants import DATABASE_FILE
 
 from .connection import DatabaseConnection
@@ -11,11 +13,15 @@ from .registry import MigrationRegistry
 
 class DatabaseManager:
 
-    def __init__(self, context):
+    def __init__(
+        self,
+        context,
+        database: Path = DATABASE_FILE,
+    ):
 
         self._context = context
 
-        self._connection = DatabaseConnection(DATABASE_FILE)
+        self._connection = DatabaseConnection(database)
 
         self._registry = MigrationRegistry()
 

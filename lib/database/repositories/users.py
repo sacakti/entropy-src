@@ -270,4 +270,9 @@ class UserRepository:
             """
         )
 
-        return self._map(cursor.fetchone())
+        row = cursor.fetchone()
+
+        if row is None:
+            raise UserNotFoundError("system")
+
+        return self._map(row)
