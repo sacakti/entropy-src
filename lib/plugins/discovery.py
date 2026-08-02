@@ -4,11 +4,8 @@ Plugin discovery.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from core.context import EntropyContext
 
-from .metadata import PluginMetadata
 from .registry import PluginRegistry
 from .validators.manifest import ManifestValidator
 
@@ -38,11 +35,7 @@ class PluginDiscovery:
 
         assert self._context.bootstrap is not None
 
-        root = (
-            self._context.bootstrap
-            .resources
-            .plugins
-        )
+        root = self._context.bootstrap.resources.plugins
 
         if not root.exists():
 

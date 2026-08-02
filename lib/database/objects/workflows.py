@@ -2,9 +2,8 @@
 Workflow execution history.
 """
 
-from lib.database.connection import DatabaseConnection
-
 from lib.database.base import DatabaseObject
+from lib.database.connection import DatabaseConnection
 
 
 class WorkflowsTable(DatabaseObject):

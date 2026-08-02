@@ -1,10 +1,10 @@
 from unittest.mock import Mock
 
+from core.models.enums import EventType
+from core.observability.event import Event
 from core.observability.logging.logger import ExecutionLogger
 from core.observability.logging.manager import LoggingManager
 from core.observability.logging.sink import LoggingSink
-from core.models.enums import EventType
-from core.observability.event import Event
 
 
 def test_logging(event):
@@ -20,7 +20,6 @@ def test_logging(event):
     sink.publish(event)
 
     logger.info.assert_called_once()
-
 
 
 def test_logging_error(node):

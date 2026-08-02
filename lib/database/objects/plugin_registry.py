@@ -2,9 +2,8 @@
 Plugin registry table.
 """
 
-from lib.database.connection import DatabaseConnection
-
 from lib.database.base import DatabaseObject
+from lib.database.connection import DatabaseConnection
 
 
 class PluginRegistryTable(DatabaseObject):

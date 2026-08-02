@@ -5,10 +5,7 @@ Rich progress manager.
 from __future__ import annotations
 
 from rich.console import Console
-from rich.progress import Progress
-from rich.progress import SpinnerColumn
-from rich.progress import TaskID
-from rich.progress import TextColumn
+from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 
 
 class ProgressManager:
@@ -107,9 +104,7 @@ class ProgressManager:
             node_id,
         )
 
-        self._progress.console.print(
-            f"[green]✔[/] {message}"
-        )
+        self._progress.console.print(f"[green]✔[/] {message}")
 
     def warning(
         self,
@@ -121,9 +116,7 @@ class ProgressManager:
             node_id,
         )
 
-        self._progress.console.print(
-            f"[yellow]⚠[/] {message}"
-        )
+        self._progress.console.print(f"[yellow]⚠[/] {message}")
 
     def error(
         self,
@@ -135,6 +128,4 @@ class ProgressManager:
             node_id,
         )
 
-        self._progress.console.print(
-            f"[red]✖[/] {message}"
-        )
+        self._progress.console.print(f"[red]✖[/] {message}")

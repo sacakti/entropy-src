@@ -4,8 +4,7 @@ Plugin base class.
 
 from __future__ import annotations
 
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from .exceptions import PluginNotImplementedError
@@ -38,7 +37,7 @@ class Plugin(ABC):
 
     def initialize(
         self,
-        context: "ExecutionContext",
+        context: ExecutionContext,
     ) -> None:
         """
         Initialize plugin resources.
@@ -46,7 +45,7 @@ class Plugin(ABC):
 
     def validate(
         self,
-        step: "WorkflowStep",
+        step: WorkflowStep,
     ) -> None:
         """
         Validate workflow step configuration.
@@ -55,16 +54,14 @@ class Plugin(ABC):
     @abstractmethod
     def execute(
         self,
-        context: "ExecutionContext",
-        step: "WorkflowStep",
+        context: ExecutionContext,
+        step: WorkflowStep,
     ) -> None:
         """
         Execute the plugin.
         """
 
-        raise PluginNotImplementedError(
-            "Plugin execution has not been implemented."
-        )
+        raise PluginNotImplementedError("Plugin execution has not been implemented.")
 
     def dispose(
         self,
@@ -79,8 +76,8 @@ class Plugin(ABC):
 
     def run(
         self,
-        context: "ExecutionContext",
-        step: "WorkflowStep",
+        context: ExecutionContext,
+        step: WorkflowStep,
     ) -> None:
         """
         Execute the complete plugin lifecycle.

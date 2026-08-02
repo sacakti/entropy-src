@@ -5,6 +5,7 @@ Workflow activity.
 from __future__ import annotations
 
 from lib.models.runtime import RuntimeNodeType
+
 from core.models.enums import EventType
 
 from .scope import ExecutionScope

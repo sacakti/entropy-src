@@ -9,7 +9,6 @@ from .exceptions import (
     PluginNotFoundError,
     PluginValidationError,
 )
-
 from .metadata import PluginMetadata
 from .plugin import Plugin
 

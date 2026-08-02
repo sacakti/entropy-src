@@ -59,17 +59,13 @@ class AuthenticationService:
 
         except UserNotFoundError:
 
-            self._log.warning(
-                f"Authentication failed for '{username}'."
-            )
+            self._log.warning(f"Authentication failed for '{username}'.")
 
             raise AuthenticationError() from None
 
         if not user.is_active:
 
-            self._log.warning(
-                f"Inactive user '{username}' attempted authentication."
-            )
+            self._log.warning(f"Inactive user '{username}' attempted authentication.")
 
             raise UserInactiveError(
                 username,
@@ -82,9 +78,7 @@ class AuthenticationService:
 
         if not verification.valid:
 
-            self._log.warning(
-                f"Authentication failed for '{username}'."
-            )
+            self._log.warning(f"Authentication failed for '{username}'.")
 
             raise AuthenticationError()
 
@@ -98,12 +92,8 @@ class AuthenticationService:
                 user,
             )
 
-            self._log.info(
-                f"Password hash upgraded for '{user.username}'."
-            )
+            self._log.info(f"Password hash upgraded for '{user.username}'.")
 
-        self._log.info(
-            f"User '{username}' authenticated."
-        )
+        self._log.info(f"User '{username}' authenticated.")
 
         return user

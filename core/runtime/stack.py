@@ -51,9 +51,7 @@ class RuntimeStack:
 
         if not self._stack:
 
-            raise RuntimeError(
-                "Runtime stack is empty."
-            )
+            raise RuntimeError("Runtime stack is empty.")
 
         return self._stack.pop()
 
@@ -146,9 +144,6 @@ class RuntimeStack:
 
     def __repr__(self) -> str:
 
-        names = " -> ".join(
-            node.name
-            for node in self._stack
-        )
+        names = " -> ".join(node.name for node in self._stack)
 
         return f"RuntimeStack({names})"

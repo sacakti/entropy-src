@@ -4,8 +4,7 @@ Diagnostic log entry.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from core.models.logger import LogLevel

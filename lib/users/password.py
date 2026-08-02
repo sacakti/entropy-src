@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import cast
 
 from argon2 import PasswordHasher
-from argon2.exceptions import VerificationError
 from argon2.exceptions import VerifyMismatchError
 
 from lib.users.exceptions import WeakPasswordError
@@ -89,21 +88,15 @@ class PasswordService:
 
         if not password:
 
-            raise WeakPasswordError(
-                "Password is required."
-            )
+            raise WeakPasswordError("Password is required.")
 
         if len(password) < 8:
 
-            raise WeakPasswordError(
-                "Password must contain at least 8 characters."
-            )
+            raise WeakPasswordError("Password must contain at least 8 characters.")
 
         if password.isspace():
 
-            raise WeakPasswordError(
-                "Password cannot contain only whitespace."
-            )
+            raise WeakPasswordError("Password cannot contain only whitespace.")
 
         if password.lower() in {
             "password",
@@ -111,6 +104,4 @@ class PasswordService:
             "admin123",
         }:
 
-            raise WeakPasswordError(
-                "Password is too common."
-            )
+            raise WeakPasswordError("Password is too common.")

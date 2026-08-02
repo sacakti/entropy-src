@@ -5,8 +5,7 @@ Session manager.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from core.context import EntropyContext
 from lib.auth.exceptions import AuthenticationRequiredError
@@ -32,27 +31,17 @@ class SessionManager:
         # assert context.observability is not None
         assert context.diagnostics is not None
 
-        self._authentication: AuthenticationService = (
-            context.authentication
-        )
+        self._authentication: AuthenticationService = context.authentication
 
-        self._executor: LinuxExecutor = (
-            context.executor
-        )
+        self._executor: LinuxExecutor = context.executor
 
-        self._session_file = (
-            context.paths.session.current
-        )
+        self._session_file = context.paths.session.current
 
-        self._session_directory = (
-            context.paths.session.directory
-        )
+        self._session_directory = context.paths.session.directory
 
-        self._session_timeout = (
-            context.configuration.get(
-                "auth.session.timeout",
-                8,
-            )
+        self._session_timeout = context.configuration.get(
+            "auth.session.timeout",
+            8,
         )
 
         self._now = datetime.now
@@ -91,7 +80,8 @@ class SessionManager:
             username=user.username,
             token=secrets.token_hex(32),
             created_at=now,
-            expires_at=now + timedelta(
+            expires_at=now
+            + timedelta(
                 hours=self._session_timeout,
             ),
         )
@@ -100,9 +90,7 @@ class SessionManager:
             session,
         )
 
-        self._log.info(
-            f"User '{user.username}' logged in."
-        )
+        self._log.info(f"User '{user.username}' logged in.")
 
         return session
 
@@ -121,9 +109,7 @@ class SessionManager:
 
         self._delete()
 
-        self._log.info(
-            f"User '{session.username}' logged out."
-        )
+        self._log.info(f"User '{session.username}' logged out.")
 
     # ------------------------------------------------------------------
     # Current
@@ -142,9 +128,7 @@ class SessionManager:
 
             self._delete()
 
-            self._log.info(
-                f"Session expired for '{session.username}'."
-            )
+            self._log.info(f"Session expired for '{session.username}'.")
 
             return None
 

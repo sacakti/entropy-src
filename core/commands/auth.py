@@ -4,11 +4,9 @@ Authentication command.
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
-from argparse import Namespace
+from argparse import ArgumentParser, Namespace
 
-from core.commands.base import BaseCommand
-from core.commands.base import CommandMetadata
+from core.commands.base import BaseCommand, CommandMetadata
 
 
 class AuthCommand(BaseCommand):
@@ -88,7 +86,9 @@ class AuthCommand(BaseCommand):
             "login": self._login,
             "logout": self._logout,
             "status": self._status,
-        }[args.action](args)
+        }[
+            args.action
+        ](args)
 
     # ------------------------------------------------------------------
     # Login
@@ -103,9 +103,7 @@ class AuthCommand(BaseCommand):
 
         if session is not None:
 
-            self._log.success(
-                f"Already authenticated as '{session.username}'."
-            )
+            self._log.success(f"Already authenticated as '{session.username}'.")
 
             return
 
@@ -123,9 +121,7 @@ class AuthCommand(BaseCommand):
             password,
         )
 
-        self._log.success(
-            f"Authenticated as '{session.username}'."
-        )
+        self._log.success(f"Authenticated as '{session.username}'.")
 
     # ------------------------------------------------------------------
     # Logout
@@ -138,17 +134,13 @@ class AuthCommand(BaseCommand):
 
         if not self._session.authenticated():
 
-            self._log.info(
-                "No active session."
-            )
+            self._log.info("No active session.")
 
             return
 
         self._session.logout()
 
-        self._log.success(
-            "Logged out."
-        )
+        self._log.success("Logged out.")
 
     # ------------------------------------------------------------------
     # Status
@@ -163,9 +155,7 @@ class AuthCommand(BaseCommand):
 
         if session is None:
 
-            self._log.info(
-                "Not authenticated."
-            )
+            self._log.info("Not authenticated.")
 
             return
 

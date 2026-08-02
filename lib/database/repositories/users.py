@@ -192,10 +192,7 @@ class UserRepository(Repository):
             """
         )
 
-        return [
-            self._from_row(row)
-            for row in rows
-        ]
+        return [self._from_row(row) for row in rows]
 
     # ------------------------------------------------------------------
     # Any

@@ -4,25 +4,16 @@ Runtime observation event.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from core.models.enums import EventType
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from uuid import uuid4
-
 from core.models.logger import LogLevel
 
-
-
 if TYPE_CHECKING:
-    from core.models.runtime import RuntimeNodeType
-    from core.models.runtime import ExecutionStatus
+    from core.models.runtime import ExecutionStatus, RuntimeNodeType
     from core.runtime.node import RuntimeNode
 
 
@@ -78,6 +69,7 @@ class Event:
     def status(self) -> ExecutionStatus:
 
         return self.node.status
+
 
 @dataclass(frozen=True)
 class LogEvent:

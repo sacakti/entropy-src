@@ -7,7 +7,6 @@ from __future__ import annotations
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-
 DEFAULT_MAX_BYTES = 20 * 1024 * 1024
 
 DEFAULT_BACKUP_COUNT = 10

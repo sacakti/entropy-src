@@ -5,7 +5,6 @@ Migration executor.
 from __future__ import annotations
 
 from lib.database.connection import DatabaseConnection
-
 from lib.migrations.exceptions import MigrationExecutionError
 from lib.migrations.history import MigrationHistory
 from lib.migrations.registry import MigrationRegistry
@@ -46,9 +45,7 @@ class MigrationExecutor:
         )
 
         pending = [
-            migration
-            for migration in self._registry.list()
-            if migration.VERSION not in applied
+            migration for migration in self._registry.list() if migration.VERSION not in applied
         ]
 
         if not pending:
@@ -110,9 +107,7 @@ class MigrationExecutor:
                 f"Migration {migration.VERSION:03d} failed.",
             )
 
-            raise MigrationExecutionError(
-                f"Migration {migration.VERSION:03d} failed."
-            ) from exc
+            raise MigrationExecutionError(f"Migration {migration.VERSION:03d} failed.") from exc
 
         self._log.success(
             f"Applied {migration.VERSION:03d}",

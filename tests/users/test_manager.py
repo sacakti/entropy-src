@@ -7,14 +7,11 @@ from __future__ import annotations
 import pytest
 
 from lib.users.exceptions import (
-    AuthenticationError,
     InvalidUsernameError,
     SystemUserError,
     UserAlreadyExistsError,
-    UserInactiveError,
     WeakPasswordError,
 )
-
 
 # ------------------------------------------------------------------
 # Initialize
@@ -230,6 +227,7 @@ def test_change_password(
 
     assert updated.password_hash != old_hash
 
+
 # ------------------------------------------------------------------
 # Delete
 # ------------------------------------------------------------------
@@ -387,13 +385,11 @@ def test_list(
 
     assert len(users) == 2
 
-    assert sorted(
-        user.username
-        for user in users
-    ) == [
+    assert sorted(user.username for user in users) == [
         "jane",
         "john",
     ]
+
 
 def test_unlock_not_implemented(
     manager,

@@ -5,14 +5,13 @@ Database installer.
 from __future__ import annotations
 
 from lib.database.connection import DatabaseConnection
-
 from lib.database.objects import (
     LicensesTable,
-    UsersTable,
-    WorkflowsTable,
     PluginRegistryTable,
     SchemaMigrationsTable,
     SettingsTable,
+    UsersTable,
+    WorkflowsTable,
 )
 
 

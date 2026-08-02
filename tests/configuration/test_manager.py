@@ -1,16 +1,15 @@
 from unittest.mock import Mock
 
+import pytest
+
 from core.configuration.configuration import (
     Configuration,
 )
-from core.configuration.manager import (
-    ConfigurationManager,
-)
-
-import pytest
-
 from core.configuration.exceptions import (
     ConfigurationNotLoadedError,
+)
+from core.configuration.manager import (
+    ConfigurationManager,
 )
 
 
@@ -33,13 +32,9 @@ def test_load(
 
     manager._loader.load.return_value = "{}"
 
-    manager._parser.read.return_value = (
-        configuration_dict
-    )
+    manager._parser.read.return_value = configuration_dict
 
-    manager._resolver.resolve.return_value = (
-        configuration_dict
-    )
+    manager._resolver.resolve.return_value = configuration_dict
 
     configuration = manager.load()
 

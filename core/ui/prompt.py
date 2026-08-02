@@ -7,8 +7,7 @@ from __future__ import annotations
 from getpass import getpass
 
 from rich.console import Console
-from rich.prompt import Confirm
-from rich.prompt import Prompt
+from rich.prompt import Confirm, Prompt
 
 
 class PromptManager:
@@ -38,11 +37,7 @@ class PromptManager:
 
         if password:
 
-            return getpass(
-                "{0}: ".format(
-                    message,
-                )
-            )
+            return getpass(f"{message}: ")
 
         return Prompt.ask(
             message,

@@ -4,8 +4,8 @@ Database connection.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from sqlite3 import Cursor, Row
 from typing import Iterator
@@ -95,7 +95,7 @@ class DatabaseConnection:
     @contextmanager
     def transaction(
         self,
-    ) -> Iterator["DatabaseConnection"]:
+    ) -> Iterator[DatabaseConnection]:
         """
         Execute operations inside a transaction.
 
@@ -175,7 +175,6 @@ class DatabaseConnection:
         )
 
         return cursor.fetchone()
-
 
     def fetchall(
         self,

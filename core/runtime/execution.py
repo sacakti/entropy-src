@@ -4,11 +4,9 @@ Workflow execution model.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.runtime import ExecutionStatus
 
@@ -158,9 +156,7 @@ class WorkflowExecution:
 
         end = self.finished_at or datetime.utcnow()
 
-        return int(
-            (end - self.started_at).total_seconds() * 1000
-        )
+        return int((end - self.started_at).total_seconds() * 1000)
 
     @property
     def running(self) -> bool:
@@ -216,8 +212,4 @@ class WorkflowExecution:
 
     def __repr__(self) -> str:
 
-        return (
-            "WorkflowExecution("
-            f"id={self.id!r}, "
-            f"status={self.status.value!r})"
-        )
+        return "WorkflowExecution(" f"id={self.id!r}, " f"status={self.status.value!r})"

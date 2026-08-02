@@ -2,15 +2,12 @@
 Observability test fixtures.
 """
 
-from pathlib import Path
-from unittest.mock import Mock
-
 import pytest
-
 from lib.models.runtime import RuntimeNodeType
-from core.runtime.node import RuntimeNode
+
 from core.models.enums import EventType
 from core.observability.event import Event
+from core.runtime.node import RuntimeNode
 
 
 @pytest.fixture

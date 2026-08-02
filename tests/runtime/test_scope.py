@@ -1,8 +1,6 @@
-from lib.models.runtime import ExecutionStatus
-
 import pytest
-
 from lib.models.runtime import ExecutionStatus
+
 
 def test_stage_scope(runtime):
 
@@ -17,15 +15,12 @@ def test_stage_scope(runtime):
     assert node.status is ExecutionStatus.COMPLETED
 
 
-
 def test_stage_failure(runtime):
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError), runtime.stage(name="Validation"):
 
-        with runtime.stage(name="Validation"):
+        node = runtime.node
 
-            node = runtime.node
-
-            raise RuntimeError("boom")
+        raise RuntimeError("boom")
 
     assert node.status is ExecutionStatus.FAILED

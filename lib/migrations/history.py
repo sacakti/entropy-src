@@ -56,10 +56,7 @@ class MigrationHistory:
             """
         )
 
-        return [
-            row["version"]
-            for row in rows
-        ]
+        return [row["version"] for row in rows]
 
     def latest(self) -> int | None:
         """

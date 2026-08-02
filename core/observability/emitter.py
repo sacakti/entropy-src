@@ -4,11 +4,10 @@ Runtime event emitter.
 
 from __future__ import annotations
 
-from core.models.logger import LogLevel
 from core.runtime.node import RuntimeNode
 
-from .dispatcher import EventDispatcher
 from ..models.enums import EventType
+from .dispatcher import EventDispatcher
 from .event import Event
 
 
@@ -108,7 +107,6 @@ class Emitter:
     #         LogLevel.ERROR,
     #         message,
     #     )
-
 
     # def _log(
     #     self,

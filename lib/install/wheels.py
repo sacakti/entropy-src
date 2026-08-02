@@ -7,6 +7,7 @@ import sys
 
 from lib.install.paths import InstallerPathManager
 
+
 class WheelInstaller:
 
     def __init__(self, platform):

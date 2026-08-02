@@ -4,11 +4,11 @@ Base execution scope.
 
 from __future__ import annotations
 
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Any
 
 from lib.models.runtime import RuntimeNodeType
+
 from core.models.enums import EventType
 
 from .node import RuntimeNode
@@ -144,25 +144,20 @@ class ExecutionScope(ABC):
 
     @property
     @abstractmethod
-    def node_type(self) -> RuntimeNodeType:
-        ...
+    def node_type(self) -> RuntimeNodeType: ...
 
     @property
     @abstractmethod
-    def source(self) -> str:
-        ...
+    def source(self) -> str: ...
 
     @property
     @abstractmethod
-    def started_event(self) -> EventType:
-        ...
+    def started_event(self) -> EventType: ...
 
     @property
     @abstractmethod
-    def completed_event(self) -> EventType:
-        ...
+    def completed_event(self) -> EventType: ...
 
     @property
     @abstractmethod
-    def failed_event(self) -> EventType:
-        ...
+    def failed_event(self) -> EventType: ...

@@ -4,8 +4,9 @@ Workflow validator.
 
 from __future__ import annotations
 
-from .exceptions import WorkflowValidationError
 from lib.models.workflow import WorkflowDefinition
+
+from .exceptions import WorkflowValidationError
 
 
 class WorkflowValidator:
@@ -26,15 +27,11 @@ class WorkflowValidator:
 
         if not workflow.name:
 
-            errors.append(
-                "Workflow name is required."
-            )
+            errors.append("Workflow name is required.")
 
         if not workflow.steps:
 
-            errors.append(
-                "Workflow must contain at least one step."
-            )
+            errors.append("Workflow must contain at least one step.")
 
         #
         # Step ids
@@ -46,15 +43,11 @@ class WorkflowValidator:
 
             if not step.id:
 
-                errors.append(
-                    "Step id is required."
-                )
+                errors.append("Step id is required.")
 
             elif step.id in ids:
 
-                errors.append(
-                    f"Duplicate step id '{step.id}'."
-                )
+                errors.append(f"Duplicate step id '{step.id}'.")
 
             ids.add(step.id)
 
@@ -68,9 +61,7 @@ class WorkflowValidator:
 
             if step.order in orders:
 
-                errors.append(
-                    f"Duplicate step order '{step.order}'."
-                )
+                errors.append(f"Duplicate step order '{step.order}'.")
 
             orders.add(step.order)
 
@@ -82,9 +73,7 @@ class WorkflowValidator:
 
             if not step.plugin:
 
-                errors.append(
-                    f"Step '{step.name}' does not specify a plugin."
-                )
+                errors.append(f"Step '{step.name}' does not specify a plugin.")
 
         #
         # Retry
@@ -94,9 +83,7 @@ class WorkflowValidator:
 
             if step.policy.retries < 0:
 
-                errors.append(
-                    f"Step '{step.name}' has an invalid retry count."
-                )
+                errors.append(f"Step '{step.name}' has an invalid retry count.")
 
         #
         # Timeout
@@ -106,14 +93,9 @@ class WorkflowValidator:
 
             timeout = step.policy.timeout
 
-            if (
-                timeout is not None
-                and timeout <= 0
-            ):
+            if timeout is not None and timeout <= 0:
 
-                errors.append(
-                    f"Step '{step.name}' has an invalid timeout."
-                )
+                errors.append(f"Step '{step.name}' has an invalid timeout.")
 
         if errors:
 

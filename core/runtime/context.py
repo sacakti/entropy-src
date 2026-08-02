@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.context import EntropyContext
-
 from core.observability.emitter import Emitter
 
 from .tree import RuntimeTree
@@ -48,7 +47,7 @@ class ExecutionContext:
     # ------------------------------------------------------------------
 
     @property
-    def execution(self) -> "WorkflowExecution":
+    def execution(self) -> WorkflowExecution:
 
         assert self._execution is not None
 
@@ -57,7 +56,7 @@ class ExecutionContext:
     @execution.setter
     def execution(
         self,
-        execution: "WorkflowExecution",
+        execution: WorkflowExecution,
     ) -> None:
 
         self._execution = execution
@@ -73,7 +72,7 @@ class ExecutionContext:
         return self._tree
 
     @property
-    def node(self) -> "RuntimeNode | None":
+    def node(self) -> RuntimeNode | None:
 
         return self._tree.current
 
@@ -82,7 +81,7 @@ class ExecutionContext:
     # ------------------------------------------------------------------
 
     @property
-    def logger(self) -> "ExecutionLogManager":
+    def logger(self) -> ExecutionLogManager:
 
         assert self._entropy.logger is not None
 
@@ -106,7 +105,7 @@ class ExecutionContext:
         *,
         name: str,
         metadata: dict[str, Any] | None = None,
-    ) -> "Stage":
+    ) -> Stage:
 
         from .stage import Stage
 
@@ -121,7 +120,7 @@ class ExecutionContext:
         *,
         name: str,
         metadata: dict[str, Any] | None = None,
-    ) -> "Activity":
+    ) -> Activity:
 
         from .activity import Activity
 

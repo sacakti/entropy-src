@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from rich.progress import TaskID
 
-from ...models.enums import EventType
 from ..event import Event
 from ..sink import Sink
 from .renderer import ConsoleRenderer
@@ -81,36 +80,28 @@ class ConsoleSink(Sink):
         event: Event,
     ) -> None:
 
-        self._renderer.info(
-            f"Execution started : {event.name}"
-        )
+        self._renderer.info(f"Execution started : {event.name}")
 
     def _execution_completed(
         self,
         event: Event,
     ) -> None:
 
-        self._renderer.success(
-            f"Execution completed : {event.name}"
-        )
+        self._renderer.success(f"Execution completed : {event.name}")
 
     def _execution_failed(
         self,
         event: Event,
     ) -> None:
 
-        self._renderer.error(
-            f"Execution failed : {event.name}"
-        )
+        self._renderer.error(f"Execution failed : {event.name}")
 
     def _execution_cancelled(
         self,
         event: Event,
     ) -> None:
 
-        self._renderer.warning(
-            f"Execution cancelled : {event.name}"
-        )
+        self._renderer.warning(f"Execution cancelled : {event.name}")
 
     # ------------------------------------------------------------------
     # Step

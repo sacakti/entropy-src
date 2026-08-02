@@ -82,9 +82,7 @@ class MigrationRegistry:
 
         if version in self._migrations:
 
-            raise MigrationAlreadyRegisteredError(
-                f"Migration {version} is already registered."
-            )
+            raise MigrationAlreadyRegisteredError(f"Migration {version} is already registered.")
 
         self._migrations[version] = migration
 
@@ -121,12 +119,7 @@ class MigrationRegistry:
         Return migrations ordered by version.
         """
 
-        return [
-            self._migrations[version]
-            for version in sorted(
-                self._migrations
-            )
-        ]
+        return [self._migrations[version] for version in sorted(self._migrations)]
 
     # ------------------------------------------------------------------
     # Maintenance

@@ -19,27 +19,12 @@ class InstallerPathManager:
 
         self.requirements = self.vendor / "requirements.txt"
 
-        self.default_config = (
-            self.project_root
-            / "lib"
-            / "install"
-            / "entropy.json.config"
-        )
+        self.default_config = self.project_root / "lib" / "install" / "entropy.json.config"
 
         self.config_file = self.config / "entropy.json"
 
-        self.launcher_unix = (
-            Path.home()
-            / ".local"
-            / "bin"
-            / "ent"
-        )
+        self.launcher_unix = Path.home() / ".local" / "bin" / "ent"
 
         self.launcher_windows = (
-            Path.home()
-            / "AppData"
-            / "Local"
-            / "Programs"
-            / "Entropy"
-            / "ent.cmd"
+            Path.home() / "AppData" / "Local" / "Programs" / "Entropy" / "ent.cmd"
         )

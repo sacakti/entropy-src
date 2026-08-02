@@ -1,8 +1,8 @@
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-import tempfile
 
 from lib.database.connection import DatabaseConnection
 from lib.database.manager import DatabaseManager
@@ -16,9 +16,7 @@ def database_file(tmp_path: Path) -> Path:
 @pytest.fixture
 def connection():
 
-    database = Path(
-        tempfile.gettempdir()
-    ) / "entropy_test.db"
+    database = Path(tempfile.gettempdir()) / "entropy_test.db"
 
     if database.exists():
         database.unlink()

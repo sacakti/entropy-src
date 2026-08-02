@@ -1,11 +1,12 @@
 from pathlib import Path
 
-from core.configuration.loader import ConfigurationLoader
+import pytest
 
 from core.configuration.exceptions import (
     ConfigurationFileNotFoundError,
 )
-import pytest
+from core.configuration.loader import ConfigurationLoader
+
 
 def test_loader(entropy_context):
 
@@ -24,8 +25,6 @@ def test_loader(entropy_context):
     assert loader.load(file) == "{}"
 
     executor.read_text.assert_called_once()
-
-
 
 
 def test_missing_file(entropy_context):

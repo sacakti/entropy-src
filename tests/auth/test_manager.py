@@ -10,7 +10,6 @@ import pytest
 
 from lib.auth.exceptions import AuthenticationRequiredError
 
-
 # ------------------------------------------------------------------
 # Login
 # ------------------------------------------------------------------
@@ -124,7 +123,8 @@ def test_current_expired_session(
     monkeypatch.setattr(
         session_manager,
         "_now",
-        lambda: session.expires_at + timedelta(
+        lambda: session.expires_at
+        + timedelta(
             seconds=1,
         ),
     )

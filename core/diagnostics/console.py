@@ -43,10 +43,4 @@ class ConsoleSink(Sink):
             "white",
         )
 
-        self._console.print(
-            "[{0}][{1:<7}][/{0}] {2}".format(
-                style,
-                entry.level.name,
-                entry.message,
-            )
-        )
+        self._console.print(f"[{style}][{entry.level.name:<7}][/{style}] {entry.message}")

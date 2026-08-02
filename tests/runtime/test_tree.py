@@ -1,4 +1,5 @@
 from lib.models.runtime import RuntimeNodeType
+
 from core.runtime.tree import RuntimeTree
 
 
@@ -23,6 +24,7 @@ def test_tree_enter_leave():
     tree.leave()
 
     assert tree.current is workflow
+
 
 def test_tree_walk():
 

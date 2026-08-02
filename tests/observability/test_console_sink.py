@@ -1,9 +1,9 @@
 from unittest.mock import Mock
 
-from core.observability.console.sink import ConsoleSink
-from core.observability.console.renderer import ConsoleRenderer
-
 from core.models.enums import EventType
+from core.observability.console.renderer import ConsoleRenderer
+from core.observability.console.sink import ConsoleSink
+
 
 def test_stage_started(event):
 
@@ -14,7 +14,6 @@ def test_stage_started(event):
     sink.publish(event)
 
     renderer.heading.assert_called_once()
-
 
 
 def test_activity_started(node):

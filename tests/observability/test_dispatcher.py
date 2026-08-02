@@ -15,6 +15,7 @@ def test_dispatch():
 
     sink.publish.assert_called_once()
 
+
 def test_unregister():
 
     dispatcher = EventDispatcher()

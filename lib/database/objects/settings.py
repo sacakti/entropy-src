@@ -2,9 +2,8 @@
 Application settings table.
 """
 
-from lib.database.connection import DatabaseConnection
-
 from lib.database.base import DatabaseObject
+from lib.database.connection import DatabaseConnection
 
 
 class SettingsTable(DatabaseObject):

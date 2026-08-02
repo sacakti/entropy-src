@@ -4,9 +4,7 @@ User interface manager.
 
 from __future__ import annotations
 
-from typing import Iterable
-from typing import Optional
-from typing import Sequence
+from typing import Iterable, Optional, Sequence
 
 from .prompt import PromptManager
 from .renderer import Renderer

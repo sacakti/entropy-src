@@ -23,9 +23,7 @@ class PluginNotFoundError(PluginError):
         plugin: str,
     ) -> None:
 
-        super().__init__(
-            f"Plugin '{plugin}' was not found."
-        )
+        super().__init__(f"Plugin '{plugin}' was not found.")
 
 
 class PluginAlreadyRegisteredError(
@@ -40,9 +38,7 @@ class PluginAlreadyRegisteredError(
         plugin: str,
     ) -> None:
 
-        super().__init__(
-            f"Plugin '{plugin}' is already registered."
-        )
+        super().__init__(f"Plugin '{plugin}' is already registered.")
 
 
 class PluginValidationError(
@@ -58,13 +54,7 @@ class PluginValidationError(
         errors: list[str],
     ) -> None:
 
-        message = (
-            f"Plugin '{plugin}' is invalid:\n"
-            + "\n".join(
-                f"  • {error}"
-                for error in errors
-            )
-        )
+        message = f"Plugin '{plugin}' is invalid:\n" + "\n".join(f"  • {error}" for error in errors)
 
         super().__init__(message)
 
@@ -82,9 +72,7 @@ class PluginExecutionError(
         message: str,
     ) -> None:
 
-        super().__init__(
-            f"Plugin '{plugin}' execution failed: {message}"
-        )
+        super().__init__(f"Plugin '{plugin}' execution failed: {message}")
 
 
 class PluginNotImplementedError(

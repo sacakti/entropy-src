@@ -13,6 +13,7 @@ def test_logger_cache(tmp_path: Path):
 
     assert a is b
 
+
 def test_logger_creation(tmp_path: Path):
 
     manager = LoggingManager(tmp_path)

@@ -8,7 +8,6 @@ from unittest.mock import Mock
 import pytest
 
 from core.context import EntropyContext
-from core.configuration import ConfigurationManager
 
 
 @pytest.fixture
@@ -30,9 +29,7 @@ def entropy_context(tmp_path: Path):
 
     bootstrap = Mock()
 
-    bootstrap.configuration.file = (
-        tmp_path / "entropy.json"
-    )
+    bootstrap.configuration.file = tmp_path / "entropy.json"
 
     context.bootstrap = bootstrap
 

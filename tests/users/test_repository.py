@@ -9,7 +9,6 @@ import pytest
 from lib.models.users import User
 from lib.users.exceptions import UserNotFoundError
 
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
@@ -160,9 +159,12 @@ def test_list(
 
     users = repository.list()
 
-    assert len(
-        users,
-    ) == 2
+    assert (
+        len(
+            users,
+        )
+        == 2
+    )
 
     assert users[0].username == "jane"
 

@@ -4,8 +4,7 @@ Version command.
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
-from argparse import Namespace
+from argparse import ArgumentParser, Namespace
 
 from core.commands.base import (
     BaseCommand,
@@ -67,9 +66,4 @@ class VersionCommand(BaseCommand):
         Display the application version.
         """
 
-        self._ui.print(
-            "{0} Version {1}".format(
-                APP_NAME,
-                VERSION,
-            )
-        )
+        self._ui.print(f"{APP_NAME} Version {VERSION}")

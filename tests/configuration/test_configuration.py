@@ -9,19 +9,9 @@ def test_configuration_lookup(configuration_dict):
         configuration_dict,
     )
 
-    assert (
-        configuration.get(
-            "application.name"
-        )
-        == "Entropy"
-    )
+    assert configuration.get("application.name") == "Entropy"
 
-    assert (
-        configuration.get(
-            "database.path"
-        )
-        == "./database.db"
-    )
+    assert configuration.get("database.path") == "./database.db"
 
 
 def test_configuration_default(configuration_dict):
@@ -45,10 +35,6 @@ def test_configuration_paths(configuration_dict):
         configuration_dict,
     )
 
-    assert configuration.database_path == Path(
-        "./database.db"
-    )
+    assert configuration.database_path == Path("./database.db")
 
-    assert configuration.logging_directory == Path(
-        "./logs"
-    )
+    assert configuration.logging_directory == Path("./logs")

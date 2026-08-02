@@ -14,8 +14,7 @@ from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm
-from rich.prompt import Prompt
+from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
@@ -82,9 +81,7 @@ class ConsoleRenderer:
             )
         )
 
-        self._console.print(
-            f"[bold cyan]▶ {title}[/]"
-        )
+        self._console.print(f"[bold cyan]▶ {title}[/]")
 
     def rule(
         self,
@@ -102,45 +99,35 @@ class ConsoleRenderer:
         message: str,
     ) -> None:
 
-        self._console.print(
-            f"[{ConsoleTheme.INFO}]ℹ[/] {message}"
-        )
+        self._console.print(f"[{ConsoleTheme.INFO}]ℹ[/] {message}")
 
     def success(
         self,
         message: str,
     ) -> None:
 
-        self._console.print(
-            f"[{ConsoleTheme.SUCCESS}]✔[/] {message}"
-        )
+        self._console.print(f"[{ConsoleTheme.SUCCESS}]✔[/] {message}")
 
     def warning(
         self,
         message: str,
     ) -> None:
 
-        self._console.print(
-            f"[{ConsoleTheme.WARNING}]⚠[/] {message}"
-        )
+        self._console.print(f"[{ConsoleTheme.WARNING}]⚠[/] {message}")
 
     def error(
         self,
         message: str,
     ) -> None:
 
-        self._console.print(
-            f"[{ConsoleTheme.ERROR}]✖[/] {message}"
-        )
+        self._console.print(f"[{ConsoleTheme.ERROR}]✖[/] {message}")
 
     def debug(
         self,
         message: str,
     ) -> None:
 
-        self._console.print(
-            f"[{ConsoleTheme.DEBUG}]•[/] {message}"
-        )
+        self._console.print(f"[{ConsoleTheme.DEBUG}]•[/] {message}")
 
     # ------------------------------------------------------------------
     # Progress
@@ -231,9 +218,7 @@ class ConsoleRenderer:
 
         for row in rows:
 
-            table.add_row(
-                *[str(item) for item in row]
-            )
+            table.add_row(*[str(item) for item in row])
 
         self._console.print(table)
 

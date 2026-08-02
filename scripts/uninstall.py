@@ -4,6 +4,7 @@
 from lib.install.manager import InstallManager
 from lib.install.paths import InstallerPathManager
 
+
 def confirm() -> bool:
     paths = InstallerPathManager()
     print()

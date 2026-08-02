@@ -4,12 +4,10 @@ Run command.
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
-from argparse import Namespace
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
-from core.commands.base import BaseCommand
-from core.commands.base import CommandMetadata
+from core.commands.base import BaseCommand, CommandMetadata
 
 
 class RunCommand(BaseCommand):

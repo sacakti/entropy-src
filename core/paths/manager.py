@@ -8,8 +8,6 @@ configuration has been loaded.
 from pathlib import Path
 from typing import Union
 
-from lib.models.configuration import ConfigurationModel
-
 from core.models.paths import (
     DatabasePaths,
     GitPaths,
@@ -20,6 +18,8 @@ from core.models.paths import (
     SessionPaths,
     WorkflowPaths,
 )
+from lib.models.configuration import ConfigurationModel
+
 from .bootstrap import BootstrapPathManager
 
 

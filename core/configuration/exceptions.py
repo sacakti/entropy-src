@@ -23,9 +23,7 @@ class ConfigurationFileNotFoundError(ConfigurationException):
         file,
     ) -> None:
 
-        super().__init__(
-            f"Configuration file not found: {file}"
-        )
+        super().__init__(f"Configuration file not found: {file}")
 
 
 class UnsupportedConfigurationFormatError(
@@ -40,9 +38,7 @@ class UnsupportedConfigurationFormatError(
         suffix: str,
     ) -> None:
 
-        super().__init__(
-            f"Unsupported configuration format: {suffix}"
-        )
+        super().__init__(f"Unsupported configuration format: {suffix}")
 
 
 class InvalidConfigurationError(
@@ -57,9 +53,7 @@ class InvalidConfigurationError(
         message: str,
     ) -> None:
 
-        super().__init__(
-            f"Invalid configuration: {message}"
-        )
+        super().__init__(f"Invalid configuration: {message}")
 
 
 class ConfigurationNotLoadedError(
@@ -71,6 +65,4 @@ class ConfigurationNotLoadedError(
 
     def __init__(self) -> None:
 
-        super().__init__(
-            "Configuration has not been loaded."
-        )
+        super().__init__("Configuration has not been loaded.")

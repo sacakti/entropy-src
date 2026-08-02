@@ -23,9 +23,7 @@ class WorkflowNotFoundError(WorkflowError):
         workflow: str,
     ) -> None:
 
-        super().__init__(
-            f"Workflow '{workflow}' was not found."
-        )
+        super().__init__(f"Workflow '{workflow}' was not found.")
 
 
 class WorkflowValidationError(
@@ -40,13 +38,7 @@ class WorkflowValidationError(
         errors: list[str],
     ) -> None:
 
-        message = (
-            "Workflow validation failed:\n"
-            + "\n".join(
-                f"  • {error}"
-                for error in errors
-            )
-        )
+        message = "Workflow validation failed:\n" + "\n".join(f"  • {error}" for error in errors)
 
         super().__init__(message)
 

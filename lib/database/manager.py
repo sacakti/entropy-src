@@ -85,7 +85,7 @@ class DatabaseManager:
         )
 
         self._installer.install(
-             self._connection,
+            self._connection,
         )
 
         self._log.success(

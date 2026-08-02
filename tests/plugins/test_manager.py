@@ -14,9 +14,7 @@ def test_manager_creation(
     assert manager is not None
 
 
-@patch(
-    "lib.plugins.discovery.PluginDiscovery.discover"
-)
+@patch("lib.plugins.discovery.PluginDiscovery.discover")
 def test_discover(
     discover,
     entropy_context,

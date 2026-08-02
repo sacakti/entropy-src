@@ -1,9 +1,5 @@
-from lib.models.workflow import (
-    FailurePolicy,
-    WorkflowStep,
-    WorkflowDefinition,
-    WorkflowPolicy
-)
+from lib.models.workflow import FailurePolicy, WorkflowPolicy
+
 
 def test_defaults():
 
@@ -29,6 +25,7 @@ def test_custom():
     assert policy.timeout == 100
     assert policy.on_failure is FailurePolicy.CONTINUE
 
+
 def test_step(workflow_step):
 
     assert workflow_step.id == "step1"
@@ -38,6 +35,7 @@ def test_step(workflow_step):
     assert workflow_step.plugin == "validate"
 
     assert workflow_step.configuration["directory"] == "scripts"
+
 
 def test_iteration(workflow):
 

@@ -1,10 +1,10 @@
-from unittest.mock import MagicMock
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from lib.workflow.execution import WorkflowExecutor
 from lib.workflow.exceptions import WorkflowExecutionError
+from lib.workflow.execution import WorkflowExecutor
+
 
 def test_execute(
     entropy_context,

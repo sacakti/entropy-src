@@ -3,6 +3,7 @@ User manager.
 """
 
 from __future__ import annotations
+
 import secrets
 
 from core.context import EntropyContext
@@ -12,7 +13,6 @@ from lib.users.exceptions import (
     InvalidUsernameError,
     SystemUserError,
     UserAlreadyExistsError,
-    WeakPasswordError,
 )
 from lib.users.password import PasswordService
 
@@ -39,13 +39,9 @@ class UserManager:
         assert context.password_service is not None
         assert context.diagnostics is not None
 
-        self._repository: UserRepository = (
-            context.user_repository
-        )
+        self._repository: UserRepository = context.user_repository
 
-        self._password: PasswordService = (
-            context.password_service
-        )
+        self._password: PasswordService = context.password_service
 
         self._log = context.diagnostics.logger(
             "user",
@@ -72,9 +68,7 @@ class UserManager:
             system=True,
         )
 
-        self._log.success(
-            "Bootstrap administrator created."
-        )
+        self._log.success("Bootstrap administrator created.")
 
     # ------------------------------------------------------------------
     # Create
@@ -113,9 +107,7 @@ class UserManager:
             user,
         )
 
-        self._log.success(
-            f"User '{username}' created."
-        )
+        self._log.success(f"User '{username}' created.")
 
         return user
 
@@ -141,9 +133,7 @@ class UserManager:
             user,
         )
 
-        self._log.success(
-            f"Password changed for '{user.username}'."
-        )
+        self._log.success(f"Password changed for '{user.username}'.")
 
         assert user.id is not None
 
@@ -197,9 +187,7 @@ class UserManager:
             user.id,
         )
 
-        self._log.success(
-            f"User '{user.username}' deleted."
-        )
+        self._log.success(f"User '{user.username}' deleted.")
 
     # ------------------------------------------------------------------
     # Exists
@@ -248,15 +236,9 @@ class UserManager:
             user,
         )
 
-        action = (
-            "enabled"
-            if active
-            else "disabled"
-        )
+        action = "enabled" if active else "disabled"
 
-        self._log.success(
-            f"User '{username}' {action}."
-        )
+        self._log.success(f"User '{username}' {action}.")
 
         return user
 
@@ -269,9 +251,7 @@ class UserManager:
         username: str,
     ) -> User:
 
-        raise NotImplementedError(
-            "Account locking is not implemented."
-        )
+        raise NotImplementedError("Account locking is not implemented.")
 
     # ------------------------------------------------------------------
     # Validation

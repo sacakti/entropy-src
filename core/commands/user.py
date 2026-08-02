@@ -4,8 +4,7 @@ User management command.
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
-from argparse import Namespace
+from argparse import ArgumentParser, Namespace
 
 from core.commands.base import (
     BaseCommand,
@@ -192,11 +191,7 @@ class UserCommand(BaseCommand):
             args.username,
         )
 
-        if not self._ui.confirm(
-            "Delete '{0}'?".format(
-                user.username,
-            )
-        ):
+        if not self._ui.confirm(f"Delete '{user.username}'?"):
             return
 
         self._users.delete(

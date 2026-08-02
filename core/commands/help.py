@@ -4,8 +4,7 @@ Help command.
 
 from __future__ import annotations
 
-from core.commands.base import BaseCommand
-from core.commands.base import CommandMetadata
+from core.commands.base import BaseCommand, CommandMetadata
 
 
 class HelpCommand(BaseCommand):
@@ -69,9 +68,4 @@ class HelpCommand(BaseCommand):
             if command.metadata.hidden:
                 continue
 
-            self._ui.print(
-                "{0:<18}{1}".format(
-                    command.metadata.name,
-                    command.metadata.description,
-                )
-            )
+            self._ui.print(f"{command.metadata.name:<18}{command.metadata.description}")

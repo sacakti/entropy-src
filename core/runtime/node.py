@@ -8,8 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.runtime import ExecutionStatus
-from core.models.runtime import RuntimeNodeType
+from core.models.runtime import ExecutionStatus, RuntimeNodeType
 
 
 @dataclass
@@ -51,7 +50,7 @@ class RuntimeNode:
 
     parent: RuntimeNode | None = None
 
-    children: list["RuntimeNode"] = field(
+    children: list[RuntimeNode] = field(
         default_factory=list,
     )
 
@@ -176,9 +175,7 @@ class RuntimeNode:
 
         end = self.finished_at or datetime.utcnow()
 
-        return int(
-            (end - self.started_at).total_seconds() * 1000
-        )
+        return int((end - self.started_at).total_seconds() * 1000)
 
     @property
     def depth(self) -> int:
@@ -218,7 +215,7 @@ class RuntimeNode:
         return current
 
     @property
-    def path(self) -> list["RuntimeNode"]:
+    def path(self) -> list[RuntimeNode]:
         """
         Return the full hierarchy from root to current node.
         """

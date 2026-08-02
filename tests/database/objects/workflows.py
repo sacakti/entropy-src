@@ -7,6 +7,4 @@ def test_create_users_table(connection):
         connection,
     )
 
-    assert connection.table_exists(
-        "workflows"
-    )
+    assert connection.table_exists("workflows")

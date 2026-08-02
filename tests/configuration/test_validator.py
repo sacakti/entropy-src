@@ -1,12 +1,12 @@
-from core.configuration.validator import (
-    ConfigurationValidator,
-)
-
 import pytest
 
 from core.configuration.exceptions import (
     InvalidConfigurationError,
 )
+from core.configuration.validator import (
+    ConfigurationValidator,
+)
+
 
 def test_validator(configuration_dict):
 
@@ -15,6 +15,7 @@ def test_validator(configuration_dict):
     validator.validate(
         configuration_dict,
     )
+
 
 def test_missing_section():
 

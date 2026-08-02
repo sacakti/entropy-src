@@ -12,8 +12,7 @@ from lib.workflow.exceptions import WorkflowExecutionError
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
-    from lib.models.workflow import WorkflowDefinition
-    from lib.models.workflow import WorkflowStep
+    from lib.models.workflow import WorkflowDefinition, WorkflowStep
 
 
 class WorkflowExecutor:
@@ -23,7 +22,7 @@ class WorkflowExecutor:
 
     def __init__(
         self,
-        context: "EntropyContext",
+        context: EntropyContext,
     ) -> None:
 
         self._context = context
@@ -34,7 +33,7 @@ class WorkflowExecutor:
 
     def execute(
         self,
-        workflow: "WorkflowDefinition",
+        workflow: WorkflowDefinition,
     ) -> WorkflowExecution:
         """
         Execute a workflow.
@@ -127,10 +126,6 @@ class WorkflowExecutor:
             return
 
         if policy is FailurePolicy.RETRY:
-            raise NotImplementedError(
-                "Retry policy is not implemented."
-            ) from cause
+            raise NotImplementedError("Retry policy is not implemented.") from cause
 
-        raise WorkflowExecutionError(
-            f"Step '{step.name}' failed."
-        ) from cause
+        raise WorkflowExecutionError(f"Step '{step.name}' failed.") from cause

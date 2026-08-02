@@ -5,17 +5,15 @@ Configuration manager.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # from core.context import EntropyContext
-
 from .configuration import Configuration
 from .exceptions import ConfigurationNotLoadedError
 from .loader import ConfigurationLoader
 from .parser import ConfigurationParser
 from .resolver import ConfigurationResolver
 from .validator import ConfigurationValidator
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
@@ -40,7 +38,7 @@ class ConfigurationManager:
 
     def __init__(
         self,
-        context: "EntropyContext",
+        context: EntropyContext,
     ) -> None:
 
         self._context = context

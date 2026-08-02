@@ -1,10 +1,8 @@
 from __future__ import annotations
+
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
-from dataclasses import dataclass, field
-
-
-from enum import Enum
 
 
 class FailurePolicy(str, Enum):
@@ -16,6 +14,7 @@ class FailurePolicy(str, Enum):
     CONTINUE = "continue"
     RETRY = "retry"
 
+
 # class WorkflowAction(Enum):
 #     CONTINUE = "continue"
 #     ABORT_WORKFLOW = "abort_workflow"
@@ -24,6 +23,7 @@ class FailurePolicy(str, Enum):
 Workflow execution policy.
 """
 
+
 @dataclass(frozen=True)
 class WorkflowPolicy:
 
@@ -31,15 +31,15 @@ class WorkflowPolicy:
 
     retries: int = 0
 
-    on_failure: FailurePolicy = (
-        FailurePolicy.ABORT
-    )
+    on_failure: FailurePolicy = FailurePolicy.ABORT
 
     timeout: int | None = None
+
 
 """
 Workflow step.
 """
+
 
 @dataclass(frozen=True)
 class WorkflowStep:
@@ -83,6 +83,7 @@ class WorkflowStep:
 """
 Workflow definition.
 """
+
 
 @dataclass(frozen=True)
 class WorkflowDefinition:

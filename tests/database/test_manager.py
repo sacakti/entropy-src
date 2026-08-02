@@ -13,9 +13,7 @@ def test_install(
 
     manager.install()
 
-    assert manager.connection.table_exists(
-        "schema_migrations"
-    )
+    assert manager.connection.table_exists("schema_migrations")
 
 
 def test_prepare(
@@ -24,9 +22,7 @@ def test_prepare(
 
     manager.prepare()
 
-    assert manager.connection.table_exists(
-        "users"
-    )
+    assert manager.connection.table_exists("users")
 
 
 def test_close(

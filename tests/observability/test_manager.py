@@ -1,4 +1,5 @@
 from unittest.mock import Mock
+
 from core.observability.manager import ObservabilityManager
 
 
@@ -11,7 +12,6 @@ def test_emitter_cache():
     b = manager.emitter("workflow")
 
     assert a is b
-
 
 
 def test_register():

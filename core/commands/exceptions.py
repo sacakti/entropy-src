@@ -18,11 +18,7 @@ class CommandNotFoundError(CommandError):
         command: str,
     ) -> None:
 
-        super().__init__(
-            "Unknown command '{0}'.".format(
-                command,
-            )
-        )
+        super().__init__(f"Unknown command '{command}'.")
 
 
 class CommandAlreadyExistsError(CommandError):
@@ -32,8 +28,4 @@ class CommandAlreadyExistsError(CommandError):
         command: str,
     ) -> None:
 
-        super().__init__(
-            "Command '{0}' is already registered.".format(
-                command,
-            )
-        )
+        super().__init__(f"Command '{command}' is already registered.")

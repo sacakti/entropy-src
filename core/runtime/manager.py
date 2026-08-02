@@ -83,9 +83,7 @@ class ExecutionManager:
             deploy_database_20260802_143215
         """
 
-        timestamp = datetime.utcnow().strftime(
-            "%Y%m%d_%H%M%S"
-        )
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
         name = getattr(
             workflow,
@@ -93,12 +91,7 @@ class ExecutionManager:
             "workflow",
         )
 
-        name = (
-            str(name)
-            .strip()
-            .lower()
-            .replace(" ", "_")
-        )
+        name = str(name).strip().lower().replace(" ", "_")
 
         return f"{name}_{timestamp}"
 
@@ -109,10 +102,7 @@ class ExecutionManager:
 
         assert self._context.paths is not None
 
-        return (
-            self._context.paths.logs.workflows
-            / execution_id
-        )
+        return self._context.paths.logs.workflows / execution_id
 
     def _prepare(
         self,

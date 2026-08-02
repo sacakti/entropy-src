@@ -2,7 +2,6 @@
 Application constants.
 """
 
-from pathlib import Path
 from typing import Literal
 
 # ------------------------------------------------------------------

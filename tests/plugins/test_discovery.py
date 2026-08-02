@@ -1,5 +1,4 @@
-from unittest.mock import Mock
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from lib.plugins.discovery import PluginDiscovery
 from lib.plugins.registry import PluginRegistry
@@ -23,9 +22,7 @@ def test_empty_directory(
     assert len(registry) == 0
 
 
-@patch(
-    "lib.plugins.discovery.ManifestValidator.validate"
-)
+@patch("lib.plugins.discovery.ManifestValidator.validate")
 def test_discover(
     validate,
     entropy_context,

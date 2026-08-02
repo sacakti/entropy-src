@@ -338,7 +338,6 @@ class FileSystemMixin:
 
         return data or {}
 
-
     def write_yaml(
         self,
         path: PathLike,

@@ -1,6 +1,3 @@
-from lib.migrations.history import MigrationHistory
-
-
 def test_empty_history(history):
 
     assert history.applied() == []

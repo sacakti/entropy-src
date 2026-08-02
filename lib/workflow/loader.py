@@ -6,12 +6,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from lib.models.workflow import (
-    FailurePolicy,
-    WorkflowPolicy,
-    WorkflowDefinition,
-    WorkflowStep
-)
+from lib.models.workflow import FailurePolicy, WorkflowDefinition, WorkflowPolicy, WorkflowStep
+
 
 class WorkflowLoader:
     """

@@ -35,9 +35,7 @@ class PluginRegistry:
                 metadata.name,
             )
 
-        self._plugins[
-            metadata.name
-        ] = metadata
+        self._plugins[metadata.name] = metadata
 
     # ------------------------------------------------------------------
 

@@ -8,6 +8,7 @@ def test_context_services(runtime):
 
     assert runtime.executor is not None
 
+
 def test_context_tree(runtime):
 
     assert runtime.tree.root is None

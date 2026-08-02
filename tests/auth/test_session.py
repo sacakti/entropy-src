@@ -4,8 +4,7 @@ Tests for Session.
 
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from lib.auth.session import Session
 
@@ -32,9 +31,7 @@ def test_to_dict():
 
     assert data["created_at"] == now.isoformat()
 
-    assert data["expires_at"] == (
-        now + timedelta(hours=8)
-    ).isoformat()
+    assert data["expires_at"] == (now + timedelta(hours=8)).isoformat()
 
 
 def test_from_dict():
@@ -46,9 +43,7 @@ def test_from_dict():
         "username": "john",
         "token": "token123",
         "created_at": now.isoformat(),
-        "expires_at": (
-            now + timedelta(hours=8)
-        ).isoformat(),
+        "expires_at": (now + timedelta(hours=8)).isoformat(),
     }
 
     session = Session.from_dict(
@@ -63,9 +58,7 @@ def test_from_dict():
 
     assert session.created_at == now
 
-    assert session.expires_at == (
-        now + timedelta(hours=8)
-    )
+    assert session.expires_at == (now + timedelta(hours=8))
 
 
 def test_round_trip():
@@ -75,8 +68,7 @@ def test_round_trip():
         username="admin",
         token="abcdef",
         created_at=datetime.now(),
-        expires_at=datetime.now()
-        + timedelta(hours=8),
+        expires_at=datetime.now() + timedelta(hours=8),
     )
 
     restored = Session.from_dict(
@@ -84,6 +76,7 @@ def test_round_trip():
     )
 
     assert restored == session
+
 
 def test_delete_missing_session_file(
     session_manager,

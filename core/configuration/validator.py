@@ -35,20 +35,13 @@ class ConfigurationValidator:
         Validate configuration.
         """
 
-        missing = [
-            section
-            for section in self.REQUIRED_SECTIONS
-            if section not in configuration
-        ]
+        missing = [section for section in self.REQUIRED_SECTIONS if section not in configuration]
 
         if not missing:
 
             return
 
-        message = "\n".join(
-            f"Missing section: {section}"
-            for section in missing
-        )
+        message = "\n".join(f"Missing section: {section}" for section in missing)
 
         raise InvalidConfigurationError(
             message,

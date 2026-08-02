@@ -17,18 +17,12 @@ class MigrationManager:
     Database migration subsystem.
     """
 
-    def __init__(
-        self,
-        context,
-        package: str = DATABASE_MIGRATION_PACKAGE
-    ) -> None:
+    def __init__(self, context, package: str = DATABASE_MIGRATION_PACKAGE) -> None:
 
         assert context.database_manager is not None
         assert context.observability is not None
 
-        self._connection: DatabaseConnection = (
-            context.database_manager.connection
-        )
+        self._connection: DatabaseConnection = context.database_manager.connection
 
         self._registry = MigrationRegistry(package)
 

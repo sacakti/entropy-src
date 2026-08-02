@@ -25,7 +25,7 @@ class PluginLoader:
 
     def __init__(
         self,
-        context: "EntropyContext",
+        context: EntropyContext,
         registry: PluginRegistry,
     ) -> None:
 
@@ -94,9 +94,7 @@ class PluginLoader:
 
         instance = plugin_class()
 
-        self._cache[
-            name
-        ] = instance
+        self._cache[name] = instance
 
         return instance
 

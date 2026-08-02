@@ -50,9 +50,7 @@ class CommandManager:
         Discover commands.
         """
 
-        self._log.debug(
-            "Discovering commands..."
-        )
+        self._log.debug("Discovering commands...")
 
         for _, module_name, _ in pkgutil.iter_modules(
             __path__,
@@ -65,11 +63,7 @@ class CommandManager:
             ):
                 continue
 
-            module = importlib.import_module(
-                "core.commands.{0}".format(
-                    module_name,
-                )
-            )
+            module = importlib.import_module(f"core.commands.{module_name}")
 
             for _, cls in inspect.getmembers(
                 module,
@@ -119,9 +113,7 @@ class CommandManager:
                 metadata.name,
             )
 
-        self._commands[
-            metadata.name
-        ] = command
+        self._commands[metadata.name] = command
 
         for alias in metadata.aliases:
 
@@ -131,9 +123,7 @@ class CommandManager:
                     alias,
                 )
 
-            self._commands[
-                alias
-            ] = command
+            self._commands[alias] = command
 
     # ------------------------------------------------------------------
     # Lookup
@@ -256,10 +246,7 @@ class CommandManager:
 
         if command.metadata.authentication_required:
 
-            assert (
-                self._context.session_manager
-                is not None
-            )
+            assert self._context.session_manager is not None
 
             self._context.session_manager.require()
 

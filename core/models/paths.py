@@ -5,6 +5,7 @@ from pathlib import Path
 # Bootstrap Models
 # ------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ConfigurationPaths:
     directory: Path
@@ -31,6 +32,7 @@ class VendorPaths:
 # ------------------------------------------------------------------
 # Runtime Models
 # ------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class DatabasePaths:
@@ -64,6 +66,7 @@ class LogPaths:
     plugins: Path
     integrations: Path
     workflows: Path
+
 
 @dataclass(frozen=True)
 class PluginPaths:

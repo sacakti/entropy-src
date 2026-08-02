@@ -12,9 +12,7 @@ def test_json_parser(
 
     executor = entropy_context.executor
 
-    executor.read_json.return_value = (
-        configuration_dict
-    )
+    executor.read_json.return_value = configuration_dict
 
     parser = ConfigurationParser(
         executor,
@@ -28,6 +26,7 @@ def test_json_parser(
 
     executor.read_json.assert_called_once()
 
+
 def test_yaml_parser(
     entropy_context,
     configuration_dict,
@@ -35,9 +34,7 @@ def test_yaml_parser(
 
     executor = entropy_context.executor
 
-    executor.read_yaml.return_value = (
-        configuration_dict
-    )
+    executor.read_yaml.return_value = configuration_dict
 
     parser = ConfigurationParser(
         executor,

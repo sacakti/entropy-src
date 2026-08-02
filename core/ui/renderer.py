@@ -4,10 +4,8 @@ User interface renderer.
 
 from __future__ import annotations
 
-from abc import ABC
-from abc import abstractmethod
-from typing import Iterable
-from typing import Sequence
+from abc import ABC, abstractmethod
+from typing import Iterable, Sequence
 
 
 class Renderer(ABC):

@@ -34,7 +34,7 @@ class PluginManager:
 
     def __init__(
         self,
-        context: "EntropyContext",
+        context: EntropyContext,
     ) -> None:
 
         self._registry = PluginRegistry()

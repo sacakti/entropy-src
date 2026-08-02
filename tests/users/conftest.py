@@ -15,6 +15,7 @@ from lib.database.repositories.users import UserRepository
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
 
+
 class DummyEmitter:
 
     def debug(self, *_):
@@ -69,6 +70,7 @@ class DummyDiagnostics:
     ):
 
         return DummyLogger()
+
 
 # ------------------------------------------------------------------
 # Database

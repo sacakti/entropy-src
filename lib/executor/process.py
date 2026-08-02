@@ -7,9 +7,9 @@ Provides methods for executing operating system commands.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import time
-import shlex
 
 from lib.executor.types import Command, Environment, PathLike
 
@@ -62,7 +62,6 @@ class ProcessMixin:
         """
 
         start = time.perf_counter()
-
 
         environment = os.environ.copy()
 

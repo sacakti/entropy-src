@@ -112,6 +112,7 @@ def test_hashes_are_unique(
         hash2,
     ).valid
 
+
 def test_validate_empty_password(
     password_service,
 ):

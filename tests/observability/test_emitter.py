@@ -1,8 +1,8 @@
 from unittest.mock import Mock
 
+from core.models.enums import EventType
 from core.observability.dispatcher import EventDispatcher
 from core.observability.emitter import Emitter
-from core.models.enums import EventType
 
 
 def test_emit(node):

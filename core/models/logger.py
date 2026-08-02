@@ -19,6 +19,7 @@ class LogLevel(str, Enum):
 
     ERROR = "error"
 
+
 @dataclass(frozen=True)
 class LogEntry:
 

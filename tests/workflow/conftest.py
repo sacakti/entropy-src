@@ -1,14 +1,8 @@
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
-from lib.models.workflow import (
-    FailurePolicy,
-    WorkflowStep,
-    WorkflowDefinition,
-    WorkflowPolicy
-)
+from lib.models.workflow import FailurePolicy, WorkflowDefinition, WorkflowPolicy, WorkflowStep
 
 
 @pytest.fixture

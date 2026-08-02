@@ -46,6 +46,4 @@ class PluginValidator:
         plugin = plugin_root / name
 
         if plugin.exists():
-            raise PluginAlreadyExistsError(
-                f"Plugin '{name}' already exists."
-            )
+            raise PluginAlreadyExistsError(f"Plugin '{name}' already exists.")

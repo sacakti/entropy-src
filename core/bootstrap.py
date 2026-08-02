@@ -2,8 +2,8 @@
 Entropy bootstrap.
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 PACKAGE_DIR = Path.home() / ".entropy" / "site-packages"
 

@@ -6,28 +6,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.diagnostics.file import FileSink
+from core.commands.manager import CommandManager
+from core.configuration import ConfigurationManager
+from core.context import EntropyContext
+from core.diagnostics.console import ConsoleSink as DiagnosticsConsoleSink
 from core.diagnostics.manager import DiagnosticsManager
+from core.environment import Environment
+from core.generators.manager import GeneratorManager
+from core.observability import ObservabilityManager
+from core.observability.console import ConsoleSink as ObservabilityConsoleSink
+from core.observability.console.renderer import ConsoleRenderer
+from core.observability.logging import LoggingManager, LoggingSink
+from core.paths.bootstrap import BootstrapPathManager
+from core.paths.manager import RuntimePathManager
+from core.runtime.manager import ExecutionManager
+from core.template import TemplateEngine
 from core.ui import UIManager
 from core.ui.prompt import PromptManager
 from core.ui.rich_renderer import RichRenderer
-from core.commands.manager import CommandManager
-from core.context import EntropyContext
-from core.environment import Environment
-from core.generators.manager import GeneratorManager
-from core.observability.console.renderer import ConsoleRenderer
-from core.paths.bootstrap import BootstrapPathManager
-from core.paths.manager import RuntimePathManager
-from core.template import TemplateEngine
 from core.version import APP_NAME, VERSION
-from core.configuration import ConfigurationManager
-from core.observability import ObservabilityManager
-from core.diagnostics.console import ConsoleSink as DiagnosticsConsoleSink
-from core.observability.console import ConsoleSink as ObservabilityConsoleSink
-from core.observability.logging import LoggingSink
-from core.observability.logging import LoggingManager
-from core.runtime.manager import ExecutionManager
-
 from lib.auth.manager import SessionManager
 from lib.auth.service import AuthenticationService
 from lib.database.manager import DatabaseManager
@@ -38,7 +35,6 @@ from lib.plugins.manager import PluginManager
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
 from lib.workflow.manager import WorkflowManager
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTROPY_HOME = Path.home() / ".entropy"
@@ -163,7 +159,6 @@ class Application:
 
         assert self.context.paths is not None
         assert self.context.configuration is not None
-
 
         diagnostics = DiagnosticsManager()
 

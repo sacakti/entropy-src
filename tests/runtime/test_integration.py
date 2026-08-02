@@ -1,14 +1,12 @@
 def test_nested_execution(runtime):
 
-    with runtime.stage(name="Validation"):
+    with runtime.stage(name="Validation"), runtime.activity(name="Parse SQL"):
 
-        with runtime.activity(name="Parse SQL"):
+        node = runtime.node
 
-            node = runtime.node
+        assert node.name == "Parse SQL"
 
-            assert node.name == "Parse SQL"
-
-            assert node.depth == 1
+        assert node.depth == 1
 
     tree = runtime.tree
 

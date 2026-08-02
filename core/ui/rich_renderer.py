@@ -5,14 +5,11 @@ Rich UI renderer.
 from __future__ import annotations
 
 from getpass import getpass
-from typing import Iterable
-from typing import Optional
-from typing import Sequence
+from typing import Iterable, Optional, Sequence
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm
-from rich.prompt import Prompt
+from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 from rich.table import Table
 
@@ -59,10 +56,7 @@ class RichRenderer(Renderer):
         self.rule()
 
         self._console.print(
-            "[bold cyan]{0}[/bold cyan] [green]{1}[/green]".format(
-                application,
-                version,
-            ),
+            f"[bold cyan]{application}[/bold cyan] [green]{version}[/green]",
         )
 
         self.rule()
@@ -120,11 +114,7 @@ class RichRenderer(Renderer):
 
         if password:
 
-            return getpass(
-                "{0}: ".format(
-                    message,
-                )
-            )
+            return getpass(f"{message}: ")
 
         return Prompt.ask(
             message,
@@ -151,9 +141,7 @@ class RichRenderer(Renderer):
         total: Optional[int] = None,
     ):
 
-        raise NotImplementedError(
-            "Progress support is not implemented."
-        )
+        raise NotImplementedError("Progress support is not implemented.")
 
     # ------------------------------------------------------------------
     # Property

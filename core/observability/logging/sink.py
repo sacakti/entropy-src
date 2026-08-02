@@ -7,7 +7,6 @@ from __future__ import annotations
 from ...models.enums import EventType
 from ..event import Event
 from ..sink import Sink
-
 from .logger import ExecutionLogger
 from .manager import LoggingManager
 
@@ -85,16 +84,13 @@ class LoggingSink(Sink):
             EventType.EXECUTION_COMPLETED: "Execution completed",
             EventType.EXECUTION_FAILED: "Execution failed",
             EventType.EXECUTION_CANCELLED: "Execution cancelled",
-
             EventType.STEP_STARTED: "Step started",
             EventType.STEP_COMPLETED: "Step completed",
             EventType.STEP_FAILED: "Step failed",
             EventType.STEP_SKIPPED: "Step skipped",
-
             EventType.STAGE_STARTED: "Stage started",
             EventType.STAGE_COMPLETED: "Stage completed",
             EventType.STAGE_FAILED: "Stage failed",
-
             EventType.ACTIVITY_STARTED: "Activity started",
             EventType.ACTIVITY_COMPLETED: "Activity completed",
             EventType.ACTIVITY_FAILED: "Activity failed",

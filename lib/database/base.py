@@ -4,8 +4,7 @@ Base database object.
 
 from __future__ import annotations
 
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 from lib.database.connection import DatabaseConnection
 
@@ -37,6 +36,4 @@ class DatabaseObject(ABC):
         Drop the database object.
         """
 
-        connection.execute(
-            f"DROP TABLE IF EXISTS {self.NAME}"
-        )
+        connection.execute(f"DROP TABLE IF EXISTS {self.NAME}")

@@ -7,10 +7,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lib.workflow.loader import WorkflowLoader
-from lib.workflow.validator import WorkflowValidator
 from lib.models.workflow import WorkflowDefinition
 from lib.workflow.execution import WorkflowExecutor
+from lib.workflow.loader import WorkflowLoader
+from lib.workflow.validator import WorkflowValidator
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
@@ -23,7 +23,7 @@ class WorkflowManager:
 
     def __init__(
         self,
-        context: "EntropyContext",
+        context: EntropyContext,
     ) -> None:
 
         self._context = context
@@ -77,11 +77,7 @@ class WorkflowManager:
 
             if workflow_file is None:
 
-                raise FileNotFoundError(
-                    "Workflow '{0}' does not exist.".format(
-                        workflow.name,
-                    )
-                )
+                raise FileNotFoundError(f"Workflow '{workflow.name}' does not exist.")
 
         else:
 
@@ -106,11 +102,7 @@ class WorkflowManager:
 
         else:
 
-            raise ValueError(
-                "Unsupported workflow format '{0}'.".format(
-                    suffix,
-                )
-            )
+            raise ValueError(f"Unsupported workflow format '{suffix}'.")
 
         workflow = self._loader.load(
             document,
@@ -137,9 +129,7 @@ class WorkflowManager:
 
         if self._workflow is None:
 
-            raise RuntimeError(
-                "No workflow has been loaded."
-            )
+            raise RuntimeError("No workflow has been loaded.")
 
         self._executor.execute(
             self._workflow,

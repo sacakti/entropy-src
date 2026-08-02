@@ -8,6 +8,7 @@ from rich.text import Text
 
 from .theme import ConsoleTheme
 
+
 class Banner:
     """Builds the application banner."""
 

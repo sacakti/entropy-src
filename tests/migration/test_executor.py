@@ -1,5 +1,3 @@
-from unittest.mock import Mock
-
 from lib.migrations.base import BaseMigration
 from lib.migrations.executor import MigrationExecutor
 

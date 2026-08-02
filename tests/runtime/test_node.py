@@ -1,5 +1,5 @@
-from lib.models.runtime import ExecutionStatus
-from lib.models.runtime import RuntimeNodeType
+from lib.models.runtime import ExecutionStatus, RuntimeNodeType
+
 from core.runtime.node import RuntimeNode
 
 
@@ -29,6 +29,7 @@ def test_node_lifecycle():
 
     assert node.duration_ms >= 0
 
+
 def test_node_metadata():
 
     node = RuntimeNode(
@@ -49,6 +50,7 @@ def test_node_metadata():
     assert node.get("file") == "master.sql"
 
     assert node.get("line") == 10
+
 
 def test_node_hierarchy():
 
