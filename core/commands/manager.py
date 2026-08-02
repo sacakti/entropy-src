@@ -86,7 +86,7 @@ class CommandManager:
                 )
 
         self._log.debug(
-            "Discovered {0} command(s).".format(
+            "Discovered {} command(s).".format(
                 len(
                     self.list(),
                 ),

@@ -42,7 +42,7 @@ class FileSink(Sink):
         ) as handle:
 
             handle.write(
-                "{0} [{1:<7}] [{2}] {3}\n".format(
+                "{} [{:<7}] [{}] {}\n".format(
                     entry.timestamp.strftime(
                         "%Y-%m-%d %H:%M:%S",
                     ),

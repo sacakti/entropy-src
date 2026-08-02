@@ -1,5 +1,7 @@
 from unittest.mock import Mock
 
+import pytest
+
 from lib.plugins.plugin import Plugin
 
 
@@ -82,16 +84,13 @@ def test_dispose_always_called():
 
     plugin = BrokenPlugin()
 
-    try:
-
+    with pytest.raises(
+        RuntimeError,
+    ):
         plugin.run(
             Mock(),
             Mock(),
         )
-
-    except RuntimeError:
-
-        pass
 
     assert plugin.calls == [
         "initialize",

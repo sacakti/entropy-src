@@ -104,7 +104,7 @@ def test_authenticate_rehashes_password_when_required(
     monkeypatch,
 ):
 
-    user = user_manager.create(
+    user_manager.create(
         username="john",
         password="TestUser#2026",
     )

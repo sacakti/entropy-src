@@ -6,8 +6,6 @@ import os
 import shutil
 from dataclasses import dataclass
 
-from lib.database_v1.manager import DatabaseManager
-
 from lib.install.paths import InstallerPathManager
 
 from .launcher import Launcher
@@ -87,7 +85,7 @@ class Installer:
             # Setup initial user
             #
 
-            db = DatabaseManager()
+            # db = DatabaseManager()
 
             message = success_msg + path_resp
 

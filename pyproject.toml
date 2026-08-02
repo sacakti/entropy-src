@@ -124,6 +124,7 @@ ignore = [
     "UP006", # Python 3.9 compatibility
     "UP035",
     "UP045",
+    "B027",
 ]
 
 [tool.ruff.lint.per-file-ignores]
