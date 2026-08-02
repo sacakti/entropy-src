@@ -13,10 +13,11 @@ from core.diagnostics.console import ConsoleSink as DiagnosticsConsoleSink
 from core.diagnostics.manager import DiagnosticsManager
 from core.environment import Environment
 from core.generators.manager import GeneratorManager
+from core.models.logger import LogLevel
 from core.observability import ObservabilityManager
-from core.observability.console import ConsoleSink as ObservabilityConsoleSink
+from core.observability.console import ConsoleSink as ObservabilityConsoleSink, LogConsoleSink
 from core.observability.console.renderer import ConsoleRenderer
-from core.observability.logging import LoggingManager, LoggingSink
+from core.observability.logging import LoggingManager, LoggingSink, LogFileSink
 from core.paths.bootstrap import BootstrapPathManager
 from core.paths.manager import RuntimePathManager
 from core.runtime.manager import ExecutionManager
@@ -186,6 +187,18 @@ class Application:
             console,
         )
 
+        observability.register(
+            LogConsoleSink(
+                renderer,
+                level=LogLevel[
+                    self.context.configuration.get(
+                        "console.level",
+                        "INFO",
+                    ).upper()
+                ],
+            ),
+        )
+
         log_manager = LoggingManager(
             directory=self.context.paths.logs.root,
             level=self.context.configuration.get(
@@ -196,6 +209,12 @@ class Application:
 
         observability.register(
             LoggingSink(
+                log_manager,
+            ),
+        )
+
+        observability.register(
+            LogFileSink(
                 log_manager,
             ),
         )

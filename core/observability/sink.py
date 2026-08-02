@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from .event import Event
+from .event import BaseEvent
 
 
 class Sink(ABC):
@@ -20,7 +20,7 @@ class Sink(ABC):
     @abstractmethod
     def publish(
         self,
-        event: Event,
+        event: BaseEvent,
     ) -> None:
         """
         Publish a runtime event.

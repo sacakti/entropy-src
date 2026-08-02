@@ -19,6 +19,8 @@ class LogLevel(str, Enum):
 
     ERROR = "error"
 
+    CRITICAL = "critical"
+
 
 @dataclass(frozen=True)
 class LogEntry:

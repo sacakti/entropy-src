@@ -35,8 +35,8 @@ class CommandManager:
 
         self._commands: Dict[str, BaseCommand] = {}
 
-        self._log = context.diagnostics.logger(
-            "system",
+        self._events = context.observability.emitter(
+            self.__class__.__name__,
         )
 
     # ------------------------------------------------------------------
@@ -50,7 +50,10 @@ class CommandManager:
         Discover commands.
         """
 
-        self._log.debug("Discovering commands...")
+        # self._log.debug("Discovering commands...")
+        self._events.debug(
+            "Discovering commands..."
+        )
 
         for _, module_name, _ in pkgutil.iter_modules(
             __path__,
@@ -85,7 +88,7 @@ class CommandManager:
                     )
                 )
 
-        self._log.debug(
+        self._events.debug(
             "Discovered {} command(s).".format(
                 len(
                     self.list(),

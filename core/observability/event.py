@@ -1,5 +1,5 @@
 """
-Runtime observation event.
+Observability events.
 """
 
 from __future__ import annotations
@@ -17,12 +17,25 @@ if TYPE_CHECKING:
     from core.runtime.node import RuntimeNode
 
 
+class BaseEvent:
+    """
+    Marker base class for all observability events.
+    """
+
+    pass
+
+
+# ------------------------------------------------------------------
+# Runtime Event
+# ------------------------------------------------------------------
+
+
 @dataclass(frozen=True)
-class Event:
+class Event(BaseEvent):
     """
     Immutable runtime observation.
 
-    Produced by the Runtime.
+    Produced by the runtime.
 
     Consumed by observability sinks.
     """
@@ -71,12 +84,20 @@ class Event:
         return self.node.status
 
 
-@dataclass(frozen=True)
-class LogEvent:
+# ------------------------------------------------------------------
+# Log Event
+# ------------------------------------------------------------------
 
-    level: LogLevel
+
+@dataclass(frozen=True)
+class LogEvent(BaseEvent):
+    """
+    Application log event.
+    """
 
     source: str
+
+    level: LogLevel
 
     message: str
 

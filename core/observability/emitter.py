@@ -4,11 +4,12 @@ Runtime event emitter.
 
 from __future__ import annotations
 
+from core.models.logger import LogLevel
 from core.runtime.node import RuntimeNode
 
 from ..models.enums import EventType
 from .dispatcher import EventDispatcher
-from .event import Event
+from .event import Event, LogEvent
 
 
 class Emitter:
@@ -54,72 +55,77 @@ class Emitter:
             event,
         )
 
-    # # ------------------------------------------------------------------
-    # # Logging
-    # # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Logging
+    # ------------------------------------------------------------------
 
-    # def debug(
-    #     self,
-    #     message: str,
-    # ) -> None:
+    def log(
+        self,
+        level: LogLevel,
+        message: str,
+    ) -> None:
+        """
+        Emit a log event.
+        """
 
-    #     self._log(
-    #         LogLevel.DEBUG,
-    #         message,
-    #     )
+        self._dispatcher.dispatch(
+            LogEvent(
+                source=self._source,
+                level=level,
+                message=message,
+            )
+        )
 
-    # def info(
-    #     self,
-    #     message: str,
-    # ) -> None:
+    def debug(
+        self,
+        message: str,
+    ) -> None:
 
-    #     self._log(
-    #         LogLevel.INFO,
-    #         message,
-    #     )
+        self.log(
+            LogLevel.DEBUG,
+            message,
+        )
 
-    # def success(
-    #     self,
-    #     message: str,
-    # ) -> None:
 
-    #     self._log(
-    #         LogLevel.SUCCESS,
-    #         message,
-    #     )
+    def info(
+        self,
+        message: str,
+    ) -> None:
 
-    # def warning(
-    #     self,
-    #     message: str,
-    # ) -> None:
+        self.log(
+            LogLevel.INFO,
+            message,
+        )
 
-    #     self._log(
-    #         LogLevel.WARNING,
-    #         message,
-    #     )
 
-    # def error(
-    #     self,
-    #     message: str,
-    # ) -> None:
+    def warning(
+        self,
+        message: str,
+    ) -> None:
 
-    #     self._log(
-    #         LogLevel.ERROR,
-    #         message,
-    #     )
+        self.log(
+            LogLevel.WARNING,
+            message,
+        )
 
-    # def _log(
-    #     self,
-    #     level: LogLevel,
-    #     message: str,
-    # ) -> None:
 
-    #     event = Event.log(
-    #         source=self._source,
-    #         level=level,
-    #         message=message,
-    #     )
+    def error(
+        self,
+        message: str,
+    ) -> None:
 
-    #     self._dispatcher.dispatch(
-    #         event,
-    #     )
+        self.log(
+            LogLevel.ERROR,
+            message,
+        )
+
+
+    def critical(
+        self,
+        message: str,
+    ) -> None:
+
+        self.log(
+            LogLevel.CRITICAL,
+            message,
+        )

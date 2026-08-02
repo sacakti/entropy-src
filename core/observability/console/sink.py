@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from rich.progress import TaskID
 
-from ..event import Event
+from ..event import BaseEvent, Event
 from ..sink import Sink
 from .renderer import ConsoleRenderer
 
@@ -33,8 +33,11 @@ class ConsoleSink(Sink):
 
     def publish(
         self,
-        event: Event,
+        event: BaseEvent,
     ) -> None:
+
+        if not isinstance(event, Event):
+            return
 
         handler = getattr(
             self,
@@ -43,7 +46,6 @@ class ConsoleSink(Sink):
         )
 
         if handler is not None:
-
             handler(event)
 
     # ------------------------------------------------------------------

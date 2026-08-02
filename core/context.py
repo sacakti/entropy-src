@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from core.commands.manager import CommandManager
     from core.configuration.manager import ConfigurationManager
     from core.generators.manager import GeneratorManager
-    from core.observability import Observability
+    from core.observability import ObservabilityManager
     from core.paths.bootstrap import BootstrapPathManager
     from core.paths.manager import RuntimePathManager
     from core.runtime.manager import ExecutionManager
@@ -58,7 +58,7 @@ class EntropyContext:
 
         self.executor: LinuxExecutor | None = None
 
-        self.observability: Observability | None = None
+        self.observability: ObservabilityManager | None = None
 
         # ---------------------------------------------------------
         # Core Managers

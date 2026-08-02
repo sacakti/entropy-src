@@ -4,7 +4,7 @@ Runtime event dispatcher.
 
 from __future__ import annotations
 
-from .event import Event
+from .event import BaseEvent
 from .sink import Sink
 
 
@@ -49,7 +49,7 @@ class EventDispatcher:
 
     def dispatch(
         self,
-        event: Event,
+        event: BaseEvent,
     ) -> None:
         """
         Dispatch an event to all registered sinks.

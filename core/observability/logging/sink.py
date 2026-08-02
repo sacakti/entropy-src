@@ -5,7 +5,7 @@ Logging sink.
 from __future__ import annotations
 
 from ...models.enums import EventType
-from ..event import Event
+from ..event import BaseEvent, Event
 from ..sink import Sink
 from .logger import ExecutionLogger
 from .manager import LoggingManager
@@ -31,19 +31,15 @@ class LoggingSink(Sink):
 
     def publish(
         self,
-        event: Event,
+        event: BaseEvent,
     ) -> None:
-        """
-        Persist a runtime event.
-        """
 
-        logger = self._logger(
-            event,
-        )
+        if not isinstance(event, Event):
+            return
 
-        message = self._message(
-            event,
-        )
+        logger = self._logger(event)
+
+        message = self._message(event)
 
         self._write(
             logger,
