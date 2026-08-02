@@ -7,6 +7,9 @@ from typing import cast
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
+from argon2.exceptions import VerifyMismatchError
+
+from lib.users.exceptions import WeakPasswordError
 
 
 @dataclass(frozen=True)
@@ -19,7 +22,9 @@ class PasswordVerification:
 
 class PasswordService:
 
-    def __init__(self):
+    def __init__(
+        self,
+    ) -> None:
 
         self._hasher = PasswordHasher(
             time_cost=3,
@@ -63,9 +68,49 @@ class PasswordService:
                 ),
             )
 
-        except VerificationError:
+        except VerifyMismatchError:
 
             return PasswordVerification(
                 valid=False,
                 needs_rehash=False,
+            )
+
+    # ------------------------------------------------------------------
+    # Validate
+    # ------------------------------------------------------------------
+
+    def validate(
+        self,
+        password: str,
+    ) -> None:
+        """
+        Validate password strength.
+        """
+
+        if not password:
+
+            raise WeakPasswordError(
+                "Password is required."
+            )
+
+        if len(password) < 8:
+
+            raise WeakPasswordError(
+                "Password must contain at least 8 characters."
+            )
+
+        if password.isspace():
+
+            raise WeakPasswordError(
+                "Password cannot contain only whitespace."
+            )
+
+        if password.lower() in {
+            "password",
+            "password123",
+            "admin123",
+        }:
+
+            raise WeakPasswordError(
+                "Password is too common."
             )

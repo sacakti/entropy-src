@@ -1,115 +1,111 @@
 """
 Plugin registry.
-
-Responsible for discovering and registering plugin metadata.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
-
-from core.constants import PLUGIN_DIR
-from core.context import EntropyContext
-from lib.models.plugin import Plugin
-
-from .exception import PluginAlreadyRegisteredError
-from .validators.manifest import ManifestValidator
+from .exceptions import (
+    PluginAlreadyRegisteredError,
+    PluginNotFoundError,
+)
+from .metadata import PluginMetadata
 
 
 class PluginRegistry:
     """
-    Discovers and registers plugin metadata.
+    Stores plugin metadata.
     """
 
-    def __init__(
-        self,
-        context: EntropyContext,
-    ) -> None:
+    def __init__(self) -> None:
 
-        self.context = context
+        self._plugins: dict[str, PluginMetadata] = {}
 
-        self._plugins: dict[str, Plugin] = {}
-
-        self.validator = ManifestValidator()
-
-    def _read_manifest(
-        self,
-        manifest: Path,
-    ) -> Any:
-        assert self.context.executor is not None
-        return self.context.executor.read_json(manifest)
-
-    def discover(self) -> None:
-
-        if not PLUGIN_DIR.exists():
-            return
-
-        for namespace in PLUGIN_DIR.iterdir():
-
-            if not namespace.is_dir():
-                continue
-
-            self.context.output.plugin.debug(f"Searching for plugins in: {namespace}")
-
-            for directory in namespace.iterdir():
-
-                if not directory.is_dir():
-                    continue
-
-                plugin = self.validator.validate(
-                    namespace.name,
-                    directory,
-                )
-
-                self.register(plugin)
-
-        self.context.output.plugin.debug(f"Discovered {len(self._plugins)} plugin(s).")
+    # ------------------------------------------------------------------
+    # Registration
+    # ------------------------------------------------------------------
 
     def register(
         self,
-        plugin: Plugin,
+        metadata: PluginMetadata,
     ) -> None:
-        """
-        Register plugin metadata.
-        """
 
-        if plugin.name in self._plugins:
+        if metadata.name in self._plugins:
 
-            raise PluginAlreadyRegisteredError(f"Plugin '{plugin.name}' is already registered.")
+            raise PluginAlreadyRegisteredError(
+                metadata.name,
+            )
 
-        self._plugins[plugin.name] = plugin
+        self._plugins[
+            metadata.name
+        ] = metadata
+
+    # ------------------------------------------------------------------
+
+    def resolve(
+        self,
+        name: str,
+    ) -> PluginMetadata:
+
+        try:
+
+            return self._plugins[name]
+
+        except KeyError as exc:
+
+            raise PluginNotFoundError(
+                name,
+            ) from exc
+
+    # ------------------------------------------------------------------
 
     def get(
         self,
         name: str,
-    ) -> Plugin | None:
-        """
-        Return plugin metadata.
-        """
+    ) -> PluginMetadata | None:
 
         return self._plugins.get(name)
 
-    def list(self) -> list[Plugin]:
-        """
-        Return all registered plugins.
-        """
+    # ------------------------------------------------------------------
 
-        return list(self._plugins.values())
+    def list(
+        self,
+    ) -> list[PluginMetadata]:
 
-    def clear(self) -> None:
-        """
-        Remove all registered plugins.
-        """
+        return sorted(
+            self._plugins.values(),
+            key=lambda plugin: plugin.name,
+        )
 
-        self._plugins.clear()
+    # ------------------------------------------------------------------
 
     def has(
         self,
         name: str,
     ) -> bool:
-        """
-        Return True if the plugin is registered.
-        """
 
         return name in self._plugins
+
+    # ------------------------------------------------------------------
+
+    def clear(
+        self,
+    ) -> None:
+
+        self._plugins.clear()
+
+    # ------------------------------------------------------------------
+
+    def __len__(
+        self,
+    ) -> int:
+
+        return len(
+            self._plugins,
+        )
+
+    def __contains__(
+        self,
+        name: str,
+    ) -> bool:
+
+        return self.has(name)

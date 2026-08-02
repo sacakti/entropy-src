@@ -2,12 +2,14 @@ from pathlib import Path
 from time import sleep
 
 from core.version import APP_NAME, VERSION
-from lib.output.manager import OutputManager
+# from lib.output.manager import OutputManager
+# from core.observability.manager import ObservabilityManager
+from core.ui.manager import UIManager
 
 
 def test_console():
 
-    output = OutputManager()
+    output = UIManager()
 
     output.initialize(Path("logs"))
 

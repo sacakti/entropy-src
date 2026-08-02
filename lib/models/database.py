@@ -4,7 +4,17 @@ Database models.
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum, auto
 from typing import Optional
+
+
+class MigrationMode(Enum):
+
+    SILENT = auto()
+
+    NORMAL = auto()
+
+    VERBOSE = auto()
 
 
 @dataclass

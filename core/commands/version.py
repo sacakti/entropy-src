@@ -1,24 +1,75 @@
 """
-Help command.
+Version command.
 """
 
 from __future__ import annotations
 
-from core.commands.base import BaseCommand, CommandMetadata
-from core.version import APP_NAME, VERSION
+from argparse import ArgumentParser
+from argparse import Namespace
+
+from core.commands.base import (
+    BaseCommand,
+    CommandMetadata,
+)
+from core.version import (
+    APP_NAME,
+    VERSION,
+)
 
 
-class HelpCommand(BaseCommand):
+class VersionCommand(BaseCommand):
+    """
+    Display application version.
+    """
 
     metadata = CommandMetadata(
         name="version",
-        description="Display entropy version.",
+        description="Display the application version.",
         authentication_required=False,
     )
 
-    def configure(self, parser):
+    def __init__(
+        self,
+        context,
+    ) -> None:
+
+        super().__init__(
+            context,
+        )
+
+        assert context.ui is not None
+
+        self._ui = context.ui
+
+    # ------------------------------------------------------------------
+    # Configure
+    # ------------------------------------------------------------------
+
+    def configure(
+        self,
+        parser: ArgumentParser,
+    ) -> None:
+        """
+        Configure command-line arguments.
+        """
+
         pass
 
-    def execute(self, args):
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
 
-        self.context.output.print(f"{APP_NAME} Version {VERSION}")
+    def execute(
+        self,
+        args: Namespace,
+    ) -> None:
+        """
+        Display the application version.
+        """
+
+        self._ui.print(
+            "{0} Version {1}".format(
+                APP_NAME,
+                VERSION,
+            )
+        )

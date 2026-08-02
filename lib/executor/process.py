@@ -6,8 +6,10 @@ Provides methods for executing operating system commands.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
+import shlex
 
 from lib.executor.types import Command, Environment, PathLike
 
@@ -61,10 +63,16 @@ class ProcessMixin:
 
         start = time.perf_counter()
 
+
+        environment = os.environ.copy()
+
+        if env:
+            environment.update(env)
+
         process = subprocess.run(
             command,
             cwd=str(cwd) if cwd else None,
-            env=dict(env) if env else None,
+            env=environment,
             timeout=timeout,
             shell=shell,
             check=check,
@@ -74,7 +82,9 @@ class ProcessMixin:
 
         duration = time.perf_counter() - start
 
-        command_text = " ".join(map(str, command)) if isinstance(command, list) else command
+        # command_text = " ".join(map(str, command)) if isinstance(command, list) else command
+
+        command_text = shlex.join(command)
 
         return ExecutionResult(
             command=command_text,

@@ -1,51 +1,193 @@
-from .executor import PluginExecutor
+"""
+Plugin manager.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from core.runtime.context import ExecutionContext
+from lib.models.workflow import WorkflowStep
+
+from .discovery import PluginDiscovery
 from .loader import PluginLoader
+from .metadata import PluginMetadata
+from .plugin import Plugin
 from .registry import PluginRegistry
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
 
 
 class PluginManager:
+    """
+    Plugin framework.
 
-    def __init__(self, context):
+    Responsible for:
 
-        self._registry = PluginRegistry(context)
+        • discovery
+        • registration
+        • loading
+
+    Plugin execution is performed by the Workflow runtime.
+    """
+
+    def __init__(
+        self,
+        context: "EntropyContext",
+    ) -> None:
+
+        self._registry = PluginRegistry()
 
         self._loader = PluginLoader(
             context,
             self._registry,
         )
 
-        self._executor = PluginExecutor(
+        self._discovery = PluginDiscovery(
             context,
-            self._loader,
+            self._registry,
         )
 
-    def discover(self):
+    # ------------------------------------------------------------------
+    # Discovery
+    # ------------------------------------------------------------------
 
-        self._registry.discover()
+    def discover(
+        self,
+    ) -> None:
 
-    def register(self, plugin):
+        self._discovery.discover()
 
-        self._registry.register(plugin)
+    # ------------------------------------------------------------------
+    # Registration
+    # ------------------------------------------------------------------
 
-    def get(self, name):
+    def register(
+        self,
+        metadata: PluginMetadata,
+    ) -> None:
 
-        return self._registry.get(name)
+        self._registry.register(
+            metadata,
+        )
 
-    def list(self):
+    # ------------------------------------------------------------------
+    # Metadata
+    # ------------------------------------------------------------------
+
+    def resolve(
+        self,
+        name: str,
+    ) -> PluginMetadata:
+
+        return self._registry.resolve(
+            name,
+        )
+
+    def get(
+        self,
+        name: str,
+    ) -> PluginMetadata | None:
+
+        return self._registry.get(
+            name,
+        )
+
+    def list(
+        self,
+    ) -> list[PluginMetadata]:
 
         return self._registry.list()
 
-    def load(self, name):
-
-        return self._loader.load(name)
-
-    def execute(
+    def has(
         self,
-        name,
-        config,
-    ):
+        name: str,
+    ) -> bool:
 
-        return self._executor.execute(
+        return self._registry.has(
             name,
-            config,
+        )
+
+    # ------------------------------------------------------------------
+    # Loading
+    # ------------------------------------------------------------------
+
+    def load(
+        self,
+        name: str,
+    ) -> Plugin:
+
+        return self._loader.load(
+            name,
+        )
+
+    def loaded(
+        self,
+        name: str,
+    ) -> bool:
+
+        return self._loader.has(
+            name,
+        )
+
+    # ------------------------------------------------------------------
+    # Cache
+    # ------------------------------------------------------------------
+
+    def clear(
+        self,
+    ) -> None:
+
+        self._loader.clear()
+
+        self._registry.clear()
+
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
+
+    def run(
+        self,
+        context: ExecutionContext,
+        step: WorkflowStep,
+    ) -> None:
+        """
+        Execute the complete plugin lifecycle.
+        """
+
+        self.initialize(context)
+
+        try:
+
+            self.validate(step)
+
+            self.execute(
+                context,
+                step,
+            )
+
+        finally:
+
+            self.dispose()
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def __len__(
+        self,
+    ) -> int:
+
+        return len(
+            self._registry,
+        )
+
+    def __contains__(
+        self,
+        name: str,
+    ) -> bool:
+
+        return self.has(
+            name,
         )

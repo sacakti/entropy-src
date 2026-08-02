@@ -4,7 +4,7 @@ Entropy uninstaller.
 
 import shutil
 
-from core.constants import ENTROPY_HOME
+from lib.install.paths import InstallerPathManager
 
 from .installer import InstallerResult
 from .launcher import Launcher
@@ -41,6 +41,8 @@ class Uninstaller:
 
     def _remove_home(self):
 
-        if ENTROPY_HOME.exists():
+        self.paths = InstallerPathManager()
 
-            shutil.rmtree(ENTROPY_HOME)
+        if self.paths.home.exists():
+
+            shutil.rmtree(self.paths.home)

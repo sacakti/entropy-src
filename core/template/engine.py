@@ -12,8 +12,6 @@ from jinja2 import (
     TemplateNotFound,
 )
 
-from core.constants import TEMPLATE_DIR
-
 from .exceptions import TemplateNotFoundError
 
 
@@ -26,13 +24,8 @@ class TemplateEngine:
 
         self.context = context
 
-        # template_directory = (
-        #     Path(__file__).resolve().parents[2]
-        #     / "templates"
-        # )
-
         self._environment = Environment(
-            loader=FileSystemLoader(TEMPLATE_DIR),
+            loader=FileSystemLoader(self.context.bootstrap.resources.templates),
             autoescape=False,
             keep_trailing_newline=True,
             trim_blocks=True,

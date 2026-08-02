@@ -2,26 +2,33 @@
 User manager.
 """
 
-from typing import Optional
+from __future__ import annotations
+import secrets
 
 from core.context import EntropyContext
 from lib.database.repositories.users import UserRepository
 from lib.models.users import User
-from lib.output.category import CategoryLogger
-from lib.output.manager import OutputManager
 from lib.users.exceptions import (
-    AuthenticationError,
     InvalidUsernameError,
     SystemUserError,
     UserAlreadyExistsError,
-    UserInactiveError,
-    UserNotFoundError,
     WeakPasswordError,
 )
 from lib.users.password import PasswordService
 
 
 class UserManager:
+    """
+    User lifecycle management.
+
+    Responsibilities
+    ----------------
+    - Create users
+    - Delete users
+    - Change passwords
+    - Enable/disable users
+    - Bootstrap administrator
+    """
 
     def __init__(
         self,
@@ -30,48 +37,43 @@ class UserManager:
 
         assert context.user_repository is not None
         assert context.password_service is not None
+        assert context.diagnostics is not None
 
-        self._repository: UserRepository = context.user_repository
-        self._password: PasswordService = context.password_service
-        self._console: OutputManager = context.output
-        self._log: CategoryLogger = context.output.user
+        self._repository: UserRepository = (
+            context.user_repository
+        )
+
+        self._password: PasswordService = (
+            context.password_service
+        )
+
+        self._log = context.diagnostics.logger(
+            "user",
+        )
 
     # ------------------------------------------------------------------
-    # Initialize
+    # Bootstrap
     # ------------------------------------------------------------------
 
     def initialize(self) -> None:
-
-        #
-        # Create the bootstrap administrator only when the
-        # database contains no users.
-        #
+        """
+        Create the bootstrap administrator when no users exist.
+        """
 
         if self._repository.any():
             return
 
+        password = secrets.token_urlsafe(16)
+
         self.create(
             username="admin",
-            password="admin123",
+            password=password,
             full_name="Administrator",
-            email=None,
-            group_id=None,
             system=True,
         )
 
-        self._log.success("Default administrator account created.")
-
-        self._console.panel(
-            title="Default Administrator",
-            lines=[
-                "Username : admin",
-                "Password : admin123",
-                "",
-                "Please change the password immediately.",
-                "",
-                "Command:",
-                "    ent user password admin",
-            ],
+        self._log.success(
+            "Bootstrap administrator created."
         )
 
     # ------------------------------------------------------------------
@@ -82,9 +84,9 @@ class UserManager:
         self,
         username: str,
         password: str,
-        full_name: Optional[str] = None,
-        email: Optional[str] = None,
-        group_id: Optional[int] = None,
+        full_name: str | None = None,
+        email: str | None = None,
+        group_id: int | None = None,
         system: bool = False,
     ) -> User:
 
@@ -107,58 +109,13 @@ class UserManager:
             system=system,
         )
 
-        user = self._repository.create(user)
-
-        self._log.success(f"User '{username}' created.")
-
-        return user
-
-    # ------------------------------------------------------------------
-    # Authenticate
-    # ------------------------------------------------------------------
-
-    def authenticate(
-        self,
-        username: str,
-        password: str,
-    ) -> User:
-
-        try:
-            user = self._repository.get_by_username(username)
-        except UserNotFoundError:
-            self._log.warning(f"Authentication failed for '{username}'.")
-            raise AuthenticationError() from None
-
-        if user is None:
-
-            self._log.warning(f"Authentication failed for '{username}'.")
-
-            raise AuthenticationError()
-
-        if not user.is_active:
-
-            self._log.warning(f"Inactive user '{username}' attempted to authenticate.")
-
-            raise UserInactiveError(username)
-
-        verification = self._password.verify(
-            password,
-            user.password_hash,
-        )
-
-        if not verification.valid:
-
-            self._log.warning(f"Authentication failed for '{username}'.")
-
-            raise AuthenticationError()
-
-        self._rehash_password(
+        user = self._repository.create(
             user,
-            password,
-            verification.needs_rehash,
         )
 
-        self._log.info(f"User '{username}' authenticated.")
+        self._log.success(
+            f"User '{username}' created."
+        )
 
         return user
 
@@ -172,17 +129,27 @@ class UserManager:
         password: str,
     ) -> User:
 
-        self._validate_password(password)
+        self._validate_password(
+            password,
+        )
 
-        user.password_hash = self._password.hash(password)
+        user.password_hash = self._password.hash(
+            password,
+        )
 
-        self._repository.update(user)
+        self._repository.update(
+            user,
+        )
 
-        self._log.success(f"Password changed for '{user.username}'.")
+        self._log.success(
+            f"Password changed for '{user.username}'."
+        )
 
         assert user.id is not None
 
-        return self._repository.get(user.id)
+        return self._repository.get(
+            user.id,
+        )
 
     # ------------------------------------------------------------------
     # Get
@@ -193,15 +160,17 @@ class UserManager:
         username: str,
     ) -> User:
 
-        user = self._repository.get_by_username(username)
-
-        return user
+        return self._repository.get_by_username(
+            username,
+        )
 
     # ------------------------------------------------------------------
     # List
     # ------------------------------------------------------------------
 
-    def list(self) -> list[User]:
+    def list(
+        self,
+    ) -> list[User]:
 
         return self._repository.list()
 
@@ -214,16 +183,23 @@ class UserManager:
         user: User,
     ) -> None:
 
-        user = self.get(user.username)
+        user = self.get(
+            user.username,
+        )
 
         if user.system:
-            raise SystemUserError(user.username)
+
+            raise SystemUserError()
 
         assert user.id is not None
 
-        self._repository.delete(user.id)
+        self._repository.delete(
+            user.id,
+        )
 
-        self._log.success(f"User '{user.username}' deleted.")
+        self._log.success(
+            f"User '{user.username}' deleted."
+        )
 
     # ------------------------------------------------------------------
     # Exists
@@ -234,18 +210,22 @@ class UserManager:
         username: str,
     ) -> bool:
 
-        return self._repository.exists(username)
+        return self._repository.exists(
+            username,
+        )
 
     # ------------------------------------------------------------------
     # Any
     # ------------------------------------------------------------------
 
-    def any(self) -> bool:
+    def any(
+        self,
+    ) -> bool:
 
         return self._repository.any()
 
     # ------------------------------------------------------------------
-    # Set Active
+    # Active
     # ------------------------------------------------------------------
 
     def set_active(
@@ -254,18 +234,29 @@ class UserManager:
         active: bool,
     ) -> User:
 
-        user = self.get(username)
+        user = self.get(
+            username,
+        )
 
         if user.system and not active:
-            raise SystemUserError(username)
+
+            raise SystemUserError()
 
         user.is_active = active
 
-        self._repository.update(user)
+        self._repository.update(
+            user,
+        )
 
-        action = "enabled" if active else "disabled"
+        action = (
+            "enabled"
+            if active
+            else "disabled"
+        )
 
-        self._log.success(f"User '{username}' {action}.")
+        self._log.success(
+            f"User '{username}' {action}."
+        )
 
         return user
 
@@ -278,10 +269,12 @@ class UserManager:
         username: str,
     ) -> User:
 
-        raise NotImplementedError("Account locking is not implemented.")
+        raise NotImplementedError(
+            "Account locking is not implemented."
+        )
 
     # ------------------------------------------------------------------
-    # Private
+    # Validation
     # ------------------------------------------------------------------
 
     def _validate_password(
@@ -289,21 +282,6 @@ class UserManager:
         password: str,
     ) -> None:
 
-        if not password or len(password) < 8:
-            raise WeakPasswordError("Password must contain at least 8 characters.")
-
-    def _rehash_password(
-        self,
-        user: User,
-        password: str,
-        needs_rehash: bool,
-    ) -> None:
-
-        if not needs_rehash:
-            return
-
-        user.password_hash = self._password.hash(password)
-
-        self._repository.update(user)
-
-        self._log.info(f"Password hash upgraded for '{user.username}'.")
+        self._password.validate(
+            password,
+        )

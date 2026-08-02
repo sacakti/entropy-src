@@ -1,0 +1,29 @@
+"""
+Observability sink.
+"""
+
+from __future__ import annotations
+
+from abc import ABC
+from abc import abstractmethod
+
+from .event import Event
+
+
+class Sink(ABC):
+    """
+    Base class for all observability sinks.
+
+    A sink consumes runtime events and publishes them
+    to a specific destination.
+    """
+
+    @abstractmethod
+    def publish(
+        self,
+        event: Event,
+    ) -> None:
+        """
+        Publish a runtime event.
+        """
+        ...

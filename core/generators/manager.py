@@ -19,6 +19,12 @@ class GeneratorManager:
 
         self.context = context
 
+        assert context.diagnostics is not None
+
+        self._log = context.diagnostics.logger(
+            "generator",
+        )
+
         self._generators: dict[str, BaseGenerator] = {}
 
     # ---------------------------------------------------------
@@ -27,7 +33,7 @@ class GeneratorManager:
 
     def discover(self) -> None:
 
-        self.context.output.cli.debug("Discovering generators...")
+        self._log.debug("Discovering generators...")
 
         for _, module_name, _ in pkgutil.iter_modules(__path__):
 
@@ -50,7 +56,7 @@ class GeneratorManager:
 
                 self.register(cls(self.context))
 
-        self.context.output.cli.debug(f"{len(self.list())} generator(s) loaded.")
+        self._log.debug(f"{len(self.list())} generator(s) loaded.")
 
     # ---------------------------------------------------------
     # Register

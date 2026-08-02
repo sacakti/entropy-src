@@ -4,54 +4,87 @@ Workflow loader.
 
 from __future__ import annotations
 
-import json
+from typing import Any
 
-from core.constants import WORKFLOW_DIR
 from lib.models.workflow import (
     FailurePolicy,
+    WorkflowPolicy,
     WorkflowDefinition,
-    WorkflowStep,
+    WorkflowStep
 )
 
-
 class WorkflowLoader:
+    """
+    Maps workflow documents to WorkflowDefinition.
+    """
 
-    def __init__(self, context):
+    def load(
+        self,
+        document: dict[str, Any],
+    ) -> WorkflowDefinition:
+        """
+        Load a workflow definition.
+        """
 
-        self.context = context
+        steps = [
+            self._step(step)
+            for step in document.get(
+                "steps",
+                [],
+            )
+        ]
 
-    def load(self, workflow_name: str):
-
-        workflow_file = WORKFLOW_DIR / f"{workflow_name}.json"
-
-        if not workflow_file.exists():
-            raise FileNotFoundError(workflow_file)
-
-        with workflow_file.open(
-            "r",
-            encoding="utf-8",
-        ) as fp:
-
-            raw = json.load(fp)
-
-        workflow = WorkflowDefinition(
-            name=raw["name"],
-            version=raw["version"],
-            steps=[
-                WorkflowStep(
-                    order=step["order"],
-                    id=step["id"],
-                    name=step["name"],
-                    plugin=step["plugin"],
-                    enabled=step.get("enabled", True),
-                    config=step.get("config", {}),
-                    retry_count=step.get("retry_count", 0),
-                    on_failure=FailurePolicy(step.get("on_failure", "abort")),
-                )
-                for step in raw["steps"]
-            ],
+        return WorkflowDefinition(
+            name=document.get(
+                "name",
+                "",
+            ),
+            version=document.get(
+                "version",
+                "1.0",
+            ),
+            description=document.get(
+                "description",
+                "",
+            ),
+            steps=steps,
         )
 
-        workflow.steps.sort(key=lambda s: s.order)
+    # ------------------------------------------------------------------
 
-        return workflow
+    def _step(
+        self,
+        document: dict[str, Any],
+    ) -> WorkflowStep:
+
+        policy = WorkflowPolicy(
+            enabled=document.get(
+                "enabled",
+                True,
+            ),
+            retries=document.get(
+                "retry_count",
+                0,
+            ),
+            on_failure=FailurePolicy(
+                document.get(
+                    "on_failure",
+                    FailurePolicy.ABORT.value,
+                ),
+            ),
+            timeout=document.get(
+                "timeout",
+            ),
+        )
+
+        return WorkflowStep(
+            id=document["id"],
+            order=document["order"],
+            name=document["name"],
+            plugin=document["plugin"],
+            configuration=document.get(
+                "config",
+                {},
+            ),
+            policy=policy,
+        )

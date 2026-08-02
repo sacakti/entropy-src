@@ -5,8 +5,7 @@ Offline wheel installer.
 import subprocess
 import sys
 
-from core.constants import PACKAGE_DIR, REQUIREMENT_FILE, VENDOR_DIR
-
+from lib.install.paths import InstallerPathManager
 
 class WheelInstaller:
 
@@ -14,19 +13,21 @@ class WheelInstaller:
 
         self._platform = platform
 
+        self.paths = InstallerPathManager()
+
     def install(self):
 
-        if not REQUIREMENT_FILE.exists():
+        if not self.paths.requirements.exists():
 
-            raise FileNotFoundError(f"Requirements file not found: {REQUIREMENT_FILE}")
+            raise FileNotFoundError(f"Requirements file not found: {self.paths.requirements}")
 
-        wheel_directory = VENDOR_DIR / self._platform.value
+        wheel_directory = self.paths.vendor / self._platform.value
 
         if not wheel_directory.exists():
 
             raise FileNotFoundError(f"Wheel directory not found: {wheel_directory}")
 
-        PACKAGE_DIR.mkdir(
+        self.paths.packages.mkdir(
             parents=True,
             exist_ok=True,
         )
@@ -40,9 +41,9 @@ class WheelInstaller:
             "--find-links",
             str(wheel_directory),
             "--target",
-            str(PACKAGE_DIR),
+            str(self.paths.packages),
             "-r",
-            str(REQUIREMENT_FILE),
+            str(self.paths.requirements),
         ]
 
         result = subprocess.run(
@@ -57,5 +58,3 @@ class WheelInstaller:
             print(result.stderr)
 
             raise RuntimeError("Failed to install Python packages.")
-
-        # print(f"Python Packages installed sucessfully.")

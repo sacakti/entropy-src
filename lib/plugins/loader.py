@@ -1,152 +1,131 @@
 """
 Plugin loader.
-
-Responsible for importing and caching plugin instances.
 """
 
 from __future__ import annotations
 
 import importlib
-from typing import Type, cast
+from typing import TYPE_CHECKING
 
-from core.context import EntropyContext
-
-from .base import BasePlugin
-from .exception import (
+from .exceptions import (
     PluginNotFoundError,
     PluginValidationError,
 )
+from .plugin import Plugin
 from .registry import PluginRegistry
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
 
 
 class PluginLoader:
     """
-    Loads and caches plugin instances.
+    Loads plugin instances.
     """
 
     def __init__(
         self,
-        context: EntropyContext,
+        context: "EntropyContext",
         registry: PluginRegistry,
     ) -> None:
 
-        self.context = context
-        self.registry = registry
+        self._context = context
 
-        self._cache: dict[str, BasePlugin] = {}
+        self._registry = registry
+
+        self._cache: dict[str, Plugin] = {}
+
+    # ------------------------------------------------------------------
 
     def load(
         self,
         name: str,
-    ) -> BasePlugin:
-        """
-        Load a plugin instance.
-        """
+    ) -> Plugin:
 
         if name in self._cache:
+
             return self._cache[name]
 
-        metadata = self.registry.get(name)
-
-        if metadata is None:
-            raise PluginNotFoundError(f"Unknown plugin '{name}'.")
-
-        module_name = f"{metadata.package}.{metadata.name}.plugin"
-
-        self.context.output.plugin.debug(f"Importing module: {module_name}")
+        metadata = self._registry.resolve(
+            name,
+        )
 
         try:
-            module = importlib.import_module(metadata.module)
+
+            module = importlib.import_module(
+                metadata.module,
+            )
 
         except ModuleNotFoundError as exc:
 
-            #
-            # Plugin module does not exist.
-            #
-            if exc.name == module_name:
-
-                raise PluginNotFoundError(f"Plugin module '{module_name}' not found.") from exc
-
-            #
-            # Dependency inside the plugin failed.
-            #
-            raise
+            raise PluginNotFoundError(
+                name,
+            ) from exc
 
         try:
+
             class_name = module.PLUGIN_CLASS
 
-        except AttributeError as err:
-
-            raise PluginValidationError(
-                metadata.name,
-                [
-                    f"{module_name} does not define PLUGIN_CLASS.",
-                ],
-            ) from err
-
-        try:
-            plugin_class = cast(
-                Type[BasePlugin],
-                getattr(module, class_name),
+            plugin_class = getattr(
+                module,
+                class_name,
             )
 
-        except AttributeError as err:
+        except AttributeError as exc:
 
             raise PluginValidationError(
-                metadata.name,
+                name,
                 [
-                    f"Plugin class '{class_name}' not found.",
+                    "PLUGIN_CLASS is missing.",
                 ],
-            ) from err
+            ) from exc
 
         if not issubclass(
             plugin_class,
-            BasePlugin,
+            Plugin,
         ):
 
             raise PluginValidationError(
-                metadata.name,
+                name,
                 [
-                    f"{class_name} must inherit BasePlugin.",
+                    f"{class_name} must inherit Plugin.",
                 ],
             )
 
-        instance = plugin_class(self.context)
+        instance = plugin_class()
 
-        self._cache[name] = instance
+        self._cache[
+            name
+        ] = instance
 
         return instance
+
+    # ------------------------------------------------------------------
+
+    def clear(
+        self,
+    ) -> None:
+
+        self._cache.clear()
 
     def has(
         self,
         name: str,
     ) -> bool:
-        """
-        Return True if the plugin is cached.
-        """
 
         return name in self._cache
 
     def get(
         self,
         name: str,
-    ) -> BasePlugin | None:
-        """
-        Return a cached plugin instance.
-        """
+    ) -> Plugin | None:
 
         return self._cache.get(name)
 
-    def clear(self) -> None:
-        """
-        Clear the plugin instance cache.
-        """
+    def list(
+        self,
+    ) -> list[Plugin]:
 
-        self._cache.clear()
-
-    def list(self) -> list[BasePlugin]:
-        """
-        Return cached plugin instances.
-        """
-
-        return list(self._cache.values())
+        return list(
+            self._cache.values(),
+        )

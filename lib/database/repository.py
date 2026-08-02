@@ -1,21 +1,29 @@
+
 """
 Base repository.
 """
 
-from sqlite3 import Connection
+from __future__ import annotations
+
+from lib.database.connection import DatabaseConnection
 
 
 class Repository:
+    """
+    Base repository.
+    """
 
     def __init__(
         self,
-        connection: Connection,
-    ):
+        connection: DatabaseConnection,
+    ) -> None:
 
         self._connection = connection
 
     @property
-    def connection(self):
+    def connection(
+        self,
+    ) -> DatabaseConnection:
 
         return self._connection
 
@@ -30,6 +38,24 @@ class Repository:
             parameters,
         )
 
-    def commit(self):
+    def fetchone(
+        self,
+        sql,
+        parameters=(),
+    ):
 
-        self._connection.commit()
+        return self._connection.fetchone(
+            sql,
+            parameters,
+        )
+
+    def fetchall(
+        self,
+        sql,
+        parameters=(),
+    ):
+
+        return self._connection.fetchall(
+            sql,
+            parameters,
+        )

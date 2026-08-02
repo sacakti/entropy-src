@@ -6,12 +6,14 @@ import os
 import shutil
 from dataclasses import dataclass
 
-from core.constants import CONFIG_DIR, CONFIG_FILE, DATABASE_DIR, DEFAULT_CONFIG_FILE, ENTROPY_HOME
+from lib.install.paths import InstallerPathManager
+from lib.database_v1.manager import DatabaseManager
 
 from .launcher import Launcher
 from .platform import PlatformDetector
 from .wheels import WheelInstaller
 
+paths = InstallerPathManager()
 
 @dataclass
 class InstallerResult:
@@ -27,10 +29,10 @@ Entropy installed successfully.
 ==================================================
 
 Installation Directory
-    {ENTROPY_HOME}
+    {paths.home}
 
 Configuration
-    {CONFIG_FILE}
+    {paths.config_file}
 
 Launcher
     ~/.local/bin/ent
@@ -79,6 +81,12 @@ class Installer:
             #
             path_resp = self._verify_path(launcher)
 
+            #
+            # Setup initial user
+            #
+
+            db = DatabaseManager()
+
             message = success_msg + path_resp
 
             return InstallerResult(
@@ -100,17 +108,17 @@ class Installer:
     def _create_directories(self):
 
         for directory in (
-            ENTROPY_HOME,
-            CONFIG_DIR,
-            DATABASE_DIR,
+            paths.home,
+            paths.config,
+            paths.database,
         ):
             directory.mkdir(parents=True, exist_ok=True)
 
     def _create_config(self):
 
-        if not CONFIG_FILE.exists():
+        if not paths.config_file.exists():
 
-            shutil.copy2(DEFAULT_CONFIG_FILE, CONFIG_FILE)
+            shutil.copy2(paths.default_config, paths.config_file)
 
     def _install_launcher(self, platform):
         return Launcher(

@@ -2,38 +2,145 @@
 Workflow manager.
 """
 
-from .executor import WorkflowExecutor
-from .loader import WorkflowLoader
-from .validator import WorkflowValidator
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from lib.workflow.loader import WorkflowLoader
+from lib.workflow.validator import WorkflowValidator
+from lib.models.workflow import WorkflowDefinition
+from lib.workflow.execution import WorkflowExecutor
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
 
 
 class WorkflowManager:
+    """
+    Loads and validates workflow definitions.
+    """
 
-    def __init__(self, context):
+    def __init__(
+        self,
+        context: "EntropyContext",
+    ) -> None:
 
-        self.context = context
+        self._context = context
 
-        self.loader = WorkflowLoader(context)
-        self.validator = WorkflowValidator()
-        self.executor = WorkflowExecutor(context)
+        self._loader = WorkflowLoader()
 
-        self.data = None
+        self._validator = WorkflowValidator()
 
-    def load(self, workflow_name: str):
+        self._executor = WorkflowExecutor(
+            context,
+        )
 
-        workflow = self.loader.load(workflow_name)
+        self._workflow: WorkflowDefinition | None = None
 
-        self.validator.validate(workflow)
+    # ------------------------------------------------------------------
+    # Public
+    # ------------------------------------------------------------------
 
-        self.data = workflow
+    def load(
+        self,
+        workflow: Path,
+    ) -> WorkflowDefinition:
+        """
+        Load a workflow definition.
+        """
 
-        self.context.workflow = workflow
+        assert self._context.executor is not None
+        assert self._context.paths is not None
+
+        #
+        # Resolve workflow name.
+        #
+        if workflow.suffix == "":
+
+            directory = self._context.paths.workflow.directory
+
+            candidates = [
+                directory / (workflow.name + ".json"),
+                directory / (workflow.name + ".yaml"),
+                directory / (workflow.name + ".yml"),
+            ]
+
+            workflow_file = None
+
+            for candidate in candidates:
+
+                if self._context.executor.exists(candidate):
+
+                    workflow_file = candidate
+                    break
+
+            if workflow_file is None:
+
+                raise FileNotFoundError(
+                    "Workflow '{0}' does not exist.".format(
+                        workflow.name,
+                    )
+                )
+
+        else:
+
+            workflow_file = workflow
+
+        #
+        # Read document.
+        #
+        suffix = workflow_file.suffix.lower()
+
+        if suffix in {".yaml", ".yml"}:
+
+            document = self._context.executor.read_yaml(
+                workflow_file,
+            )
+
+        elif suffix == ".json":
+
+            document = self._context.executor.read_json(
+                workflow_file,
+            )
+
+        else:
+
+            raise ValueError(
+                "Unsupported workflow format '{0}'.".format(
+                    suffix,
+                )
+            )
+
+        workflow = self._loader.load(
+            document,
+        )
+
+        self._validator.validate(
+            workflow,
+        )
+
+        self._workflow = workflow
 
         return workflow
 
-    def execute(self):
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
 
-        if self.data is None:
-            raise RuntimeError("Workflow not loaded.")
+    def execute(
+        self,
+    ) -> None:
+        """
+        Execute the loaded workflow.
+        """
 
-        self.executor.execute(self.data)
+        if self._workflow is None:
+
+            raise RuntimeError(
+                "No workflow has been loaded."
+            )
+
+        self._executor.execute(
+            self._workflow,
+        )

@@ -1,6 +1,6 @@
 import re
+from pathlib import Path
 
-from core.constants import PLUGIN_DIR
 from core.generators.exceptions import (
     InvalidPluginNameError,
     PluginAlreadyExistsError,
@@ -15,11 +15,11 @@ class PluginValidator:
     def validate(
         cls,
         name: str,
+        plugin_root: Path,
     ) -> None:
 
         cls.validate_name(name)
-
-        cls.validate_exists(name)
+        cls.validate_exists(name, plugin_root)
 
     @classmethod
     def validate_name(
@@ -40,9 +40,12 @@ class PluginValidator:
     def validate_exists(
         cls,
         name: str,
+        plugin_root: Path,
     ) -> None:
 
-        plugin = PLUGIN_DIR / name
+        plugin = plugin_root / name
 
         if plugin.exists():
-            raise PluginAlreadyExistsError(f"Plugin '{name}' already exists.")
+            raise PluginAlreadyExistsError(
+                f"Plugin '{name}' already exists."
+            )

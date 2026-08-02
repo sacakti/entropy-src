@@ -4,10 +4,14 @@ Help command.
 
 from __future__ import annotations
 
-from core.commands.base import BaseCommand, CommandMetadata
+from core.commands.base import BaseCommand
+from core.commands.base import CommandMetadata
 
 
 class HelpCommand(BaseCommand):
+    """
+    Display available commands.
+    """
 
     metadata = CommandMetadata(
         name="help",
@@ -15,18 +19,59 @@ class HelpCommand(BaseCommand):
         authentication_required=False,
     )
 
-    def configure(self, parser):
+    def __init__(
+        self,
+        context,
+    ) -> None:
+
+        super().__init__(
+            context,
+        )
+
+        assert context.command_manager is not None
+        assert context.ui is not None
+
+        self._commands = context.command_manager
+        self._ui = context.ui
+
+    # ------------------------------------------------------------------
+    # Configure
+    # ------------------------------------------------------------------
+
+    def configure(
+        self,
+        parser,
+    ) -> None:
+        """
+        Configure command-line arguments.
+        """
+
         pass
 
-    def execute(self, args):
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
 
-        self.context.output.rule("Available Commands")
+    def execute(
+        self,
+        args,
+    ) -> None:
+        """
+        Display available commands.
+        """
 
-        for command in self.context.command_manager.list():
+        self._ui.rule(
+            "Available Commands",
+        )
+
+        for command in self._commands.list():
 
             if command.metadata.hidden:
                 continue
 
-            self.context.output.print(
-                f"{command.metadata.name:<18}" f"{command.metadata.description}"
+            self._ui.print(
+                "{0:<18}{1}".format(
+                    command.metadata.name,
+                    command.metadata.description,
+                )
             )

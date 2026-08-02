@@ -6,66 +6,10 @@ from pathlib import Path
 from typing import Literal
 
 # ------------------------------------------------------------------
-# Paths
-# ------------------------------------------------------------------
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-APPLICATION_ROOT = PROJECT_ROOT / "entropy.py"
-
-ENTROPY_HOME = Path.home() / ".entropy"
-
-RESOURCE_DIR = PROJECT_ROOT / "resources"
-
-LOG_DIR = PROJECT_ROOT / "logs"
-
-TEMPLATE_DIR = PROJECT_ROOT / "templates"
-
-DEFAULT_CONFIG_FILE = PROJECT_ROOT / "lib" / "install" / "entropy.json.config"
-
-RELEASE_DIR = RESOURCE_DIR / "releases"
-
-WORKFLOW_DIR = RESOURCE_DIR / "workflows"
-
-REPORT_DIR = RESOURCE_DIR / "reports"
-
-PLUGIN_DIR = RESOURCE_DIR / "plugins"
-
-CONFIG_DIR = ENTROPY_HOME / "config"
-
-RUNTIME_DIR = ENTROPY_HOME / "runtime"
-
-PACKAGE_DIR = ENTROPY_HOME / "site-packages"
-
-DATABASE_DIR = ENTROPY_HOME / "database"
-
-SESSION_DIRECTORY = ENTROPY_HOME / "sessions"
-
-SESSION_FILE = SESSION_DIRECTORY / "current.json"
-
-DATABASE_FILE = DATABASE_DIR / "entropy.db"
-
-CONFIG_FILE = CONFIG_DIR / "entropy.json"
-
-PID_DIR = RUNTIME_DIR / "pid"
-
-STATE_DIR = RUNTIME_DIR / "state"
-
-LOCK_DIR = RUNTIME_DIR / "locks"
-
-# ------------------------------------------------------------------
-# Wheels constants
-# ------------------------------------------------------------------
-VENDOR_DIR = RESOURCE_DIR / "wheels"
-REQUIREMENT_FILE = VENDOR_DIR / "requirements.txt"
-LAUNCHER_DIR_WIN = Path.home() / "AppData" / "Local" / "Programs" / "Entropy" / "ent.cmd"
-LAUNCHER_DIR_UNIX = Path.home() / ".local" / "bin" / "ent"
-
-# ------------------------------------------------------------------
 # Database migration constants
 # ------------------------------------------------------------------
 
-DATABASE_MIGRATION_PACKAGE = "lib.database.migrations"
+DATABASE_MIGRATION_PACKAGE = "lib.migrations.scripts"
 
 # ------------------------------------------------------------------
 # Linux Executor constants

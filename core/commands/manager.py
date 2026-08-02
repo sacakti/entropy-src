@@ -8,188 +8,281 @@ import argparse
 import importlib
 import inspect
 import pkgutil
+from argparse import Namespace
+from typing import Dict, List, Optional
 
 from core.commands import __path__
 from core.commands.base import BaseCommand
-from core.commands.exceptions import CommandNotFoundError
-from core.exceptions import EntropyException
+from core.commands.exceptions import (
+    CommandAlreadyExistsError,
+    CommandNotFoundError,
+)
 
 
 class CommandManager:
+    """
+    Command subsystem.
+    """
 
-    PUBLIC_COMMANDS = {
-        "auth",
-        "help",
-        "version",
-    }
-
-    def __init__(self, context):
-
-        self.context = context
-
-        self._commands: dict[str, BaseCommand] = {}
-
-    # ---------------------------------------------------------
-    # Helpers
-    # ---------------------------------------------------------
-
-    def _build_parser(self) -> argparse.ArgumentParser:
-
-        parser = argparse.ArgumentParser(
-            prog="entropy",
-            add_help=False,
-        )
-
-        subparsers = parser.add_subparsers(
-            dest="command",
-        )
-
-        self._configure_commands(
-            subparsers,
-        )
-
-        return parser
-
-    def _configure_commands(
+    def __init__(
         self,
-        subparsers,
-    ):
+        context,
+    ) -> None:
 
-        for command in self.list():
+        assert context.observability is not None
 
-            parser = subparsers.add_parser(
-                command.metadata.name,
-                aliases=list(command.metadata.aliases),
-                help=command.metadata.description,
-            )
+        self._context = context
 
-            command.configure(parser)
+        self._commands: Dict[str, BaseCommand] = {}
 
-    def _resolve_command(self, args):
+        self._log = context.diagnostics.logger(
+            "system",
+        )
 
-        return self.get(args.command or "help")
-
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
     # Discovery
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
 
-    def discover(self) -> None:
+    def discover(
+        self,
+    ) -> None:
+        """
+        Discover commands.
+        """
 
-        self.context.output.cli.debug("Discovering commands...")
+        self._log.debug(
+            "Discovering commands..."
+        )
 
-        for _, module_name, _ in pkgutil.iter_modules(__path__):
+        for _, module_name, _ in pkgutil.iter_modules(
+            __path__,
+        ):
 
-            if module_name in ("base", "manager", "exceptions"):
+            if module_name in (
+                "base",
+                "exceptions",
+                "manager",
+            ):
                 continue
 
-            module = importlib.import_module(f"core.commands.{module_name}")
+            module = importlib.import_module(
+                "core.commands.{0}".format(
+                    module_name,
+                )
+            )
 
             for _, cls in inspect.getmembers(
                 module,
                 inspect.isclass,
             ):
 
-                if not issubclass(cls, BaseCommand) or cls is BaseCommand:
+                if (
+                    not issubclass(
+                        cls,
+                        BaseCommand,
+                    )
+                    or cls is BaseCommand
+                ):
                     continue
 
-                self.register(cls(self.context))
+                self.register(
+                    cls(
+                        self._context,
+                    )
+                )
 
-        self.context.output.cli.debug(f"{len(self.list())} command(s) loaded.")
+        self._log.debug(
+            "Discovered {0} command(s).".format(
+                len(
+                    self.list(),
+                ),
+            )
+        )
 
-    # ---------------------------------------------------------
-    # Register
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Registration
+    # ------------------------------------------------------------------
 
     def register(
         self,
         command: BaseCommand,
     ) -> None:
+        """
+        Register a command.
+        """
 
         metadata = command.metadata
 
-        self._commands[metadata.name] = command
+        if metadata.name in self._commands:
+
+            raise CommandAlreadyExistsError(
+                metadata.name,
+            )
+
+        self._commands[
+            metadata.name
+        ] = command
 
         for alias in metadata.aliases:
 
-            self._commands[alias] = command
+            if alias in self._commands:
 
-    # ---------------------------------------------------------
-    # Access
-    # ---------------------------------------------------------
+                raise CommandAlreadyExistsError(
+                    alias,
+                )
+
+            self._commands[
+                alias
+            ] = command
+
+    # ------------------------------------------------------------------
+    # Lookup
+    # ------------------------------------------------------------------
 
     def get(
         self,
         name: str,
-    ) -> BaseCommand | None:
+    ) -> Optional[BaseCommand]:
+        """
+        Return a command.
+        """
 
-        return self._commands.get(name)
+        return self._commands.get(
+            name,
+        )
 
     def list(
         self,
-    ) -> list[BaseCommand]:
+    ) -> List[BaseCommand]:
+        """
+        Return registered commands.
+        """
 
-        #
-        # Remove aliases
-        #
-        commands = {id(command): command for command in self._commands.values()}
+        commands = []
+        seen = set()
+
+        for command in self._commands.values():
+
+            identifier = id(
+                command,
+            )
+
+            if identifier in seen:
+                continue
+
+            seen.add(
+                identifier,
+            )
+
+            commands.append(
+                command,
+            )
 
         return sorted(
-            commands.values(),
-            key=lambda c: c.metadata.name,
+            commands,
+            key=lambda command: command.metadata.name,
         )
 
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Parser
+    # ------------------------------------------------------------------
+
+    def build_parser(
+        self,
+    ) -> argparse.ArgumentParser:
+        """
+        Build the application parser.
+        """
+
+        parser = argparse.ArgumentParser(
+            prog="entropy",
+            add_help=False,
+        )
+
+        self._configure_parser(
+            parser,
+        )
+
+        return parser
+
+    def _configure_parser(
+        self,
+        parser: argparse.ArgumentParser,
+    ) -> None:
+        """
+        Configure the application parser.
+        """
+
+        subparsers = parser.add_subparsers(
+            dest="command",
+        )
+
+        for command in self.list():
+
+            command_parser = subparsers.add_parser(
+                command.metadata.name,
+                aliases=list(
+                    command.metadata.aliases,
+                ),
+                help=command.metadata.description,
+            )
+
+            command.configure(
+                command_parser,
+            )
+
+    # ------------------------------------------------------------------
     # Execute
-    # ---------------------------------------------------------
-
-    # def execute(
-    #     self,
-    #     name: str,
-    #     args,
-    # ) -> None:
-
-    #     command = self.get(name)
-
-    #     if command is None:
-
-    #         raise CommandNotFoundError(name)
-
-    #     command.execute(args)
+    # ------------------------------------------------------------------
 
     def execute(
         self,
         name: str,
-        args,
+        args: Namespace,
     ) -> None:
+        """
+        Execute a command.
+        """
 
-        command = self.get(name)
+        command = self.get(
+            name,
+        )
 
         if command is None:
-            raise CommandNotFoundError(name)
 
-        if command.metadata.name not in self.PUBLIC_COMMANDS:
+            raise CommandNotFoundError(
+                name,
+            )
 
-            self.context.session_manager.require()
+        if command.metadata.authentication_required:
 
-        # if command.metadata.authentication_required:
+            assert (
+                self._context.session_manager
+                is not None
+            )
 
-        #     self.context.session_manager.require()
+            self._context.session_manager.require()
 
-        command.execute(args)
+        command.execute(
+            args,
+        )
 
-    def run(self):
+    # ------------------------------------------------------------------
+    # Run
+    # ------------------------------------------------------------------
 
-        parser = self._build_parser()
+    def run(
+        self,
+    ) -> None:
+        """
+        Execute the command selected from the command line.
+        """
+
+        parser = self.build_parser()
 
         args = parser.parse_args()
 
-        try:
-
-            self.execute(
-                args.command or "help",
-                args,
-            )
-
-        except EntropyException as ex:
-
-            self.context.output.cli.error(str(ex))
+        self.execute(
+            args.command or "help",
+            args,
+        )

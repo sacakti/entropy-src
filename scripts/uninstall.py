@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-from ..core.constants import ENTROPY_HOME
-from ..lib.install.manager import InstallManager
 
+from lib.install.manager import InstallManager
+from lib.install.paths import InstallerPathManager
 
 def confirm() -> bool:
-
+    paths = InstallerPathManager()
     print()
     print("WARNING")
     print("-------")
     print("This operation will permanently remove Entropy.")
     print()
-    print(f"Location: {ENTROPY_HOME}")
+    print(f"Location: {paths.home}")
     print()
     print("The following data will be deleted:")
     print("  • Database")

@@ -2,7 +2,7 @@
 Plugin generator.
 """
 
-from core.constants import PLUGIN_DIR, PluginTemplates
+from core.constants import PluginTemplates
 from core.generators.base import (
     BaseGenerator,
     GeneratorMetadata,
@@ -43,11 +43,15 @@ class PluginGenerator(BaseGenerator):
 
             context = self.build_context(name)
 
-            PluginValidator.validate(name)
+            plugin_root = self.context.bootstrap.resources.plugins
 
-            plugin_directory = PLUGIN_DIR / name
+            PluginValidator.validate(
+                name=name,
+                plugin_root=self.context.bootstrap.resources.plugins,
+            )
 
-            temp_directory = PLUGIN_DIR / f".{name}.tmp"
+            plugin_directory = plugin_root / name
+            temp_directory = plugin_root / f".{name}.tmp"
 
             self.context.executor.mkdir(temp_directory)
 

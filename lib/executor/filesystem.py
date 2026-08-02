@@ -13,6 +13,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import IO, Any, cast
 
+import yaml
+
 from lib.executor.types import PathLike
 
 
@@ -95,6 +97,11 @@ class FileSystemMixin:
         Path
             Destination path.
         """
+
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         if source.is_dir():
 
@@ -228,6 +235,11 @@ class FileSystemMixin:
             Symbolic link path.
         """
 
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
         destination.symlink_to(source)
 
         return destination
@@ -264,6 +276,11 @@ class FileSystemMixin:
             Updated file.
         """
 
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
         path.write_text(
             text,
             encoding=encoding,
@@ -295,6 +312,69 @@ class FileSystemMixin:
 
         return path
 
+    # ------------------------------------------------------------------
+    # Documents
+    # ------------------------------------------------------------------
+
+    def read_yaml(
+        self,
+        path: PathLike,
+    ) -> dict[str, Any]:
+        """
+        Read a YAML document.
+
+        Returns
+        -------
+        dict
+            Parsed YAML document.
+        """
+
+        with path.open(
+            "r",
+            encoding="utf-8",
+        ) as fp:
+
+            data = yaml.safe_load(fp)
+
+        return data or {}
+
+
+    def write_yaml(
+        self,
+        path: PathLike,
+        data: Any,
+        *,
+        sort_keys: bool = False,
+    ) -> Path:
+        """
+        Write a YAML document.
+
+        Returns
+        -------
+        Path
+            Updated file.
+        """
+
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        with path.open(
+            "w",
+            encoding="utf-8",
+        ) as fp:
+
+            yaml.safe_dump(
+                data,
+                fp,
+                default_flow_style=False,
+                sort_keys=sort_keys,
+                allow_unicode=True,
+            )
+
+        return path
+
     def read_json(
         self,
         path: PathLike,
@@ -307,6 +387,11 @@ class FileSystemMixin:
         data: Any,
         indent: int = 4,
     ) -> Path:
+
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         return self.write_text(
             path,
@@ -448,6 +533,11 @@ class FileSystemMixin:
         Path
             Updated file.
         """
+
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         path.write_bytes(data)
 

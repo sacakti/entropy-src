@@ -14,31 +14,42 @@ from core.commands.base import (
 
 
 class MigrateCommand(BaseCommand):
+    """
+    Apply pending database migrations.
+    """
 
     metadata = CommandMetadata(
         name="migrate",
-        description="Execute pending database migrations.",
-        authentication_required=True,
+        description="Apply pending database migrations.",
+        authentication_required=False,
     )
+
+    # ------------------------------------------------------------------
+    # Configure
+    # ------------------------------------------------------------------
 
     def configure(
         self,
         parser: ArgumentParser,
     ) -> None:
         """
-        Configure command arguments.
+        Configure command-line arguments.
         """
 
-        #
-        # No arguments required.
-        #
+        pass
+
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
 
     def execute(
         self,
         args: Namespace,
     ) -> None:
         """
-        Execute pending migrations.
+        Apply pending database migrations.
         """
 
-        self.context.database_manager.migrate()
+        assert self.context.migration_manager is not None
+
+        self.context.migration_manager.migrate()

@@ -4,25 +4,40 @@ User management command.
 
 from __future__ import annotations
 
-from argparse import ArgumentParser, Namespace
-from typing import Any
+from argparse import ArgumentParser
+from argparse import Namespace
 
-from core.commands.base import BaseCommand, CommandMetadata
-from lib.users.exceptions import (
-    PasswordsNotMatchError,
-    SystemUserError,
-    UserAlreadyExistsError,
-    UserError,
+from core.commands.base import (
+    BaseCommand,
+    CommandMetadata,
 )
+from lib.users.exceptions import PasswordsNotMatchError
 
 
 class UserCommand(BaseCommand):
+    """
+    User management.
+    """
 
     metadata = CommandMetadata(
         name="user",
         description="Manage users.",
-        authentication_required=False,
     )
+
+    def __init__(
+        self,
+        context,
+    ) -> None:
+
+        super().__init__(
+            context,
+        )
+
+        assert context.user_manager is not None
+        assert context.ui is not None
+
+        self._users = context.user_manager
+        self._ui = context.ui
 
     # ------------------------------------------------------------------
     # Configure
@@ -33,7 +48,7 @@ class UserCommand(BaseCommand):
         parser: ArgumentParser,
     ) -> None:
 
-        sub = parser.add_subparsers(
+        subparsers = parser.add_subparsers(
             dest="action",
             required=True,
         )
@@ -42,7 +57,7 @@ class UserCommand(BaseCommand):
         # create
         #
 
-        create = sub.add_parser(
+        create = subparsers.add_parser(
             "create",
             help="Create a user.",
         )
@@ -51,19 +66,11 @@ class UserCommand(BaseCommand):
             "username",
         )
 
-        # create.add_argument(
-        #     "--full-name",
-        # )
-
-        # create.add_argument(
-        #     "--email",
-        # )
-
         #
         # delete
         #
 
-        delete = sub.add_parser(
+        delete = subparsers.add_parser(
             "delete",
             help="Delete a user.",
         )
@@ -76,7 +83,7 @@ class UserCommand(BaseCommand):
         # list
         #
 
-        sub.add_parser(
+        subparsers.add_parser(
             "list",
             help="List users.",
         )
@@ -85,9 +92,9 @@ class UserCommand(BaseCommand):
         # password
         #
 
-        password = sub.add_parser(
+        password = subparsers.add_parser(
             "password",
-            help="Reset user password.",
+            help="Change user password.",
         )
 
         password.add_argument(
@@ -98,7 +105,7 @@ class UserCommand(BaseCommand):
         # enable
         #
 
-        enable = sub.add_parser(
+        enable = subparsers.add_parser(
             "enable",
             help="Enable a user.",
         )
@@ -111,7 +118,7 @@ class UserCommand(BaseCommand):
         # disable
         #
 
-        disable = sub.add_parser(
+        disable = subparsers.add_parser(
             "disable",
             help="Disable a user.",
         )
@@ -124,9 +131,9 @@ class UserCommand(BaseCommand):
         # unlock
         #
 
-        unlock = sub.add_parser(
+        unlock = subparsers.add_parser(
             "unlock",
-            help="Unlock a user account.",
+            help="Unlock a user.",
         )
 
         unlock.add_argument(
@@ -142,7 +149,7 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        actions = {
+        {
             "create": self._create,
             "delete": self._delete,
             "list": self._list,
@@ -150,9 +157,7 @@ class UserCommand(BaseCommand):
             "enable": self._enable,
             "disable": self._disable,
             "unlock": self._unlock,
-        }
-
-        actions[args.action](args)
+        }[args.action](args)
 
     # ------------------------------------------------------------------
     # Create
@@ -163,22 +168,15 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        username = args.username
-
-        # Validate first
-        if self.context.user_manager.exists(username):
-            raise UserAlreadyExistsError(username)
-
-        full_name = self._prompt("Full Name")
-        email = self._prompt("Email")
-
-        password = self._read_password()
-
-        self.context.user_manager.create(
-            username=username,
-            password=password,
-            full_name=full_name,
-            email=email,
+        self._users.create(
+            username=args.username,
+            password=self._read_password(),
+            full_name=self._optional(
+                "Full Name",
+            ),
+            email=self._optional(
+                "Email",
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -190,23 +188,18 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        user = self.context.user_manager.get(
+        user = self._users.get(
             args.username,
         )
 
-        if user is None:
-
-            self.context.output.user.error("User not found.")
-
+        if not self._ui.confirm(
+            "Delete '{0}'?".format(
+                user.username,
+            )
+        ):
             return
 
-        if user.system:
-            raise SystemUserError()
-
-        if not self._confirm(f"Delete '{user.username}'?"):
-            return
-
-        self.context.user_manager.delete(
+        self._users.delete(
             user,
         )
 
@@ -219,22 +212,9 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        users = self.context.user_manager.list()
+        users = self._users.list()
 
-        rows = []
-
-        for user in users:
-
-            rows.append(
-                [
-                    user.username,
-                    "Yes" if user.is_active else "No",
-                    user.full_name or "",
-                    user.email or "",
-                ]
-            )
-
-        self.context.output.table(
+        self._ui.table(
             title="Users",
             columns=[
                 "Username",
@@ -242,7 +222,15 @@ class UserCommand(BaseCommand):
                 "Full Name",
                 "Email",
             ],
-            rows=rows,
+            rows=[
+                [
+                    user.username,
+                    "Yes" if user.is_active else "No",
+                    user.full_name or "",
+                    user.email or "",
+                ]
+                for user in users
+            ],
         )
 
     # ------------------------------------------------------------------
@@ -254,30 +242,14 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        user = self.context.user_manager.get(
+        user = self._users.get(
             args.username,
         )
 
-        if user is None:
-
-            self.context.output.user.error("User not found.")
-
-            return
-
-        password = self._read_password()
-
-        try:
-
-            self.context.user_manager.change_password(
-                user,
-                password,
-            )
-
-        except UserError as ex:
-
-            self.context.output.user.error(
-                str(ex),
-            )
+        self._users.change_password(
+            user,
+            self._read_password(),
+        )
 
     # ------------------------------------------------------------------
     # Enable
@@ -288,7 +260,7 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        self.context.user_manager.set_active(
+        self._users.set_active(
             args.username,
             True,
         )
@@ -302,7 +274,7 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        self.context.user_manager.set_active(
+        self._users.set_active(
             args.username,
             False,
         )
@@ -316,7 +288,7 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        self.context.user_manager.unlock(
+        self._users.unlock(
             args.username,
         )
 
@@ -324,44 +296,33 @@ class UserCommand(BaseCommand):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _prompt(
+    def _optional(
         self,
         message: str,
-    ) -> str | None:
+    ):
 
-        value = self.context.output.prompt(message)
+        value = self._ui.prompt(
+            message,
+        )
 
         return value or None
 
-    def _confirm(
+    def _read_password(
         self,
-        message: str,
-    ) -> Any:
+    ) -> str:
 
-        return self.context.output.confirm(message)
-
-    def _require_user(
-        self,
-        username: str,
-    ):
-
-        return self.context.user_manager.get(
-            username,
-        )
-
-    def _read_password(self) -> Any:
-
-        password = self.context.output.prompt(
+        password = self._ui.prompt(
             "Password",
             password=True,
         )
 
-        confirm = self.context.output.prompt(
+        confirm = self._ui.prompt(
             "Confirm Password",
             password=True,
         )
 
         if password != confirm:
+
             raise PasswordsNotMatchError()
 
         return password

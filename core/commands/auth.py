@@ -4,18 +4,47 @@ Authentication command.
 
 from __future__ import annotations
 
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
+from argparse import Namespace
 
-from core.commands.base import BaseCommand, CommandMetadata
+from core.commands.base import BaseCommand
+from core.commands.base import CommandMetadata
 
 
 class AuthCommand(BaseCommand):
+    """
+    Authentication commands.
+    """
 
     metadata = CommandMetadata(
         name="auth",
         description="Authentication commands.",
         authentication_required=False,
     )
+
+    def __init__(
+        self,
+        context,
+    ) -> None:
+
+        super().__init__(
+            context,
+        )
+
+        assert context.session_manager is not None
+        assert context.observability is not None
+        # assert context.console is not None
+
+        self._session = context.session_manager
+
+        # self._ui = context.console
+        assert context.ui is not None
+
+        self._ui = context.ui
+
+        self._log = context.diagnostics.logger(
+            "auth",
+        )
 
     # ------------------------------------------------------------------
     # Configure
@@ -26,35 +55,23 @@ class AuthCommand(BaseCommand):
         parser: ArgumentParser,
     ) -> None:
 
-        sub = parser.add_subparsers(
+        subparsers = parser.add_subparsers(
             dest="action",
         )
 
-        #
-        # login
-        #
-
-        sub.add_parser(
+        subparsers.add_parser(
             "login",
             help="Authenticate.",
         )
 
-        #
-        # logout
-        #
-
-        sub.add_parser(
+        subparsers.add_parser(
             "logout",
-            help="Logout current session.",
+            help="Logout the current session.",
         )
 
-        #
-        # status
-        #
-
-        sub.add_parser(
+        subparsers.add_parser(
             "status",
-            help="Show current session.",
+            help="Display the current session.",
         )
 
     # ------------------------------------------------------------------
@@ -66,17 +83,15 @@ class AuthCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        actions = {
+        {
             None: self._login,
             "login": self._login,
             "logout": self._logout,
             "status": self._status,
-        }
-
-        actions[args.action](args)
+        }[args.action](args)
 
     # ------------------------------------------------------------------
-    # Helpers
+    # Login
     # ------------------------------------------------------------------
 
     def _login(
@@ -84,57 +99,80 @@ class AuthCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        session = self.context.session_manager.current()
+        session = self._session.current()
 
-        if session:
+        if session is not None:
 
-            self.context.output.auth.success(f"Already authenticated as '{session.username}'.")
+            self._log.success(
+                f"Already authenticated as '{session.username}'."
+            )
 
             return
 
-        username = self.context.output.prompt("Username")
+        username = self._ui.prompt(
+            "Username",
+        )
 
-        password = self.context.output.prompt(
+        password = self._ui.prompt(
             "Password",
             password=True,
         )
 
-        session = self.context.session_manager.login(
+        session = self._session.login(
             username,
             password,
         )
 
-        self.context.output.auth.success(f"Authenticated as '{session.username}'.")
+        self._log.success(
+            f"Authenticated as '{session.username}'."
+        )
+
+    # ------------------------------------------------------------------
+    # Logout
+    # ------------------------------------------------------------------
 
     def _logout(
         self,
         args: Namespace,
     ) -> None:
 
-        if not self.context.session_manager.authenticated():
+        if not self._session.authenticated():
 
-            self.context.output.auth.info("No active session.")
+            self._log.info(
+                "No active session."
+            )
 
             return
 
-        self.context.session_manager.logout()
+        self._session.logout()
 
-        self.context.output.auth.success("Logged out.")
+        self._log.success(
+            "Logged out."
+        )
+
+    # ------------------------------------------------------------------
+    # Status
+    # ------------------------------------------------------------------
 
     def _status(
         self,
         args: Namespace,
     ) -> None:
 
-        session = self.context.session_manager.current()
+        session = self._session.current()
 
         if session is None:
 
-            self.context.output.auth.info("Not authenticated.")
+            self._log.info(
+                "Not authenticated."
+            )
 
             return
 
-        self.context.output.panel(
-            lines=[f"Username : {session.username}\n", f"Expires  : {session.expires_at}"],
+        self._ui.panel(
             title="Authenticated Session",
+            lines=[
+                f"Username : {session.username}",
+                f"Expires  : {session.expires_at}",
+            ],
         )

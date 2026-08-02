@@ -2,9 +2,10 @@
 Entropy bootstrap.
 """
 
+from pathlib import Path
 import sys
 
-from core.constants import PACKAGE_DIR
+PACKAGE_DIR = Path.home() / ".entropy" / "site-packages"
 
 
 def bootstrap():

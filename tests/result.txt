@@ -1,0 +1,1358 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
+rootdir: /Users/aravinthselvaraj/Documents/entropy
+configfile: pyproject.toml
+plugins: cov-7.1.0
+collected 21 items
+
+tests/auth/test_authentication.py EEEEE                                  [ 23%]
+tests/auth/test_manager.py EEEEEEEEEEEEE                                 [ 85%]
+tests/auth/test_session.py ...                                           [100%]
+
+==================================== ERRORS ====================================
+_________________ ERROR at setup of test_authenticate_success __________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_authenticate_success0')
+connection = <lib.database.connection.DatabaseConnection object at 0x106804220>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068136a0>
+context = <core.context.EntropyContext object at 0x1067ef700>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+_______________ ERROR at setup of test_authenticate_unknown_user _______________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_authenticate_unknown_user0')
+connection = <lib.database.connection.DatabaseConnection object at 0x106843a30>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068435b0>
+context = <core.context.EntropyContext object at 0x106843760>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+_____________ ERROR at setup of test_authenticate_invalid_password _____________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_authenticate_invalid_pass0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068ae700>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068ae100>
+context = <core.context.EntropyContext object at 0x1068ae4f0>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+______________ ERROR at setup of test_authenticate_inactive_user _______________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_authenticate_inactive_use0')
+connection = <lib.database.connection.DatabaseConnection object at 0x106842c70>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068420d0>
+context = <core.context.EntropyContext object at 0x106842df0>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+_____ ERROR at setup of test_authenticate_rehashes_password_when_required ______
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_authenticate_rehashes_pas0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068ba4c0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068ba850>
+context = <core.context.EntropyContext object at 0x1068ba670>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+_________________________ ERROR at setup of test_login _________________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_login0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068bf5b0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068bf2b0>
+context = <core.context.EntropyContext object at 0x1068bf3d0>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+____________ ERROR at setup of test_login_replaces_existing_session ____________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_login_replaces_existing_s0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1067e0040>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068bf7f0>
+context = <core.context.EntropyContext object at 0x1067e0250>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+________________________ ERROR at setup of test_current ________________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_current0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068c56d0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068c5e50>
+context = <core.context.EntropyContext object at 0x1068c5370>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+________________ ERROR at setup of test_current_without_session ________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_current_without_session0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068c0970>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068c0490>
+context = <core.context.EntropyContext object at 0x1068c06d0>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+________________ ERROR at setup of test_current_expired_session ________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_current_expired_session0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068bf490>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068bfa90>
+context = <core.context.EntropyContext object at 0x1068bf700>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+__________________ ERROR at setup of test_authenticated_true ___________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_authenticated_true0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068de0a0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068de4c0>
+context = <core.context.EntropyContext object at 0x1068de100>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+__________________ ERROR at setup of test_authenticated_false __________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_authenticated_false0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068babe0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068bae50>
+context = <core.context.EntropyContext object at 0x1068baa30>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+________________________ ERROR at setup of test_require ________________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_require0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068448e0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068445b0>
+context = <core.context.EntropyContext object at 0x106844b50>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+________________ ERROR at setup of test_require_without_session ________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_require_without_session0')
+connection = <lib.database.connection.DatabaseConnection object at 0x106843790>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x106843ca0>
+context = <core.context.EntropyContext object at 0x106843100>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+________________________ ERROR at setup of test_logout _________________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_logout0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068d34c0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068d3550>
+context = <core.context.EntropyContext object at 0x1068d3970>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+________________ ERROR at setup of test_logout_without_session _________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_logout_without_session0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068c56a0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068c5b50>
+context = <core.context.EntropyContext object at 0x1068c5d00>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+___________________ ERROR at setup of test_session_persisted ___________________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_session_persisted0')
+connection = <lib.database.connection.DatabaseConnection object at 0x1068ae6a0>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068ae370>
+context = <core.context.EntropyContext object at 0x1068ae7f0>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+_____________ ERROR at setup of test_session_removed_after_logout ______________
+
+tmp_path = PosixPath('/private/var/folders/16/z4dhtkmx7v3g5r53r6gl7wsm0000gn/T/pytest-of-aravinthselvaraj/pytest-67/test_session_removed_after_log0')
+connection = <lib.database.connection.DatabaseConnection object at 0x106842430>
+
+    @pytest.fixture
+    def context(
+        tmp_path: Path,
+        connection: DatabaseConnection,
+    ) -> EntropyContext:
+    
+        context = EntropyContext()
+    
+        #
+        # Runtime paths
+        #
+    
+        session_dir = tmp_path / "session"
+    
+        session_dir.mkdir()
+    
+        class SessionPaths:
+    
+            directory = session_dir
+    
+            current = session_dir / "current.json"
+    
+        class Paths:
+    
+            session = SessionPaths()
+    
+        context.paths = Paths()
+    
+        #
+        # Services
+        #
+    
+        context.diagnostics = DummyDiagnostics()
+    
+        context.password_service = PasswordService()
+    
+        context.user_repository = UserRepository(
+            connection,
+        )
+    
+        context.user_manager = UserManager(
+            context,
+        )
+    
+        context.authentication = AuthenticationService(
+            context,
+        )
+    
+>       context.session_manager = SessionManager(
+            context,
+        )
+
+tests/auth/conftest.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <lib.auth.manager.SessionManager object at 0x1068427c0>
+context = <core.context.EntropyContext object at 0x106842bb0>
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+    
+        assert context.authentication is not None
+>       assert context.configuration is not None
+E       AssertionError
+
+lib/auth/manager.py:29: AssertionError
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.9.6-final-0 ________________
+
+Name                     Stmts   Miss Branch BrPart  Cover   Missing
+--------------------------------------------------------------------
+lib/auth/__init__.py         0      0      0      0   100%
+lib/auth/exceptions.py       5      1      0      0    80%   18
+lib/auth/manager.py         67     46     14      0    26%   30-60, 74-107, 117-124, 136-151, 161, 167-173, 184-195, 204-209, 219-223
+lib/auth/service.py         31     18      6      0    35%   54-109
+lib/auth/session.py         15      0      0      0   100%
+--------------------------------------------------------------------
+TOTAL                      118     65     20      0    38%
+=========================== short test summary info ============================
+ERROR tests/auth/test_authentication.py::test_authenticate_success - Assertio...
+ERROR tests/auth/test_authentication.py::test_authenticate_unknown_user - Ass...
+ERROR tests/auth/test_authentication.py::test_authenticate_invalid_password
+ERROR tests/auth/test_authentication.py::test_authenticate_inactive_user - As...
+ERROR tests/auth/test_authentication.py::test_authenticate_rehashes_password_when_required
+ERROR tests/auth/test_manager.py::test_login - AssertionError
+ERROR tests/auth/test_manager.py::test_login_replaces_existing_session - Asse...
+ERROR tests/auth/test_manager.py::test_current - AssertionError
+ERROR tests/auth/test_manager.py::test_current_without_session - AssertionError
+ERROR tests/auth/test_manager.py::test_current_expired_session - AssertionError
+ERROR tests/auth/test_manager.py::test_authenticated_true - AssertionError
+ERROR tests/auth/test_manager.py::test_authenticated_false - AssertionError
+ERROR tests/auth/test_manager.py::test_require - AssertionError
+ERROR tests/auth/test_manager.py::test_require_without_session - AssertionError
+ERROR tests/auth/test_manager.py::test_logout - AssertionError
+ERROR tests/auth/test_manager.py::test_logout_without_session - AssertionError
+ERROR tests/auth/test_manager.py::test_session_persisted - AssertionError
+ERROR tests/auth/test_manager.py::test_session_removed_after_logout - Asserti...
+========================= 3 passed, 18 errors in 0.34s =========================

@@ -1,0 +1,94 @@
+from dataclasses import dataclass
+from pathlib import Path
+
+# ------------------------------------------------------------------
+# Bootstrap Models
+# ------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ConfigurationPaths:
+    directory: Path
+    file: Path
+    default: Path
+
+
+@dataclass(frozen=True)
+class ResourcePaths:
+    root: Path
+    templates: Path
+    releases: Path
+    workflows: Path
+    plugins: Path
+    reports: Path
+
+
+@dataclass(frozen=True)
+class VendorPaths:
+    root: Path
+    requirements: Path
+
+
+# ------------------------------------------------------------------
+# Runtime Models
+# ------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class DatabasePaths:
+    directory: Path
+    file: Path
+
+
+@dataclass(frozen=True)
+class RuntimePaths:
+    root: Path
+    pid: Path
+    state: Path
+    lock: Path
+
+
+@dataclass(frozen=True)
+class SessionPaths:
+    directory: Path
+    current: Path
+
+
+@dataclass(frozen=True)
+class PythonPaths:
+    packages: Path
+
+
+@dataclass(frozen=True)
+class LogPaths:
+    root: Path
+    entropy: Path
+    plugins: Path
+    integrations: Path
+    workflows: Path
+
+@dataclass(frozen=True)
+class PluginPaths:
+    """
+    Plugin filesystem paths.
+    """
+
+    directory: Path
+
+
+@dataclass(frozen=True)
+class WorkflowPaths:
+    """
+    Workflow filesystem paths.
+    """
+
+    directory: Path
+
+    default: str
+
+
+@dataclass(frozen=True)
+class GitPaths:
+    """
+    Git filesystem paths.
+    """
+
+    repository: Path

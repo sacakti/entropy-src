@@ -10,7 +10,7 @@ import stat
 import sys
 from pathlib import Path
 
-from core.constants import APPLICATION_ROOT, LAUNCHER_DIR_UNIX, LAUNCHER_DIR_WIN
+from lib.install.paths import InstallerPathManager
 
 from .platform import Platform
 
@@ -20,6 +20,8 @@ class Launcher:
     def __init__(self, platform):
 
         self._platform = platform
+
+        self.paths = InstallerPathManager()
 
     # ------------------------------------------------------------------
     # Install
@@ -63,13 +65,13 @@ class Launcher:
 
         if self._platform == Platform.WINDOWS:
 
-            return LAUNCHER_DIR_WIN
+            return self.paths.launcher_windows
 
-        return LAUNCHER_DIR_UNIX
+        return self.paths.launcher_unix
 
     def _script(self) -> str:
 
-        entropy = APPLICATION_ROOT
+        entropy = self.paths.application
 
         if self._platform == Platform.WINDOWS:
 
