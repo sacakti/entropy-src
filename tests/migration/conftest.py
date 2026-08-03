@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from lib.database.connection import DatabaseConnection
-from lib.database.installer import DatabaseInstaller
+from lib.database.schema import SchemaInstaller
 from lib.migrations.history import MigrationHistory
 from lib.migrations.registry import MigrationRegistry
 
@@ -18,7 +18,7 @@ def connection(tmp_path: Path):
 
     database.open()
 
-    DatabaseInstaller().install(
+    SchemaInstaller().install(
         database,
     )
 

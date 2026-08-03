@@ -37,15 +37,22 @@ class UserManager:
 
         assert context.user_repository is not None
         assert context.password_service is not None
-        assert context.diagnostics is not None
 
         self._repository: UserRepository = context.user_repository
 
         self._password: PasswordService = context.password_service
 
-        self._log = context.diagnostics.logger(
-            "user",
-        )
+        from core.observability import NullEmitter
+
+        if context.observability is not None:
+
+            self._events = context.observability.emitter(
+                "entropy",
+            )
+
+        else:
+
+            self._events = NullEmitter()
 
     # ------------------------------------------------------------------
     # Bootstrap
@@ -59,16 +66,16 @@ class UserManager:
         if self._repository.any():
             return
 
-        password = secrets.token_urlsafe(16)
+        # password = secrets.token_urlsafe(16)
 
-        self.create(
-            username="admin",
-            password=password,
-            full_name="Administrator",
-            system=True,
-        )
+        # self.create(
+        #     username="admin",
+        #     password=password,
+        #     full_name="Administrator",
+        #     system=True,
+        # )
 
-        self._log.success("Bootstrap administrator created.")
+        # self._events.info("Bootstrap administrator created.")
 
     # ------------------------------------------------------------------
     # Create
@@ -85,6 +92,8 @@ class UserManager:
     ) -> User:
 
         username = username.strip()
+        full_name = full_name.strip() if full_name else None
+        email = email.strip() if email else None
 
         if not username:
             raise InvalidUsernameError()
@@ -107,7 +116,7 @@ class UserManager:
             user,
         )
 
-        self._log.success(f"User '{username}' created.")
+        self._events.info(f"User '{username}' created.")
 
         return user
 
@@ -133,7 +142,7 @@ class UserManager:
             user,
         )
 
-        self._log.success(f"Password changed for '{user.username}'.")
+        self._events.info(f"Password changed for '{user.username}'.")
 
         assert user.id is not None
 
@@ -187,7 +196,7 @@ class UserManager:
             user.id,
         )
 
-        self._log.success(f"User '{user.username}' deleted.")
+        self._events.info(f"User '{user.username}' deleted.")
 
     # ------------------------------------------------------------------
     # Exists
@@ -238,7 +247,7 @@ class UserManager:
 
         action = "enabled" if active else "disabled"
 
-        self._log.success(f"User '{username}' {action}.")
+        self._events.info(f"User '{username}' {action}.")
 
         return user
 

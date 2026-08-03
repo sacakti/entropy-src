@@ -4,16 +4,20 @@ Entropy installer.
 
 import os
 import shutil
+import sys
+import traceback
 from dataclasses import dataclass
 
+from lib.install.console import InstallerConsole
 from lib.install.paths import InstallerPathManager
+from lib.install.directory import DirectoryInstaller
 
 from .launcher import Launcher
 from .platform import PlatformDetector
 from .wheels import WheelInstaller
 
 paths = InstallerPathManager()
-
+console = InstallerConsole()
 
 @dataclass
 class InstallerResult:
@@ -32,7 +36,7 @@ Installation Directory
     {paths.home}
 
 Configuration
-    {paths.config_file}
+    {paths.entropy_config}
 
 Launcher
     ~/.local/bin/ent
@@ -52,73 +56,152 @@ class Installer:
             # Install Python dependencies
             #
 
+            console.step("Installing Python packages...")
+
             WheelInstaller(
                 platform,
             ).install()
+
+            console.success("Python packages installed.")
 
             #
             # Create Entropy home
             #
 
-            self._create_directories()
+            console.step("Creating directories...")
+
+            DirectoryInstaller().install()
+
+            console.success("Directories created.")
 
             #
-            # Create config
+            # Create configuration
             #
+
+            console.step("Installing configuration...")
 
             self._create_config()
+
+            console.success("Configuration installed.")
+
+            #
+            # Build installation context
+            #
+
+            sys.path.insert(
+                0,
+                str(paths.packages),
+            )
+
+            from core.context_factory import ContextFactory
+            from lib.install.bootstrap import BootstrapInstaller
+            from lib.install.database import DatabaseInstaller
+
+            factory = ContextFactory(
+                project_root=paths.project_root,
+                entropy_home=paths.staging,
+            )
+
+            factory.bootstrap()
+
+            factory.runtime()
+
+            factory.infrastructure()
+
+            #
+            # Install database
+            #
+
+            console.step("Installing database...")
+
+            DatabaseInstaller(
+                factory.context,
+            ).install()
+
+            console.success("Database installed.")
+
+            #
+            # Create administrator
+            #
+
+            console.step("Creating bootstrap administrator...")
+
+            factory.services()
+
+            BootstrapInstaller(
+                factory.context,
+            ).install()
+
+            console.success("Bootstrap administrator created.")
+
+            paths.commit()
 
             #
             # Install launcher
             #
-            launcher = self._install_launcher(platform)
+
+            console.step("Installing launcher...")
+
+            launcher = self._install_launcher(
+                platform,
+            )
 
             if not launcher.exists():
-                raise RuntimeError("Failed to create launcher.")
+
+                raise RuntimeError(
+                    "Failed to create launcher.",
+                )
+
+            console.success("Launcher installed.")
 
             #
             # Verify PATH
             #
-            path_resp = self._verify_path(launcher)
 
-            #
-            # Setup initial user
-            #
+            console.step("Verifying PATH...")
 
-            # db = DatabaseManager()
+            path_response = self._verify_path(
+                launcher,
+            )
 
-            message = success_msg + path_resp
+            console.success("Installation completed.")
+
+            message = success_msg + path_response
 
             return InstallerResult(
                 success=True,
                 message=message,
             )
 
-        except Exception as exc:
+        except Exception:
+
+            paths.rollback()
+
+            traceback.print_exc()
 
             return InstallerResult(
                 success=False,
-                message=str(exc),
+                message="Installation failed.",
             )
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
-    def _create_directories(self):
-
-        for directory in (
-            paths.home,
-            paths.config,
-            paths.database,
-        ):
-            directory.mkdir(parents=True, exist_ok=True)
 
     def _create_config(self):
+
+        # Entropy config
 
         if not paths.config_file.exists():
 
             shutil.copy2(paths.default_config, paths.config_file)
+
+        # Default workflow json
+
+        if not paths.config_file.exists():
+
+            shutil.copy2(paths.default_workflow, paths.workflow_file)
 
     def _install_launcher(self, platform):
         return Launcher(

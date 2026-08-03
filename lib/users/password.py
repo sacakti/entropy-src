@@ -104,4 +104,4 @@ class PasswordService:
             "admin123",
         }:
 
-            raise WeakPasswordError("Password is too common.")
+            raise WeakPasswordError("Password is too common and must contain at least 8 characters.")

@@ -15,7 +15,7 @@ from lib.database.objects import (
 )
 
 
-class DatabaseInstaller:
+class SchemaInstaller:
     """
     Installs the canonical database schema.
     """

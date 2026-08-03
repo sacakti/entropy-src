@@ -1,9 +1,9 @@
-from lib.database.installer import DatabaseInstaller
+from lib.database.schema import SchemaInstaller
 
 
 def test_install(connection):
 
-    installer = DatabaseInstaller()
+    installer = SchemaInstaller()
 
     installer.install(
         connection,

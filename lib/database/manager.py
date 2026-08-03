@@ -5,7 +5,7 @@ Database manager.
 from __future__ import annotations
 
 from lib.database.connection import DatabaseConnection
-from lib.database.installer import DatabaseInstaller
+# from lib.database.installer import SchemaInstaller
 
 
 class DatabaseManager:
@@ -29,7 +29,7 @@ class DatabaseManager:
 
         assert context.paths is not None
         assert context.executor is not None
-        assert context.observability is not None
+        # assert context.observability is not None
 
         self._context = context
 
@@ -39,19 +39,19 @@ class DatabaseManager:
             self._database,
         )
 
-        self._installer = DatabaseInstaller()
+        # self._installer = SchemaInstaller()
 
-        self._log = context.diagnostics.logger(
-            "system",
-        )
+        # self._events = context.observability.emitter(
+        #     "entropy",
+        # )
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def initialize(self) -> None:
+    def open(self) -> None:
         """
-        Prepare the database directory.
+        Open the application database.
         """
 
         self._context.executor.mkdir(
@@ -62,35 +62,35 @@ class DatabaseManager:
 
         self._connection.open()
 
-    def prepare(self) -> None:
-        """
-        Prepare the database for use.
-        """
+    # def prepare(self) -> None:
+    #     """
+    #     Prepare the database for use.
+    #     """
 
-        self.initialize()
+    #     self.initialize()
 
-        if not self._connection.table_exists(
-            "schema_migrations",
-        ):
+    #     if not self._connection.table_exists(
+    #         "schema_migrations",
+    #     ):
 
-            self.install()
+    #         self.install()
 
-    def install(self) -> None:
-        """
-        Install the canonical database schema.
-        """
+    # def install(self) -> None:
+    #     """
+    #     Install the canonical database schema.
+    #     """
 
-        self._log.info(
-            "Installing database schema.",
-        )
+    #     self._log.info(
+    #         "Installing database schema.",
+    #     )
 
-        self._installer.install(
-            self._connection,
-        )
+    #     self._installer.install(
+    #         self._connection,
+    #     )
 
-        self._log.success(
-            "Database schema installed.",
-        )
+    #     self._log.success(
+    #         "Database schema installed.",
+    #     )
 
     def close(self) -> None:
         """

@@ -45,7 +45,7 @@ class AuthCommand(BaseCommand):
         assert context.observability is not None
 
         self._events = context.observability.emitter(
-            "auth",
+            "entropy",
         )
 
     # ------------------------------------------------------------------

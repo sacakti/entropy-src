@@ -8,6 +8,7 @@ import secrets
 from datetime import datetime, timedelta
 
 from core.context import EntropyContext
+from core.observability.null import NullEmitter
 from lib.auth.exceptions import AuthenticationRequiredError
 from lib.auth.service import AuthenticationService
 from lib.auth.session import Session
@@ -46,14 +47,15 @@ class SessionManager:
 
         self._now = datetime.now
 
-        # self._log = context.diagnostics.logger(
-        #     "auth",
-        # )
-        assert context.observability is not None
+        if context.observability is not None:
 
-        self._events = context.observability.emitter(
-            "auth",
-        )
+            self._events = context.observability.emitter(
+                "entropy",
+            )
+
+        else:
+
+            self._events = NullEmitter()
 
     # ------------------------------------------------------------------
     # Login

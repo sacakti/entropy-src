@@ -20,9 +20,20 @@ class MigrationManager:
     def __init__(self, context, package: str = DATABASE_MIGRATION_PACKAGE) -> None:
 
         assert context.database_manager is not None
-        assert context.observability is not None
-
         self._connection: DatabaseConnection = context.database_manager.connection
+
+        from core.observability import NullEmitter
+
+        if context.observability is not None:
+
+            self._events = context.observability.emitter(
+                "entropy",
+            )
+
+        else:
+
+            self._events = NullEmitter()
+
 
         self._registry = MigrationRegistry(package)
 
@@ -34,9 +45,7 @@ class MigrationManager:
             connection=self._connection,
             registry=self._registry,
             history=self._history,
-            emitter=context.diagnostics.logger(
-                "system",
-            ),
+            emitter=self._events,
         )
 
     # ------------------------------------------------------------------

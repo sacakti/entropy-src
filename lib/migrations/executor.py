@@ -29,7 +29,7 @@ class MigrationExecutor:
 
         self._history = history
 
-        self._log = emitter
+        self._event = emitter
 
     # ------------------------------------------------------------------
     # Execute
@@ -50,13 +50,13 @@ class MigrationExecutor:
 
         if not pending:
 
-            self._log.info(
+            self._info(
                 "Database schema is up to date.",
             )
 
             return
 
-        self._log.info(
+        self._info(
             f"Applying {len(pending)} migration(s).",
         )
 
@@ -66,7 +66,7 @@ class MigrationExecutor:
                 migration,
             )
 
-        self._log.success(
+        self._info(
             "Database migration completed.",
         )
 
@@ -82,7 +82,7 @@ class MigrationExecutor:
         Execute a single migration.
         """
 
-        self._log.info(
+        self._info(
             f"{migration.VERSION:03d} {migration.DESCRIPTION}",
         )
 
@@ -103,12 +103,39 @@ class MigrationExecutor:
 
         except Exception as exc:
 
-            self._log.error(
+            self._error(
                 f"Migration {migration.VERSION:03d} failed.",
             )
 
             raise MigrationExecutionError(f"Migration {migration.VERSION:03d} failed.") from exc
 
-        self._log.success(
+        self._info(
             f"Applied {migration.VERSION:03d}",
         )
+
+    # ------------------------------------------------------------------
+    # Event helpers
+    # ------------------------------------------------------------------
+
+    def _info(
+        self,
+        message: str,
+    ) -> None:
+
+        if self._event is not None:
+
+            self._event.info(
+                message,
+            )
+
+
+    def _error(
+        self,
+        message: str,
+    ) -> None:
+
+        if self._event is not None:
+
+            self._event.error(
+                message,
+            )

@@ -8,6 +8,7 @@ from .emitter import Emitter
 from .event import Event
 from .manager import ObservabilityManager
 from .sink import Sink
+from .null import NullEmitter
 
 __all__ = [
     "Event",
@@ -16,4 +17,5 @@ __all__ = [
     "EventDispatcher",
     "ObservabilityManager",
     "Sink",
+    "NullEmitter",
 ]
