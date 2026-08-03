@@ -8,12 +8,14 @@ from core.context import EntropyContext
 from lib.database.repositories.users import UserRepository
 from lib.models.users import User
 from lib.users.exceptions import (
+    CurrentPasswordMismatchError,
     InvalidUsernameError,
+    PasswordReuseError,
     SystemUserError,
     UserAlreadyExistsError,
+    WeakPasswordError,
 )
 from lib.users.password import PasswordService
-
 
 class UserManager:
     """
@@ -94,18 +96,32 @@ class UserManager:
         return user
 
     # ------------------------------------------------------------------
-    # Change Password
+    # Password
     # ------------------------------------------------------------------
 
-    def change_password(
+    def _set_password(
         self,
         user: User,
         password: str,
     ) -> User:
+        """
+        Set a user's password.
+
+        Internal helper used by password change and reset.
+        """
 
         self._validate_password(
             password,
         )
+
+        verification = self._password.verify(
+            password,
+            user.password_hash,
+        )
+
+        if verification.valid:
+
+            raise PasswordReuseError()
 
         user.password_hash = self._password.hash(
             password,
@@ -120,6 +136,77 @@ class UserManager:
         return self._repository.get(
             user.id,
         )
+
+
+    def change_password(
+        self,
+        user: User,
+        current_password: str,
+        new_password: str,
+    ) -> User:
+        """
+        Change the user's own password.
+        """
+
+        verification = self._password.verify(
+            current_password,
+            user.password_hash,
+        )
+
+        if not verification.valid:
+
+            raise CurrentPasswordMismatchError()
+
+        return self._set_password(
+            user,
+            new_password,
+        )
+
+
+    def admin_change_password(
+        self,
+        user: User,
+        password: str,
+    ) -> User:
+        """
+        Change another user's password.
+
+        Authorization is handled by the caller.
+        """
+
+        return self._set_password(
+            user,
+            password,
+        )
+
+
+    def reset_password(
+        self,
+        user: User,
+    ) -> tuple[User, str]:
+        """
+        Generate and assign a temporary password.
+        """
+
+        while True:
+
+            password = self._password.generate()
+
+            try:
+
+                user = self.admin_change_password(
+                    user,
+                    password,
+                )
+
+                return (
+                    user,
+                    password,
+                )
+
+            except WeakPasswordError:
+
+                continue
 
     # ------------------------------------------------------------------
     # Get

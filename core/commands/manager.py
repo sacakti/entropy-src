@@ -42,22 +42,6 @@ class CommandManager:
             "cli",
         )
 
-    # def _configure_runtime(
-    #     self,
-    #     args: Namespace,
-    # ) -> None:
-    #     """
-    #     Apply runtime configuration overrides.
-    #     """
-
-    #     assert self._context.observability is not None
-
-    #     if args.verbose >= 1:
-
-    #         self._context.observability.set_console_level(
-    #             LogLevel.DEBUG,
-    #         )
-
     # ------------------------------------------------------------------
     # Discovery
     # ------------------------------------------------------------------
@@ -69,7 +53,6 @@ class CommandManager:
         Discover commands.
         """
 
-        # self._log.debug("Discovering commands...")
         self._events.debug(
             "Discovering commands..."
         )

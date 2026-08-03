@@ -4,7 +4,8 @@ Password service.
 
 from dataclasses import dataclass
 from typing import cast
-
+import secrets
+import string
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -105,3 +106,41 @@ class PasswordService:
         }:
 
             raise WeakPasswordError("Password is too common and must contain at least 8 characters.")
+
+    # ------------------------------------------------------------------
+    # Generate
+    # ------------------------------------------------------------------
+
+    def generate(
+        self,
+        length: int = 20,
+    ) -> str:
+        """
+        Generate a temporary password that satisfies
+        the current password policy.
+        """
+
+        alphabet = (
+            string.ascii_letters
+            + string.digits
+            + "!@#$%^&*()-_=+"
+        )
+
+        while True:
+
+            password = "".join(
+                secrets.choice(alphabet)
+                for _ in range(length)
+            )
+
+            try:
+
+                self.validate(
+                    password,
+                )
+
+                return password
+
+            except WeakPasswordError:
+
+                continue
