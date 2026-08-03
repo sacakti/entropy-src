@@ -10,6 +10,7 @@ from typing import Union
 
 from core.models.paths import (
     DatabasePaths,
+    ExtensionPaths,
     GitPaths,
     LogPaths,
     PluginPaths,
@@ -40,6 +41,7 @@ class RuntimePathManager:
         self._bootstrap = bootstrap
 
         self._database = self._build_database_paths()
+        self._extensions = self._build_extension_paths()
         self._runtime = self._build_runtime_paths()
         self._session = self._build_session_paths()
         self._python = self._build_python_paths()
@@ -55,6 +57,10 @@ class RuntimePathManager:
     @property
     def database(self) -> DatabasePaths:
         return self._database
+
+    @property
+    def extensions(self) -> ExtensionPaths:
+        return self._extensions
 
     @property
     def runtime(self) -> RuntimePaths:
@@ -101,6 +107,21 @@ class RuntimePathManager:
         return DatabasePaths(
             directory=database.parent,
             file=database,
+        )
+
+    def _build_extension_paths(
+        self,
+    ) -> ExtensionPaths:
+
+        root = self._bootstrap.home / "extensions"
+
+        return ExtensionPaths(
+            root=root,
+            wheels=root / "wheels",
+            site_packages=root / "site-packages",
+            # metadata=root / "metadata",
+            cache=root / "cache",
+            downloads=root / "downloads",
         )
 
     def _build_runtime_paths(

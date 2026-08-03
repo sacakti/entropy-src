@@ -32,6 +32,7 @@ from lib.auth.service import AuthenticationService
 from lib.database.manager import DatabaseManager
 from lib.database.repositories.users import UserRepository
 from lib.executor import LinuxExecutor
+from lib.extensions.manager import ExtensionManager
 from lib.migrations.manager import MigrationManager
 from lib.plugins.manager import PluginManager
 from lib.users.manager import UserManager
@@ -215,6 +216,10 @@ class ContextFactory:
         )
 
         self._context.workflow_manager = WorkflowManager(
+            self._context,
+        )
+
+        self._context.extension_manager = ExtensionManager(
             self._context,
         )
 

@@ -95,3 +95,26 @@ class GitPaths:
     """
 
     repository: Path
+
+# ------------------------------------------------------------------
+# Extension Models
+# ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ExtensionPaths:
+    """
+    Extension runtime paths.
+    """
+
+    root: Path
+
+    wheels: Path
+
+    site_packages: Path
+
+    # metadata: Path
+
+    cache: Path
+
+    downloads: Path

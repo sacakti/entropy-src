@@ -51,13 +51,27 @@ class Environment:
 
         directories = (
             paths.database.directory,
+
             paths.logs.root,
+
             paths.runtime.root,
             paths.runtime.pid,
             paths.runtime.state,
             paths.runtime.lock,
+
             paths.session.directory,
+
             paths.python.packages,
+
+            #
+            # Extensions
+            #
+            paths.extensions.root,
+            paths.extensions.wheels,
+            paths.extensions.site_packages,
+            # paths.extensions.metadata,
+            paths.extensions.cache,
+            paths.extensions.downloads,
         )
 
         for directory in directories:

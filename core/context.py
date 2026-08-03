@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from lib.users.password import PasswordService
     from lib.workflow.manager import WorkflowManager
     from core.observability.console import LogConsoleSink
+    from lib.extensions.manager import ExtensionManager
 
 
 class EntropyContext:
@@ -78,6 +79,8 @@ class EntropyContext:
         self.database_manager: DatabaseManager | None = None
 
         self.migration_manager: MigrationManager | None = None
+
+        self.extension_manager: ExtensionManager | None = None
 
         # ---------------------------------------------------------
         # Application Managers
