@@ -124,17 +124,17 @@ class ContextFactory:
         assert self._context.paths is not None
         assert self._context.configuration is not None
 
-        # ---- Start deprecation
+        # # ---- Start deprecation
 
-        diagnostics = DiagnosticsManager()
+        # diagnostics = DiagnosticsManager()
 
-        diagnostics.register(
-            DiagnosticsConsoleSink(),
-        )
+        # diagnostics.register(
+        #     DiagnosticsConsoleSink(),
+        # )
 
-        self._context.diagnostics = diagnostics
+        # self._context.diagnostics = diagnostics
 
-        # ---- End deprecation
+        # # ---- End deprecation
 
         observability = ObservabilityManager()
 
@@ -148,17 +148,21 @@ class ContextFactory:
             console,
         )
 
-        observability.register(
-            LogConsoleSink(
-                renderer,
-                level=LogLevel[
-                    self._context.configuration.get(
-                        "console.level",
-                        "INFO",
-                    ).upper()
-                ],
-            ),
+        console_log_sink = LogConsoleSink(
+            renderer,
+            level=LogLevel[
+                self._context.configuration.get(
+                    "console.level",
+                    "INFO",
+                ).upper()
+            ],
         )
+
+        observability.register(
+            console_log_sink,
+        )
+
+        self._context.console_log_sink = console_log_sink
 
         log_manager = LoggingManager(
             directory=self._context.paths.logs.root,
@@ -319,6 +323,5 @@ class ContextFactory:
         self.infrastructure()
         self.services()
         self.application()
-        self.discover()
 
         return self._context

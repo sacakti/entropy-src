@@ -13,14 +13,13 @@ from .rotation import create_handler
 
 class LoggingManager:
     """
-    Creates and caches execution loggers.
+    Creates the application logger.
     """
 
-    # FORMAT = "%(asctime)s | " "%(levelname)-8s | " "%(name)s | " "%(message)s"
     FORMAT = (
         "%(asctime)s "
         "%(levelname)-8s "
-        "<module:%(name)s> "
+        "<module:%(module_name)s> "
         "%(message)s"
     )
 
@@ -40,7 +39,7 @@ class LoggingManager:
             logging.INFO,
         )
 
-        self._cache: dict[str, ExecutionLogger] = {}
+        self._logger = self._create()
 
     # ------------------------------------------------------------------
     # Public
@@ -48,27 +47,12 @@ class LoggingManager:
 
     def logger(
         self,
-        name: str,
     ) -> ExecutionLogger:
         """
-        Return a named logger.
+        Return the application logger.
         """
 
-        logger = self._cache.get(
-            name,
-        )
-
-        if logger is not None:
-
-            return logger
-
-        logger = self._create(
-            name,
-        )
-
-        self._cache[name] = logger
-
-        return logger
+        return self._logger
 
     # ------------------------------------------------------------------
     # Internal
@@ -76,17 +60,14 @@ class LoggingManager:
 
     def _create(
         self,
-        name: str,
     ) -> ExecutionLogger:
         """
-        Create a new logger.
+        Create the application logger.
         """
 
-        # instance = logging.getLogger(
-        #     f"entropy.{name}",
-        # )
-
-        instance = logging.getLogger(name)
+        instance = logging.getLogger(
+            "entropy",
+        )
 
         instance.handlers.clear()
 
@@ -97,7 +78,7 @@ class LoggingManager:
         instance.propagate = False
 
         handler = create_handler(
-            self._directory / f"{name}.log",
+            self._directory / "entropy.log",
         )
 
         handler.setFormatter(
@@ -114,14 +95,3 @@ class LoggingManager:
         return ExecutionLogger(
             instance,
         )
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    def clear(self) -> None:
-        """
-        Clear cached loggers.
-        """
-
-        self._cache.clear()

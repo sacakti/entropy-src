@@ -27,7 +27,7 @@ class MigrationManager:
         if context.observability is not None:
 
             self._events = context.observability.emitter(
-                "entropy",
+                "migration",
             )
 
         else:

@@ -14,7 +14,7 @@ class LogFileSink(Sink):
         manager: LoggingManager,
     ) -> None:
 
-        self._manager = manager
+        self._logger = manager.logger()
 
     def publish(
         self,
@@ -24,26 +24,8 @@ class LogFileSink(Sink):
         if not isinstance(event, LogEvent):
             return
 
-        logger = self._manager.logger(
-            event.source,
+        self._logger.log(
+            level=event.level,
+            module=event.source,
+            message=event.message,
         )
-
-        if event.level == LogLevel.DEBUG:
-
-            logger.debug(event.message)
-
-        elif event.level == LogLevel.INFO:
-
-            logger.info(event.message)
-
-        elif event.level == LogLevel.WARNING:
-
-            logger.warning(event.message)
-
-        elif event.level == LogLevel.ERROR:
-
-            logger.error(event.message)
-
-        elif event.level == LogLevel.CRITICAL:
-
-            logger.critical(event.message)

@@ -5,7 +5,6 @@ Database manager.
 from __future__ import annotations
 
 from lib.database.connection import DatabaseConnection
-# from lib.database.installer import SchemaInstaller
 
 
 class DatabaseManager:
@@ -39,11 +38,6 @@ class DatabaseManager:
             self._database,
         )
 
-        # self._installer = SchemaInstaller()
-
-        # self._events = context.observability.emitter(
-        #     "entropy",
-        # )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -62,35 +56,6 @@ class DatabaseManager:
 
         self._connection.open()
 
-    # def prepare(self) -> None:
-    #     """
-    #     Prepare the database for use.
-    #     """
-
-    #     self.initialize()
-
-    #     if not self._connection.table_exists(
-    #         "schema_migrations",
-    #     ):
-
-    #         self.install()
-
-    # def install(self) -> None:
-    #     """
-    #     Install the canonical database schema.
-    #     """
-
-    #     self._log.info(
-    #         "Installing database schema.",
-    #     )
-
-    #     self._installer.install(
-    #         self._connection,
-    #     )
-
-    #     self._log.success(
-    #         "Database schema installed.",
-    #     )
 
     def close(self) -> None:
         """

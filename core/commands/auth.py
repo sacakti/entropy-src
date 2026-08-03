@@ -30,8 +30,6 @@ class AuthCommand(BaseCommand):
         )
 
         assert context.session_manager is not None
-        # assert context.console is not None
-        # self._ui = context.console
 
         self._session = context.session_manager
 
@@ -39,13 +37,10 @@ class AuthCommand(BaseCommand):
 
         self._ui = context.ui
 
-        # self._log = context.diagnostics.logger(
-        #     "auth",
-        # )
         assert context.observability is not None
 
         self._events = context.observability.emitter(
-            "entropy",
+            "auth",
         )
 
     # ------------------------------------------------------------------
@@ -125,7 +120,7 @@ class AuthCommand(BaseCommand):
             password,
         )
 
-        # self._events.info(f"Authenticated as '{session.username}'.")
+        self._events.info(f"Logged in as {session.username}")
 
     # ------------------------------------------------------------------
     # Logout
@@ -144,7 +139,7 @@ class AuthCommand(BaseCommand):
 
         self._session.logout()
 
-        # self._events.info("Logged out.")
+        self._events.info(f"Logged out successfully.")
 
     # ------------------------------------------------------------------
     # Status

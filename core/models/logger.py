@@ -4,22 +4,17 @@ Log levels.
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum
 
 
-class LogLevel(str, Enum):
+class LogLevel(IntEnum):
 
-    DEBUG = "debug"
-
-    INFO = "info"
-
-    SUCCESS = "success"
-
-    WARNING = "warning"
-
-    ERROR = "error"
-
-    CRITICAL = "critical"
+    DEBUG = 10
+    INFO = 20
+    SUCCESS = 25
+    WARNING = 30
+    ERROR = 40
+    CRITICAL = 50
 
 
 @dataclass(frozen=True)

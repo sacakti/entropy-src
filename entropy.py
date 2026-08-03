@@ -6,18 +6,15 @@ bootstrap()
 
 from core.application import Application
 
-# from test import test_console
-
-# import sys
-
-
 def main():
 
     app = Application()
 
+    args = app.parse()
+
     app.bootstrap()
 
-    app.initialize()
+    app.initialize(args)
 
     app.run()
 

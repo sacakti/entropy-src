@@ -8,15 +8,18 @@ import argparse
 import importlib
 import inspect
 import pkgutil
+import traceback
 from argparse import Namespace
 from typing import Dict, List, Optional
 
 from core.commands import __path__
 from core.commands.base import BaseCommand
+from core.models.logger import LogLevel
 from core.commands.exceptions import (
     CommandAlreadyExistsError,
     CommandNotFoundError,
 )
+from core.exceptions import EntropyException
 
 
 class CommandManager:
@@ -36,8 +39,24 @@ class CommandManager:
         self._commands: Dict[str, BaseCommand] = {}
 
         self._events = context.observability.emitter(
-            "entropy",
+            "cli",
         )
+
+    # def _configure_runtime(
+    #     self,
+    #     args: Namespace,
+    # ) -> None:
+    #     """
+    #     Apply runtime configuration overrides.
+    #     """
+
+    #     assert self._context.observability is not None
+
+    #     if args.verbose >= 1:
+
+    #         self._context.observability.set_console_level(
+    #             LogLevel.DEBUG,
+    #         )
 
     # ------------------------------------------------------------------
     # Discovery
@@ -253,24 +272,79 @@ class CommandManager:
 
             self._context.session_manager.require()
 
-        command.execute(
-            args,
-        )
+        try:
+
+            command.execute(
+                args,
+            )
+
+        except EntropyException as exc:
+
+            self._events.error(
+                str(exc),
+            )
+
+            raise SystemExit(1)
+
+        except Exception:
+
+            self._events.critical(
+                traceback.format_exc(),
+            )
+
+            raise SystemExit(2)
 
     # ------------------------------------------------------------------
     # Run
     # ------------------------------------------------------------------
 
-    def run(
+    # def run(
+    #     self,
+    # ) -> None:
+    #     """
+    #     Execute the command selected from the command line.
+    #     """
+
+    #     parser = self.build_parser()
+
+    #     args = parser.parse_args()
+
+    #     self._configure_runtime(
+    #         args,
+    #     )
+
+    #     self.execute(
+    #         args.command or "help",
+    #         args,
+    #     )
+
+    # ------------------------------------------------------------------
+    # Parse
+    # ------------------------------------------------------------------
+
+    def parse(
         self,
-    ) -> None:
+    ) -> Namespace:
         """
-        Execute the command selected from the command line.
+        Parse command-line arguments.
         """
 
         parser = self.build_parser()
 
-        args = parser.parse_args()
+        return parser.parse_args()
+
+
+    # ------------------------------------------------------------------
+    # Run
+    # ------------------------------------------------------------------
+
+    def execute_command(
+        self,
+        args: Namespace,
+    ) -> None:
+        """
+        Execute the selected command.
+        """
 
         self.execute(
             args.command or "help",

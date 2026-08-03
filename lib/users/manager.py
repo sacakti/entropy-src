@@ -4,8 +4,6 @@ User manager.
 
 from __future__ import annotations
 
-import secrets
-
 from core.context import EntropyContext
 from lib.database.repositories.users import UserRepository
 from lib.models.users import User
@@ -42,18 +40,6 @@ class UserManager:
 
         self._password: PasswordService = context.password_service
 
-        from core.observability import NullEmitter
-
-        if context.observability is not None:
-
-            self._events = context.observability.emitter(
-                "entropy",
-            )
-
-        else:
-
-            self._events = NullEmitter()
-
     # ------------------------------------------------------------------
     # Bootstrap
     # ------------------------------------------------------------------
@@ -65,17 +51,6 @@ class UserManager:
 
         if self._repository.any():
             return
-
-        # password = secrets.token_urlsafe(16)
-
-        # self.create(
-        #     username="admin",
-        #     password=password,
-        #     full_name="Administrator",
-        #     system=True,
-        # )
-
-        # self._events.info("Bootstrap administrator created.")
 
     # ------------------------------------------------------------------
     # Create
@@ -116,8 +91,6 @@ class UserManager:
             user,
         )
 
-        self._events.info(f"User '{username}' created.")
-
         return user
 
     # ------------------------------------------------------------------
@@ -141,8 +114,6 @@ class UserManager:
         self._repository.update(
             user,
         )
-
-        self._events.info(f"Password changed for '{user.username}'.")
 
         assert user.id is not None
 
@@ -196,8 +167,6 @@ class UserManager:
             user.id,
         )
 
-        self._events.info(f"User '{user.username}' deleted.")
-
     # ------------------------------------------------------------------
     # Exists
     # ------------------------------------------------------------------
@@ -244,10 +213,6 @@ class UserManager:
         self._repository.update(
             user,
         )
-
-        action = "enabled" if active else "disabled"
-
-        self._events.info(f"User '{username}' {action}.")
 
         return user
 

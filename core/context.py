@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from lib.users.manager import UserManager
     from lib.users.password import PasswordService
     from lib.workflow.manager import WorkflowManager
+    from core.observability.console import LogConsoleSink
 
 
 class EntropyContext:
@@ -59,6 +60,8 @@ class EntropyContext:
         self.executor: LinuxExecutor | None = None
 
         self.observability: ObservabilityManager | None = None
+
+        self.console_log_sink: LogConsoleSink | None = None
 
         # ---------------------------------------------------------
         # Core Managers

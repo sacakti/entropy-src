@@ -8,7 +8,6 @@ import secrets
 from datetime import datetime, timedelta
 
 from core.context import EntropyContext
-from core.observability.null import NullEmitter
 from lib.auth.exceptions import AuthenticationRequiredError
 from lib.auth.service import AuthenticationService
 from lib.auth.session import Session
@@ -30,8 +29,6 @@ class SessionManager:
         assert context.executor is not None
         assert context.paths is not None
 
-        # assert context.diagnostics is not None
-
         self._authentication: AuthenticationService = context.authentication
 
         self._executor: LinuxExecutor = context.executor
@@ -46,16 +43,6 @@ class SessionManager:
         )
 
         self._now = datetime.now
-
-        if context.observability is not None:
-
-            self._events = context.observability.emitter(
-                "entropy",
-            )
-
-        else:
-
-            self._events = NullEmitter()
 
     # ------------------------------------------------------------------
     # Login
@@ -97,8 +84,6 @@ class SessionManager:
             session,
         )
 
-        self._events.info(f"User '{user.username}' logged in.")
-
         return session
 
     # ------------------------------------------------------------------
@@ -116,8 +101,6 @@ class SessionManager:
 
         self._delete()
 
-        self._events.info(f"User '{session.username}' logged out.")
-
     # ------------------------------------------------------------------
     # Current
     # ------------------------------------------------------------------
@@ -134,8 +117,6 @@ class SessionManager:
         if self._now() >= session.expires_at:
 
             self._delete()
-
-            self._events.warning(f"Session expired for '{session.username}'.")
 
             return None
 

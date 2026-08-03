@@ -22,7 +22,7 @@ class GeneratorManager:
         self._generators: dict[str, BaseGenerator] = {}
 
         self._events = context.observability.emitter(
-            "entropy",
+            "generator",
         )
 
     # ---------------------------------------------------------
