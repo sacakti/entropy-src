@@ -28,8 +28,8 @@ class SessionManager:
         assert context.configuration is not None
         assert context.executor is not None
         assert context.paths is not None
-        # assert context.observability is not None
-        assert context.diagnostics is not None
+
+        # assert context.diagnostics is not None
 
         self._authentication: AuthenticationService = context.authentication
 
@@ -46,7 +46,12 @@ class SessionManager:
 
         self._now = datetime.now
 
-        self._log = context.diagnostics.logger(
+        # self._log = context.diagnostics.logger(
+        #     "auth",
+        # )
+        assert context.observability is not None
+
+        self._events = context.observability.emitter(
             "auth",
         )
 
@@ -90,7 +95,7 @@ class SessionManager:
             session,
         )
 
-        self._log.info(f"User '{user.username}' logged in.")
+        self._events.info(f"User '{user.username}' logged in.")
 
         return session
 
@@ -109,7 +114,7 @@ class SessionManager:
 
         self._delete()
 
-        self._log.info(f"User '{session.username}' logged out.")
+        self._events.info(f"User '{session.username}' logged out.")
 
     # ------------------------------------------------------------------
     # Current
@@ -128,7 +133,7 @@ class SessionManager:
 
             self._delete()
 
-            self._log.info(f"Session expired for '{session.username}'.")
+            self._events.warning(f"Session expired for '{session.username}'.")
 
             return None
 

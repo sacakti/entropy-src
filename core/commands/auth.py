@@ -30,17 +30,21 @@ class AuthCommand(BaseCommand):
         )
 
         assert context.session_manager is not None
-        assert context.observability is not None
         # assert context.console is not None
+        # self._ui = context.console
 
         self._session = context.session_manager
 
-        # self._ui = context.console
         assert context.ui is not None
 
         self._ui = context.ui
 
-        self._log = context.diagnostics.logger(
+        # self._log = context.diagnostics.logger(
+        #     "auth",
+        # )
+        assert context.observability is not None
+
+        self._events = context.observability.emitter(
             "auth",
         )
 
@@ -103,7 +107,7 @@ class AuthCommand(BaseCommand):
 
         if session is not None:
 
-            self._log.success(f"Already authenticated as '{session.username}'.")
+            self._events.info(f"Already authenticated as '{session.username}'.")
 
             return
 
@@ -121,7 +125,7 @@ class AuthCommand(BaseCommand):
             password,
         )
 
-        self._log.success(f"Authenticated as '{session.username}'.")
+        # self._events.info(f"Authenticated as '{session.username}'.")
 
     # ------------------------------------------------------------------
     # Logout
@@ -134,13 +138,13 @@ class AuthCommand(BaseCommand):
 
         if not self._session.authenticated():
 
-            self._log.info("No active session.")
+            self._events.warning("No active session.")
 
             return
 
         self._session.logout()
 
-        self._log.success("Logged out.")
+        # self._events.info("Logged out.")
 
     # ------------------------------------------------------------------
     # Status
@@ -155,7 +159,7 @@ class AuthCommand(BaseCommand):
 
         if session is None:
 
-            self._log.info("Not authenticated.")
+            self._events.warning("Not authenticated.")
 
             return
 

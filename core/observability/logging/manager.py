@@ -16,7 +16,13 @@ class LoggingManager:
     Creates and caches execution loggers.
     """
 
-    FORMAT = "%(asctime)s | " "%(levelname)-8s | " "%(name)s | " "%(message)s"
+    # FORMAT = "%(asctime)s | " "%(levelname)-8s | " "%(name)s | " "%(message)s"
+    FORMAT = (
+        "%(asctime)s "
+        "%(levelname)-8s "
+        "<module:%(name)s> "
+        "%(message)s"
+    )
 
     DATEFMT = "%Y-%m-%d %H:%M:%S"
 
@@ -76,9 +82,11 @@ class LoggingManager:
         Create a new logger.
         """
 
-        instance = logging.getLogger(
-            f"entropy.{name}",
-        )
+        # instance = logging.getLogger(
+        #     f"entropy.{name}",
+        # )
+
+        instance = logging.getLogger(name)
 
         instance.handlers.clear()
 

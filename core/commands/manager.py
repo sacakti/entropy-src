@@ -36,7 +36,7 @@ class CommandManager:
         self._commands: Dict[str, BaseCommand] = {}
 
         self._events = context.observability.emitter(
-            self.__class__.__name__,
+            "entropy",
         )
 
     # ------------------------------------------------------------------

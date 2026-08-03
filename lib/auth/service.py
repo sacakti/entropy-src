@@ -94,6 +94,6 @@ class AuthenticationService:
 
             self._log.info(f"Password hash upgraded for '{user.username}'.")
 
-        self._log.info(f"User '{username}' authenticated.")
+        # self._log.info(f"User '{username}' authenticated.")
 
         return user
