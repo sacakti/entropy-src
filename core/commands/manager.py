@@ -295,43 +295,19 @@ class CommandManager:
             raise SystemExit(2)
 
     # ------------------------------------------------------------------
-    # Run
-    # ------------------------------------------------------------------
-
-    # def run(
-    #     self,
-    # ) -> None:
-    #     """
-    #     Execute the command selected from the command line.
-    #     """
-
-    #     parser = self.build_parser()
-
-    #     args = parser.parse_args()
-
-    #     self._configure_runtime(
-    #         args,
-    #     )
-
-    #     self.execute(
-    #         args.command or "help",
-    #         args,
-    #     )
-
-    # ------------------------------------------------------------------
     # Parse
     # ------------------------------------------------------------------
 
     def parse(
         self,
+        argv: list[str],
     ) -> Namespace:
-        """
-        Parse command-line arguments.
-        """
 
         parser = self.build_parser()
 
-        return parser.parse_args()
+        return parser.parse_args(
+            argv,
+        )
 
 
     # ------------------------------------------------------------------

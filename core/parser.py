@@ -35,4 +35,4 @@ class ApplicationParser:
             help="Increase console verbosity.",
         )
 
-        return parser.parse_known_args()[0]
+        return parser.parse_known_args()

@@ -48,7 +48,7 @@ class Application:
 
     def parse(
         self,
-    ) -> Namespace:
+    ) -> tuple[Namespace, list[str]]:
         """
         Parse application arguments.
         """
@@ -93,15 +93,16 @@ class Application:
     # Run
     # ------------------------------------------------------------------
 
-    def run(self) -> None:
-
-        """
-        Execute the requested command.
-        """
+    def run(
+        self,
+        argv: list[str],
+    ) -> None:
 
         assert self.context.command_manager is not None
 
-        args = self.context.command_manager.parse()
+        args = self.context.command_manager.parse(
+            argv,
+        )
 
         self.context.command_manager.execute_command(
             args,

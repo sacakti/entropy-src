@@ -10,13 +10,17 @@ def main():
 
     app = Application()
 
-    args = app.parse()
+    global_args, argv = app.parse()
 
     app.bootstrap()
 
-    app.initialize(args)
+    app.initialize(
+        global_args,
+    )
 
-    app.run()
+    app.run(
+        argv
+    )
 
 
 if __name__ == "__main__":
