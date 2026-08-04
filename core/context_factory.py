@@ -223,11 +223,11 @@ class ContextFactory:
             self._context,
         )
 
-        self._context.plugin_manager = PluginManager(
+        self._context.migration_manager = MigrationManager(
             self._context,
         )
 
-        self._context.migration_manager = MigrationManager(
+        self._context.plugin_manager = PluginManager(
             self._context,
         )
 

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from core.runtime.manager import ExecutionManager
     from core.template.engine import TemplateEngine
     from core.ui import UIManager
+    from core.observability.console import LogConsoleSink
     from lib.auth.manager import SessionManager
     from lib.auth.service import AuthenticationService
     from lib.database.manager import DatabaseManager
@@ -27,8 +28,8 @@ if TYPE_CHECKING:
     from lib.users.manager import UserManager
     from lib.users.password import PasswordService
     from lib.workflow.manager import WorkflowManager
-    from core.observability.console import LogConsoleSink
     from lib.extensions.manager import ExtensionManager
+    from lib.plugins.manager import PluginManager
 
 
 class EntropyContext:
@@ -81,6 +82,8 @@ class EntropyContext:
         self.migration_manager: MigrationManager | None = None
 
         self.extension_manager: ExtensionManager | None = None
+
+        self.plugin_manager: PluginManager | None = None
 
         # ---------------------------------------------------------
         # Application Managers
