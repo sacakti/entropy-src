@@ -87,6 +87,7 @@ CONSOLE_LEVELS = {
 # Template constants
 # ------------------------------------------------------------------
 
+PLUGIN_MANIFEST = "plugin.json"
 
 class PluginTemplates:
     """

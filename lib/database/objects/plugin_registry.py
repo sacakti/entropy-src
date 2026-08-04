@@ -24,15 +24,19 @@ class PluginRegistryTable(DatabaseObject):
             (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                name            TEXT NOT NULL UNIQUE,
-
                 namespace       TEXT NOT NULL,
+
+                name            TEXT NOT NULL,
 
                 version         TEXT NOT NULL,
 
+                path            TEXT NOT NULL,
+
                 enabled         INTEGER NOT NULL DEFAULT 1,
 
-                installed_at    TEXT NOT NULL
+                installed_at    TEXT NOT NULL,
+
+                UNIQUE(namespace, name)
             )
             """
         )

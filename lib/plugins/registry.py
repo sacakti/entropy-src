@@ -1,24 +1,29 @@
 """
-Plugin registry.
+Plugin runtime registry.
 """
 
 from __future__ import annotations
 
-from .exceptions import (
-    PluginAlreadyRegisteredError,
-    PluginNotFoundError,
-)
-from .metadata import PluginMetadata
+from lib.models.plugin import Plugin
+from lib.plugins.exceptions import PluginNotFoundError
 
 
 class PluginRegistry:
     """
-    Stores plugin metadata.
+    In-memory plugin registry.
+
+    Responsible for storing installed plugins
+    during the current Entropy session.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+    ) -> None:
 
-        self._plugins: dict[str, PluginMetadata] = {}
+        self._plugins: dict[
+            str,
+            Plugin,
+        ] = {}
 
     # ------------------------------------------------------------------
     # Registration
@@ -26,72 +31,110 @@ class PluginRegistry:
 
     def register(
         self,
-        metadata: PluginMetadata,
+        plugin: Plugin,
     ) -> None:
+        """
+        Register a plugin.
+        """
 
-        if metadata.name in self._plugins:
+        self._plugins[
+            plugin.qualified_name
+        ] = plugin
 
-            raise PluginAlreadyRegisteredError(
-                metadata.name,
-            )
-
-        self._plugins[metadata.name] = metadata
-
+    # ------------------------------------------------------------------
+    # Query
     # ------------------------------------------------------------------
 
     def resolve(
         self,
-        name: str,
-    ) -> PluginMetadata:
+        qualified_name: str,
+    ) -> Plugin:
+        """
+        Return a registered plugin.
 
-        try:
+        Raises
+        ------
+        PluginNotFoundError
+            If the plugin is not registered.
+        """
 
-            return self._plugins[name]
+        plugin = self.get(
+            qualified_name,
+        )
 
-        except KeyError as exc:
+        if plugin is None:
 
             raise PluginNotFoundError(
-                name,
-            ) from exc
+                qualified_name,
+            )
 
-    # ------------------------------------------------------------------
+        return plugin
 
     def get(
         self,
-        name: str,
-    ) -> PluginMetadata | None:
+        qualified_name: str,
+    ) -> Plugin | None:
+        """
+        Return a plugin if registered.
+        """
 
-        return self._plugins.get(name)
-
-    # ------------------------------------------------------------------
-
-    def list(
-        self,
-    ) -> list[PluginMetadata]:
-
-        return sorted(
-            self._plugins.values(),
-            key=lambda plugin: plugin.name,
+        return self._plugins.get(
+            qualified_name,
         )
-
-    # ------------------------------------------------------------------
 
     def has(
         self,
-        name: str,
+        qualified_name: str,
     ) -> bool:
+        """
+        Return True if the plugin is registered.
+        """
 
-        return name in self._plugins
+        return (
+            qualified_name
+            in self._plugins
+        )
 
+    def list(
+        self,
+    ) -> list[Plugin]:
+        """
+        Return registered plugins.
+        """
+
+        return sorted(
+            self._plugins.values(),
+            key=lambda plugin: (
+                plugin.namespace,
+                plugin.name,
+            ),
+        )
+
+    # ------------------------------------------------------------------
+    # Cache
     # ------------------------------------------------------------------
 
     def clear(
         self,
     ) -> None:
+        """
+        Clear the registry.
+        """
 
         self._plugins.clear()
 
     # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def __contains__(
+        self,
+        qualified_name: str,
+    ) -> bool:
+
+        return self.has(
+            qualified_name,
+        )
 
     def __len__(
         self,
@@ -100,10 +143,3 @@ class PluginRegistry:
         return len(
             self._plugins,
         )
-
-    def __contains__(
-        self,
-        name: str,
-    ) -> bool:
-
-        return self.has(name)

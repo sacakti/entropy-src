@@ -25,7 +25,7 @@ class SchemaInstaller:
         self._objects = (
             SchemaMigrationsTable(),
             SettingsTable(),
-            LicensesTable(),
+            # LicensesTable(),
             PluginRegistryTable(),
             UsersTable(),
             WorkflowsTable(),

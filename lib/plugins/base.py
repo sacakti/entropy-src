@@ -1,68 +1,40 @@
+"""
+Base plugin.
+"""
+
 from __future__ import annotations
 
-# from abc import ABC, abstractmethod
-# from typing import Any
-# from core.context import EntropyContext
-# from lib.plugins.exception import PluginNotImplementedError
-from lib.plugins.exceptions import (
-    PluginNotImplementedError,
-)
+from abc import ABC, abstractmethod
+
+from core.context import EntropyContext
 
 
-class BasePlugin:
+class BasePlugin(ABC):
+    """
+    Base class for all Entropy plugins.
 
-    def __init__(self, context):
+    A plugin implements one unit of executable
+    workflow behaviour.
+    """
 
-        self.context = context
-
-    def initialize(self) -> None:
-        """
-        Initialize the plugin.
-        """
-
-        pass
-
-    def validate(
+    def __init__(
         self,
-        config: dict,
+        context: EntropyContext,
     ) -> None:
-        """
-        Validate plugin configuration.
-        """
 
-        pass
+        self._context = context
 
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
+
+    @abstractmethod
     def execute(
         self,
-        config: dict,
+        **kwargs,
     ) -> None:
         """
         Execute the plugin.
         """
 
-        raise PluginNotImplementedError("Plugin execution has not been implemented.")
-
-    def dispose(self) -> None:
-        """
-        Dispose plugin resources.
-        """
-
-        pass
-
-    def commands(self):
-        """
-        Commands
-        """
-        return []
-
-    def generators(self):
-        """
-        Generators
-        """
-        return []
-
-    def hooks(self):
-        """
-        Hooks
-        """
-        return []
+        raise NotImplementedError()

@@ -276,17 +276,12 @@ class FileSystemMixin:
             Updated file.
         """
 
-        path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
+        return self.write_bytes(
+            path,
+            text.encode(
+                encoding,
+            ),
         )
-
-        path.write_text(
-            text,
-            encoding=encoding,
-        )
-
-        return path
 
     def append_text(
         self,
@@ -354,25 +349,17 @@ class FileSystemMixin:
             Updated file.
         """
 
-        path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
+        text = yaml.safe_dump(
+            data,
+            default_flow_style=False,
+            sort_keys=sort_keys,
+            allow_unicode=True,
         )
 
-        with path.open(
-            "w",
-            encoding="utf-8",
-        ) as fp:
-
-            yaml.safe_dump(
-                data,
-                fp,
-                default_flow_style=False,
-                sort_keys=sort_keys,
-                allow_unicode=True,
-            )
-
-        return path
+        return self.write_text(
+            path,
+            text,
+        )
 
     def read_json(
         self,
@@ -385,18 +372,24 @@ class FileSystemMixin:
         path: PathLike,
         data: Any,
         indent: int = 4,
+        *,
+        sort_keys: bool = True,
     ) -> Path:
+        """
+        Write a JSON document.
 
-        path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        Returns
+        -------
+        Path
+            Updated file.
+        """
 
         return self.write_text(
             path,
             json.dumps(
                 data,
                 indent=indent,
+                sort_keys=sort_keys,
             ),
         )
 
@@ -533,14 +526,10 @@ class FileSystemMixin:
             Updated file.
         """
 
-        path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
+        return self._atomic_write(
+            path,
+            data,
         )
-
-        path.write_bytes(data)
-
-        return path
 
     def open_text(
         self,
@@ -577,3 +566,37 @@ class FileSystemMixin:
         """
 
         return path.open(mode=mode)
+
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
+
+    def _atomic_write(
+        self,
+        path: PathLike,
+        data: bytes,
+    ) -> Path:
+        """
+        Atomically write a file.
+
+        The content is first written to a temporary file located
+        beside the destination and then atomically renamed into
+        place.
+        """
+
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        temporary = path.parent / f".{path.name}.tmp"
+
+        temporary.write_bytes(
+            data,
+        )
+
+        temporary.replace(
+            path,
+        )
+
+        return path

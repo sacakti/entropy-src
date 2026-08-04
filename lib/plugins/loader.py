@@ -4,23 +4,28 @@ Plugin loader.
 
 from __future__ import annotations
 
-import importlib
-from typing import TYPE_CHECKING
+import importlib.util
+import inspect
+from types import ModuleType
 
+from core.context import EntropyContext
+
+from lib.models.plugin import Plugin
+
+from .base import BasePlugin
 from .exceptions import (
-    PluginNotFoundError,
-    PluginValidationError,
+    PluginClassNotFoundError,
+    PluginLoadError,
 )
-from .plugin import Plugin
 from .registry import PluginRegistry
-
-if TYPE_CHECKING:
-    from core.context import EntropyContext
 
 
 class PluginLoader:
     """
-    Loads plugin instances.
+    Loads plugin implementations.
+
+    Responsible only for importing plugin modules
+    and creating plugin instances.
     """
 
     def __init__(
@@ -33,97 +38,201 @@ class PluginLoader:
 
         self._registry = registry
 
-        self._cache: dict[str, Plugin] = {}
+        self._cache: dict[
+            int,
+            BasePlugin,
+        ] = {}
 
+    # ------------------------------------------------------------------
+    # Public
     # ------------------------------------------------------------------
 
     def load(
         self,
-        name: str,
-    ) -> Plugin:
+        qualified_name: str,
+    ) -> BasePlugin:
+        """
+        Load a plugin.
+        """
 
-        if name in self._cache:
-
-            return self._cache[name]
-
-        metadata = self._registry.resolve(
-            name,
+        plugin = self._plugin(
+            qualified_name,
         )
 
-        try:
+        assert plugin.id is not None
 
-            module = importlib.import_module(
-                metadata.module,
-            )
+        cached = self._cache.get(
+            plugin.id,
+        )
 
-        except ModuleNotFoundError as exc:
+        if cached is not None:
 
-            raise PluginNotFoundError(
-                name,
-            ) from exc
+            return cached
 
-        try:
+        instance = self._instantiate(
+            plugin,
+        )
 
-            class_name = module.PLUGIN_CLASS
-
-            plugin_class = getattr(
-                module,
-                class_name,
-            )
-
-        except AttributeError as exc:
-
-            raise PluginValidationError(
-                name,
-                [
-                    "PLUGIN_CLASS is missing.",
-                ],
-            ) from exc
-
-        if not issubclass(
-            plugin_class,
-            Plugin,
-        ):
-
-            raise PluginValidationError(
-                name,
-                [
-                    f"{class_name} must inherit Plugin.",
-                ],
-            )
-
-        instance = plugin_class()
-
-        self._cache[name] = instance
+        self._cache[
+            plugin.id
+        ] = instance
 
         return instance
 
-    # ------------------------------------------------------------------
+    def loaded(
+        self,
+        qualified_name: str,
+    ) -> bool:
+        """
+        Return True if a plugin is already loaded.
+        """
+
+        plugin = self._plugin(
+            qualified_name,
+        )
+
+        assert plugin.id is not None
+
+        return plugin.id in self._cache
 
     def clear(
         self,
     ) -> None:
+        """
+        Clear loaded plugins.
+        """
 
         self._cache.clear()
 
-    def has(
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
+
+    def _instantiate(
         self,
-        name: str,
-    ) -> bool:
+        plugin: Plugin,
+    ) -> BasePlugin:
+        """
+        Instantiate a plugin.
+        """
 
-        return name in self._cache
+        module = self._load_module(
+            plugin,
+        )
 
-    def get(
+        plugin_class = self._find_plugin_class(
+            module,
+            plugin
+        )
+
+        try:
+
+            return plugin_class(
+                self._context,
+            )
+
+        except Exception as exc:
+
+            raise PluginLoadError(
+                f"Unable to instantiate plugin "
+                f"'{plugin.qualified_name}'.",
+            ) from exc
+
+    def _load_module(
         self,
-        name: str,
-    ) -> Plugin | None:
+        plugin: Plugin,
+    ) -> ModuleType:
+        """
+        Import a plugin module.
+        """
 
-        return self._cache.get(name)
+        if not plugin.module_file.exists():
 
-    def list(
+            raise PluginLoadError(
+                f"Plugin module '{plugin.module_file}' does not exist.",
+            )
+
+        spec = importlib.util.spec_from_file_location(
+            plugin.qualified_name,
+            plugin.module_file,
+        )
+
+        if (
+            spec is None or
+            spec.loader is None
+        ):
+
+            raise PluginLoadError(
+                f"Unable to import plugin "
+                f"'{plugin.qualified_name}'.",
+            )
+
+        try:
+
+            module = importlib.util.module_from_spec(
+                spec,
+            )
+
+            spec.loader.exec_module(
+                module,
+            )
+
+        except Exception as exc:
+
+            raise PluginLoadError(
+                f"Unable to load plugin '{plugin.qualified_name}'.",
+            ) from exc
+
+        return module
+
+    def _find_plugin_class(
         self,
-    ) -> list[Plugin]:
+        module: ModuleType,
+        plugin: Plugin
+    ) -> type[BasePlugin]:
+        """
+        Locate the plugin implementation.
+        """
 
-        return list(
-            self._cache.values(),
+        classes = [
+
+            cls
+
+            for _, cls in inspect.getmembers(
+                module,
+                inspect.isclass,
+            )
+
+            if (
+                issubclass(
+                    cls,
+                    BasePlugin,
+                )
+                and
+                cls is not BasePlugin
+            )
+
+        ]
+
+        if len(
+            classes,
+        ) != 1:
+
+            raise PluginClassNotFoundError(
+                plugin.qualified_name,
+            )
+
+        return classes[0]
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _plugin(
+        self,
+        qualified_name: str,
+    ) -> Plugin:
+
+        return self._registry.resolve(
+            qualified_name,
         )

@@ -1,9 +1,14 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 
 @dataclass
 class Plugin:
+
+    id: int | None = None
+
+    namespace: str
 
     name: str
 
@@ -11,46 +16,21 @@ class Plugin:
 
     path: Path
 
-    namespace: str
+    enabled: bool = True
 
-    manifest: Path
-
-    description: str
-
-    author: str
-
-    license: str
-
-    commands: list[type] = field(default_factory=list)
-
-    generators: list[type] = field(default_factory=list)
-
-    hooks: list[type] = field(default_factory=list)
+    installed_at: datetime | None = None
 
     @property
-    def package(self) -> str:
-        return f"plugins.{self.namespace}"
+    def qualified_name(self) -> str:
+
+        return f"{self.namespace}.{self.name}"
 
     @property
-    def module(self) -> str:
-        return f"{self.package}.{self.name}.plugin"
-
-    @property
-    def plugin_file(self) -> Path:
+    def module_file(
+        self,
+    ) -> Path:
+        """
+        Plugin implementation.
+        """
 
         return self.path / "plugin.py"
-
-    @property
-    def init_file(self) -> Path:
-
-        return self.path / "__init__.py"
-
-    @property
-    def templates(self) -> Path:
-
-        return self.path / "templates"
-
-    @property
-    def resources(self) -> Path:
-
-        return self.path / "resources"

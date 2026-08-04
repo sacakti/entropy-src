@@ -4,60 +4,50 @@ Plugin discovery.
 
 from __future__ import annotations
 
-from core.context import EntropyContext
+from lib.database.repositories.plugin_registry import (
+    PluginRepository,
+)
 
 from .registry import PluginRegistry
-from .validators.manifest import ManifestValidator
 
 
 class PluginDiscovery:
     """
-    Discovers plugins on disk.
+    Discovers installed plugins.
+
+    Responsible for loading installed plugins
+    from the repository into the runtime registry.
     """
 
     def __init__(
         self,
-        context: EntropyContext,
+        repository: PluginRepository,
         registry: PluginRegistry,
     ) -> None:
 
-        self._context = context
+        self._repository = repository
 
         self._registry = registry
 
-        self._validator = ManifestValidator()
-
+    # ------------------------------------------------------------------
+    # Discovery
     # ------------------------------------------------------------------
 
     def discover(
         self,
     ) -> None:
+        """
+        Discover installed plugins.
+        """
 
-        assert self._context.bootstrap is not None
+        self._registry.clear()
 
-        root = self._context.bootstrap.resources.plugins
+        for plugin in self._repository.list():
 
-        if not root.exists():
-
-            return
-
-        for namespace in root.iterdir():
-
-            if not namespace.is_dir():
+            if not plugin.enabled:
 
                 continue
 
-            for directory in namespace.iterdir():
-
-                if not directory.is_dir():
-
-                    continue
-
-                metadata = self._validator.validate(
-                    namespace.name,
-                    directory,
-                )
-
-                self._registry.register(
-                    metadata,
-                )
+            self._registry.register(
+                plugin,
+            )
