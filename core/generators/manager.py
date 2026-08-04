@@ -15,6 +15,15 @@ from core.generators.exceptions import GeneratorNotFoundError
 
 class GeneratorManager:
 
+    IGNORED = frozenset(
+        {
+            "__init__",
+            "base",
+            "manager",
+            "exceptions",
+        }
+    )
+
     def __init__(self, context):
 
         self.context = context
@@ -35,14 +44,12 @@ class GeneratorManager:
 
         for _, module_name, _ in pkgutil.iter_modules(__path__):
 
-            if module_name in (
-                "base",
-                "manager",
-                "exceptions",
-            ):
+            if module_name in self.IGNORED:
                 continue
 
-            module = importlib.import_module(f"core.generators.{module_name}")
+            module = importlib.import_module(
+                f"core.generators.{module_name}",
+            )
 
             for _, cls in inspect.getmembers(
                 module,
@@ -99,8 +106,14 @@ class GeneratorManager:
 
         generator = self.get(name)
 
+        self._events.debug(f"Generator: {generator.metadata} args: {args}")
+
         if generator is None:
 
             raise GeneratorNotFoundError(name)
 
-        generator.generate(args)
+        self._events.debug(f"Generating with {generator.metadata.name}...")
+
+        generator.generate(args,context=self.context)
+
+        self._events.debug(f"Generation complete with {generator.metadata.name}.")

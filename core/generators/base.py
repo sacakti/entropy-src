@@ -6,10 +6,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
+
+from core.context import EntropyContext
 
 
 @dataclass(frozen=True)
 class GeneratorMetadata:
+    """
+    Generator metadata.
+    """
 
     name: str
 
@@ -17,15 +23,25 @@ class GeneratorMetadata:
 
 
 class BaseGenerator(ABC):
+    """
+    Base generator.
+    """
 
     metadata: GeneratorMetadata
 
-    def __init__(self, context):
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
 
-        self.context = context
+        self._context = context
 
     @abstractmethod
-    def generate(self, args) -> None:
+    def generate(
+        self,
+        args: Any,
+        context: EntropyContext = None,
+    ) -> None:
         """
-        Generate the requested artifact.
+        Generate an artifact.
         """

@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.context import EntropyContext
+from core.constants import PLUGIN_MANIFEST
 
 from lib.models.plugin import (
     EntropyRequirement,
@@ -21,8 +22,6 @@ class ManifestReader:
     """
     Reads plugin manifests.
     """
-
-    FILE = "plugin.json"
 
     def __init__(
         self,
@@ -47,7 +46,7 @@ class ManifestReader:
 
         manifest = (
             directory /
-            self.FILE
+            PLUGIN_MANIFEST
         )
 
         if not self._executor.exists(

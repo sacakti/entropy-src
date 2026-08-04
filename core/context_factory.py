@@ -11,11 +11,11 @@ from pathlib import Path
 from core.commands.manager import CommandManager
 from core.configuration import ConfigurationManager
 from core.context import EntropyContext
-from core.diagnostics.manager import DiagnosticsManager
+# from core.diagnostics.manager import DiagnosticsManager
 from core.environment import Environment
 from core.generators.manager import GeneratorManager
 from core.observability import ObservabilityManager
-from core.diagnostics.console import ConsoleSink as DiagnosticsConsoleSink
+# from core.diagnostics.console import ConsoleSink as DiagnosticsConsoleSink
 from core.observability.console import ConsoleSink as ObservabilityConsoleSink, LogConsoleSink
 from core.observability.console.renderer import ConsoleRenderer
 from core.observability.logging import LoggingManager, LoggingSink, LogFileSink

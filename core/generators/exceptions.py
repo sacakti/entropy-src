@@ -5,24 +5,50 @@ Generator exceptions.
 from core.exceptions import EntropyException
 
 
-class GeneratorError(EntropyException):
-    """Base generator exception."""
+class GeneratorError(
+    EntropyException,
+):
+    """
+    Base generator exception.
+    """
 
 
-class InvalidGeneratorError(GeneratorError):
-    """Generator validation failed."""
+class GeneratorNotFoundError(
+    GeneratorError,
+):
+    """
+    Unknown generator.
+    """
+
+    def __init__(
+        self,
+        name: str,
+    ) -> None:
+
+        super().__init__(
+            f"Unknown generator '{name}'.",
+        )
 
 
-class PluginAlreadyExistsError(InvalidGeneratorError):
-    """Plugin already exists."""
+class GeneratorValidationError(
+    GeneratorError,
+):
+    """
+    Generator validation failed.
+    """
 
 
-class InvalidPluginNameError(InvalidGeneratorError):
-    """Invalid plugin name."""
+class GeneratorAlreadyExistsError(
+    GeneratorValidationError,
+):
+    """
+    Generated artifact already exists.
+    """
 
 
-class GeneratorNotFoundError(GeneratorError):
-
-    def __init__(self, generator: str):
-
-        super().__init__(f"Unknown generator '{generator}'.")
+class InvalidGeneratorNameError(
+    GeneratorValidationError,
+):
+    """
+    Invalid generator name.
+    """

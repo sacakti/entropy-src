@@ -83,17 +83,21 @@ CONSOLE_LEVELS = {
     "DEBUG": 2,
 }
 
+
+EXTENSION_METADATA_FILE = "extensions.json"
+
 # ------------------------------------------------------------------
 # Template constants
 # ------------------------------------------------------------------
 
 PLUGIN_MANIFEST = "plugin.json"
 
-class PluginTemplates:
-    """
-    Plugin template paths.
-    """
 
-    INIT = "plugin/__init__.py.j2"
-    MANIFEST = "plugin/plugin.json.j2"
-    PLUGIN = "plugin/plugin.py.j2"
+# class PluginTemplates:
+#     """
+#     Plugin template paths.
+#     """
+
+#     INIT = "plugin/__init__.py.j2"
+#     MANIFEST = "plugin/plugin.json.j2"
+#     PLUGIN = "plugin/plugin.py.j2"

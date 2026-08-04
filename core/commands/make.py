@@ -28,14 +28,25 @@ class MakeCommand(BaseCommand):
         parser: ArgumentParser,
     ) -> None:
 
-        parser.add_argument(
-            "type",
-            help="Artifact type.",
+        subparsers = parser.add_subparsers(
+            dest="generator",
+            required=True,
         )
 
-        parser.add_argument(
+        plugin = subparsers.add_parser(
+            "plugin",
+            help="Generate a plugin.",
+        )
+
+        plugin.add_argument(
             "name",
-            help="Artifact name.",
+            help="Plugin name.",
+        )
+
+        plugin.add_argument(
+            "--namespace",
+            default="custom",
+            help="Plugin namespace.",
         )
 
     # ------------------------------------------------------------------
@@ -50,6 +61,6 @@ class MakeCommand(BaseCommand):
         assert self.context.generator_manager is not None
 
         self.context.generator_manager.generate(
-            artifact=args.type,
-            name=args.name,
+            name=args.generator,
+            args=args,
         )

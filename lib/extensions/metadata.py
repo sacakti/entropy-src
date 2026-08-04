@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 
+from core.constants import EXTENSION_METADATA_FILE
 from core.context import EntropyContext
 
 from lib.models.extensions import Extension
@@ -19,8 +20,6 @@ class ExtensionMetadata:
     installed extension registry.
     """
 
-    FILE = "extensions.json"
-
     def __init__(
         self,
         context: EntropyContext,
@@ -33,7 +32,7 @@ class ExtensionMetadata:
 
         self._file = (
             context.paths.extensions.root /
-            self.FILE
+            EXTENSION_METADATA_FILE
         )
 
     # ------------------------------------------------------------------
