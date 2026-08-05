@@ -6,9 +6,12 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
+from core.models.runtime import RuntimeNodeType
 from core.observability.emitter import Emitter
 
+from .execution import WorkflowExecution
 from .activity import Activity
 from .stage import Stage
 from .step import StepScope
@@ -19,7 +22,6 @@ if TYPE_CHECKING:
     from core.context import EntropyContext
     from core.observability.logging.manager import ExecutionLogManager
 
-    from .execution import WorkflowExecution
     from .node import RuntimeNode
 
 
@@ -76,13 +78,29 @@ class ExecutionContext:
 
         return self._execution
 
-    @execution.setter
-    def execution(
+    def start(
         self,
-        execution: WorkflowExecution,
+        workflow,
     ) -> None:
+        """
+        Initialize a workflow execution.
+        """
 
-        self._execution = execution
+        self._execution = WorkflowExecution(
+            id=uuid4().hex,
+            workflow=workflow,
+            context=self,
+        )
+
+        self.set_variables(
+            workflow.variables,
+        )
+
+        self.arguments.clear()
+
+        self.outputs.clear()
+
+        self.artifacts.clear()
 
     @property
     def workspace(self) -> Path:
@@ -249,3 +267,34 @@ class ExecutionContext:
         assert self._entropy.session_manager is not None
 
         return self._entropy.session_manager.require().username
+
+    #
+    #
+    #
+
+    def enter(
+        self,
+        *,
+        type: RuntimeNodeType,
+        name: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> RuntimeNode:
+        """
+        Enter a runtime node.
+        """
+
+        return self._tree.enter(
+            type=type,
+            name=name,
+            metadata=metadata,
+        )
+
+
+    def leave(
+        self,
+    ) -> None:
+        """
+        Leave the current runtime node.
+        """
+
+        self._tree.leave()

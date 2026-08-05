@@ -54,7 +54,7 @@ class ExecutionScope(ABC):
         # Enter runtime tree
         #
 
-        self._node = self._context.tree.enter(
+        self._node = self._context.enter(
             type=self.node_type,
             name=self._name,
             metadata=self._metadata,
@@ -110,7 +110,7 @@ class ExecutionScope(ABC):
         # Leave runtime tree
         #
 
-        self._context.tree.leave()
+        self._context.leave()
 
         #
         # Never swallow exceptions.

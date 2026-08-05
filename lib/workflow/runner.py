@@ -6,10 +6,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 from core.runtime.context import ExecutionContext
-from core.runtime.execution import WorkflowExecution
 
 from lib.models.workflow import (
     Workflow,
@@ -75,14 +73,8 @@ class WorkflowRunner:
             workspace=workspace,
         )
 
-        runtime.set_variables(
-            workflow.variables,
-        )
-
-        runtime.execution = WorkflowExecution(
-            id=uuid4().hex,
-            workflow=workflow,
-            context=runtime,
+        runtime.start(
+            workflow,
         )
 
         #
