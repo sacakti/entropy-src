@@ -7,6 +7,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from lib.migrations.manager import MigrationManager
+from lib.plugins.runner import PluginRunner
+from lib.workflow.runner import WorkflowRunner
 
 if TYPE_CHECKING:
     from core.commands.manager import CommandManager
@@ -65,17 +67,13 @@ class EntropyContext:
 
         self.console_log_sink: LogConsoleSink | None = None
 
+        self.workflow_runner: WorkflowRunner | None = None
+
         # ---------------------------------------------------------
         # Core Managers
         # ---------------------------------------------------------
 
         self.configuration: ConfigurationManager | None = None
-
-        self.execution_manager: ExecutionManager | None = None
-
-        self.workflow_manager: WorkflowManager | None = None
-
-        self.plugin_manager: PluginManager | None = None
 
         self.database_manager: DatabaseManager | None = None
 
@@ -84,6 +82,10 @@ class EntropyContext:
         self.extension_manager: ExtensionManager | None = None
 
         self.plugin_manager: PluginManager | None = None
+
+        self.execution_manager: ExecutionManager | None = None
+
+        self.workflow_manager: WorkflowManager | None = None
 
         # ---------------------------------------------------------
         # Application Managers

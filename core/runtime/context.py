@@ -7,25 +7,28 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from core.context import EntropyContext
 from core.observability.emitter import Emitter
 
+from .activity import Activity
+from .stage import Stage
+from .step import StepScope
 from .tree import RuntimeTree
+from .workflow import WorkflowScope
 
 if TYPE_CHECKING:
+    from core.context import EntropyContext
     from core.observability.logging.manager import ExecutionLogManager
 
-    from .activity import Activity
     from .execution import WorkflowExecution
     from .node import RuntimeNode
-    from .stage import Stage
 
 
 class ExecutionContext:
     """
     Runtime context passed to every plugin.
 
-    Exposes runtime services but contains no business logic.
+    Owns all execution state while exposing application
+    services from the Entropy context.
     """
 
     def __init__(
@@ -34,7 +37,15 @@ class ExecutionContext:
         workspace: Path,
     ) -> None:
 
+        #
+        # Application
+        #
+
         self._entropy = entropy
+
+        #
+        # Execution
+        #
 
         self._workspace = workspace
 
@@ -42,8 +53,20 @@ class ExecutionContext:
 
         self._execution: WorkflowExecution | None = None
 
+        #
+        # Runtime State
+        #
+
+        self.variables: dict[str, Any] = {}
+
+        self.arguments: dict[str, Any] = {}
+
+        self.outputs: dict[str, Any] = {}
+
+        self.artifacts: dict[str, Path] = {}
+
     # ------------------------------------------------------------------
-    # Runtime
+    # Execution
     # ------------------------------------------------------------------
 
     @property
@@ -77,6 +100,38 @@ class ExecutionContext:
         return self._tree.current
 
     # ------------------------------------------------------------------
+    # Runtime State
+    # ------------------------------------------------------------------
+
+    def set_variables(
+        self,
+        variables: dict[str, Any],
+    ) -> None:
+        """
+        Replace runtime variables.
+        """
+
+        self.variables.clear()
+
+        self.variables.update(
+            variables,
+        )
+
+    def set_arguments(
+        self,
+        arguments: dict[str, Any],
+    ) -> None:
+        """
+        Replace step arguments.
+        """
+
+        self.arguments.clear()
+
+        self.arguments.update(
+            arguments,
+        )
+
+    # ------------------------------------------------------------------
     # Observability
     # ------------------------------------------------------------------
 
@@ -94,11 +149,39 @@ class ExecutionContext:
 
         assert self._entropy.observability is not None
 
-        return self._entropy.observability.emitter(source)
+        return self._entropy.observability.emitter(
+            source,
+        )
 
     # ------------------------------------------------------------------
     # Runtime Scopes
     # ------------------------------------------------------------------
+
+    def workflow(
+        self,
+        name: str,
+    ) -> WorkflowScope:
+        """
+        Create a workflow scope.
+        """
+
+        return WorkflowScope(
+            context=self,
+            name=name,
+        )
+
+    def step(
+        self,
+        name: str,
+    ) -> StepScope:
+        """
+        Create a workflow step scope.
+        """
+
+        return StepScope(
+            context=self,
+            name=name,
+        )
 
     def stage(
         self,
@@ -106,8 +189,9 @@ class ExecutionContext:
         name: str,
         metadata: dict[str, Any] | None = None,
     ) -> Stage:
-
-        from .stage import Stage
+        """
+        Create a stage scope.
+        """
 
         return Stage(
             context=self,
@@ -121,8 +205,9 @@ class ExecutionContext:
         name: str,
         metadata: dict[str, Any] | None = None,
     ) -> Activity:
-
-        from .activity import Activity
+        """
+        Create an activity scope.
+        """
 
         return Activity(
             context=self,
@@ -131,23 +216,13 @@ class ExecutionContext:
         )
 
     # ------------------------------------------------------------------
-    # Runtime Services
+    # Application Services
     # ------------------------------------------------------------------
 
     @property
     def configuration(self):
 
         return self._entropy.configuration
-
-    @property
-    def variables(self):
-
-        return self._entropy.variable_manager
-
-    @property
-    def secrets(self):
-
-        return self._entropy.secret_manager
 
     @property
     def executor(self):

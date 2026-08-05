@@ -45,10 +45,10 @@ class RunCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        assert self.context.workflow_manager is not None
+        assert self.context.workflow_manager_v1 is not None
 
-        self.context.workflow_manager.load(
+        self.context.workflow_manager_v1.load(
             Path(args.workflow),
         )
 
-        self.context.workflow_manager.execute()
+        self.context.workflow_manager_v1.execute()

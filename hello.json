@@ -1,0 +1,28 @@
+{
+  "name": "Hello Workflow",
+  "version": "1.0.0",
+  "description": "Simple workflow to test plugin execution.",
+  "variables": {
+    "environment": "development"
+  },
+  "steps": [
+    {
+      "name": "Print Greeting",
+      "plugin": "custom.hello",
+      "enabled": true,
+      "continue_on_error": false,
+      "arguments": {
+        "message": "Hello Entropy!"
+      }
+    },
+    {
+      "name": "Print Greeting 2",
+      "plugin": "custom.hello",
+      "enabled": true,
+      "continue_on_error": false,
+      "arguments": {
+        "message": "Hello Entropy!"
+      }
+    }
+  ]
+}

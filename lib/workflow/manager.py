@@ -5,20 +5,17 @@ Workflow manager.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from lib.models.workflow import WorkflowDefinition
-from lib.workflow.execution import WorkflowExecutor
-from lib.workflow.loader import WorkflowLoader
-from lib.workflow.validator import WorkflowValidator
+from core.context import EntropyContext
 
-if TYPE_CHECKING:
-    from core.context import EntropyContext
+from lib.models.workflow import Workflow
 
+from .loader import WorkflowLoader
+from .validator import WorkflowValidator
 
 class WorkflowManager:
     """
-    Loads and validates workflow definitions.
+    Coordinates workflow lifecycle.
     """
 
     def __init__(
@@ -26,93 +23,41 @@ class WorkflowManager:
         context: EntropyContext,
     ) -> None:
 
+        assert context.plugin_manager is not None
+
         self._context = context
 
-        self._loader = WorkflowLoader()
-
-        self._validator = WorkflowValidator()
-
-        self._executor = WorkflowExecutor(
+        self._loader = WorkflowLoader(
             context,
         )
 
-        self._workflow: WorkflowDefinition | None = None
+        self._validator = WorkflowValidator(
+            context.plugin_manager,
+        )
+
+        assert context.workflow_runner is not None
+
+        self._runner = context.workflow_runner
 
     # ------------------------------------------------------------------
-    # Public
+    # Load
     # ------------------------------------------------------------------
 
     def load(
         self,
-        workflow: Path,
-    ) -> WorkflowDefinition:
+        file: Path,
+    ) -> Workflow:
         """
         Load a workflow definition.
         """
 
-        assert self._context.executor is not None
-        assert self._context.paths is not None
-
-        #
-        # Resolve workflow name.
-        #
-        if workflow.suffix == "":
-
-            directory = self._context.paths.workflow.directory
-
-            candidates = [
-                directory / (workflow.name + ".json"),
-                directory / (workflow.name + ".yaml"),
-                directory / (workflow.name + ".yml"),
-            ]
-
-            workflow_file = None
-
-            for candidate in candidates:
-
-                if self._context.executor.exists(candidate):
-
-                    workflow_file = candidate
-                    break
-
-            if workflow_file is None:
-
-                raise FileNotFoundError(f"Workflow '{workflow.name}' does not exist.")
-
-        else:
-
-            workflow_file = workflow
-
-        #
-        # Read document.
-        #
-        suffix = workflow_file.suffix.lower()
-
-        if suffix in {".yaml", ".yml"}:
-
-            document = self._context.executor.read_yaml(
-                workflow_file,
-            )
-
-        elif suffix == ".json":
-
-            document = self._context.executor.read_json(
-                workflow_file,
-            )
-
-        else:
-
-            raise ValueError(f"Unsupported workflow format '{suffix}'.")
-
         workflow = self._loader.load(
-            document,
+            file,
         )
 
         self._validator.validate(
             workflow,
         )
-
-        self._workflow = workflow
 
         return workflow
 
@@ -122,15 +67,32 @@ class WorkflowManager:
 
     def execute(
         self,
+        workflow: Workflow,
     ) -> None:
         """
-        Execute the loaded workflow.
+        Execute a validated workflow.
         """
 
-        if self._workflow is None:
+        self._runner.execute(
+            workflow,
+        )
 
-            raise RuntimeError("No workflow has been loaded.")
+    # ------------------------------------------------------------------
+    # Run
+    # ------------------------------------------------------------------
 
-        self._executor.execute(
-            self._workflow,
+    def run(
+        self,
+        file: Path,
+    ) -> None:
+        """
+        Load and execute a workflow.
+        """
+
+        workflow = self.load(
+            file,
+        )
+
+        self.execute(
+            workflow,
         )

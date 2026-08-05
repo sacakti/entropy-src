@@ -8,8 +8,6 @@ import importlib.util
 import inspect
 from types import ModuleType
 
-from core.context import EntropyContext
-
 from lib.models.plugin import Plugin
 
 from .base import BasePlugin
@@ -25,22 +23,21 @@ class PluginLoader:
     Loads plugin implementations.
 
     Responsible only for importing plugin modules
-    and creating plugin instances.
+    and locating the plugin class.
+
+    Plugin instances are created by PluginRunner.
     """
 
     def __init__(
         self,
-        context: EntropyContext,
         registry: PluginRegistry,
     ) -> None:
-
-        self._context = context
 
         self._registry = registry
 
         self._cache: dict[
             int,
-            BasePlugin,
+            type[BasePlugin],
         ] = {}
 
     # ------------------------------------------------------------------
@@ -50,9 +47,9 @@ class PluginLoader:
     def load(
         self,
         qualified_name: str,
-    ) -> BasePlugin:
+    ) -> type[BasePlugin]:
         """
-        Load a plugin.
+        Load a plugin class.
         """
 
         plugin = self._plugin(
@@ -69,22 +66,22 @@ class PluginLoader:
 
             return cached
 
-        instance = self._instantiate(
+        plugin_class = self._load_class(
             plugin,
         )
 
         self._cache[
             plugin.id
-        ] = instance
+        ] = plugin_class
 
-        return instance
+        return plugin_class
 
     def loaded(
         self,
         qualified_name: str,
     ) -> bool:
         """
-        Return True if a plugin is already loaded.
+        Return True if a plugin class is already loaded.
         """
 
         plugin = self._plugin(
@@ -99,7 +96,7 @@ class PluginLoader:
         self,
     ) -> None:
         """
-        Clear loaded plugins.
+        Clear loaded plugin classes.
         """
 
         self._cache.clear()
@@ -108,35 +105,22 @@ class PluginLoader:
     # Internal
     # ------------------------------------------------------------------
 
-    def _instantiate(
+    def _load_class(
         self,
         plugin: Plugin,
-    ) -> BasePlugin:
+    ) -> type[BasePlugin]:
         """
-        Instantiate a plugin.
+        Import a plugin module and locate its plugin class.
         """
 
         module = self._load_module(
             plugin,
         )
 
-        plugin_class = self._find_plugin_class(
+        return self._find_plugin_class(
             module,
-            plugin
+            plugin,
         )
-
-        try:
-
-            return plugin_class(
-                self._context,
-            )
-
-        except Exception as exc:
-
-            raise PluginLoadError(
-                f"Unable to instantiate plugin "
-                f"'{plugin.qualified_name}'.",
-            ) from exc
 
     def _load_module(
         self,
@@ -158,7 +142,8 @@ class PluginLoader:
         )
 
         if (
-            spec is None or
+            spec is None
+            or
             spec.loader is None
         ):
 
@@ -180,7 +165,8 @@ class PluginLoader:
         except Exception as exc:
 
             raise PluginLoadError(
-                f"Unable to load plugin '{plugin.qualified_name}'.",
+                f"Unable to load plugin "
+                f"'{plugin.qualified_name}'.",
             ) from exc
 
         return module
@@ -188,7 +174,7 @@ class PluginLoader:
     def _find_plugin_class(
         self,
         module: ModuleType,
-        plugin: Plugin
+        plugin: Plugin,
     ) -> type[BasePlugin]:
         """
         Locate the plugin implementation.

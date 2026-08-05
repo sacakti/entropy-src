@@ -4,7 +4,7 @@ Workflow stage.
 
 from __future__ import annotations
 
-from lib.models.runtime import RuntimeNodeType
+from core.models.runtime import RuntimeNodeType
 
 from core.models.enums import EventType
 

@@ -7,12 +7,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.runtime.execution import WorkflowExecution
-from lib.models.workflow import FailurePolicy
-from lib.workflow.exceptions import WorkflowExecutionError
+from lib.models.workflow_v1 import FailurePolicy
+from lib.workflow_v1.exceptions import WorkflowExecutionError
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
-    from lib.models.workflow import WorkflowDefinition, WorkflowStep
+    from lib.models.workflow_v1 import WorkflowDefinition, WorkflowStep
 
 
 class WorkflowExecutor:

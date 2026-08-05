@@ -5,8 +5,10 @@ Base plugin.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from core.context import EntropyContext
+if TYPE_CHECKING:
+    from core.runtime.context import ExecutionContext
 
 
 class BasePlugin(ABC):
@@ -19,10 +21,24 @@ class BasePlugin(ABC):
 
     def __init__(
         self,
-        context: EntropyContext,
+        context: ExecutionContext,
     ) -> None:
 
         self._context = context
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def context(
+        self,
+    ) -> ExecutionContext:
+        """
+        Current workflow execution context.
+        """
+
+        return self._context
 
     # ------------------------------------------------------------------
     # Execute
@@ -31,7 +47,6 @@ class BasePlugin(ABC):
     @abstractmethod
     def execute(
         self,
-        **kwargs,
     ) -> None:
         """
         Execute the plugin.

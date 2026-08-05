@@ -31,7 +31,7 @@ class ExecutionLogger:
         self._logger = logger
 
     # ------------------------------------------------------------------
-    # Logging
+    # Generic
     # ------------------------------------------------------------------
 
     def log(
@@ -53,10 +53,76 @@ class ExecutionLogger:
         )
 
     # ------------------------------------------------------------------
+    # Convenience
+    # ------------------------------------------------------------------
+
+    def debug(
+        self,
+        module: str,
+        message: str,
+    ) -> None:
+
+        self.log(
+            LogLevel.DEBUG,
+            module,
+            message,
+        )
+
+    def info(
+        self,
+        module: str,
+        message: str,
+    ) -> None:
+
+        self.log(
+            LogLevel.INFO,
+            module,
+            message,
+        )
+
+    def warning(
+        self,
+        module: str,
+        message: str,
+    ) -> None:
+
+        self.log(
+            LogLevel.WARNING,
+            module,
+            message,
+        )
+
+    def error(
+        self,
+        module: str,
+        message: str,
+    ) -> None:
+
+        self.log(
+            LogLevel.ERROR,
+            module,
+            message,
+        )
+
+    def critical(
+        self,
+        module: str,
+        message: str,
+    ) -> None:
+
+        self.log(
+            LogLevel.CRITICAL,
+            module,
+            message,
+        )
+
+    # ------------------------------------------------------------------
     # Advanced
     # ------------------------------------------------------------------
 
     @property
-    def logger(self) -> logging.Logger:
+    def logger(
+        self,
+    ) -> logging.Logger:
 
         return self._logger

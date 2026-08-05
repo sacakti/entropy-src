@@ -57,7 +57,6 @@ class PluginManager:
         )
 
         self._loader = PluginLoader(
-            context,
             self._registry,
         )
 
@@ -208,18 +207,18 @@ class PluginManager:
             qualified_name,
         )
 
-    def run(
+    def execute(
         self,
+        context,
         qualified_name: str,
-        arguments: dict[str, object],
     ) -> None:
         """
         Execute a plugin.
         """
 
-        self._runner.run(
+        self._runner.execute(
+            context,
             qualified_name,
-            arguments,
         )
 
     # ------------------------------------------------------------------
@@ -236,3 +235,17 @@ class PluginManager:
         self._loader.clear()
 
         self._registry.clear()
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def runner(
+        self,
+    ) -> PluginRunner:
+        """
+        Runtime plugin runner.
+        """
+
+        return self._runner

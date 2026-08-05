@@ -4,12 +4,17 @@ Plugin runner.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .loader import PluginLoader
+
+if TYPE_CHECKING:
+    from core.runtime.context import ExecutionContext
 
 
 class PluginRunner:
     """
-    Executes loaded plugins.
+    Loads and executes plugins.
     """
 
     def __init__(
@@ -23,19 +28,21 @@ class PluginRunner:
     # Execute
     # ------------------------------------------------------------------
 
-    def run(
+    def execute(
         self,
+        context: ExecutionContext,
         qualified_name: str,
-        arguments: dict[str, object],
     ) -> None:
         """
-        Execute a plugin.
+        Load and execute a plugin.
         """
 
-        plugin = self._loader.load(
+        plugin_class = self._loader.load(
             qualified_name,
         )
 
-        plugin.execute(
-            **arguments,
+        plugin = plugin_class(
+            context,
         )
+
+        plugin.execute()

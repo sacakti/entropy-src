@@ -114,6 +114,8 @@ class LoggingSink(Sink):
         Write the event using the appropriate log level.
         """
 
+        module = event.source
+
         if event.type in (
             EventType.EXECUTION_FAILED,
             EventType.STEP_FAILED,
@@ -122,11 +124,13 @@ class LoggingSink(Sink):
         ):
 
             logger.error(
+                module,
                 message,
             )
 
             return
 
         logger.info(
+            module,
             message,
         )

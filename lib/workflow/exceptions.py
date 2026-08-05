@@ -2,57 +2,37 @@
 Workflow exceptions.
 """
 
-from __future__ import annotations
-
 from core.exceptions import EntropyException
 
 
-class WorkflowError(EntropyException):
+class WorkflowError(
+    EntropyException,
+):
     """
     Base workflow exception.
     """
 
 
-class WorkflowNotFoundError(WorkflowError):
-    """
-    Workflow not found.
-    """
-
-    def __init__(
-        self,
-        workflow: str,
-    ) -> None:
-
-        super().__init__(f"Workflow '{workflow}' was not found.")
-
-
-class WorkflowValidationError(
+class WorkflowNotFoundError(
     WorkflowError,
 ):
     """
-    Workflow validation failed.
+    Workflow file not found.
     """
 
     def __init__(
         self,
-        errors: list[str],
+        workflow,
     ) -> None:
 
-        message = "Workflow validation failed:\n" + "\n".join(f"  • {error}" for error in errors)
+        super().__init__(
+            f"Workflow '{workflow}' does not exist.",
+        )
 
-        super().__init__(message)
 
-
-class WorkflowExecutionError(
+class InvalidWorkflowError(
     WorkflowError,
 ):
     """
-    Workflow execution failed.
+    Invalid workflow definition.
     """
-
-    def __init__(
-        self,
-        message: str,
-    ) -> None:
-
-        super().__init__(message)

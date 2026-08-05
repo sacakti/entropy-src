@@ -7,7 +7,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from lib.models.runtime import RuntimeNodeType
+from core.models.runtime import RuntimeNodeType
 
 from core.models.enums import EventType
 
@@ -126,6 +126,9 @@ class ExecutionScope(ABC):
         self,
         event: EventType,
     ) -> None:
+        """
+        Emit a runtime event.
+        """
 
         assert self._node is not None
 
@@ -134,7 +137,8 @@ class ExecutionScope(ABC):
         )
 
         emitter.emit(
-            event=event,
+            event_type=event,
+            execution_id=self._context.execution.id,
             node=self._node,
         )
 

@@ -4,9 +4,15 @@ Workflow validator.
 
 from __future__ import annotations
 
-from lib.models.workflow import WorkflowDefinition
+from lib.plugins.manager import PluginManager
+from lib.models.workflow import (
+    Workflow,
+    WorkflowStep,
+)
 
-from .exceptions import WorkflowValidationError
+from .exceptions import (
+    InvalidWorkflowError,
+)
 
 
 class WorkflowValidator:
@@ -14,91 +20,115 @@ class WorkflowValidator:
     Validates workflow definitions.
     """
 
-    def validate(
+    def __init__(
         self,
-        workflow: WorkflowDefinition,
+        plugins: PluginManager,
     ) -> None:
 
-        errors: list[str] = []
+        self._plugins = plugins
 
-        #
-        # Workflow
-        #
+    # ------------------------------------------------------------------
+    # Public
+    # ------------------------------------------------------------------
+
+    def validate(
+        self,
+        workflow: Workflow,
+    ) -> None:
+        """
+        Validate a workflow.
+        """
+
+        self._workflow(
+            workflow,
+        )
+
+        self._steps(
+            workflow,
+        )
+
+    # ------------------------------------------------------------------
+    # Workflow
+    # ------------------------------------------------------------------
+
+    def _workflow(
+        self,
+        workflow: Workflow,
+    ) -> None:
+        """
+        Validate workflow metadata.
+        """
 
         if not workflow.name:
 
-            errors.append("Workflow name is required.")
+            raise InvalidWorkflowError(
+                "Workflow name is required.",
+            )
 
         if not workflow.steps:
 
-            errors.append("Workflow must contain at least one step.")
+            raise InvalidWorkflowError(
+                "Workflow contains no steps.",
+            )
 
-        #
-        # Step ids
-        #
+    # ------------------------------------------------------------------
+    # Steps
+    # ------------------------------------------------------------------
 
-        ids: set[str] = set()
+    def _steps(
+        self,
+        workflow: Workflow,
+    ) -> None:
+        """
+        Validate workflow steps.
+        """
 
-        for step in workflow.steps:
-
-            if not step.id:
-
-                errors.append("Step id is required.")
-
-            elif step.id in ids:
-
-                errors.append(f"Duplicate step id '{step.id}'.")
-
-            ids.add(step.id)
-
-        #
-        # Execution order
-        #
-
-        orders: set[int] = set()
+        names: set[str] = set()
 
         for step in workflow.steps:
 
-            if step.order in orders:
+            self._step(
+                step,
+            )
 
-                errors.append(f"Duplicate step order '{step.order}'.")
+            if step.name in names:
 
-            orders.add(step.order)
+                raise InvalidWorkflowError(
+                    f"Duplicate step '{step.name}'.",
+                )
 
-        #
-        # Plugin
-        #
+            names.add(
+                step.name,
+            )
 
-        for step in workflow.steps:
+    # ------------------------------------------------------------------
+    # Step
+    # ------------------------------------------------------------------
 
-            if not step.plugin:
+    def _step(
+        self,
+        step: WorkflowStep,
+    ) -> None:
+        """
+        Validate a workflow step.
+        """
 
-                errors.append(f"Step '{step.name}' does not specify a plugin.")
+        if not step.name:
 
-        #
-        # Retry
-        #
+            raise InvalidWorkflowError(
+                "Workflow step name is required.",
+            )
 
-        for step in workflow.steps:
+        if not step.plugin:
 
-            if step.policy.retries < 0:
+            raise InvalidWorkflowError(
+                f"Step '{step.name}' has no plugin.",
+            )
 
-                errors.append(f"Step '{step.name}' has an invalid retry count.")
+        if not self._plugins.exists(
+            step.plugin,
+        ):
 
-        #
-        # Timeout
-        #
-
-        for step in workflow.steps:
-
-            timeout = step.policy.timeout
-
-            if timeout is not None and timeout <= 0:
-
-                errors.append(f"Step '{step.name}' has an invalid timeout.")
-
-        if errors:
-
-            raise WorkflowValidationError(
-                errors,
+            raise InvalidWorkflowError(
+                f"Plugin '{step.plugin}' is not installed.",
             )

@@ -46,6 +46,7 @@ class RuntimePaths:
     pid: Path
     state: Path
     lock: Path
+    workspaces: Path
 
 
 @dataclass(frozen=True)

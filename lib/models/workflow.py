@@ -1,117 +1,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any
-
-
-class FailurePolicy(str, Enum):
-    """
-    Action to take when a workflow step fails.
-    """
-
-    ABORT = "abort"
-    CONTINUE = "continue"
-    RETRY = "retry"
-
-
-# class WorkflowAction(Enum):
-#     CONTINUE = "continue"
-#     ABORT_WORKFLOW = "abort_workflow"
-
-"""
-Workflow execution policy.
-"""
 
 
 @dataclass(frozen=True)
-class WorkflowPolicy:
-
-    enabled: bool = True
-
-    retries: int = 0
-
-    on_failure: FailurePolicy = FailurePolicy.ABORT
-
-    timeout: int | None = None
-
-
-"""
-Workflow step.
-"""
-
-
-@dataclass(frozen=True)
-class WorkflowStep:
+class Workflow:
     """
-    Immutable workflow step.
+    Workflow definition.
     """
-
-    #
-    # Identity
-    #
-
-    id: str
-
-    order: int
 
     name: str
 
-    #
-    # Plugin
-    #
+    version: str
 
-    plugin: str
+    description: str | None = None
 
-    #
-    # Configuration
-    #
-
-    configuration: dict[str, Any] = field(
+    variables: dict[
+        str,
+        object,
+    ] = field(
         default_factory=dict,
     )
 
-    #
-    # Execution
-    #
-
-    policy: WorkflowPolicy = field(
-        default_factory=WorkflowPolicy,
-    )
-
-
-"""
-Workflow definition.
-"""
-
-
-@dataclass(frozen=True)
-class WorkflowDefinition:
-    """
-    Immutable workflow definition.
-    """
-
-    #
-    # Identity
-    #
-
-    name: str
-
-    version: str = "1.0"
-
-    description: str = ""
-
-    #
-    # Steps
-    #
-
-    steps: list[WorkflowStep] = field(
+    steps: list["WorkflowStep"] = field(
         default_factory=list,
     )
 
-    # ------------------------------------------------------------------
-
-    def __len__(
+    @property
+    def step_count(
         self,
     ) -> int:
 
@@ -119,17 +35,31 @@ class WorkflowDefinition:
             self.steps,
         )
 
-    def __iter__(
+
+@dataclass(frozen=True)
+class WorkflowStep:
+    """
+    Workflow step.
+    """
+
+    name: str
+
+    plugin: str
+
+    arguments: dict[
+        str,
+        object,
+    ] = field(
+        default_factory=dict,
+    )
+
+    enabled: bool = True
+
+    continue_on_error: bool = False
+
+    @property
+    def qualified_plugin(
         self,
-    ):
+    ) -> str:
 
-        return iter(
-            self.steps,
-        )
-
-    def __getitem__(
-        self,
-        index: int,
-    ) -> WorkflowStep:
-
-        return self.steps[index]
+        return self.plugin

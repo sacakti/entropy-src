@@ -47,10 +47,23 @@ class LoggingManager:
 
     def logger(
         self,
+        source: str = "entropy",
     ) -> ExecutionLogger:
         """
-        Return the application logger.
+        Return a logger.
+
+        Parameters
+        ----------
+        source:
+            Logger name.
         """
+
+        #
+        # For now we only maintain a single logger.
+        #
+        # Later this will return per-workflow/per-plugin
+        # loggers.
+        #
 
         return self._logger
 

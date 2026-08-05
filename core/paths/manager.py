@@ -139,6 +139,7 @@ class RuntimePathManager:
             pid=runtime / "pid",
             state=runtime / "state",
             lock=runtime / "lock",
+            workspaces=runtime / "workspaces",
         )
 
     def _build_session_paths(

@@ -1,0 +1,136 @@
+"""
+Workflow manager.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from core.runtime.execution import WorkflowExecution
+from lib.models.workflow_v1 import WorkflowDefinition
+from lib.workflow_v1.loader import WorkflowLoader
+from lib.workflow_v1.validator import WorkflowValidator
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
+
+
+class WorkflowManagerV1:
+    """
+    Loads and validates workflow definitions.
+    """
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+
+        self._context = context
+
+        self._loader = WorkflowLoader()
+
+        self._validator = WorkflowValidator()
+
+        self._executor = WorkflowExecution(
+            context,
+        )
+
+        self._workflow: WorkflowDefinition | None = None
+
+    # ------------------------------------------------------------------
+    # Public
+    # ------------------------------------------------------------------
+
+    def load(
+        self,
+        workflow: Path,
+    ) -> WorkflowDefinition:
+        """
+        Load a workflow definition.
+        """
+
+        assert self._context.executor is not None
+        assert self._context.paths is not None
+
+        #
+        # Resolve workflow name.
+        #
+        if workflow.suffix == "":
+
+            directory = self._context.paths.workflow.directory
+
+            candidates = [
+                directory / (workflow.name + ".json"),
+                directory / (workflow.name + ".yaml"),
+                directory / (workflow.name + ".yml"),
+            ]
+
+            workflow_file = None
+
+            for candidate in candidates:
+
+                if self._context.executor.exists(candidate):
+
+                    workflow_file = candidate
+                    break
+
+            if workflow_file is None:
+
+                raise FileNotFoundError(f"Workflow '{workflow.name}' does not exist.")
+
+        else:
+
+            workflow_file = workflow
+
+        #
+        # Read document.
+        #
+        suffix = workflow_file.suffix.lower()
+
+        if suffix in {".yaml", ".yml"}:
+
+            document = self._context.executor.read_yaml(
+                workflow_file,
+            )
+
+        elif suffix == ".json":
+
+            document = self._context.executor.read_json(
+                workflow_file,
+            )
+
+        else:
+
+            raise ValueError(f"Unsupported workflow format '{suffix}'.")
+
+        workflow = self._loader.load(
+            document,
+        )
+
+        self._validator.validate(
+            workflow,
+        )
+
+        self._workflow = workflow
+
+        return workflow
+
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
+
+    def execute(
+        self,
+    ) -> None:
+        """
+        Execute the loaded workflow.
+        """
+
+        if self._workflow is None:
+
+            raise RuntimeError("No workflow has been loaded.")
+
+        self._executor.execute(
+            self._workflow,
+        )

@@ -4,83 +4,139 @@ Workflow loader.
 
 from __future__ import annotations
 
-from typing import Any
+from pathlib import Path
 
-from lib.models.workflow import FailurePolicy, WorkflowDefinition, WorkflowPolicy, WorkflowStep
+from core.context import EntropyContext
+
+from lib.models.workflow import (
+    Workflow,
+    WorkflowStep,
+)
+
+from .exceptions import (
+    InvalidWorkflowError,
+    WorkflowNotFoundError,
+)
 
 
 class WorkflowLoader:
     """
-    Maps workflow documents to WorkflowDefinition.
+    Loads workflow definitions.
     """
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+
+        assert context.executor is not None
+
+        self._executor = context.executor
+
+    # ------------------------------------------------------------------
+    # Public
+    # ------------------------------------------------------------------
 
     def load(
         self,
-        document: dict[str, Any],
-    ) -> WorkflowDefinition:
+        workflow: Path,
+    ) -> Workflow:
         """
-        Load a workflow definition.
+        Load a workflow.
         """
 
-        steps = [
-            self._step(step)
-            for step in document.get(
-                "steps",
-                [],
+        if not self._executor.exists(
+            workflow,
+        ):
+
+            raise WorkflowNotFoundError(
+                workflow,
             )
-        ]
 
-        return WorkflowDefinition(
-            name=document.get(
-                "name",
-                "",
-            ),
-            version=document.get(
-                "version",
-                "1.0",
-            ),
-            description=document.get(
-                "description",
-                "",
-            ),
-            steps=steps,
+        data = self._executor.read_json(
+            workflow,
+        )
+
+        return self._model(
+            data,
         )
 
     # ------------------------------------------------------------------
+    # Mapper
+    # ------------------------------------------------------------------
+
+    def _model(
+        self,
+        data: dict,
+    ) -> Workflow:
+        """
+        Convert JSON into a workflow model.
+        """
+
+        try:
+
+            return Workflow(
+
+                name=data["name"],
+
+                version=data["version"],
+
+                description=data.get(
+                    "description",
+                ),
+
+                variables=data.get(
+                    "variables",
+                    {},
+                ),
+
+                steps=[
+
+                    self._step(
+                        item,
+                    )
+
+                    for item in data.get(
+                        "steps",
+                        [],
+                    )
+
+                ],
+
+            )
+
+        except KeyError as exc:
+
+            raise InvalidWorkflowError(
+                f"Missing required field '{exc.args[0]}'.",
+            ) from exc
 
     def _step(
         self,
-        document: dict[str, Any],
+        data: dict,
     ) -> WorkflowStep:
+        """
+        Convert JSON into a workflow step.
+        """
 
-        policy = WorkflowPolicy(
-            enabled=document.get(
+        return WorkflowStep(
+
+            name=data["name"],
+
+            plugin=data["plugin"],
+
+            arguments=data.get(
+                "arguments",
+                {},
+            ),
+
+            enabled=data.get(
                 "enabled",
                 True,
             ),
-            retries=document.get(
-                "retry_count",
-                0,
-            ),
-            on_failure=FailurePolicy(
-                document.get(
-                    "on_failure",
-                    FailurePolicy.ABORT.value,
-                ),
-            ),
-            timeout=document.get(
-                "timeout",
-            ),
-        )
 
-        return WorkflowStep(
-            id=document["id"],
-            order=document["order"],
-            name=document["name"],
-            plugin=document["plugin"],
-            configuration=document.get(
-                "config",
-                {},
+            continue_on_error=data.get(
+                "continue_on_error",
+                False,
             ),
-            policy=policy,
         )

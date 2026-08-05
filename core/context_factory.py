@@ -35,10 +35,13 @@ from lib.executor import LinuxExecutor
 from lib.extensions.manager import ExtensionManager
 from lib.migrations.manager import MigrationManager
 from lib.plugins.manager import PluginManager
+from lib.plugins.runner import PluginRunner
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
 from lib.workflow.manager import WorkflowManager
 from core.models.logger import LogLevel
+from lib.workflow.runner import WorkflowRunner
+# from lib.workflow_v1.manager import WorkflowManagerV1
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -211,14 +214,6 @@ class ContextFactory:
 
         self._context.database_manager.open()
 
-        self._context.execution_manager = ExecutionManager(
-            self._context,
-        )
-
-        self._context.workflow_manager = WorkflowManager(
-            self._context,
-        )
-
         self._context.extension_manager = ExtensionManager(
             self._context,
         )
@@ -230,6 +225,26 @@ class ContextFactory:
         self._context.plugin_manager = PluginManager(
             self._context,
         )
+
+        # self._context.workflow_manager_v1= WorkflowManagerV1(
+        #     self._context
+        # )
+
+        self._context.execution_manager = ExecutionManager(
+            self._context,
+        )
+
+        assert self._context.plugin_manager is not None
+
+        self._context.workflow_runner = WorkflowRunner(
+            context=self._context,
+            plugin_runner=self._context.plugin_manager.runner,
+        )
+
+        self._context.workflow_manager = WorkflowManager(
+            self._context,
+        )
+
 
     # ------------------------------------------------------------------
     # Services
