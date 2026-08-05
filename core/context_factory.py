@@ -169,7 +169,6 @@ class ContextFactory:
         self._context.console_log_sink = console_log_sink
 
         log_manager = LoggingManager(
-            directory=self._context.paths.logs.root,
             level=self._context.configuration.get(
                 "logging.level",
                 "INFO",
@@ -182,9 +181,12 @@ class ContextFactory:
             ),
         )
 
+        assert self._context.paths is not None
+
         observability.register(
             LogFileSink(
-                log_manager,
+                manager=log_manager,
+                log_file=self._context.paths.logs.entropy,
             ),
         )
 

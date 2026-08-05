@@ -13,7 +13,9 @@ from .rotation import create_handler
 
 class LoggingManager:
     """
-    Creates the application logger.
+    Factory for execution loggers.
+
+    Creates and caches loggers by their target log file.
     """
 
     FORMAT = (
@@ -27,11 +29,8 @@ class LoggingManager:
 
     def __init__(
         self,
-        directory: Path,
         level: str = "INFO",
     ) -> None:
-
-        self._directory = directory
 
         self._level = getattr(
             logging,
@@ -39,7 +38,10 @@ class LoggingManager:
             logging.INFO,
         )
 
-        self._logger = self._create()
+        self._loggers: dict[
+            Path,
+            ExecutionLogger,
+        ] = {}
 
     # ------------------------------------------------------------------
     # Public
@@ -47,25 +49,27 @@ class LoggingManager:
 
     def logger(
         self,
-        source: str = "entropy",
+        file: Path,
     ) -> ExecutionLogger:
         """
-        Return a logger.
-
-        Parameters
-        ----------
-        source:
-            Logger name.
+        Return a logger for the given log file.
         """
 
-        #
-        # For now we only maintain a single logger.
-        #
-        # Later this will return per-workflow/per-plugin
-        # loggers.
-        #
+        logger = self._loggers.get(
+            file,
+        )
 
-        return self._logger
+        if logger is not None:
+
+            return logger
+
+        logger = self._create(
+            file,
+        )
+
+        self._loggers[file] = logger
+
+        return logger
 
     # ------------------------------------------------------------------
     # Internal
@@ -73,13 +77,14 @@ class LoggingManager:
 
     def _create(
         self,
+        file: Path,
     ) -> ExecutionLogger:
         """
-        Create the application logger.
+        Create a logger for a log file.
         """
 
         instance = logging.getLogger(
-            "entropy",
+            str(file),
         )
 
         instance.handlers.clear()
@@ -91,7 +96,7 @@ class LoggingManager:
         instance.propagate = False
 
         handler = create_handler(
-            self._directory / "entropy.log",
+            file,
         )
 
         handler.setFormatter(

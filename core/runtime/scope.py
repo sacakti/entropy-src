@@ -138,7 +138,7 @@ class ExecutionScope(ABC):
 
         emitter.emit(
             event_type=event,
-            execution_id=self._context.execution.id,
+            execution=self._context.execution,
             node=self._node,
         )
 

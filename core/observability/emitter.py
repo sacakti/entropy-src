@@ -11,6 +11,10 @@ from ..models.enums import EventType
 from .dispatcher import EventDispatcher
 from .event import Event, LogEvent
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.runtime.execution import WorkflowExecution
 
 class Emitter:
     """
@@ -37,7 +41,7 @@ class Emitter:
     def emit(
         self,
         event_type: EventType,
-        execution_id: str,
+        execution: WorkflowExecution,
         node: RuntimeNode,
     ) -> None:
         """
@@ -47,7 +51,7 @@ class Emitter:
         event = Event(
             type=event_type,
             source=self._source,
-            execution_id=execution_id,
+            execution=execution,
             node=node,
         )
 

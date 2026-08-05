@@ -15,6 +15,7 @@ from core.models.logger import LogLevel
 if TYPE_CHECKING:
     from core.models.runtime import ExecutionStatus, RuntimeNodeType
     from core.runtime.node import RuntimeNode
+    from core.runtime.execution import WorkflowExecution
 
 
 class BaseEvent:
@@ -48,7 +49,7 @@ class Event(BaseEvent):
 
     source: str
 
-    execution_id: str
+    execution: WorkflowExecution
 
     node: RuntimeNode
 
@@ -69,6 +70,16 @@ class Event(BaseEvent):
     # ------------------------------------------------------------------
 
     @property
+    def execution_id(self) -> str:
+
+        return self.execution.id
+
+    @property
+    def workspace(self):
+
+        return self.execution.context.workspace
+
+    @property
     def name(self) -> str:
 
         return self.node.name
@@ -82,7 +93,6 @@ class Event(BaseEvent):
     def status(self) -> ExecutionStatus:
 
         return self.node.status
-
 
 # ------------------------------------------------------------------
 # Log Event

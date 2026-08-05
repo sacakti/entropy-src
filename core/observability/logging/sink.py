@@ -56,11 +56,11 @@ class LoggingSink(Sink):
         event: Event,
     ) -> ExecutionLogger:
         """
-        Resolve logger for the event source.
+        Resolve the workflow execution logger.
         """
 
         return self._manager.logger(
-            event.source,
+            event.workspace / "workflow.log",
         )
 
     # ------------------------------------------------------------------

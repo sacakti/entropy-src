@@ -1,8 +1,8 @@
-from core.models.logger import LogLevel
 from core.observability.event import BaseEvent, LogEvent
 from core.observability.logging.manager import LoggingManager
 from core.observability.sink import Sink
 
+from pathlib import Path
 
 class LogFileSink(Sink):
     """
@@ -12,9 +12,12 @@ class LogFileSink(Sink):
     def __init__(
         self,
         manager: LoggingManager,
+        log_file: Path,
     ) -> None:
 
-        self._logger = manager.logger()
+        self._logger = manager.logger(
+            log_file,
+        )
 
     def publish(
         self,
