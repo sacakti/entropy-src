@@ -47,6 +47,30 @@ class ConsoleRenderer:
 
         self._progress.shutdown()
 
+
+    # ------------------------------------------------------------------
+    # Progress
+    # ------------------------------------------------------------------
+
+    def _suspend_progress(
+        self,
+    ) -> None:
+        """
+        Suspend progress rendering.
+        """
+
+        self._progress.suspend()
+
+
+    def _resume_progress(
+        self,
+    ) -> None:
+        """
+        Resume progress rendering.
+        """
+
+        self._progress.resume()
+
     # ------------------------------------------------------------------
     # Banner
     # ------------------------------------------------------------------
@@ -57,12 +81,20 @@ class ConsoleRenderer:
         version: str,
     ) -> None:
 
-        self._console.print(
-            Banner.build(
-                application,
-                version,
+        self._suspend_progress()
+
+        try:
+
+            self._console.print(
+                Banner.build(
+                    application,
+                    version,
+                )
             )
-        )
+
+        finally:
+
+            self._resume_progress()
 
     # ------------------------------------------------------------------
     # Headings
@@ -188,14 +220,22 @@ class ConsoleRenderer:
         style: str = ConsoleTheme.INFO,
     ) -> None:
 
-        self._console.print(
-            Panel(
-                "\n".join(lines),
-                title=title,
-                border_style=style,
-                expand=False,
+        self._suspend_progress()
+
+        try:
+
+            self._console.print(
+                Panel(
+                    "\n".join(lines),
+                    title=title,
+                    border_style=style,
+                    expand=False,
+                )
             )
-        )
+
+        finally:
+
+            self._resume_progress()
 
     # ------------------------------------------------------------------
     # Tables
@@ -218,24 +258,25 @@ class ConsoleRenderer:
 
         for row in rows:
 
-            table.add_row(*[str(item) for item in row])
+            table.add_row(
+                *[str(item) for item in row],
+            )
 
-        self._console.print(table)
+        self._suspend_progress()
+
+        try:
+
+            self._console.print(
+                table,
+            )
+
+        finally:
+
+            self._resume_progress()
 
     # ------------------------------------------------------------------
     # Generic
     # ------------------------------------------------------------------
-
-    def print(
-        self,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-
-        self._console.print(
-            *args,
-            **kwargs,
-        )
 
     def text(
         self,
@@ -243,12 +284,39 @@ class ConsoleRenderer:
         style: str | None = None,
     ) -> None:
 
-        self._console.print(
-            Text(
-                content,
-                style=style,
+        self._suspend_progress()
+
+        try:
+
+            self._console.print(
+                Text(
+                    content,
+                    style=style,
+                )
             )
-        )
+
+        finally:
+
+            self._resume_progress()
+
+    def print(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+
+        self._suspend_progress()
+
+        try:
+
+            self._console.print(
+                *args,
+                **kwargs,
+            )
+
+        finally:
+
+            self._resume_progress()
 
     def blank(
         self,
@@ -270,18 +338,26 @@ class ConsoleRenderer:
         password: bool = False,
     ) -> str:
 
-        if default is None:
+        self._suspend_progress()
+
+        try:
+
+            if default is None:
+
+                return Prompt.ask(
+                    message,
+                    password=password,
+                )
 
             return Prompt.ask(
                 message,
+                default=default,
                 password=password,
             )
 
-        return Prompt.ask(
-            message,
-            default=default,
-            password=password,
-        )
+        finally:
+
+            self._resume_progress()
 
     def confirm(
         self,
@@ -289,10 +365,18 @@ class ConsoleRenderer:
         default: bool = False,
     ) -> bool:
 
-        return Confirm.ask(
-            message,
-            default=default,
-        )
+        self._suspend_progress()
+
+        try:
+
+            return Confirm.ask(
+                message,
+                default=default,
+            )
+
+        finally:
+
+            self._resume_progress()
 
     # ------------------------------------------------------------------
     # Advanced

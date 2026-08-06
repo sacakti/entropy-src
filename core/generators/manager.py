@@ -40,7 +40,7 @@ class GeneratorManager:
 
     def discover(self) -> None:
 
-        self._events.debug("Discovering generators...")
+        self._events.log.debug("Discovering generators...")
 
         for _, module_name, _ in pkgutil.iter_modules(__path__):
 
@@ -61,7 +61,7 @@ class GeneratorManager:
 
                 self.register(cls(self.context))
 
-        self._events.debug(f"{len(self.list())} generator(s) loaded.")
+        self._events.log.debug(f"{len(self.list())} generator(s) loaded.")
 
     # ---------------------------------------------------------
     # Register
@@ -104,16 +104,29 @@ class GeneratorManager:
         args,
     ) -> None:
 
-        generator = self.get(name)
-
-        self._events.debug(f"Generator: {generator.metadata} args: {args}")
+        generator = self.get(
+            name,
+        )
 
         if generator is None:
 
-            raise GeneratorNotFoundError(name)
+            raise GeneratorNotFoundError(
+                name,
+            )
 
-        self._events.debug(f"Generating with {generator.metadata.name}...")
+        self._events.log.debug(
+            f"Generator: {generator.metadata} args: {args}"
+        )
 
-        generator.generate(args,context=self.context)
+        self._events.log.debug(
+            f"Generating with {generator.metadata.name}..."
+        )
 
-        self._events.debug(f"Generation complete with {generator.metadata.name}.")
+        generator.generate(
+            args,
+            context=self.context,
+        )
+
+        self._events.log.debug(
+            f"Generation complete with {generator.metadata.name}."
+        )

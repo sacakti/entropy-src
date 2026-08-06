@@ -14,8 +14,8 @@ from core.models.logger import LogLevel
 
 if TYPE_CHECKING:
     from core.models.runtime import ExecutionStatus, RuntimeNodeType
-    from core.runtime.node import RuntimeNode
     from core.runtime.execution import WorkflowExecution
+    from core.runtime.node import RuntimeNode
 
 
 class BaseEvent:
@@ -31,43 +31,13 @@ class BaseEvent:
 # ------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class Event(BaseEvent):
+class RuntimeEvent(BaseEvent):
     """
-    Immutable runtime observation.
+    Base class for runtime events.
 
-    Produced by the runtime.
-
-    Consumed by observability sinks.
+    Runtime events are associated with a workflow execution and a
+    runtime node (workflow, step or activity).
     """
-
-    # ------------------------------------------------------------------
-    # Runtime
-    # ------------------------------------------------------------------
-
-    type: EventType
-
-    source: str
-
-    execution: WorkflowExecution
-
-    node: RuntimeNode
-
-    # ------------------------------------------------------------------
-    # Identity
-    # ------------------------------------------------------------------
-
-    id: str = field(
-        default_factory=lambda: uuid4().hex,
-    )
-
-    timestamp: datetime = field(
-        default_factory=datetime.utcnow,
-    )
-
-    # ------------------------------------------------------------------
-    # Convenience
-    # ------------------------------------------------------------------
 
     @property
     def execution_id(self) -> str:
@@ -94,8 +64,69 @@ class Event(BaseEvent):
 
         return self.node.status
 
+
 # ------------------------------------------------------------------
-# Log Event
+# Runtime Lifecycle Event
+# ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LifecycleEvent(RuntimeEvent):
+    """
+    Runtime lifecycle event.
+
+    Represents workflow, step and activity lifecycle events.
+    """
+
+    type: EventType
+
+    source: str
+
+    execution: WorkflowExecution
+
+    node: RuntimeNode
+
+    id: str = field(
+        default_factory=lambda: uuid4().hex,
+    )
+
+    timestamp: datetime = field(
+        default_factory=datetime.utcnow,
+    )
+
+
+# ------------------------------------------------------------------
+# Runtime Message Event
+# ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MessageEvent(RuntimeEvent):
+    """
+    Runtime message produced during workflow execution.
+    """
+
+    source: str
+
+    execution: WorkflowExecution
+
+    node: RuntimeNode
+
+    level: LogLevel
+
+    message: str
+
+    id: str = field(
+        default_factory=lambda: uuid4().hex,
+    )
+
+    timestamp: datetime = field(
+        default_factory=datetime.utcnow,
+    )
+
+
+# ------------------------------------------------------------------
+# Application Log Event
 # ------------------------------------------------------------------
 
 
@@ -103,6 +134,8 @@ class Event(BaseEvent):
 class LogEvent(BaseEvent):
     """
     Application log event.
+
+    These events are not associated with workflow execution.
     """
 
     source: str

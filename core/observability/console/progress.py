@@ -7,6 +7,8 @@ from __future__ import annotations
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 
+from .theme import ConsoleTheme
+
 
 class ProgressManager:
     """
@@ -21,8 +23,12 @@ class ProgressManager:
     ) -> None:
 
         self._progress = Progress(
-            SpinnerColumn(style="cyan"),
-            TextColumn("{task.description}"),
+            SpinnerColumn(
+                style=ConsoleTheme.INFO,
+            ),
+            TextColumn(
+                "{task.description}",
+            ),
             transient=True,
             console=console,
         )
@@ -35,7 +41,12 @@ class ProgressManager:
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def shutdown(self) -> None:
+    def shutdown(
+        self,
+    ) -> None:
+        """
+        Stop the progress manager.
+        """
 
         if self._started:
 
@@ -46,10 +57,41 @@ class ProgressManager:
             self._tasks.clear()
 
     # ------------------------------------------------------------------
+    # Suspension
+    # ------------------------------------------------------------------
+
+    def suspend(
+        self,
+    ) -> None:
+        """
+        Temporarily suspend progress rendering.
+
+        Used before rendering panels, tables or prompting
+        the user so Rich can redraw the spinner afterwards.
+        """
+
+        if self._started:
+
+            self._progress.stop()
+
+    def resume(
+        self,
+    ) -> None:
+        """
+        Resume progress rendering.
+        """
+
+        if self._started:
+
+            self._progress.start()
+
+    # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
 
-    def _start(self) -> None:
+    def _start(
+        self,
+    ) -> None:
 
         if not self._started:
 
@@ -69,13 +111,26 @@ class ProgressManager:
 
         if task is not None:
 
-            self._progress.remove_task(task)
+            self._progress.remove_task(
+                task,
+            )
 
         if not self._tasks and self._started:
 
             self._progress.stop()
 
             self._started = False
+
+    def _print(
+        self,
+        style: str,
+        icon: str,
+        message: str,
+    ) -> None:
+
+        self._progress.console.print(
+            f"[{style}]{icon}[/] {message}",
+        )
 
     # ------------------------------------------------------------------
     # Public
@@ -90,7 +145,7 @@ class ProgressManager:
         self._start()
 
         self._tasks[node_id] = self._progress.add_task(
-            f"[cyan]{message}",
+            f"[{ConsoleTheme.INFO}]{message}",
             total=None,
         )
 
@@ -104,7 +159,11 @@ class ProgressManager:
             node_id,
         )
 
-        self._progress.console.print(f"[green]✔[/] {message}")
+        self._print(
+            ConsoleTheme.SUCCESS,
+            "✔",
+            message,
+        )
 
     def warning(
         self,
@@ -116,7 +175,11 @@ class ProgressManager:
             node_id,
         )
 
-        self._progress.console.print(f"[yellow]⚠[/] {message}")
+        self._print(
+            ConsoleTheme.WARNING,
+            "⚠",
+            message,
+        )
 
     def error(
         self,
@@ -128,4 +191,8 @@ class ProgressManager:
             node_id,
         )
 
-        self._progress.console.print(f"[red]✖[/] {message}")
+        self._print(
+            ConsoleTheme.ERROR,
+            "✖",
+            message,
+        )

@@ -7,9 +7,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from core.models.runtime import RuntimeNodeType
-
 from core.models.enums import EventType
+from core.models.runtime import RuntimeNodeType
 
 from .node import RuntimeNode
 
@@ -22,10 +21,10 @@ class ExecutionScope(ABC):
 
         • Runtime tree
         • Runtime node lifecycle
-        • Event emission
+        • Runtime event emission
 
-    Subclasses define only the node type and
-    event types.
+    Subclasses define only the runtime node type and
+    lifecycle event types.
     """
 
     def __init__(
@@ -37,21 +36,18 @@ class ExecutionScope(ABC):
     ) -> None:
 
         self._context = context
-
         self._name = name
-
         self._metadata = metadata or {}
-
         self._node: RuntimeNode | None = None
 
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
     # Context Manager
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
 
     def __enter__(self):
 
         #
-        # Enter runtime tree
+        # Enter runtime tree.
         #
 
         self._node = self._context.enter(
@@ -61,13 +57,13 @@ class ExecutionScope(ABC):
         )
 
         #
-        # Start execution
+        # Start execution.
         #
 
         self._node.start()
 
         #
-        # Emit event
+        # Emit lifecycle event.
         #
 
         self._emit(
@@ -107,7 +103,7 @@ class ExecutionScope(ABC):
             )
 
         #
-        # Leave runtime tree
+        # Leave runtime tree.
         #
 
         self._context.leave()
@@ -118,50 +114,63 @@ class ExecutionScope(ABC):
 
         return False
 
-    # ---------------------------------------------------------
-    # Events
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
     def _emit(
         self,
         event: EventType,
     ) -> None:
         """
-        Emit a runtime event.
+        Emit a runtime lifecycle event.
         """
 
         assert self._node is not None
 
-        emitter = self._context.emitter(
+        self._context.emitter(
             self.source,
-        )
-
-        emitter.emit(
+        ).lifecycle(
             event_type=event,
             execution=self._context.execution,
             node=self._node,
         )
 
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
     # Abstract Properties
-    # ---------------------------------------------------------
+    # ------------------------------------------------------------------
 
     @property
     @abstractmethod
-    def node_type(self) -> RuntimeNodeType: ...
+    def node_type(self) -> RuntimeNodeType:
+        """
+        Runtime node type.
+        """
 
     @property
     @abstractmethod
-    def source(self) -> str: ...
+    def source(self) -> str:
+        """
+        Event source.
+        """
 
     @property
     @abstractmethod
-    def started_event(self) -> EventType: ...
+    def started_event(self) -> EventType:
+        """
+        Lifecycle event emitted when execution starts.
+        """
 
     @property
     @abstractmethod
-    def completed_event(self) -> EventType: ...
+    def completed_event(self) -> EventType:
+        """
+        Lifecycle event emitted when execution completes.
+        """
 
     @property
     @abstractmethod
-    def failed_event(self) -> EventType: ...
+    def failed_event(self) -> EventType:
+        """
+        Lifecycle event emitted when execution fails.
+        """

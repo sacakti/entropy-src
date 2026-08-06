@@ -78,72 +78,55 @@ class WorkflowRunner:
         )
 
         #
-        # Workflow
+        # Enabled steps
+        #
+
+        enabled_steps = [
+            step
+            for step in workflow.steps
+            if step.enabled
+        ]
+
+        total_steps = len(
+            enabled_steps,
+        )
+
+        #
+        # Execute workflow
         #
 
         with runtime.workflow(
             workflow.name,
         ):
 
-            for step in workflow.steps:
-
-                if not step.enabled:
-
-                    continue
+            for index, step in enumerate(
+                enabled_steps,
+                start=1,
+            ):
 
                 with runtime.step(
                     step.name,
+                    index=index,
+                    total=total_steps,
                 ):
 
-                    self._run_step(
+                    self._initialize(
                         runtime,
                         workflow,
                         step,
                     )
 
-    # ------------------------------------------------------------------
-    # Step
-    # ------------------------------------------------------------------
+                    self._execute(
+                        runtime,
+                        workflow,
+                        step,
+                    )
 
-    def _run_step(
-        self,
-        runtime: ExecutionContext,
-        workflow: Workflow,
-        step: WorkflowStep,
-    ) -> None:
-        """
-        Execute a workflow step.
-        """
-
-        with runtime.stage(
-            name="Initialize",
-        ):
-
-            self._initialize(
-                runtime,
-                workflow,
-                step,
-            )
-
-        with runtime.stage(
-            name="Execute",
-        ):
-
-            self._execute(
-                runtime,
-                workflow,
-                step,
-            )
-
-        with runtime.stage(
-            name="Finalize",
-        ):
-
-            self._finalize(
-                runtime,
-                workflow,
-                step,
-            )
+                    self._finalize(
+                        runtime,
+                        workflow,
+                        step,
+                    )
 
     # ------------------------------------------------------------------
     # Initialize

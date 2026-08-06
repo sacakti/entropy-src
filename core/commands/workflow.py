@@ -107,7 +107,7 @@ class WorkflowCommand(
             args.workflow,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Executing workflow '{workflow}'.",
         )
 
@@ -115,6 +115,6 @@ class WorkflowCommand(
             workflow,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Workflow '{workflow}' completed.",
         )

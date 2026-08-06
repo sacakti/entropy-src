@@ -1,27 +1,26 @@
 """
-Runtime event emitter.
+Observability emitter facade.
 """
 
 from __future__ import annotations
 
-from core.models.logger import LogLevel
-from core.runtime.node import RuntimeNode
-
-from ..models.enums import EventType
-from .dispatcher import EventDispatcher
-from .event import Event, LogEvent
-
 from typing import TYPE_CHECKING
+
+from core.models.enums import EventType
+
+from .dispatcher import EventDispatcher
+from .lifecycle import LifecycleEmitter
+from .log import LogEmitter
+from .message import MessageEmitter
 
 if TYPE_CHECKING:
     from core.runtime.execution import WorkflowExecution
+    from core.runtime.node import RuntimeNode
+
 
 class Emitter:
     """
-    Emits runtime observation events.
-
-    An emitter is bound to a specific event source
-    (workflow, shell, git, sqlplus, etc.).
+    Facade exposing all observability emitters.
     """
 
     def __init__(
@@ -30,106 +29,33 @@ class Emitter:
         source: str,
     ) -> None:
 
-        self._dispatcher = dispatcher
+        self._lifecycle = LifecycleEmitter(
+            dispatcher,
+            source,
+        )
 
-        self._source = source
+        self.log = LogEmitter(
+            dispatcher,
+            source,
+        )
 
-    # ------------------------------------------------------------------
-    # Public
-    # ------------------------------------------------------------------
+        self.message = MessageEmitter(
+            dispatcher,
+            source,
+        )
 
-    def emit(
+    def lifecycle(
         self,
         event_type: EventType,
         execution: WorkflowExecution,
         node: RuntimeNode,
     ) -> None:
         """
-        Emit a runtime observation event.
+        Emit a runtime lifecycle event.
         """
 
-        event = Event(
-            type=event_type,
-            source=self._source,
-            execution=execution,
-            node=node,
-        )
-
-        self._dispatcher.dispatch(
-            event,
-        )
-
-    # ------------------------------------------------------------------
-    # Logging
-    # ------------------------------------------------------------------
-
-    def log(
-        self,
-        level: LogLevel,
-        message: str,
-    ) -> None:
-        """
-        Emit a log event.
-        """
-
-        self._dispatcher.dispatch(
-            LogEvent(
-                source=self._source,
-                level=level,
-                message=message,
-            )
-        )
-
-    def debug(
-        self,
-        message: str,
-    ) -> None:
-
-        self.log(
-            LogLevel.DEBUG,
-            message,
-        )
-
-
-    def info(
-        self,
-        message: str,
-    ) -> None:
-
-        self.log(
-            LogLevel.INFO,
-            message,
-        )
-
-
-    def warning(
-        self,
-        message: str,
-    ) -> None:
-
-        self.log(
-            LogLevel.WARNING,
-            message,
-        )
-
-
-    def error(
-        self,
-        message: str,
-    ) -> None:
-
-        self.log(
-            LogLevel.ERROR,
-            message,
-        )
-
-
-    def critical(
-        self,
-        message: str,
-    ) -> None:
-
-        self.log(
-            LogLevel.CRITICAL,
-            message,
+        self._lifecycle.emit(
+            event_type,
+            execution,
+            node,
         )

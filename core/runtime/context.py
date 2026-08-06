@@ -153,12 +153,12 @@ class ExecutionContext:
     # Observability
     # ------------------------------------------------------------------
 
-    @property
-    def logger(self) -> ExecutionLogManager:
+    # @property
+    # def logger(self) -> ExecutionLogManager:
 
-        assert self._entropy.logger is not None
+    #     assert self._entropy.logger is not None
 
-        return self._entropy.logger
+    #     return self._entropy.logger
 
     def emitter(
         self,
@@ -191,6 +191,9 @@ class ExecutionContext:
     def step(
         self,
         name: str,
+        *,
+        index: int,
+        total: int,
     ) -> StepScope:
         """
         Create a workflow step scope.
@@ -199,6 +202,10 @@ class ExecutionContext:
         return StepScope(
             context=self,
             name=name,
+            metadata={
+                "index": index,
+                "total": total,
+            },
         )
 
     def stage(
@@ -256,6 +263,13 @@ class ExecutionContext:
     def database(self):
 
         return self._entropy.database_manager
+
+    @property
+    def ui(self):
+
+        assert self._entropy.ui is not None
+
+        return self._entropy.ui
 
     # ------------------------------------------------------------------
     # Session

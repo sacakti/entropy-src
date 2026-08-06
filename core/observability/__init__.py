@@ -5,13 +5,23 @@ Observability subsystem.
 from ..models.enums import EventType
 from .dispatcher import EventDispatcher
 from .emitter import Emitter
-from .event import Event
+from .event import (
+    BaseEvent,
+    LifecycleEvent,
+    LogEvent,
+    MessageEvent,
+    RuntimeEvent,
+)
 from .manager import ObservabilityManager
-from .sink import Sink
 from .null import NullEmitter
+from .sink import Sink
 
 __all__ = [
-    "Event",
+    "BaseEvent",
+    "RuntimeEvent",
+    "LifecycleEvent",
+    "MessageEvent",
+    "LogEvent",
     "EventType",
     "Emitter",
     "EventDispatcher",

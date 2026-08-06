@@ -5,7 +5,12 @@ Logging sink.
 from __future__ import annotations
 
 from ...models.enums import EventType
-from ..event import BaseEvent, Event
+from ..event import (
+    BaseEvent,
+    LifecycleEvent,
+    LogEvent,
+    MessageEvent,
+)
 from ..sink import Sink
 from .logger import ExecutionLogger
 from .manager import LoggingManager
@@ -15,7 +20,7 @@ class LoggingSink(Sink):
     """
     Logging observability sink.
 
-    Persists runtime events to log files.
+    Persists runtime events to workflow log files.
     """
 
     def __init__(
@@ -34,18 +39,48 @@ class LoggingSink(Sink):
         event: BaseEvent,
     ) -> None:
 
-        if not isinstance(event, Event):
+        if isinstance(
+            event,
+            LifecycleEvent,
+        ):
+
+            logger = self._logger(
+                event,
+            )
+
+            self._write_lifecycle(
+                logger,
+                event,
+            )
+
             return
 
-        logger = self._logger(event)
-
-        message = self._message(event)
-
-        self._write(
-            logger,
+        if isinstance(
             event,
-            message,
-        )
+            MessageEvent,
+        ):
+
+            logger = self._logger(
+                event,
+            )
+
+            self._write_message(
+                logger,
+                event,
+            )
+
+            return
+
+        if isinstance(
+            event,
+            LogEvent,
+        ):
+
+            #
+            # Application logging is handled by LoggingManager.
+            #
+
+            return
 
     # ------------------------------------------------------------------
     # Logger
@@ -53,7 +88,7 @@ class LoggingSink(Sink):
 
     def _logger(
         self,
-        event: Event,
+        event: LifecycleEvent,
     ) -> ExecutionLogger:
         """
         Resolve the workflow execution logger.
@@ -64,15 +99,16 @@ class LoggingSink(Sink):
         )
 
     # ------------------------------------------------------------------
-    # Message
+    # Lifecycle
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _message(
-        event: Event,
-    ) -> str:
+    def _write_lifecycle(
+        logger: ExecutionLogger,
+        event: LifecycleEvent,
+    ) -> None:
         """
-        Format a runtime event message.
+        Persist a lifecycle event.
         """
 
         action = {
@@ -92,29 +128,15 @@ class LoggingSink(Sink):
             EventType.ACTIVITY_FAILED: "Activity failed",
         }[event.type]
 
-        duration = ""
+        message = action
+
+        if event.name:
+
+            message += f": {event.name}"
 
         if event.node.duration_ms is not None:
 
-            duration = f" ({event.node.duration_ms} ms)"
-
-        return f"{action}: {event.name}{duration}"
-
-    # ------------------------------------------------------------------
-    # Write
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _write(
-        logger: ExecutionLogger,
-        event: Event,
-        message: str,
-    ) -> None:
-        """
-        Write the event using the appropriate log level.
-        """
-
-        module = event.source
+            message += f" ({event.node.duration_ms} ms)"
 
         if event.type in (
             EventType.EXECUTION_FAILED,
@@ -124,13 +146,61 @@ class LoggingSink(Sink):
         ):
 
             logger.error(
-                module,
+                event.source,
                 message,
             )
 
-            return
+        else:
 
-        logger.info(
-            module,
-            message,
-        )
+            logger.info(
+                event.source,
+                message,
+            )
+
+    # ------------------------------------------------------------------
+    # Runtime Messages
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _write_message(
+        logger: ExecutionLogger,
+        event: MessageEvent,
+    ) -> None:
+        """
+        Persist a runtime message.
+        """
+
+        if event.level.name == "DEBUG":
+
+            logger.debug(
+                event.source,
+                event.message,
+            )
+
+        elif event.level.name == "WARNING":
+
+            logger.warning(
+                event.source,
+                event.message,
+            )
+
+        elif event.level.name == "ERROR":
+
+            logger.error(
+                event.source,
+                event.message,
+            )
+
+        elif event.level.name == "CRITICAL":
+
+            logger.critical(
+                event.source,
+                event.message,
+            )
+
+        else:
+
+            logger.info(
+                event.source,
+                event.message,
+            )

@@ -53,7 +53,7 @@ class CommandManager:
         Discover commands.
         """
 
-        self._events.debug(
+        self._events.log.debug(
             "Discovering commands..."
         )
 
@@ -90,7 +90,7 @@ class CommandManager:
                     )
                 )
 
-        self._events.debug(
+        self._events.log.debug(
             "Discovered {} command(s).".format(
                 len(
                     self.list(),
@@ -263,7 +263,7 @@ class CommandManager:
 
         except EntropyException as exc:
 
-            self._events.error(
+            self._events.log.error(
                 str(exc),
             )
 
@@ -271,7 +271,7 @@ class CommandManager:
 
         except Exception:
 
-            self._events.critical(
+            self._events.log.critical(
                 traceback.format_exc(),
             )
 
