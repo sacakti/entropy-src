@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.context import EntropyContext
 from core.constants import PLUGIN_MANIFEST
+from core.context import EntropyContext
 
 from lib.models.plugin import (
     EntropyRequirement,
@@ -61,14 +61,14 @@ class ManifestReader:
             manifest,
         )
 
-        entropy = data.get(
-            "entropy",
-        )
-
         return PluginManifest(
             name=data["name"],
             namespace=data["namespace"],
             version=data["version"],
+            module=data.get(
+                "module",
+                "plugin",
+            ),
             display_name=data.get(
                 "display_name",
             ),
@@ -81,27 +81,16 @@ class ManifestReader:
             license=data.get(
                 "license",
             ),
-            entropy=(
-                EntropyRequirement(
-                    minimum=entropy["minimum"],
-                    maximum=entropy.get(
-                        "maximum",
-                    ),
-                )
-                if entropy
-                else None
+            entropy=self._read_entropy(
+                data.get(
+                    "entropy",
+                ),
             ),
-            extensions=tuple(
-                ExtensionRequirement(
-                    name=item["name"],
-                    version=item.get(
-                        "version",
-                    ),
-                )
-                for item in data.get(
-                    "extensions",
+            extensions=self._read_extensions(
+                data.get(
+                    "dependencies",
                     [],
-                )
+                ),
             ),
             tags=tuple(
                 data.get(
@@ -109,4 +98,90 @@ class ManifestReader:
                     [],
                 )
             ),
+        )
+
+    # ------------------------------------------------------------------
+    # Entropy
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _read_entropy(
+        value,
+    ) -> EntropyRequirement | None:
+        """
+        Read the Entropy compatibility requirement.
+        """
+
+        if value is None:
+
+            return None
+
+        if isinstance(
+            value,
+            str,
+        ):
+
+            requirement = value.strip()
+
+            if requirement.startswith(
+                ">=",
+            ):
+
+                minimum = requirement[2:].strip()
+
+                if not minimum:
+
+                    raise ValueError(
+                        "Entropy minimum version cannot be empty.",
+                    )
+
+                return EntropyRequirement(
+                    minimum=minimum,
+                )
+
+            raise ValueError(
+                f"Unsupported Entropy requirement "
+                f"'{requirement}'.",
+            )
+
+        if isinstance(
+            value,
+            dict,
+        ):
+
+            return EntropyRequirement(
+                minimum=value["minimum"],
+                maximum=value.get(
+                    "maximum",
+                ),
+            )
+
+        raise TypeError(
+            "Plugin 'entropy' must be a string "
+            "or an object.",
+        )
+
+    # ------------------------------------------------------------------
+    # Extensions
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _read_extensions(
+        dependencies: list[dict],
+    ) -> tuple[
+        ExtensionRequirement,
+        ...
+    ]:
+        """
+        Read plugin extension dependencies.
+        """
+
+        return tuple(
+            ExtensionRequirement(
+                name=item["name"],
+                version=item.get(
+                    "version",
+                ),
+            )
+            for item in dependencies
         )

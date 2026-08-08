@@ -25,7 +25,7 @@ class PluginManager:
     Plugin subsystem.
 
     Responsible for orchestrating plugin installation,
-    discovery, loading and execution.
+    validation, discovery, loading, execution and lifecycle.
     """
 
     def __init__(
@@ -36,6 +36,9 @@ class PluginManager:
         assert context.database_manager is not None
         assert context.extension_manager is not None
         assert context.migration_manager is not None
+        assert context.observability is not None
+
+        self._context = context
 
         #
         # Persistence
@@ -83,6 +86,14 @@ class PluginManager:
             migrations=context.migration_manager,
         )
 
+        #
+        # Observability
+        #
+
+        self._events = context.observability.emitter(
+            "plugins",
+        )
+
     # ------------------------------------------------------------------
     # Installation
     # ------------------------------------------------------------------
@@ -97,6 +108,10 @@ class PluginManager:
         Install a plugin.
         """
 
+        self._events.log.info(
+            f"Installing plugin from '{directory}'.",
+        )
+
         plugin = self._installer.install(
             directory,
             reinstall=reinstall,
@@ -104,7 +119,16 @@ class PluginManager:
 
         self.refresh()
 
+        self._events.log.success(
+            f"Plugin '{plugin.qualified_name}' "
+            f"installed successfully.",
+        )
+
         return plugin
+
+    # ------------------------------------------------------------------
+    # Removal
+    # ------------------------------------------------------------------
 
     def uninstall(
         self,
@@ -113,6 +137,10 @@ class PluginManager:
         """
         Uninstall a plugin.
         """
+
+        self._events.log.info(
+            f"Uninstalling plugin '{qualified_name}'.",
+        )
 
         plugin = self._repository.get_by_qualified_name(
             qualified_name,
@@ -123,6 +151,152 @@ class PluginManager:
         )
 
         self.refresh()
+
+        self._events.log.success(
+            f"Plugin '{qualified_name}' "
+            f"uninstalled successfully.",
+        )
+
+    # ------------------------------------------------------------------
+    # Verification
+    # ------------------------------------------------------------------
+
+    def verify(
+        self,
+        qualified_name: str,
+    ) -> None:
+        """
+        Verify an installed plugin.
+        """
+
+        self._events.log.info(
+            f"Verifying plugin '{qualified_name}'.",
+        )
+
+        plugin = self._repository.get_by_qualified_name(
+            qualified_name,
+        )
+
+        self._installer.verify(
+            plugin,
+        )
+
+        self._events.log.success(
+            f"Plugin '{qualified_name}' "
+            f"verified successfully.",
+        )
+
+    # ------------------------------------------------------------------
+    # Repair
+    # ------------------------------------------------------------------
+
+    def repair(
+        self,
+        qualified_name: str,
+        source: Path,
+    ) -> None:
+        """
+        Repair an installed plugin from its source directory.
+        """
+
+        self._events.log.info(
+            f"Repairing plugin '{qualified_name}'.",
+        )
+
+        plugin = self._repository.get_by_qualified_name(
+            qualified_name,
+        )
+
+        repaired = self._installer.repair(
+            plugin,
+            source,
+        )
+
+        #
+        # The installer is responsible for replacing the
+        # installation. Refresh the runtime registry afterward.
+        #
+
+        self.refresh()
+
+        #
+        # `repair()` may return the updated Plugin metadata.
+        # If it does not, the repository remains authoritative.
+        #
+
+        if repaired is not None:
+
+            self._events.log.success(
+                f"Plugin '{repaired.qualified_name}' "
+                f"repaired successfully.",
+            )
+
+        else:
+
+            self._events.log.success(
+                f"Plugin '{qualified_name}' "
+                f"repaired successfully.",
+            )
+
+    # ------------------------------------------------------------------
+    # Enable / Disable
+    # ------------------------------------------------------------------
+
+    def enable(
+        self,
+        qualified_name: str,
+    ) -> None:
+        """
+        Enable an installed plugin.
+        """
+
+        self._events.log.info(
+            f"Enabling plugin '{qualified_name}'.",
+        )
+
+        plugin = self._repository.get_by_qualified_name(
+            qualified_name,
+        )
+
+        assert plugin.id is not None
+
+        self._repository.enable(
+            plugin.id,
+        )
+
+        self.refresh()
+
+        self._events.log.success(
+            f"Plugin '{qualified_name}' enabled successfully.",
+        )
+
+    def disable(
+        self,
+        qualified_name: str,
+    ) -> None:
+        """
+        Disable an installed plugin.
+        """
+
+        self._events.log.info(
+            f"Disabling plugin '{qualified_name}'.",
+        )
+
+        plugin = self._repository.get_by_qualified_name(
+            qualified_name,
+        )
+
+        assert plugin.id is not None
+
+        self._repository.disable(
+            plugin.id,
+        )
+
+        self.refresh()
+
+        self._events.log.success(
+            f"Plugin '{qualified_name}' disabled successfully.",
+        )
 
     # ------------------------------------------------------------------
     # Discovery

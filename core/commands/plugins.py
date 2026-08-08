@@ -13,7 +13,9 @@ from core.commands.base import (
 )
 
 
-class PluginCommand(BaseCommand):
+class PluginCommand(
+    BaseCommand,
+):
     """
     Manage Entropy plugins.
     """
@@ -34,15 +36,10 @@ class PluginCommand(BaseCommand):
 
         assert context.plugin_manager is not None
         assert context.ui is not None
-        assert context.observability is not None
 
         self._plugins = context.plugin_manager
 
         self._ui = context.ui
-
-        self._events = context.observability.emitter(
-            "plugin",
-        )
 
     # ------------------------------------------------------------------
     # Configure
@@ -107,41 +104,64 @@ class PluginCommand(BaseCommand):
 
         verify = subparsers.add_parser(
             "verify",
-            help="Verify a plugin manifest.",
+            help="Verify an installed plugin.",
         )
 
         verify.add_argument(
-            "directory",
-            help="Plugin directory.",
+            "plugin",
+            help="Qualified plugin name.",
         )
 
         #
-        # enable/disable
+        # repair
         #
 
-        set = subparsers.add_parser(
+        repair = subparsers.add_parser(
+            "repair",
+            help="Repair an installed plugin.",
+        )
+
+        repair.add_argument(
+            "plugin",
+            help="Qualified plugin name.",
+        )
+
+        repair.add_argument(
+            "--source",
+            required=True,
+            help="Plugin source directory.",
+        )
+
+        #
+        # enable / disable
+        #
+
+        set_command = subparsers.add_parser(
             "set",
             help="Enable or disable a plugin.",
         )
 
-        # Flag to enable/disable the plugin
+        state = set_command.add_mutually_exclusive_group(
+            required=True,
+        )
 
-        set.add_argument(
+        state.add_argument(
             "--enable",
             action="store_true",
             help="Enable the plugin.",
         )
 
-        set.add_argument(
+        state.add_argument(
             "--disable",
             action="store_true",
             help="Disable the plugin.",
         )
 
-        set.add_argument(
+        set_command.add_argument(
             "plugin",
             help="Qualified plugin name.",
         )
+
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -156,6 +176,8 @@ class PluginCommand(BaseCommand):
             "uninstall": self._uninstall,
             "list": self._list,
             "verify": self._verify,
+            "repair": self._repair,
+            "set": self._set,
         }[
             args.action
         ](
@@ -171,15 +193,47 @@ class PluginCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        directory = Path(
+            args.directory,
+        )
+
+        self._ui.rule(
+            f"Install Plugin : {directory.name}",
+        )
+
+        self._ui.info(
+            "Validating plugin...",
+        )
+
         plugin = self._plugins.install(
-            Path(
-                args.directory,
-            ),
+            directory,
             reinstall=args.reinstall,
         )
 
-        self._events.log.info(
-            f"Plugin '{plugin.qualified_name}' installed.",
+        self._ui.table(
+            title="Plugin",
+            columns=[
+                "Property",
+                "Value",
+            ],
+            rows=[
+                [
+                    "Name",
+                    plugin.qualified_name,
+                ],
+                [
+                    "Version",
+                    plugin.version,
+                ],
+                [
+                    "Enabled",
+                    "Yes" if plugin.enabled else "No",
+                ],
+                [
+                    "Location",
+                    str(plugin.path),
+                ],
+            ],
         )
 
     # ------------------------------------------------------------------
@@ -191,12 +245,16 @@ class PluginCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        self._plugins.uninstall(
-            args.plugin,
+        self._ui.rule(
+            f"Uninstall Plugin : {args.plugin}",
         )
 
-        self._events.log.info(
-            f"Plugin '{args.plugin}' uninstalled.",
+        self._ui.info(
+            "Validating plugin...",
+        )
+
+        self._plugins.uninstall(
+            args.plugin,
         )
 
     # ------------------------------------------------------------------
@@ -209,6 +267,14 @@ class PluginCommand(BaseCommand):
     ) -> None:
 
         plugins = self._plugins.list()
+
+        if not plugins:
+
+            self._ui.info(
+                "No plugins installed.",
+            )
+
+            return
 
         self._ui.table(
             title="Installed Plugins",
@@ -226,7 +292,7 @@ class PluginCommand(BaseCommand):
                     plugin.name,
                     plugin.version,
                     "Yes" if plugin.enabled else "No",
-                    plugin.installed_at,
+                    plugin.installed_at.isoformat(),
                     str(plugin.path),
                 ]
                 for plugin in plugins
@@ -242,12 +308,67 @@ class PluginCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._ui.rule(
+            f"Verify Plugin : {args.plugin}",
+        )
+
+        self._ui.info(
+            "Checking installation...",
+        )
+
         self._plugins.verify(
+            args.plugin,
+        )
+
+    # ------------------------------------------------------------------
+    # Repair
+    # ------------------------------------------------------------------
+
+    def _repair(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        self._ui.rule(
+            f"Repair Plugin : {args.plugin}",
+        )
+
+        self._ui.info(
+            "Checking installation...",
+        )
+
+        self._plugins.repair(
+            args.plugin,
             Path(
-                args.directory,
+                args.source,
             ),
         )
 
-        self._events.log.info(
-            "Plugin manifest verified.",
+    # ------------------------------------------------------------------
+    # Enable / Disable
+    # ------------------------------------------------------------------
+
+    def _set(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        if args.enable:
+
+            self._ui.rule(
+                f"Enable Plugin : {args.plugin}",
+            )
+
+            self._plugins.enable(
+                args.plugin,
+            )
+
+            return
+
+        self._ui.rule(
+            f"Disable Plugin : {args.plugin}",
+        )
+
+        self._plugins.disable(
+            args.plugin,
         )
