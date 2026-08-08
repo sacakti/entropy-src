@@ -43,16 +43,9 @@ class GeneratorManager:
 
         self._generators: dict[str, BaseGenerator] = {}
 
-    # ------------------------------------------------------------------
-    # Discovery
-    # ------------------------------------------------------------------
-
     def discover(
         self,
     ) -> None:
-        """
-        Discover available generators.
-        """
 
         for _, module_name, _ in pkgutil.iter_modules(
             __path__,
@@ -69,9 +62,6 @@ class GeneratorManager:
         self,
         module_name: str,
     ) -> None:
-        """
-        Discover generators from a module.
-        """
 
         module = importlib.import_module(
             f"core.generators.{module_name}",
@@ -97,33 +87,19 @@ class GeneratorManager:
                 )
             )
 
-    # ------------------------------------------------------------------
-    # Registration
-    # ------------------------------------------------------------------
-
     def register(
         self,
         generator: BaseGenerator,
     ) -> None:
-        """
-        Register a generator.
-        """
 
         self._generators[
             generator.metadata.name
         ] = generator
 
-    # ------------------------------------------------------------------
-    # Lookup
-    # ------------------------------------------------------------------
-
     def get(
         self,
         name: str,
     ) -> BaseGenerator | None:
-        """
-        Return a generator by name.
-        """
 
         return self._generators.get(
             name,
@@ -132,34 +108,22 @@ class GeneratorManager:
     def list(
         self,
     ) -> list[BaseGenerator]:
-        """
-        Return registered generators.
-        """
-
         return sorted(
             self._generators.values(),
             key=lambda generator: generator.metadata.name,
         )
-
-    # ------------------------------------------------------------------
-    # Execute
-    # ------------------------------------------------------------------
 
     def generate(
         self,
         name: str,
         args,
     ) -> None:
-        """
-        Execute a generator.
-        """
 
         generator = self.get(
             name,
         )
 
         if generator is None:
-
             raise GeneratorNotFoundError(
                 name,
             )

@@ -19,10 +19,6 @@ class MakeCommand(BaseCommand):
         description="Generate framework artifacts.",
     )
 
-    # ------------------------------------------------------------------
-    # Configure
-    # ------------------------------------------------------------------
-
     def configure(
         self,
         parser: ArgumentParser,
@@ -48,10 +44,6 @@ class MakeCommand(BaseCommand):
             default="custom",
             help="Plugin namespace.",
         )
-
-    # ------------------------------------------------------------------
-    # Execute
-    # ------------------------------------------------------------------
 
     def execute(
         self,

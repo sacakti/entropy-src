@@ -38,20 +38,20 @@ class PluginGenerator(
         description="Generate a new plugin.",
     )
 
-    # ------------------------------------------------------------------
-    # Generate
-    # ------------------------------------------------------------------
-
     def generate(
         self,
         args,
         context,
     ) -> Path:
-        """
-        Generate a plugin.
-        """
+
+        assert context.ui is not None
+        assert context.observability is not None
 
         ui = context.ui
+
+        events = context.observability.emitter(
+            "generator",
+        )
 
         namespace = (
             args.namespace
@@ -68,11 +68,9 @@ class PluginGenerator(
             self._context.bootstrap.resources.plugins
         )
 
-        #
-        # Validate
-        #
-
-        ui.info("Validating plugin...")
+        events.log.info(
+            "Validating plugin.",
+        )
 
         PluginValidator.validate(
             namespace=namespace,
@@ -95,11 +93,9 @@ class PluginGenerator(
             name,
         )
 
-        #
-        # Prepare
-        #
-
-        ui.info("Creating temporary workspace...")
+        events.log.info(
+            "Creating temporary workspace.",
+        )
 
         self._context.executor.mkdir(
             temporary,
@@ -107,42 +103,38 @@ class PluginGenerator(
 
         try:
 
-            #
-            # Render
-            #
-
-            ui.info("Rendering templates...")
+            events.log.info(
+                "Rendering templates.",
+            )
 
             self._render(
                 temporary,
                 render_context,
             )
 
-            #
-            # Directories
-            #
-
-            ui.info("Creating plugin directories...")
+            events.log.info(
+                "Creating plugin directories.",
+            )
 
             self._create_directories(
                 temporary,
             )
 
-            #
-            # Finalize
-            #
-
-            ui.info("Finalizing plugin...")
+            events.log.info(
+                "Finalizing plugin.",
+            )
 
             self._context.executor.move(
                 temporary,
                 destination,
             )
-            ui.print()
-            ui.success(
-                f"Plugin '{namespace}.{name}' generated successfully."
+
+            events.log.success(
+                f"Plugin '{namespace}.{name}' generated successfully.",
             )
+
             ui.print()
+
             ui.table(
                 title="Plugin",
                 columns=[
@@ -171,18 +163,11 @@ class PluginGenerator(
 
             raise
 
-    # ------------------------------------------------------------------
-    # Rendering
-    # ------------------------------------------------------------------
-
     def _render(
         self,
         destination: Path,
         context: dict,
     ) -> None:
-        """
-        Render plugin templates.
-        """
 
         for template, filename in self.FILES:
 
@@ -192,17 +177,10 @@ class PluginGenerator(
                 context,
             )
 
-    # ------------------------------------------------------------------
-    # Directories
-    # ------------------------------------------------------------------
-
     def _create_directories(
         self,
         root: Path,
     ) -> None:
-        """
-        Create plugin directories.
-        """
 
         for directory in self.DIRECTORIES:
 
@@ -210,18 +188,11 @@ class PluginGenerator(
                 root / directory,
             )
 
-    # ------------------------------------------------------------------
-    # Context
-    # ------------------------------------------------------------------
-
     def _build_context(
         self,
         namespace: str,
         name: str,
     ) -> dict:
-        """
-        Build template context.
-        """
 
         return {
             "namespace": namespace,
@@ -235,17 +206,10 @@ class PluginGenerator(
             "license": "",
         }
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _class_name(
         name: str,
     ) -> str:
-        """
-        Convert a plugin name into a class name.
-        """
 
         return (
             "".join(
