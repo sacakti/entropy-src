@@ -13,7 +13,9 @@ from core.commands.base import (
 from lib.extensions.loader import ExtensionLoader
 
 
-class ExtensionCommand(BaseCommand):
+class ExtensionCommand(
+    BaseCommand,
+):
     """
     Manage Python extensions.
     """
@@ -61,6 +63,15 @@ class ExtensionCommand(BaseCommand):
         )
 
         #
+        # list wheels
+        #
+
+        wheels = subparsers.add_parser(
+            "wheels",
+            help="List locally available extension wheels.",
+        )
+
+        #
         # install
         #
 
@@ -94,7 +105,21 @@ class ExtensionCommand(BaseCommand):
         )
 
         #
-        # list
+        # repair
+        #
+
+        repair = subparsers.add_parser(
+            "repair",
+            help="Repair an extension."
+        )
+
+        repair.add_argument(
+            "name",
+            help="Extension name.",
+        )
+
+        #
+        # list installed extensions
         #
 
         subparsers.add_parser(
@@ -115,6 +140,10 @@ class ExtensionCommand(BaseCommand):
             "name",
             help="Extension name.",
         )
+
+        #
+        # download
+        #
 
         download = subparsers.add_parser(
             "download",
@@ -144,11 +173,15 @@ class ExtensionCommand(BaseCommand):
             "install": self._install,
             "download": self._download,
             "uninstall": self._uninstall,
+            "wheels": self._wheels,
             "list": self._list,
             "verify": self._verify,
+            "repair": self._repair,
         }[
             args.action
-        ](args)
+        ](
+            args,
+        )
 
     # ------------------------------------------------------------------
     # Install
@@ -164,12 +197,42 @@ class ExtensionCommand(BaseCommand):
             version=args.version,
         )
 
-        self._extensions.install(
+        self._ui.rule(
+            f"Install Extension : {manifest.name}",
+        )
+
+        self._ui.info(
+            "Validating extension...",
+        )
+
+        extension = self._extensions.install(
             manifest,
         )
 
-        self._events.log.info(
-            f"Extension '{manifest.name}' installed.",
+        self._ui.table(
+            title="Extension",
+            columns=[
+                "Property",
+                "Value",
+            ],
+            rows=[
+                [
+                    "Name",
+                    extension.name,
+                ],
+                [
+                    "Version",
+                    extension.version,
+                ],
+                [
+                    "Installer",
+                    extension.installer,
+                ],
+                [
+                    "Wheel",
+                    extension.wheel,
+                ],
+            ],
         )
 
     # ------------------------------------------------------------------
@@ -181,13 +244,18 @@ class ExtensionCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._ui.rule(
+            f"Uninstall Extension : {args.name}",
+        )
+
+        self._ui.info(
+            "Validating extension...",
+        )
+
         self._extensions.uninstall(
             args.name,
         )
 
-        self._events.log.info(
-            f"Extension '{args.name}' uninstalled.",
-        )
     # ------------------------------------------------------------------
     # List
     # ------------------------------------------------------------------
@@ -198,19 +266,15 @@ class ExtensionCommand(BaseCommand):
     ) -> None:
 
         extensions = self._extensions.list()
-        """
-        Sample:
-        {
-            "sqlparse": {
-                "installed_at": "2026-08-03T15:51:28.154060+00:00",
-                "installer": "offline",
-                "platform_tag": "any",
-                "python_tag": "py3",
-                "version": "0.5.5",
-                "wheel": "sqlparse-0.5.5-py3-none-any.whl"
-            }
-        }
-        """
+
+        if not extensions:
+
+            self._ui.info(
+                "No extensions installed.",
+            )
+
+            return
+
         self._ui.table(
             title="Installed Extensions",
             columns=[
@@ -226,7 +290,7 @@ class ExtensionCommand(BaseCommand):
                 [
                     extension.name,
                     extension.version,
-                    extension.installed_at,
+                    extension.installed_at.isoformat(),
                     extension.python_tag,
                     extension.platform_tag,
                     extension.installer,
@@ -236,6 +300,37 @@ class ExtensionCommand(BaseCommand):
             ],
         )
 
+    def _wheels(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        self._ui.rule(
+            "Available Extension Wheels",
+        )
+
+        wheels = self._extensions.wheels()
+
+        if not wheels:
+
+            self._ui.info(
+                "No extension wheels available.",
+            )
+
+            return
+
+        self._ui.table(
+            title="Local Wheels",
+            columns=[
+                "Wheel",
+            ],
+            rows=[
+                [
+                    wheel.name,
+                ]
+                for wheel in wheels
+            ],
+        )
     # ------------------------------------------------------------------
     # Verify
     # ------------------------------------------------------------------
@@ -245,12 +340,37 @@ class ExtensionCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._ui.rule(
+            f"Verify Extension : {args.name}",
+        )
+
+        self._ui.info(
+            "Checking installation...",
+        )
+
         self._extensions.verify(
             args.name,
         )
 
-        self._events.log.info(
-            f"Extension '{args.name}' verified.",
+    # ------------------------------------------------------------------
+    # Repair
+    # ------------------------------------------------------------------
+
+    def _repair(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        self._ui.rule(
+            f"Repair Extension : {args.name}",
+        )
+
+        self._ui.info(
+            "Checking installation...",
+        )
+
+        self._extensions.repair(
+            args.name,
         )
 
     # ------------------------------------------------------------------
@@ -267,10 +387,14 @@ class ExtensionCommand(BaseCommand):
             version=args.version,
         )
 
-        self._extensions.download(
-            manifest,
+        self._ui.rule(
+            f"Download Extension : {manifest.name}",
         )
 
-        self._events.log.info(
-            f"Extension '{manifest.name}' downloaded.",
+        self._ui.info(
+            "Preparing download...",
+        )
+
+        self._extensions.download(
+            manifest,
         )

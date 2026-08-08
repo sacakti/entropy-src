@@ -84,7 +84,7 @@ CONSOLE_LEVELS = {
 }
 
 
-EXTENSION_METADATA_FILE = "extensions.json"
+# EXTENSION_METADATA_FILE = "extensions.json"
 
 # ------------------------------------------------------------------
 # Template constants

@@ -12,6 +12,7 @@ from lib.database.objects import (
     SettingsTable,
     UsersTable,
     WorkflowsTable,
+    ExtensionsTable
 )
 
 
@@ -29,6 +30,7 @@ class SchemaInstaller:
             PluginRegistryTable(),
             UsersTable(),
             WorkflowsTable(),
+            ExtensionsTable(),
         )
 
     def install(

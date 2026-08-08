@@ -122,7 +122,7 @@ class MigrationExecutor:
         message: str,
     ) -> None:
 
-        if self._event is not None:
+        if self._events is not None:
 
             self._events.log.info(
                 message,

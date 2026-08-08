@@ -130,20 +130,6 @@ class OfflineInstaller(BaseInstaller):
         Uninstall an extension.
         """
 
-        for entry_point in extension.entry_points:
-
-            launcher = (
-                self._paths.site_packages /
-                "bin" /
-                entry_point
-            )
-
-            if launcher.exists():
-
-                self._executor.remove(
-                    launcher,
-                )
-
         record = self._record_file(
             extension,
         )
@@ -166,6 +152,108 @@ class OfflineInstaller(BaseInstaller):
             self._paths.site_packages,
         )
 
+    # ------------------------------------------------------------------
+    # Verification
+    # ------------------------------------------------------------------
+
+    def verify(
+        self,
+        extension: Extension,
+    ) -> None:
+        """
+        Verify an installed extension.
+
+        Verifies the dist-info directory, RECORD file, and
+        every file recorded by RECORD.
+        """
+
+        dist_info = (
+            self._paths.site_packages /
+            extension.dist_info
+        )
+
+        if not dist_info.exists():
+
+            raise ExtensionInstallationError(
+                f"Dist-info directory not found for "
+                f"'{extension.name}': {dist_info}",
+            )
+
+        if not dist_info.is_dir():
+
+            raise ExtensionInstallationError(
+                f"Dist-info path is not a directory for "
+                f"'{extension.name}': {dist_info}",
+            )
+
+        record = dist_info / "RECORD"
+
+        if not record.exists():
+
+            raise ExtensionInstallationError(
+                f"RECORD not found for '{extension.name}'.",
+            )
+
+        if not record.is_file():
+
+            raise ExtensionInstallationError(
+                f"RECORD path is not a file for "
+                f"'{extension.name}': {record}",
+            )
+
+        missing = [
+            path
+            for path in self._installed_files(
+                record,
+            )
+            if not path.exists()
+        ]
+
+        if missing:
+
+            files = "\n".join(
+                f"- {path}"
+                for path in missing
+            )
+
+            raise ExtensionInstallationError(
+                f"Extension '{extension.name}' is incomplete. "
+                f"Missing {len(missing)} installed file(s):\n\n"
+                f"{files}",
+            )
+
+    #
+    # Repair
+    #
+    def repair(
+        self,
+        extension: Extension,
+        wheel: Path,
+    ) -> Extension:
+        """
+        Repair an extension installation from its local wheel.
+        """
+
+        if not wheel.exists():
+
+            raise ExtensionInstallationError(
+                f"Wheel not found for '{extension.name}': {wheel}",
+            )
+
+        self.uninstall(
+            extension,
+        )
+
+        manifest = ExtensionManifest(
+            name=extension.name,
+            version=extension.version,
+            installer=extension.installer,
+        )
+
+        return self.install(
+            manifest,
+            wheel,
+        )
 
     # ------------------------------------------------------------------
     # Cleanup

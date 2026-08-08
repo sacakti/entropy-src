@@ -52,3 +52,16 @@ class LogEmitter:
 
     def critical(self, message: str) -> None:
         self.emit(LogLevel.CRITICAL, message)
+
+    def success(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Emit a successful application event.
+        """
+
+        self.emit(
+            LogLevel.SUCCESS,
+            message,
+        )

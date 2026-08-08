@@ -5,6 +5,7 @@ from lib.database.objects.schema_migrations import SchemaMigrationsTable
 from lib.database.objects.settings import SettingsTable
 from lib.database.objects.users import UsersTable
 from lib.database.objects.workflows import WorkflowsTable
+from lib.database.objects.extensiosn import ExtensionsTable
 
 __all__ = [
     "DatabaseObject",
@@ -15,4 +16,5 @@ __all__ = [
     "LicensesTable",
     "PluginRegistryTable",
     "DeploymentsTable",
+    "ExtensionsTable",
 ]

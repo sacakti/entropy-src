@@ -3,19 +3,21 @@ Extension manager.
 """
 
 from __future__ import annotations
+from pathlib import Path
 
 from core.context import EntropyContext
+
+from lib.database.repositories.extensions import ExtensionRepository
 from lib.extensions.downloader import ExtensionDownloader
+from lib.extensions.installer import OfflineInstaller
+from lib.extensions.validator import ExtensionValidator
+from lib.models.extensions import Extension, ExtensionManifest
 
 from .exceptions import (
     ExtensionAlreadyInstalledError,
     ExtensionNotFoundError,
     ExtensionWheelNotFoundError,
 )
-from lib.extensions.installer import OfflineInstaller
-from lib.extensions.metadata import ExtensionMetadata
-from lib.models.extensions import Extension, ExtensionManifest
-from lib.extensions.validator import ExtensionValidator
 
 
 class ExtensionManager:
@@ -32,13 +34,23 @@ class ExtensionManager:
 
         self._context = context
 
-        self._metadata = ExtensionMetadata(
-            context,
+        # ------------------------------------------------------------------
+        # Database
+        # ------------------------------------------------------------------
+
+        assert context.database_manager is not None
+
+        self._repository = ExtensionRepository(
+            context.database_manager.connection,
         )
+
+        # ------------------------------------------------------------------
+        # Services
+        # ------------------------------------------------------------------
 
         self._validator = ExtensionValidator(
             context,
-            self._metadata,
+            self._repository,
         )
 
         self._installer = OfflineInstaller(
@@ -48,6 +60,10 @@ class ExtensionManager:
         self._downloader = ExtensionDownloader(
             context,
         )
+
+        # ------------------------------------------------------------------
+        # Observability
+        # ------------------------------------------------------------------
 
         assert context.observability is not None
 
@@ -67,7 +83,7 @@ class ExtensionManager:
         Return True if an extension is installed.
         """
 
-        return self._validator.exists(
+        return self._repository.exists(
             name,
         )
 
@@ -78,7 +94,7 @@ class ExtensionManager:
         Return installed extensions.
         """
 
-        return self._metadata.list()
+        return self._repository.list()
 
     # ------------------------------------------------------------------
     # Installation
@@ -96,9 +112,10 @@ class ExtensionManager:
             f"Installing extension '{manifest.name}'.",
         )
 
-        if self._validator.exists(
+        if self._repository.exists(
             manifest.name,
         ):
+
             raise ExtensionAlreadyInstalledError(
                 manifest.name,
             )
@@ -108,6 +125,7 @@ class ExtensionManager:
         )
 
         if wheel is None:
+
             raise ExtensionWheelNotFoundError(
                 manifest.name,
             )
@@ -117,13 +135,13 @@ class ExtensionManager:
             wheel,
         )
 
-        self._metadata.register(
+        self._repository.create(
             extension,
         )
 
-        # self._events.log.info(
-        #     f"Extension '{extension.name}' installed.",
-        # )
+        self._events.log.success(
+            f"Extension '{extension.name}' installed.",
+        )
 
         return extension
 
@@ -139,7 +157,7 @@ class ExtensionManager:
         Uninstall an extension.
         """
 
-        if not self._validator.exists(
+        if not self._repository.exists(
             name,
         ):
 
@@ -147,7 +165,7 @@ class ExtensionManager:
                 name,
             )
 
-        extension = self._metadata.get(
+        extension = self._repository.get_by_name(
             name,
         )
 
@@ -155,13 +173,13 @@ class ExtensionManager:
             extension,
         )
 
-        self._metadata.unregister(
+        self._repository.delete(
             name,
         )
 
-        # self._events.log.info(
-        #     f"Extension '{name}' uninstalled.",
-        # )
+        self._events.log.success(
+            f"Extension '{name}' uninstalled.",
+        )
 
     # ------------------------------------------------------------------
     # Verification
@@ -175,8 +193,28 @@ class ExtensionManager:
         Verify an extension installation.
         """
 
-        self._validator.verify(
+        self._events.log.info(
+            f"Verifying extension '{name}'.",
+        )
+
+        if not self._repository.exists(
             name,
+        ):
+
+            raise ExtensionNotFoundError(
+                name,
+            )
+
+        extension = self._repository.get_by_name(
+            name,
+        )
+
+        self._installer.verify(
+            extension,
+        )
+
+        self._events.log.success(
+            f"Extension '{name}' verified successfully.",
         )
 
     def repair(
@@ -187,7 +225,58 @@ class ExtensionManager:
         Repair an extension installation.
         """
 
-        raise NotImplementedError()
+        self._events.log.info(
+            f"Repairing extension '{name}'.",
+        )
+
+        if not self._repository.exists(
+            name,
+        ):
+
+            raise ExtensionNotFoundError(
+                name,
+            )
+
+        extension = self._repository.get_by_name(
+            name,
+        )
+
+        wheel = (
+            self._context.paths.extensions.wheels /
+            extension.wheel
+        )
+
+        if not wheel.exists():
+
+            raise ExtensionWheelNotFoundError(
+                name,
+            )
+
+        repaired = self._installer.repair(
+            extension,
+            wheel,
+        )
+
+        self._repository.update(
+            repaired,
+        )
+
+        self._installer.verify(
+            repaired,
+        )
+
+        self._events.log.success(
+            f"Extension '{name}' repaired successfully.",
+        )
+
+    def wheels(
+        self,
+    ) -> list[Path]:
+        """
+        Return locally available extension wheels.
+        """
+
+        return self._validator.wheels()
 
     # ------------------------------------------------------------------
     # Download
@@ -207,4 +296,8 @@ class ExtensionManager:
 
         self._downloader.download(
             manifest,
+        )
+
+        self._events.log.success(
+            f"Extension '{manifest.name}' downloaded.",
         )

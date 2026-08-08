@@ -183,3 +183,6 @@ artifacts/
 # Temporary
 tmp/*
 !tmp/.gitkeep
+
+# Archives
+*.zip

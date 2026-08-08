@@ -49,8 +49,7 @@ class WheelInspector:
         )
         installed_at=datetime.now(
             timezone.utc,
-        ).isoformat()
-
+        )
         return Extension(
             name=name,
             version=str(version),
