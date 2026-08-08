@@ -28,18 +28,31 @@ class SessionManager:
         assert context.configuration is not None
         assert context.executor is not None
         assert context.paths is not None
+        assert context.observability is not None
 
-        self._authentication: AuthenticationService = context.authentication
+        self._authentication: AuthenticationService = (
+            context.authentication
+        )
 
         self._executor: LinuxExecutor = context.executor
 
-        self._session_file = context.paths.session.current
+        self._session_file = (
+            context.paths.session.current
+        )
 
-        self._session_directory = context.paths.session.directory
+        self._session_directory = (
+            context.paths.session.directory
+        )
 
-        self._session_timeout = context.configuration.get(
-            "auth.session.timeout",
-            8,
+        self._session_timeout = (
+            context.configuration.get(
+                "auth.session.timeout",
+                8,
+            )
+        )
+
+        self._events = context.observability.emitter(
+            "auth",
         )
 
         self._now = datetime.now
@@ -54,16 +67,20 @@ class SessionManager:
         password: str,
     ) -> Session:
 
-        user = self._authentication.authenticate(
-            username,
-            password,
-        )
-
         existing = self.current()
 
         if existing is not None:
 
-            self._delete()
+            self._events.log.info(
+                f"Already authenticated as '{existing.username}'.",
+            )
+
+            return existing
+
+        user = self._authentication.authenticate(
+            username,
+            password,
+        )
 
         now = self._now()
 
@@ -84,6 +101,10 @@ class SessionManager:
             session,
         )
 
+        self._events.log.success(
+            f"User '{session.username}' authenticated successfully.",
+        )
+
         return session
 
     # ------------------------------------------------------------------
@@ -97,9 +118,18 @@ class SessionManager:
         session = self.current()
 
         if session is None:
+
+            self._events.log.warning(
+                "No active session.",
+            )
+
             return
 
         self._delete()
+
+        self._events.log.success(
+            f"User '{session.username}' logged out successfully.",
+        )
 
     # ------------------------------------------------------------------
     # Current
@@ -117,6 +147,10 @@ class SessionManager:
         if self._now() >= session.expires_at:
 
             self._delete()
+
+            self._events.log.warning(
+                f"Session for '{session.username}' expired.",
+            )
 
             return None
 

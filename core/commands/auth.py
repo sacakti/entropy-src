@@ -30,18 +30,10 @@ class AuthCommand(BaseCommand):
         )
 
         assert context.session_manager is not None
-
-        self._session = context.session_manager
-
         assert context.ui is not None
 
+        self._session = context.session_manager
         self._ui = context.ui
-
-        assert context.observability is not None
-
-        self._events = context.observability.emitter(
-            "auth",
-        )
 
     # ------------------------------------------------------------------
     # Configure
@@ -87,7 +79,9 @@ class AuthCommand(BaseCommand):
             "status": self._status,
         }[
             args.action
-        ](args)
+        ](
+            args,
+        )
 
     # ------------------------------------------------------------------
     # Login
@@ -102,7 +96,9 @@ class AuthCommand(BaseCommand):
 
         if session is not None:
 
-            self._events.log.info(f"Already authenticated as '{session.username}'.")
+            self._ui.info(
+                f"Already authenticated as '{session.username}'.",
+            )
 
             return
 
@@ -115,12 +111,10 @@ class AuthCommand(BaseCommand):
             password=True,
         )
 
-        session = self._session.login(
+        self._session.login(
             username,
             password,
         )
-
-        self._events.log.info(f"Logged in as {session.username}")
 
     # ------------------------------------------------------------------
     # Logout
@@ -131,15 +125,7 @@ class AuthCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        if not self._session.authenticated():
-
-            self._events.log.warning("No active session.")
-
-            return
-
         self._session.logout()
-
-        self._events.log.info(f"Logged out successfully.")
 
     # ------------------------------------------------------------------
     # Status
@@ -154,7 +140,9 @@ class AuthCommand(BaseCommand):
 
         if session is None:
 
-            self._events.log.warning("Not authenticated.")
+            self._ui.warning(
+                "Not authenticated.",
+            )
 
             return
 

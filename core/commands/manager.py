@@ -249,13 +249,13 @@ class CommandManager:
                 name,
             )
 
-        if command.metadata.authentication_required:
-
-            assert self._context.session_manager is not None
-
-            self._context.session_manager.require()
-
         try:
+
+            if command.metadata.authentication_required:
+
+                assert self._context.session_manager is not None
+
+                self._context.session_manager.require()
 
             command.execute(
                 args,
