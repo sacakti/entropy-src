@@ -12,7 +12,10 @@ from lib.database.objects import (
     SettingsTable,
     UsersTable,
     WorkflowsTable,
-    ExtensionsTable
+    ExtensionsTable,
+    WorkflowEventsTable,
+    WorkflowJobsTable,
+    Indexes
 )
 
 
@@ -26,11 +29,13 @@ class SchemaInstaller:
         self._objects = (
             SchemaMigrationsTable(),
             SettingsTable(),
-            # LicensesTable(),
             PluginRegistryTable(),
             UsersTable(),
             WorkflowsTable(),
             ExtensionsTable(),
+            WorkflowEventsTable(),
+            WorkflowJobsTable(),
+            Indexes(),
         )
 
     def install(

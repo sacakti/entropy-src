@@ -11,11 +11,9 @@ from pathlib import Path
 from core.commands.manager import CommandManager
 from core.configuration import ConfigurationManager
 from core.context import EntropyContext
-# from core.diagnostics.manager import DiagnosticsManager
 from core.environment import Environment
 from core.generators.manager import GeneratorManager
 from core.observability import ObservabilityManager
-# from core.diagnostics.console import ConsoleSink as DiagnosticsConsoleSink
 from core.observability.console import ConsoleSink as ObservabilityConsoleSink, LogConsoleSink
 from core.observability.console.renderer import ConsoleRenderer
 from core.observability.logging import LoggingManager, LoggingSink, LogFileSink
@@ -27,6 +25,7 @@ from core.ui import UIManager
 from core.ui.prompt import PromptManager
 from core.ui.rich_renderer import RichRenderer
 from core.version import APP_NAME, VERSION
+from core.models.logger import LogLevel
 from lib.auth.manager import SessionManager
 from lib.auth.service import AuthenticationService
 from lib.database.manager import DatabaseManager
@@ -35,12 +34,12 @@ from lib.executor import LinuxExecutor
 from lib.extensions.manager import ExtensionManager
 from lib.migrations.manager import MigrationManager
 from lib.plugins.manager import PluginManager
-from lib.plugins.runner import PluginRunner
+# from lib.plugins.runner import PluginRunner
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
 from lib.workflow.manager import WorkflowManager
-from core.models.logger import LogLevel
 from lib.workflow.runner import WorkflowRunner
+from lib.workflow.jobs.manager import WorkflowJobManager
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -231,6 +230,10 @@ class ContextFactory:
             self._context,
         )
 
+        self._context.workflow_job_manager = WorkflowJobManager(
+            self._context,
+        )
+
         assert self._context.plugin_manager is not None
 
         self._context.workflow_runner = WorkflowRunner(
@@ -241,7 +244,6 @@ class ContextFactory:
         self._context.workflow_manager = WorkflowManager(
             self._context,
         )
-
 
     # ------------------------------------------------------------------
     # Services

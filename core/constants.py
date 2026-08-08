@@ -39,49 +39,49 @@ TAR_MODES: dict[str, TarMode] = {
     "xztar": "w:xz",
 }
 
-# ------------------------------------------------------------------
-# Plugin constants
-# ------------------------------------------------------------------
+# # ------------------------------------------------------------------
+# # Plugin constants
+# # ------------------------------------------------------------------
 
-SEARCH_PATHS = (
-    "plugins.custom",
-    "plugins.builtin",
-)
+# SEARCH_PATHS = (
+#     "plugins.custom",
+#     "plugins.builtin",
+# )
 
-# ------------------------------------------------------------------
-# Logger contants
-# ------------------------------------------------------------------
+# # ------------------------------------------------------------------
+# # Logger contants
+# # ------------------------------------------------------------------
 
-CATEGORIES = (
-    "system",
-    "user",
-    "auth",
-    "cli",
-    "workflow",
-    "database",
-    "shell",
-    "oc",
-    "plugin",
-    "process",
-    "report",
-    "git",
-)
+# CATEGORIES = (
+#     "system",
+#     "user",
+#     "auth",
+#     "cli",
+#     "workflow",
+#     "database",
+#     "shell",
+#     "oc",
+#     "plugin",
+#     "process",
+#     "report",
+#     "git",
+# )
 
-LEVELS = {
-    "DEBUG": 10,
-    "INFO": 20,
-    "SUCCESS": 20,
-    "WARNING": 30,
-    "ERROR": 40,
-    "EXCEPTION": 40,
-    "CRITICAL": 50,
-}
+# LEVELS = {
+#     "DEBUG": 10,
+#     "INFO": 20,
+#     "SUCCESS": 20,
+#     "WARNING": 30,
+#     "ERROR": 40,
+#     "EXCEPTION": 40,
+#     "CRITICAL": 50,
+# }
 
-CONSOLE_LEVELS = {
-    "NORMAL": 0,
-    "VERBOSE": 1,
-    "DEBUG": 2,
-}
+# CONSOLE_LEVELS = {
+#     "NORMAL": 0,
+#     "VERBOSE": 1,
+#     "DEBUG": 2,
+# }
 
 
 # EXTENSION_METADATA_FILE = "extensions.json"

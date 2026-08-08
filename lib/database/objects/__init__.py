@@ -6,6 +6,9 @@ from lib.database.objects.settings import SettingsTable
 from lib.database.objects.users import UsersTable
 from lib.database.objects.workflows import WorkflowsTable
 from lib.database.objects.extensiosn import ExtensionsTable
+from lib.database.objects.events import WorkflowEventsTable
+from lib.database.objects.jobs import WorkflowJobsTable
+from lib.database.objects.index import Indexes
 
 __all__ = [
     "DatabaseObject",
@@ -17,4 +20,7 @@ __all__ = [
     "PluginRegistryTable",
     "DeploymentsTable",
     "ExtensionsTable",
+    "WorkflowEventsTable",
+    "WorkflowJobsTable",
+    "Indexes"
 ]

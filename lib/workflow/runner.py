@@ -5,6 +5,7 @@ Workflow runner.
 from __future__ import annotations
 
 from datetime import datetime
+import os
 from typing import TYPE_CHECKING
 
 from core.runtime.context import ExecutionContext
@@ -13,10 +14,12 @@ from lib.models.workflow import (
     Workflow,
     WorkflowStep,
 )
+from lib.workflow.exceptions import WorkflowCancelledError
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
     from lib.plugins.runner import PluginRunner
+    from lib.workflow.jobs.manager import WorkflowJobManager
 
 
 class WorkflowRunner:
@@ -31,7 +34,14 @@ class WorkflowRunner:
     ) -> None:
 
         self._context = context
+
         self._plugins = plugin_runner
+
+        assert context.workflow_job_manager is not None
+
+        self._jobs: WorkflowJobManager = (
+            context.workflow_job_manager
+        )
 
     # ------------------------------------------------------------------
     # Execute
@@ -77,8 +87,31 @@ class WorkflowRunner:
             workflow,
         )
 
+        execution = runtime.execution
+
         #
-        # Enabled steps
+        # Create persistent job.
+        #
+
+        job = self._jobs.create(
+            execution_id=execution.id,
+            workflow=workflow.name,
+            workspace=workspace,
+            pid=os.getpid(),
+        )
+
+        #
+        # Mark execution as running.
+        #
+
+        execution.start()
+
+        self._jobs.start(
+            job.id,
+        )
+
+        #
+        # Enabled steps.
         #
 
         enabled_steps = [
@@ -92,41 +125,84 @@ class WorkflowRunner:
         )
 
         #
-        # Execute workflow
+        # Execute workflow.
         #
 
-        with runtime.workflow(
-            workflow.name,
-        ):
+        try:
 
-            for index, step in enumerate(
-                enabled_steps,
-                start=1,
+            with runtime.workflow(
+                workflow.name,
             ):
 
-                with runtime.step(
-                    step.name,
-                    index=index,
-                    total=total_steps,
+                for index, step in enumerate(
+                    enabled_steps,
+                    start=1,
                 ):
 
-                    self._initialize(
-                        runtime,
-                        workflow,
-                        step,
-                    )
+                    with runtime.step(
+                        step.name,
+                        index=index,
+                        total=total_steps,
+                    ):
 
-                    self._execute(
-                        runtime,
-                        workflow,
-                        step,
-                    )
+                        self._initialize(
+                            runtime,
+                            workflow,
+                            step,
+                        )
 
-                    self._finalize(
-                        runtime,
-                        workflow,
-                        step,
-                    )
+                        self._execute(
+                            runtime,
+                            workflow,
+                            step,
+                        )
+
+                        self._finalize(
+                            runtime,
+                            workflow,
+                            step,
+                        )
+
+            #
+            # Successful completion.
+            #
+
+            execution.complete()
+
+            self._jobs.complete(
+                job.id,
+            )
+
+        except KeyboardInterrupt as exc:
+
+            #
+            # User requested cancellation.
+            #
+
+            execution.cancel()
+
+            self._jobs.cancel(
+                job.id,
+                exit_code=130,
+            )
+
+            raise WorkflowCancelledError(
+                "User cancelled operation."
+            ) from exc
+
+        except Exception:
+
+            #
+            # Workflow execution failed.
+            #
+
+            execution.fail()
+
+            self._jobs.fail(
+                job.id,
+            )
+
+            raise
 
     # ------------------------------------------------------------------
     # Initialize

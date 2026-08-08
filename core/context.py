@@ -6,9 +6,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lib.migrations.manager import MigrationManager
-from lib.plugins.runner import PluginRunner
-from lib.workflow.runner import WorkflowRunner
 
 if TYPE_CHECKING:
     from core.commands.manager import CommandManager
@@ -32,6 +29,10 @@ if TYPE_CHECKING:
     from lib.workflow.manager import WorkflowManager
     from lib.extensions.manager import ExtensionManager
     from lib.plugins.manager import PluginManager
+    from lib.migrations.manager import MigrationManager
+    # from lib.plugins.runner import PluginRunner
+    from lib.workflow.jobs.manager import WorkflowJobManager
+    from lib.workflow.runner import WorkflowRunner
 
 
 class EntropyContext:
@@ -86,6 +87,8 @@ class EntropyContext:
         self.execution_manager: ExecutionManager | None = None
 
         self.workflow_manager: WorkflowManager | None = None
+
+        self.workflow_job_manager: WorkflowJobManager | None = None
 
         # ---------------------------------------------------------
         # Application Managers
