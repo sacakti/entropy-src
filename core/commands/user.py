@@ -10,8 +10,13 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
-from lib.models.users import User
-from lib.users.exceptions import CurrentPasswordMismatchError, SystemUserError, UnauthorizedActionError, UserAlreadyActiveError, UserAlreadyExistsError, UserAlreadyInactiveError, WeakPasswordError, PasswordReuseError
+from lib.users.exceptions import (
+    UnauthorizedActionError,
+    UserAlreadyActiveError,
+    UserAlreadyInactiveError,
+    UserAlreadyExistsError,
+    SystemUserError,
+)
 
 
 class UserCommand(BaseCommand):
@@ -36,19 +41,17 @@ class UserCommand(BaseCommand):
         assert context.user_manager is not None
         assert context.ui is not None
         assert context.session_manager is not None
-
-        self._session = context.session_manager
+        assert context.observability is not None
 
         self._users = context.user_manager
 
-        self._ui = context.ui
+        self._session = context.session_manager
 
-        assert context.observability is not None
+        self._ui = context.ui
 
         self._events = context.observability.emitter(
             "user",
         )
-
 
     # ------------------------------------------------------------------
     # Configure
@@ -129,6 +132,7 @@ class UserCommand(BaseCommand):
             nargs="?",
             help="Target user.",
         )
+
         #
         # enable
         #
@@ -155,19 +159,6 @@ class UserCommand(BaseCommand):
             "username",
         )
 
-        #
-        # unlock yet to implement
-        #
-
-        # unlock = subparsers.add_parser(
-        #     "unlock",
-        #     help="Unlock a user.",
-        # )
-
-        # unlock.add_argument(
-        #     "username",
-        # )
-
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -184,7 +175,11 @@ class UserCommand(BaseCommand):
             "password": self._password,
             "enable": self._enable,
             "disable": self._disable,
-        }[args.action](args)
+        }[
+            args.action
+        ](
+            args,
+        )
 
     # ------------------------------------------------------------------
     # Create
@@ -195,24 +190,88 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        if self._users.exists(args.username):
-            raise UserAlreadyExistsError(args.username)
-
-        self._users.create(
-            username=args.username,
-            password=self._read_password(),
-            full_name=self._optional(
-                "Full Name",
-            ),
-            email=self._optional(
-                "Email",
-            ),
+        self._ui.rule(
+            f"Create User : {args.username}",
         )
 
         self._events.log.info(
-            f"User '{args.username}' created.",
+            f"Creating user '{args.username}'.",
         )
 
+        self._ui.info(
+            "Validating username...",
+        )
+
+        #
+        # Let UserManager own the actual validation.
+        #
+
+        self._ui.info(
+            "Checking user availability...",
+        )
+
+        if self._users.exists(
+            args.username,
+        ):
+
+            raise UserAlreadyExistsError(
+                args.username,
+            )
+
+        self._ui.info(
+            "Collecting user information...",
+        )
+
+        full_name = self._optional(
+            "Full Name",
+        )
+
+        email = self._optional(
+            "Email",
+        )
+
+        password = self._read_password()
+
+        self._ui.info(
+            "Creating user...",
+        )
+
+        user = self._users.create(
+            username=args.username,
+            password=password,
+            full_name=full_name,
+            email=email,
+        )
+
+        self._events.log.success(
+            f"User '{user.username}' created successfully.",
+        )
+
+        self._ui.table(
+            title="User",
+            columns=[
+                "Property",
+                "Value",
+            ],
+            rows=[
+                [
+                    "Username",
+                    user.username,
+                ],
+                [
+                    "Active",
+                    "Yes" if user.is_active else "No",
+                ],
+                [
+                    "Full Name",
+                    user.full_name or "",
+                ],
+                [
+                    "Email",
+                    user.email or "",
+                ],
+            ],
+        )
 
     # ------------------------------------------------------------------
     # Delete
@@ -223,26 +282,51 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._ui.rule(
+            f"Delete User : {args.username}",
+        )
+
+        self._events.log.info(
+            f"Preparing to delete user '{args.username}'.",
+        )
+
+        self._ui.info(
+            "Validating user...",
+        )
+
         user = self._users.get(
             args.username,
         )
 
         if user.system:
+
             raise SystemUserError()
 
         if not self._ui.confirm(
             f"Delete '{user.username}'?",
         ):
+
+            self._events.log.warning(
+                f"Deletion of user '{user.username}' cancelled.",
+            )
+
+            self._ui.warning(
+                "User deletion cancelled.",
+            )
+
             return
+
+        self._ui.info(
+            "Removing user...",
+        )
 
         self._users.delete(
             user,
         )
 
-        self._events.log.info(
-            f"User '{user.username}' deleted.",
+        self._events.log.success(
+            f"User '{user.username}' deleted successfully.",
         )
-
 
     # ------------------------------------------------------------------
     # List
@@ -254,6 +338,14 @@ class UserCommand(BaseCommand):
     ) -> None:
 
         users = self._users.list()
+
+        if not users:
+
+            self._ui.info(
+                "No users found.",
+            )
+
+            return
 
         self._ui.table(
             title="Users",
@@ -295,7 +387,6 @@ class UserCommand(BaseCommand):
             args,
         )
 
-
     # ------------------------------------------------------------------
     # Change Password
     # ------------------------------------------------------------------
@@ -305,14 +396,25 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        assert self._session is not None
-
         session = self._session.require()
 
         #
         # Change own password.
         #
+
         if args.username is None:
+
+            self._ui.rule(
+                "Change Password",
+            )
+
+            self._events.log.info(
+                f"Changing password for '{session.username}'.",
+            )
+
+            self._ui.info(
+                "Authenticating current password...",
+            )
 
             user = self._users.get(
                 session.username,
@@ -325,13 +427,17 @@ class UserCommand(BaseCommand):
 
             new_password = self._read_password()
 
+            self._ui.info(
+                "Updating password...",
+            )
+
             self._users.change_password(
                 user=user,
                 current_password=current_password,
                 new_password=new_password,
             )
 
-            self._events.log.info(
+            self._events.log.success(
                 "Password changed successfully.",
             )
 
@@ -340,28 +446,37 @@ class UserCommand(BaseCommand):
         #
         # Change another user's password.
         #
-        # TODO:
-        # Validate administrator permission.
-        #
+
+        self._ui.rule(
+            f"Change Password : {args.username}",
+        )
+
+        self._events.log.info(
+            f"Changing password for '{args.username}'.",
+        )
 
         user = self._users.get(
             args.username,
         )
 
         if user.system:
+
             raise UnauthorizedActionError()
 
         new_password = self._read_password()
+
+        self._ui.info(
+            "Updating password...",
+        )
 
         self._users.admin_change_password(
             user=user,
             password=new_password,
         )
 
-        self._events.log.info(
-            f"Password changed for '{user.username}'.",
+        self._events.log.success(
+            f"Password changed successfully for '{user.username}'.",
         )
-
 
     # ------------------------------------------------------------------
     # Reset Password
@@ -374,36 +489,52 @@ class UserCommand(BaseCommand):
 
         if args.username is None:
 
-            raise ValueError(
-                "Username is required.",
-            )
+            self._ui.warning("Username is required.")
 
-        #
-        # TODO:
-        # Validate administrator/reset-password permission.
-        #
+            return
+
+        self._ui.rule(
+            f"Reset Password : {args.username}",
+        )
+
+        self._events.log.info(
+            f"Resetting password for '{args.username}'.",
+        )
+
+        self._ui.info(
+            "Validating user...",
+        )
 
         user = self._users.get(
             args.username,
         )
 
         if user.system:
+
             raise UnauthorizedActionError()
+
+        self._ui.info(
+            "Generating temporary password...",
+        )
 
         _, password = self._users.reset_password(
             user,
         )
 
-        self._ui.print()
-        self._ui.print("Temporary Password")
-        self._ui.print("------------------")
-        self._ui.print(password)
-        self._ui.print()
+        #
+        # Never log the generated password.
+        #
 
-        self._events.log.info(
-            f"Password reset for '{user.username}'.",
+        self._events.log.success(
+            f"Password reset successfully for '{user.username}'.",
         )
 
+        self._ui.panel(
+            title="Temporary Password",
+            lines=[
+                password,
+            ],
+        )
 
     # ------------------------------------------------------------------
     # Enable
@@ -414,25 +545,42 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._ui.rule(
+            f"Enable User : {args.username}",
+        )
+
+        self._events.log.info(
+            f"Enabling user '{args.username}'.",
+        )
+
+        self._ui.info(
+            "Validating user...",
+        )
+
         user = self._users.get(
             args.username,
         )
 
         if user.system:
+
             raise SystemUserError()
 
         if user.is_active:
+
             raise UserAlreadyActiveError()
+
+        self._ui.info(
+            "Enabling account...",
+        )
 
         self._users.set_active(
             args.username,
             True,
         )
 
-        self._events.log.info(
-            f"User '{args.username}' enabled.",
+        self._events.log.success(
+            f"User '{args.username}' enabled successfully.",
         )
-
 
     # ------------------------------------------------------------------
     # Disable
@@ -443,43 +591,42 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._ui.rule(
+            f"Disable User : {args.username}",
+        )
+
+        self._events.log.info(
+            f"Disabling user '{args.username}'.",
+        )
+
+        self._ui.info(
+            "Validating user...",
+        )
+
         user = self._users.get(
             args.username,
         )
 
         if user.system:
+
             raise SystemUserError()
 
         if not user.is_active:
+
             raise UserAlreadyInactiveError()
+
+        self._ui.info(
+            "Disabling account...",
+        )
 
         self._users.set_active(
             args.username,
             False,
         )
 
-        self._events.log.info(
-            f"User '{args.username}' disabled.",
+        self._events.log.success(
+            f"User '{args.username}' disabled successfully.",
         )
-
-
-    # ------------------------------------------------------------------
-    # Unlock
-    # ------------------------------------------------------------------
-
-    def _unlock(
-        self,
-        args: Namespace,
-    ) -> None:
-
-        self._users.unlock(
-            args.username,
-        )
-
-        self._events.log.info(
-            f"User '{args.username}' unlocked.",
-        )
-
 
     # ------------------------------------------------------------------
     # Helpers
@@ -495,7 +642,6 @@ class UserCommand(BaseCommand):
         ).strip()
 
         return value or None
-
 
     def _read_password(
         self,
