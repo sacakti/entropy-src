@@ -154,3 +154,55 @@ class RichRenderer(Renderer):
         """
 
         return self._console
+
+
+    def info(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display an informational message.
+        """
+
+        self.print(
+            f"[cyan]ℹ[/] {message}",
+        )
+
+
+    def success(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display a success message.
+        """
+
+        self.print(
+            f"[green]✔[/] {message}",
+        )
+
+
+    def warning(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display a warning message.
+        """
+
+        self.print(
+            f"[yellow]⚠[/] {message}",
+        )
+
+
+    def error(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display an error message.
+        """
+
+        self.print(
+            f"[red]✖[/] {message}",
+        )

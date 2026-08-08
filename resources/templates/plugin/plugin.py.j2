@@ -1,5 +1,5 @@
 """
-{{ name }} plugin.
+{{ description or name + " plugin." }}
 """
 
 from __future__ import annotations
@@ -11,15 +11,62 @@ class {{ class_name }}(
     BasePlugin,
 ):
     """
-    {{ name }} plugin.
+    {{ description or "Plugin implementation." }}
     """
 
     def execute(
         self,
-        **arguments,
     ) -> None:
         """
         Execute the plugin.
         """
 
-        raise NotImplementedError()
+        self.message.info(
+            "Starting plugin execution."
+        )
+
+        with self.activity(
+            "{{ name }}"
+        ):
+
+            self._execute()
+
+        self.message.success(
+            "Plugin completed successfully."
+        )
+
+    # ------------------------------------------------------------------
+    # Implementation
+    # ------------------------------------------------------------------
+
+    def _execute(
+        self,
+    ) -> None:
+        """
+        Plugin implementation.
+
+        Examples
+
+            self.arguments["name"]
+
+            self.variables["environment"]
+
+            self.outputs["result"] = value
+
+            self.artifacts["report"] = report
+
+            self.filesystem.write_text(...)
+
+            result = self.shell.run([...])
+
+            self.ui.panel(...)
+
+            self.ui.table(...)
+        """
+
+        #
+        # TODO:
+        # Implement your plugin here.
+        #
+
+        pass

@@ -102,7 +102,7 @@ class AuthCommand(BaseCommand):
 
         if session is not None:
 
-            self._events.info(f"Already authenticated as '{session.username}'.")
+            self._events.log.info(f"Already authenticated as '{session.username}'.")
 
             return
 
@@ -120,7 +120,7 @@ class AuthCommand(BaseCommand):
             password,
         )
 
-        self._events.info(f"Logged in as {session.username}")
+        self._events.log.info(f"Logged in as {session.username}")
 
     # ------------------------------------------------------------------
     # Logout
@@ -133,13 +133,13 @@ class AuthCommand(BaseCommand):
 
         if not self._session.authenticated():
 
-            self._events.warning("No active session.")
+            self._events.log.warning("No active session.")
 
             return
 
         self._session.logout()
 
-        self._events.info(f"Logged out successfully.")
+        self._events.log.info(f"Logged out successfully.")
 
     # ------------------------------------------------------------------
     # Status
@@ -154,7 +154,7 @@ class AuthCommand(BaseCommand):
 
         if session is None:
 
-            self._events.warning("Not authenticated.")
+            self._events.log.warning("Not authenticated.")
 
             return
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.context import EntropyContext
+from core.exceptions import EntropyException
 from lib.database.repositories.plugin_registry import PluginRepository
 from lib.extensions.manager import ExtensionManager
 from lib.migrations.manager import MigrationManager
@@ -236,9 +237,12 @@ class PluginInstaller:
 
             return
 
-        self._migrations.run(
-            migrations,
-        )
+        try:
+            self._migrations.run(
+                migrations,
+            )
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Registration

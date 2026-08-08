@@ -17,7 +17,7 @@ class RunCommand(BaseCommand):
 
     metadata = CommandMetadata(
         name="run",
-        description="Execute a workflow.",
+        description="Run a plugin as a standalone application",
     )
 
     # ------------------------------------------------------------------
@@ -30,10 +30,10 @@ class RunCommand(BaseCommand):
     ) -> None:
 
         parser.add_argument(
-            "workflow",
+            "plugin",
             nargs="?",
             default="default",
-            help="Workflow name or workflow definition.",
+            help="Plugin name",
         )
 
     # ------------------------------------------------------------------
@@ -45,10 +45,4 @@ class RunCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        assert self.context.workflow_manager_v1 is not None
-
-        self.context.workflow_manager_v1.load(
-            Path(args.workflow),
-        )
-
-        self.context.workflow_manager_v1.execute()
+        pass

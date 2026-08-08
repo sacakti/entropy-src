@@ -178,7 +178,7 @@ class PluginCommand(BaseCommand):
             reinstall=args.reinstall,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Plugin '{plugin.qualified_name}' installed.",
         )
 
@@ -195,7 +195,7 @@ class PluginCommand(BaseCommand):
             args.plugin,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Plugin '{args.plugin}' uninstalled.",
         )
 
@@ -248,6 +248,6 @@ class PluginCommand(BaseCommand):
             ),
         )
 
-        self._events.info(
+        self._events.log.info(
             "Plugin manifest verified.",
         )

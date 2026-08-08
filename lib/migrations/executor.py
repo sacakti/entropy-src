@@ -29,7 +29,7 @@ class MigrationExecutor:
 
         self._history = history
 
-        self._event = emitter
+        self._events = emitter
 
     # ------------------------------------------------------------------
     # Execute
@@ -124,7 +124,7 @@ class MigrationExecutor:
 
         if self._event is not None:
 
-            self._event.info(
+            self._events.log.info(
                 message,
             )
 
@@ -136,6 +136,6 @@ class MigrationExecutor:
 
         if self._event is not None:
 
-            self._event.error(
+            self._events.log.error(
                 message,
             )

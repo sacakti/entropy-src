@@ -15,7 +15,7 @@ class MakeCommand(BaseCommand):
     """
 
     metadata = CommandMetadata(
-        name="make",
+        name="generate",
         description="Generate framework artifacts.",
     )
 

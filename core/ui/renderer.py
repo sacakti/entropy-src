@@ -102,3 +102,39 @@ class Renderer(ABC):
         """
         Create a progress indicator.
         """
+
+    @abstractmethod
+    def info(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display an informational message.
+        """
+
+    @abstractmethod
+    def success(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display a success message.
+        """
+
+    @abstractmethod
+    def warning(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display a warning message.
+        """
+
+    @abstractmethod
+    def error(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display an error message.
+        """

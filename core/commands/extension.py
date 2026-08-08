@@ -168,7 +168,7 @@ class ExtensionCommand(BaseCommand):
             manifest,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Extension '{manifest.name}' installed.",
         )
 
@@ -185,7 +185,7 @@ class ExtensionCommand(BaseCommand):
             args.name,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Extension '{args.name}' uninstalled.",
         )
     # ------------------------------------------------------------------
@@ -249,7 +249,7 @@ class ExtensionCommand(BaseCommand):
             args.name,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Extension '{args.name}' verified.",
         )
 
@@ -271,6 +271,6 @@ class ExtensionCommand(BaseCommand):
             manifest,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Extension '{manifest.name}' downloaded.",
         )

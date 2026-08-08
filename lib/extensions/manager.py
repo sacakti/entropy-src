@@ -92,7 +92,7 @@ class ExtensionManager:
         Install an extension.
         """
 
-        self._events.info(
+        self._events.log.info(
             f"Installing extension '{manifest.name}'.",
         )
 
@@ -121,7 +121,7 @@ class ExtensionManager:
             extension,
         )
 
-        # self._events.info(
+        # self._events.log.info(
         #     f"Extension '{extension.name}' installed.",
         # )
 
@@ -159,7 +159,7 @@ class ExtensionManager:
             name,
         )
 
-        # self._events.info(
+        # self._events.log.info(
         #     f"Extension '{name}' uninstalled.",
         # )
 
@@ -201,7 +201,7 @@ class ExtensionManager:
         Download an extension wheel.
         """
 
-        self._events.info(
+        self._events.log.info(
             f"Downloading extension '{manifest.name}'.",
         )
 

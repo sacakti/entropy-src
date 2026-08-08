@@ -41,7 +41,6 @@ from lib.users.password import PasswordService
 from lib.workflow.manager import WorkflowManager
 from core.models.logger import LogLevel
 from lib.workflow.runner import WorkflowRunner
-# from lib.workflow_v1.manager import WorkflowManagerV1
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -227,10 +226,6 @@ class ContextFactory:
         self._context.plugin_manager = PluginManager(
             self._context,
         )
-
-        # self._context.workflow_manager_v1= WorkflowManagerV1(
-        #     self._context
-        # )
 
         self._context.execution_manager = ExecutionManager(
             self._context,

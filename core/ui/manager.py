@@ -30,14 +30,16 @@ class UIManager:
 
     def print(
         self,
-        message: str = "",
+        *args,
+        **kwargs,
     ) -> None:
         """
-        Display text.
+        Display arbitrary renderable content.
         """
 
         self._renderer.print(
-            message,
+            *args,
+            **kwargs,
         )
 
     def rule(
@@ -142,4 +144,43 @@ class UIManager:
         return self._renderer.progress(
             description,
             total,
+        )
+
+    def info(
+        self,
+        message: str,
+    ) -> None:
+
+        self._renderer.info(
+            message,
+        )
+
+
+    def success(
+        self,
+        message: str,
+    ) -> None:
+
+        self._renderer.success(
+            message,
+        )
+
+
+    def warning(
+        self,
+        message: str,
+    ) -> None:
+
+        self._renderer.warning(
+            message,
+        )
+
+
+    def error(
+        self,
+        message: str,
+    ) -> None:
+
+        self._renderer.error(
+            message,
         )

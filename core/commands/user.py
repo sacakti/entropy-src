@@ -209,7 +209,7 @@ class UserCommand(BaseCommand):
             ),
         )
 
-        self._events.info(
+        self._events.log.info(
             f"User '{args.username}' created.",
         )
 
@@ -239,7 +239,7 @@ class UserCommand(BaseCommand):
             user,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"User '{user.username}' deleted.",
         )
 
@@ -331,7 +331,7 @@ class UserCommand(BaseCommand):
                 new_password=new_password,
             )
 
-            self._events.info(
+            self._events.log.info(
                 "Password changed successfully.",
             )
 
@@ -358,7 +358,7 @@ class UserCommand(BaseCommand):
             password=new_password,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"Password changed for '{user.username}'.",
         )
 
@@ -400,7 +400,7 @@ class UserCommand(BaseCommand):
         self._ui.print(password)
         self._ui.print()
 
-        self._events.info(
+        self._events.log.info(
             f"Password reset for '{user.username}'.",
         )
 
@@ -429,7 +429,7 @@ class UserCommand(BaseCommand):
             True,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"User '{args.username}' enabled.",
         )
 
@@ -458,7 +458,7 @@ class UserCommand(BaseCommand):
             False,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"User '{args.username}' disabled.",
         )
 
@@ -476,7 +476,7 @@ class UserCommand(BaseCommand):
             args.username,
         )
 
-        self._events.info(
+        self._events.log.info(
             f"User '{args.username}' unlocked.",
         )
 
@@ -517,6 +517,6 @@ class UserCommand(BaseCommand):
 
                 return password
 
-            self._events.warning(
+            self._events.log.warning(
                 "Passwords do not match.",
             )
