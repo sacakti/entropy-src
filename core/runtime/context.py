@@ -84,13 +84,15 @@ class ExecutionContext:
     def start(
         self,
         workflow,
+        *,
+        execution_id: str | None = None,
     ) -> None:
         """
         Initialize a workflow execution.
         """
 
         self._execution = WorkflowExecution(
-            id=uuid4().hex,
+            id=execution_id or uuid4().hex,
             workflow=workflow,
             context=self,
         )

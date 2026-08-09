@@ -427,3 +427,38 @@ class WorkflowJobManager:
                 f"Invalid workflow job transition: "
                 f"'{job.state.value}' -> '{target.value}'.",
             )
+
+    # ------------------------------------------------------------------
+    # Background process
+    # ------------------------------------------------------------------
+
+    def attach(
+        self,
+        job_id: int,
+    ) -> WorkflowJob:
+        """
+        Attach to an existing workflow job.
+
+        Used by a background worker process after the parent
+        process has created the persistent job.
+        """
+
+        try:
+
+            job = self.get(
+                job_id,
+            )
+
+        except KeyError as exc:
+
+            raise WorkflowJobNotFoundError(
+                job_id,
+            ) from exc
+
+        if job.state is not JobState.QUEUED:
+
+            raise ValueError(
+                f"Workflow job '{job_id}' is not queued.",
+            )
+
+        return job

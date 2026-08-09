@@ -76,6 +76,20 @@ class WorkflowCommand(
             help="Workflow file.",
         )
 
+        #
+        # start
+        #
+
+        start = subparsers.add_parser(
+            "start",
+            help="Start a workflow in the background.",
+        )
+
+        start.add_argument(
+            "workflow",
+            help="Workflow file.",
+        )
+
         jobs = subparsers.add_parser(
             "jobs",
             help="List workflow jobs.",
@@ -104,6 +118,7 @@ class WorkflowCommand(
 
         {
             "run": self._run,
+            "start": self._start,
             "jobs": self._jobs,
             "follow": self._follow,
         }[
@@ -138,6 +153,42 @@ class WorkflowCommand(
 
         self._events.log.info(
             f"Workflow '{workflow}' completed.",
+        )
+
+    # ------------------------------------------------------------------
+    # Start
+    # ------------------------------------------------------------------
+
+    def _start(
+        self,
+        args: Namespace,
+    ) -> None:
+        """
+        Start a workflow in the background.
+        """
+
+        workflow = Path(
+            args.workflow,
+        )
+
+        job = self._workflows.start(
+            workflow,
+        )
+
+        self._context.ui.success(
+            f"Workflow '{job.workflow}' started in background.",
+        )
+
+        self._context.ui.info(
+            f"PID : {job.pid}",
+        )
+
+        self._context.ui.info(
+            f"Follow : ent workflow follow --pid {job.pid}",
+        )
+
+        self._context.ui.info(
+            f"Stop   : ent workflow stop --pid {job.pid}",
         )
 
     # ------------------------------------------------------------------

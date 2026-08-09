@@ -5,7 +5,7 @@ Workflow execution UI.
 from __future__ import annotations
 
 from typing import Iterable, Sequence
-
+import multiprocessing
 from core.ui import UIManager
 
 
@@ -35,9 +35,11 @@ class ExecutionUI:
         message: str = "",
     ) -> None:
 
-        self._ui.print(
-            message,
-        )
+        if self._interactive():
+
+            self._ui.print(
+                message,
+            )
 
         self._persist(
             "print",
@@ -51,9 +53,11 @@ class ExecutionUI:
         title: str = "",
     ) -> None:
 
-        self._ui.rule(
-            title,
-        )
+        if self._interactive():
+
+            self._ui.rule(
+                title,
+            )
 
         self._persist(
             "rule",
@@ -72,10 +76,12 @@ class ExecutionUI:
             lines,
         )
 
-        self._ui.panel(
-            title,
-            materialized_lines,
-        )
+        if self._interactive():
+
+            self._ui.panel(
+                title,
+                materialized_lines,
+            )
 
         self._persist(
             "panel",
@@ -101,11 +107,13 @@ class ExecutionUI:
             for row in rows
         ]
 
-        self._ui.table(
-            title,
-            materialized_columns,
-            materialized_rows,
-        )
+        if self._interactive():
+
+            self._ui.table(
+                title,
+                materialized_columns,
+                materialized_rows,
+            )
 
         self._persist(
             "table",
@@ -192,4 +200,21 @@ class ExecutionUI:
                 else None
             ),
             payload=payload,
+        )
+
+    # ------------------------------------------------------------------
+    # Helper
+    # ------------------------------------------------------------------
+
+    def _interactive(
+        self,
+    ) -> bool:
+        """
+        Return True when execution is attached to the
+        interactive foreground process.
+        """
+
+        return (
+            multiprocessing.current_process().name
+            == "MainProcess"
         )

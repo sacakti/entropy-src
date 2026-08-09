@@ -16,6 +16,7 @@ from .loader import WorkflowLoader
 from .validator import WorkflowValidator
 from .follower import WorkflowFollower
 from .renderer import WorkflowEventRenderer
+from .process import WorkflowProcess
 
 class WorkflowManager:
     """
@@ -84,13 +85,21 @@ class WorkflowManager:
     def execute(
         self,
         workflow: Workflow,
+        *,
+        execution=None,
+        job_id: int | None = None,
     ) -> None:
         """
         Execute a validated workflow.
+
+        An existing execution may be supplied by the
+        background-job subsystem.
         """
 
         self._runner.execute(
             workflow,
+            job_id=job_id,
+            execution=execution,
         )
 
     # ------------------------------------------------------------------
@@ -100,9 +109,15 @@ class WorkflowManager:
     def run(
         self,
         file: Path,
+        *,
+        execution=None,
+        job_id: int | None = None,
     ) -> None:
         """
         Load and execute a workflow.
+
+        An existing execution may be supplied by the
+        background-job subsystem.
         """
 
         workflow = self.load(
@@ -111,7 +126,68 @@ class WorkflowManager:
 
         self.execute(
             workflow,
+            execution=execution,
+            job_id=job_id,
         )
+
+    # ------------------------------------------------------------------
+    # Start a background process
+    # ------------------------------------------------------------------
+
+    def start(
+        self,
+        file: Path,
+    ) -> WorkflowJob:
+        """
+        Start a workflow in a background process.
+
+        The persistent workflow job is created before the worker
+        process is started so the worker can attach to it.
+        """
+
+        workflow = self.load(
+            file,
+        )
+
+        assert self._context.workflow_job_manager is not None
+        assert self._context.execution_manager is not None
+
+        execution = self._context.execution_manager.create(
+            workflow,
+        )
+
+        job = self._context.workflow_job_manager.create(
+            execution_id=execution.id,
+            workflow=workflow.name,
+            workspace=execution.context.workspace,
+            pid=0,
+        )
+
+        assert self._context.bootstrap is not None
+        assert self._context.paths is not None
+
+        process = WorkflowProcess(
+            job_id=job.id,
+            workflow=file,
+            project_root=self._context.bootstrap.project_root,
+            python_packages=self._context.paths.python.packages,
+        )
+
+        pid = process.start()
+
+        self._context.workflow_job_manager.set_pid(
+            job.id,
+            pid,
+        )
+
+        return self._context.workflow_job_manager.get(
+            job.id,
+        )
+
+    # ------------------------------------------------------------------
+    # Jobs
+    # ------------------------------------------------------------------
+
 
     def jobs(self) -> list[WorkflowJob]:
 

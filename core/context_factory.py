@@ -57,10 +57,12 @@ class ContextFactory:
         *,
         project_root: Path = PROJECT_ROOT,
         entropy_home: Path = ENTROPY_HOME,
+        interactive: bool = True,
     ) -> None:
 
         self._project_root = project_root
         self._entropy_home = entropy_home
+        self._interactive = interactive
 
         self._context = EntropyContext()
 
@@ -143,13 +145,23 @@ class ContextFactory:
 
         renderer = ConsoleRenderer()
 
-        console = ObservabilityConsoleSink(
-            renderer,
-        )
+        # console = ObservabilityConsoleSink(
+        #     renderer,
+        # )
 
-        observability.register(
-            console,
-        )
+        # observability.register(
+        #     console,
+        # )
+
+        if self._interactive:
+
+            console = ObservabilityConsoleSink(
+                renderer,
+            )
+
+            observability.register(
+                console,
+            )
 
         console_log_sink = LogConsoleSink(
             renderer,

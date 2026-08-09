@@ -18,6 +18,7 @@ from lib.workflow.exceptions import WorkflowCancelledError
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
+    from core.runtime.execution import WorkflowExecution
     from lib.plugins.runner import PluginRunner
     from lib.workflow.jobs.manager import WorkflowJobManager
 
@@ -50,6 +51,9 @@ class WorkflowRunner:
     def execute(
         self,
         workflow: Workflow,
+        *,
+        execution=None,
+        job_id: int | None = None,
     ) -> None:
         """
         Execute a workflow.
@@ -62,43 +66,58 @@ class WorkflowRunner:
         # Create execution workspace.
         #
 
-        workspace = (
-            self._context.paths.workflow.directory
-            / (
-                f"{datetime.now(timezone.utc):%Y%m%d_%H%M%S}_"
-                f"{workflow.name.lower().replace(' ', '_')}"
+        if execution is None:
+
+            workspace = (
+                self._context.paths.workflow.directory
+                / (
+                    f"{datetime.now(timezone.utc):%Y%m%d_%H%M%S}_"
+                    f"{workflow.name.lower().replace(' ', '_')}"
+                )
             )
-        )
 
-        self._context.executor.mkdir(
-            workspace,
-        )
+            self._context.executor.mkdir(
+                workspace,
+            )
+
+            runtime = ExecutionContext(
+                entropy=self._context,
+                workspace=workspace,
+            )
+
+            runtime.start(
+                workflow,
+            )
+
+            execution = runtime.execution
+
+        else:
+
+            runtime = execution.context
 
         #
-        # Runtime
+        # Resolve persistent job.
         #
 
-        runtime = ExecutionContext(
-            entropy=self._context,
-            workspace=workspace,
-        )
+        if job_id is None:
 
-        runtime.start(
-            workflow,
-        )
+            job = self._jobs.create(
+                execution_id=execution.id,
+                workflow=workflow.name,
+                workspace=runtime.workspace,
+                pid=os.getpid(),
+            )
 
-        execution = runtime.execution
+        else:
 
-        #
-        # Create persistent job.
-        #
+            job = self._jobs.attach(
+                job_id,
+            )
 
-        job = self._jobs.create(
-            execution_id=execution.id,
-            workflow=workflow.name,
-            workspace=workspace,
-            pid=os.getpid(),
-        )
+            job = self._jobs.set_pid(
+                job.id,
+                os.getpid(),
+            )
 
         runtime.job_id = job.id
 

@@ -57,13 +57,14 @@ class ExecutionManager:
             workspace=workspace,
         )
 
-        execution = WorkflowExecution(
-            id=execution_id,
-            workflow=workflow,
-            context=runtime,
+        runtime.start(
+            workflow,
+            execution_id=execution_id,
         )
 
-        runtime.execution = execution
+        execution = runtime.execution
+
+        execution.id = execution_id
 
         return execution
 
