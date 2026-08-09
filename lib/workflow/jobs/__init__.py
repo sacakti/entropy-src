@@ -8,6 +8,7 @@ from .events import (
 )
 from .model import WorkflowJob
 from .repository import WorkflowJobRepository
+from .sink import WorkflowEventSink
 from .state import JobState
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "WorkflowJobRepository",
     "WorkflowEvent",
     "WorkflowEventRepository",
+    "WorkflowEventSink",
 ]

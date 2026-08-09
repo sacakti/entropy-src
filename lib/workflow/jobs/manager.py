@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.context import EntropyContext
+from lib.workflow.exceptions import WorkflowJobNotFoundError
 
 from .events import (
     WorkflowEvent,
@@ -361,6 +362,26 @@ class WorkflowJobManager:
             after=after,
             limit=limit,
         )
+
+    def get_by_pid(
+        self,
+        pid: int,
+    ) -> WorkflowJob:
+        """
+        Return a workflow job by process ID.
+        """
+
+        try:
+
+            return self._repository.get_by_pid(
+                pid,
+            )
+
+        except KeyError as exc:
+
+            raise WorkflowJobNotFoundError(
+                pid,
+            ) from exc
 
     # ------------------------------------------------------------------
     # Validation

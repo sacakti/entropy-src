@@ -23,6 +23,42 @@
       "arguments": {
         "message": "Hello Entropy!"
       }
+    },
+    {
+      "name": "Print Greeting 3",
+      "plugin": "custom.hello",
+      "enabled": true,
+      "continue_on_error": false,
+      "arguments": {
+        "message": "Hello Entropy!"
+      }
+    },
+    {
+      "name": "Print Greeting 4",
+      "plugin": "custom.hello",
+      "enabled": true,
+      "continue_on_error": false,
+      "arguments": {
+        "message": "Hello Entropy!"
+      }
+    },
+    {
+      "name": "Print Greeting 5",
+      "plugin": "custom.hello",
+      "enabled": true,
+      "continue_on_error": false,
+      "arguments": {
+        "message": "Hello Entropy!"
+      }
+    },
+    {
+      "name": "Print Greeting 6",
+      "plugin": "custom.hello",
+      "enabled": true,
+      "continue_on_error": false,
+      "arguments": {
+        "message": "Hello Entropy!"
+      }
     }
   ]
 }

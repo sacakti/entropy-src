@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from core.models.runtime import RuntimeNodeType
 from core.observability.emitter import Emitter
+from core.runtime.ui import ExecutionUI
 
 from .execution import WorkflowExecution
 from .activity import Activity
@@ -54,6 +55,8 @@ class ExecutionContext:
         self._tree = RuntimeTree()
 
         self._execution: WorkflowExecution | None = None
+
+        self.job_id: int | None = None
 
         #
         # Runtime State
@@ -265,11 +268,17 @@ class ExecutionContext:
         return self._entropy.database_manager
 
     @property
-    def ui(self):
+    def ui(self) -> ExecutionUI:
+        """
+        Workflow execution UI.
+        """
 
         assert self._entropy.ui is not None
 
-        return self._entropy.ui
+        return ExecutionUI(
+            ui=self._entropy.ui,
+            context=self,
+        )
 
     # ------------------------------------------------------------------
     # Session

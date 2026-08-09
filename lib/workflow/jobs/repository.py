@@ -438,3 +438,32 @@ class WorkflowJobRepository(Repository):
         return parsed.astimezone(
             timezone.utc,
         )
+
+    def get_by_pid(
+        self,
+        pid: int,
+    ) -> WorkflowJob:
+        """
+        Return a workflow job by process ID.
+        """
+
+        row = self.connection.fetchone(
+            """
+            SELECT *
+            FROM workflow_jobs
+            WHERE pid = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (pid,),
+        )
+
+        if row is None:
+
+            raise KeyError(
+                f"Workflow process '{pid}' was not found.",
+            )
+
+        return self._from_row(
+            row,
+        )

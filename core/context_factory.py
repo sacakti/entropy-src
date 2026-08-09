@@ -37,6 +37,7 @@ from lib.plugins.manager import PluginManager
 # from lib.plugins.runner import PluginRunner
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
+from lib.workflow.jobs.sink import WorkflowEventSink
 from lib.workflow.manager import WorkflowManager
 from lib.workflow.runner import WorkflowRunner
 from lib.workflow.jobs.manager import WorkflowJobManager
@@ -272,6 +273,24 @@ class ContextFactory:
         )
 
     # ------------------------------------------------------------------
+    # Workflow Observability
+    # ------------------------------------------------------------------
+
+    def workflow_observability(self) -> None:
+        """
+        Connect workflow event persistence to observability.
+        """
+
+        assert self._context.observability is not None
+        assert self._context.workflow_job_manager is not None
+
+        self._context.observability.register(
+            WorkflowEventSink(
+                self._context.workflow_job_manager,
+            )
+        )
+
+    # ------------------------------------------------------------------
     # Application
     # ------------------------------------------------------------------
 
@@ -340,6 +359,7 @@ class ContextFactory:
         self.observability()
         self.ui()
         self.infrastructure()
+        self.workflow_observability()
         self.services()
         self.application()
 

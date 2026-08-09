@@ -9,6 +9,7 @@ from typing import Any
 
 from core.models.enums import EventType
 from core.models.runtime import RuntimeNodeType
+from lib.workflow.exceptions import WorkflowCancelledError
 
 from .node import RuntimeNode
 
@@ -87,6 +88,17 @@ class ExecutionScope(ABC):
 
             self._emit(
                 self.completed_event,
+            )
+
+        elif isinstance(
+            exc,
+            WorkflowCancelledError,
+        ):
+
+            self._node.cancel()
+
+            self._emit(
+                self.cancelled_event,
             )
 
         else:

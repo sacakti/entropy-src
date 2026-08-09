@@ -14,7 +14,7 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
-
+from lib.workflow.follower import WorkflowFollower
 
 class WorkflowCommand(
     BaseCommand,
@@ -36,6 +36,8 @@ class WorkflowCommand(
         super().__init__(
             context,
         )
+
+        self._context = context
 
         assert context.workflow_manager is not None
         assert context.observability is not None
@@ -74,6 +76,23 @@ class WorkflowCommand(
             help="Workflow file.",
         )
 
+        jobs = subparsers.add_parser(
+            "jobs",
+            help="List workflow jobs.",
+        )
+
+        follow = subparsers.add_parser(
+            "follow",
+            help="Follow a workflow.",
+        )
+
+        follow.add_argument(
+            "--pid",
+            type=int,
+            required=True,
+            help="Workflow process ID.",
+        )
+
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -85,6 +104,8 @@ class WorkflowCommand(
 
         {
             "run": self._run,
+            "jobs": self._jobs,
+            "follow": self._follow,
         }[
             args.action
         ](
@@ -117,4 +138,49 @@ class WorkflowCommand(
 
         self._events.log.info(
             f"Workflow '{workflow}' completed.",
+        )
+
+    # ------------------------------------------------------------------
+    # Jobs
+    # ------------------------------------------------------------------
+
+    def _jobs(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        jobs = self._workflows.jobs()
+
+        self._context.ui.table(
+            title="Workflow Jobs",
+            columns=[
+                "ID",
+                "Workflow",
+                "State",
+                "PID",
+                "Started",
+            ],
+            rows=[
+                [
+                    job.id,
+                    job.workflow,
+                    job.state.value,
+                    job.pid or "",
+                    job.started_at or "",
+                ]
+                for job in jobs
+            ],
+        )
+
+    # ------------------------------------------------------------------
+    # Follow
+    # ------------------------------------------------------------------
+
+    def _follow(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        self._workflows.follow(
+            args.pid,
         )

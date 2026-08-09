@@ -4,7 +4,7 @@ Workflow runner.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from typing import TYPE_CHECKING
 
@@ -65,7 +65,7 @@ class WorkflowRunner:
         workspace = (
             self._context.paths.workflow.directory
             / (
-                f"{datetime.now():%Y%m%d_%H%M%S}_"
+                f"{datetime.now(timezone.utc):%Y%m%d_%H%M%S}_"
                 f"{workflow.name.lower().replace(' ', '_')}"
             )
         )
@@ -100,6 +100,13 @@ class WorkflowRunner:
             pid=os.getpid(),
         )
 
+        runtime.job_id = job.id
+
+        execution.put(
+            "job_id",
+            job.id,
+        )
+
         #
         # Mark execution as running.
         #
@@ -107,6 +114,10 @@ class WorkflowRunner:
         execution.start()
 
         self._jobs.start(
+            job.id,
+        )
+
+        self._jobs.running(
             job.id,
         )
 
