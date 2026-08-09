@@ -9,6 +9,7 @@ from pathlib import Path
 
 from core.context import EntropyContext
 from lib.workflow.exceptions import WorkflowJobNotFoundError
+from lib.workflow.process import WorkflowProcess
 
 from .events import (
     WorkflowEvent,
@@ -303,6 +304,30 @@ class WorkflowJobManager:
             JobState.CANCELLED,
             exit_code,
         )
+
+    def stop(
+        self,
+        pid: int,
+    ) -> WorkflowJob:
+        """
+        Request graceful cancellation of a workflow process.
+        """
+
+        job = self.get_by_pid(
+            pid,
+        )
+
+        if not job.running:
+
+            raise ValueError(
+                f"Workflow job '{job.id}' is not running.",
+            )
+
+        WorkflowProcess.stop(
+            pid,
+        )
+
+        return job
 
     # ------------------------------------------------------------------
     # Events

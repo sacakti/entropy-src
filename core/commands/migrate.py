@@ -22,6 +22,7 @@ class MigrateCommand(BaseCommand):
         name="migrate",
         description="Apply pending database migrations.",
         authentication_required=False,
+        aliases=("mig",),
     )
 
     # ------------------------------------------------------------------

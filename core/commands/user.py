@@ -27,6 +27,7 @@ class UserCommand(BaseCommand):
     metadata = CommandMetadata(
         name="user",
         description="Manage users.",
+        aliases=("users",),
     )
 
     def __init__(

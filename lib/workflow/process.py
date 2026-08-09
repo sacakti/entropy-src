@@ -4,6 +4,8 @@ Workflow process management.
 
 from __future__ import annotations
 
+import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -67,3 +69,38 @@ class WorkflowProcess:
             )
 
         return process.pid
+
+
+    # ------------------------------------------------------------------
+    # Stop
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def stop(
+        pid: int,
+    ) -> None:
+        """
+        Request graceful cancellation of a workflow worker.
+
+        SIGINT is intentionally used so the worker's normal
+        KeyboardInterrupt handling can persist the cancelled state.
+        """
+
+        if pid <= 0:
+
+            raise ValueError(
+                "Process ID must be greater than zero.",
+            )
+
+        try:
+
+            os.kill(
+                pid,
+                signal.SIGINT,
+            )
+
+        except ProcessLookupError as exc:
+
+            raise ProcessLookupError(
+                f"Workflow process '{pid}' was not found.",
+            ) from exc

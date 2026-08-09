@@ -206,6 +206,18 @@ class WorkflowManager:
             pid,
         )
 
+    def stop(
+        self,
+        pid: int,
+    ) -> WorkflowJob:
+        """
+        Request graceful cancellation of a workflow by PID.
+        """
+
+        return self._jobs.stop(
+            pid,
+        )
+
     def follow(
         self,
         pid: int,

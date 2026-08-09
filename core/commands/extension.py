@@ -23,6 +23,7 @@ class ExtensionCommand(
     metadata = CommandMetadata(
         name="extension",
         description="Manage Python extensions.",
+        aliases=("extensions","ext"),
     )
 
     def __init__(

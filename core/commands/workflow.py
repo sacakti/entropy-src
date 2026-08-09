@@ -26,6 +26,7 @@ class WorkflowCommand(
     metadata = CommandMetadata(
         name="workflow",
         description="Execute workflows.",
+        aliases=("workflows","wf",),
     )
 
     def __init__(
@@ -107,6 +108,36 @@ class WorkflowCommand(
             help="Workflow process ID.",
         )
 
+        #
+        # stop
+        #
+
+        stop = subparsers.add_parser(
+            "stop",
+            help="Stop workflow processes.",
+        )
+
+        selectors = stop.add_mutually_exclusive_group(
+            required=True,
+        )
+
+        selectors.add_argument(
+            "--pid",
+            type=int,
+            help="Stop one workflow process by PID.",
+        )
+
+        selectors.add_argument(
+            "--name",
+            help="Stop all active workflow processes with this name.",
+        )
+
+        selectors.add_argument(
+            "--all",
+            action="store_true",
+            help="Stop all active workflow processes.",
+        )
+
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -121,6 +152,7 @@ class WorkflowCommand(
             "start": self._start,
             "jobs": self._jobs,
             "follow": self._follow,
+            "stop": self._stop,
         }[
             args.action
         ](
@@ -235,3 +267,86 @@ class WorkflowCommand(
         self._workflows.follow(
             args.pid,
         )
+
+    # ------------------------------------------------------------------
+    # Stop
+    # ------------------------------------------------------------------
+
+    def _stop(
+        self,
+        args: Namespace,
+    ) -> None:
+        """
+        Stop workflow processes.
+        """
+
+        if args.pid is not None:
+
+            job = self._workflows.stop(
+                args.pid,
+            )
+
+            self._context.ui.success(
+                f"Stop requested for workflow "
+                f"'{job.workflow}' (PID {job.pid}).",
+            )
+
+            return
+
+        if args.name is not None:
+
+            jobs = [
+                job
+                for job in self._workflows.jobs()
+                if job.workflow == args.name
+                and job.running
+            ]
+
+            if not jobs:
+
+                self._context.ui.warning(
+                    f"No active workflow found with name "
+                    f"'{args.name}'.",
+                )
+
+                return
+
+            for job in jobs:
+
+                self._workflows.stop(
+                    job.pid,
+                )
+
+                self._context.ui.success(
+                    f"Stop requested for workflow "
+                    f"'{job.workflow}' (PID {job.pid}).",
+                )
+
+            return
+
+        if args.all:
+
+            jobs = [
+                job
+                for job in self._workflows.jobs()
+                if job.running
+            ]
+
+            if not jobs:
+
+                self._context.ui.info(
+                    "No active workflows.",
+                )
+
+                return
+
+            for job in jobs:
+
+                self._workflows.stop(
+                    job.pid,
+                )
+
+                self._context.ui.success(
+                    f"Stop requested for workflow "
+                    f"'{job.workflow}' (PID {job.pid}).",
+                )

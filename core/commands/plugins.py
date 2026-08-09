@@ -23,6 +23,7 @@ class PluginCommand(
     metadata = CommandMetadata(
         name="plugin",
         description="Manage Entropy plugins.",
+        aliases=("plugins","pl",),
     )
 
     def __init__(

@@ -17,6 +17,7 @@ class MakeCommand(BaseCommand):
     metadata = CommandMetadata(
         name="generate",
         description="Generate framework artifacts.",
+        aliases=("gen","create"),
     )
 
     def configure(
