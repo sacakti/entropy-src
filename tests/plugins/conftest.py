@@ -1,7 +1,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from lib.plugins.metadata import PluginMetadata
 from lib.plugins.plugin import Plugin
 

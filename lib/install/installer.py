@@ -2,22 +2,28 @@
 Entropy installer.
 """
 
+from __future__ import annotations
+
+import json
 import os
-import shutil
 import sys
 import traceback
 from dataclasses import dataclass
+from pathlib import Path
 
+from lib.install.application import ApplicationInstaller
 from lib.install.console import InstallerConsole
-from lib.install.paths import InstallerPathManager
 from lib.install.directory import DirectoryInstaller
+from lib.install.paths import InstallerPathManager
+from lib.install.plugins import DefaultPluginInstaller
+from lib.install.workflow import DefaultWorkflowInstaller
 
 from .launcher import Launcher
 from .platform import PlatformDetector
 from .wheels import WheelInstaller
 
-paths = InstallerPathManager()
 console = InstallerConsole()
+
 
 @dataclass
 class InstallerResult:
@@ -27,55 +33,69 @@ class InstallerResult:
     message: str
 
 
-success_msg = f"""
-==================================================
-Entropy installed successfully.
-==================================================
-
-Installation Directory
-    {paths.home}
-
-Configuration
-    {paths.entropy_config}
-
-Launcher
-    ~/.local/bin/ent
-
-"""
-
-
 class Installer:
+
+    def __init__(self) -> None:
+
+        self._paths: InstallerPathManager | None = None
+
+    # ------------------------------------------------------------------
+    # Install
+    # ------------------------------------------------------------------
 
     def install(self) -> InstallerResult:
 
         try:
 
+            #
+            # Select workspace before building installation paths.
+            #
+
+            workspace = self._prompt_workspace()
+
+            self._paths = InstallerPathManager(
+                workspace,
+            )
+
+            paths = self._paths
+
+            #
+            # Validate fresh installation.
+            #
+
+            self._validate_installation(
+                paths,
+            )
+
             platform = PlatformDetector.detect()
 
             #
-            # Install Python dependencies
+            # Install Python dependencies.
             #
 
             console.step("Installing Python packages...")
 
             WheelInstaller(
                 platform,
+                paths,
             ).install()
 
             console.success("Python packages installed.")
 
             #
-            # Create Entropy home
+            # Create Entropy staging directories.
             #
 
             console.step("Creating directories...")
 
-            DirectoryInstaller().install()
+            DirectoryInstaller(
+                paths,
+            ).install()
 
             console.success("Directories created.")
 
             #
-            # Create configuration
+            # Create configuration.
             #
 
             console.step("Installing configuration...")
@@ -85,7 +105,7 @@ class Installer:
             console.success("Configuration installed.")
 
             #
-            # Build installation context
+            # Build installation context.
             #
 
             sys.path.insert(
@@ -106,10 +126,14 @@ class Installer:
 
             factory.runtime()
 
+            factory.observability()
+
+            factory.ui()
+
             factory.infrastructure()
 
             #
-            # Install database
+            # Database.
             #
 
             console.step("Installing database...")
@@ -121,7 +145,7 @@ class Installer:
             console.success("Database installed.")
 
             #
-            # Create administrator
+            # Bootstrap administrator.
             #
 
             console.step("Creating bootstrap administrator...")
@@ -134,16 +158,75 @@ class Installer:
 
             console.success("Bootstrap administrator created.")
 
-            paths.commit()
+            #
+            # Default plugins.
+            #
+
+            console.step("Installing default plugins...")
+
+            DefaultPluginInstaller(
+                factory.context,
+            ).install()
+
+            console.success("Default plugins installed.")
 
             #
-            # Install launcher
+            # Default workflow.
+            #
+
+            console.step("Installing default workflow...")
+
+            DefaultWorkflowInstaller(
+                factory.context,
+            ).install()
+
+            console.success("Default workflow installed.")
+
+            #
+            # Prepare persisted installation paths.
+            #
+
+            console.step("Finalizing installation paths...")
+
+            assert factory.context.plugin_manager is not None
+
+            factory.context.plugin_manager.finalize_installation(
+                paths.staging,
+                paths.home,
+            )
+
+            console.success("Installation paths finalized.")
+
+            console.step("Installing application...")
+
+            ApplicationInstaller(
+                source=paths.project_root,
+                destination=paths.application_staging,
+            ).install()
+
+            console.success("Application installed.")
+
+            #
+            # Activate installation.
+            #
+
+            console.step("Activating installation...")
+
+            paths.commit()
+
+            paths.commit_application()
+
+            console.success("Installation activated.")
+
+            #
+            # Launcher.
             #
 
             console.step("Installing launcher...")
 
             launcher = self._install_launcher(
                 platform,
+                paths,
             )
 
             if not launcher.exists():
@@ -155,7 +238,7 @@ class Installer:
             console.success("Launcher installed.")
 
             #
-            # Verify PATH
+            # Verify PATH.
             #
 
             console.step("Verifying PATH...")
@@ -166,16 +249,26 @@ class Installer:
 
             console.success("Installation completed.")
 
-            message = success_msg + path_response
-
             return InstallerResult(
                 success=True,
-                message=message,
+                message=(
+                    "Entropy installed successfully.\n\n"
+                    f"Installation Directory\n{paths.home}\n\n"
+                    f"Workspace\n{paths.workspace}\n\n"
+                    f"Configuration\n"
+                    f"{paths.home / 'config' / 'entropy.json'}\n\n"
+                    f"Launcher\n{launcher}\n\n"
+                    f"{path_response}"
+                ),
             )
 
         except Exception:
 
-            paths.rollback()
+            if self._paths is not None:
+
+                self._paths.rollback()
+
+                self._paths.rollback_application()
 
             traceback.print_exc()
 
@@ -185,68 +278,203 @@ class Installer:
             )
 
     # ------------------------------------------------------------------
-    # Helpers
+    # Validation
     # ------------------------------------------------------------------
 
+    def _validate_installation(
+        self,
+        paths: InstallerPathManager,
+    ) -> None:
 
-    def _create_config(self):
+        if paths.application_root.exists():
 
-        # Entropy config
+            raise RuntimeError(
+                "Entropy application is already installed at " f"'{paths.application_root}'.",
+            )
 
-        if not paths.config_file.exists():
+        if paths.application_staging.exists():
 
-            shutil.copy2(paths.default_config, paths.config_file)
+            raise RuntimeError(
+                "Application staging directory already exists: " f"'{paths.application_staging}'.",
+            )
 
-        # Default workflow json
+    # ------------------------------------------------------------------
+    # Configuration
+    # ------------------------------------------------------------------
 
-        if not paths.config_file.exists():
+    def _create_config(self) -> None:
 
-            shutil.copy2(paths.default_workflow, paths.workflow_file)
+        assert self._paths.workspace is not None
 
-    def _install_launcher(self, platform):
+        with self._paths.default_config.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+
+            configuration = json.load(
+                file,
+            )
+
+        configuration["workspace"]["root"] = str(
+            self._paths.workspace,
+        )
+
+        self._paths.config_file.write_text(
+            json.dumps(
+                configuration,
+                indent=4,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    # ------------------------------------------------------------------
+    # Workspace
+    # ------------------------------------------------------------------
+
+    def _prompt_workspace(self) -> Path:
+
+        default = Path(
+            "/srv/workspace",
+        )
+
+        while True:
+
+            value = input(
+                f"Workflow workspace [{default}]: ",
+            ).strip()
+
+            workspace = default if not value else Path(value).expanduser()
+
+            try:
+
+                return self._validate_workspace(
+                    workspace,
+                ).resolve()
+
+            except ValueError as exc:
+
+                console.error(
+                    str(exc),
+                )
+
+    def _validate_workspace(
+        self,
+        workspace: Path,
+    ) -> Path:
+
+        workspace = workspace.expanduser()
+
+        if not workspace.is_absolute():
+
+            raise ValueError(
+                "Workspace path must be absolute.",
+            )
+
+        if workspace.exists():
+
+            if not workspace.is_dir():
+
+                raise ValueError(
+                    f"Workspace path is not a directory: " f"{workspace}",
+                )
+
+        else:
+
+            try:
+
+                workspace.mkdir(
+                    parents=True,
+                    exist_ok=True,
+                )
+
+            except OSError as exc:
+
+                raise ValueError(
+                    f"Unable to create workspace " f"'{workspace}': {exc}",
+                ) from exc
+
+        if not workspace.is_dir():
+
+            raise ValueError(
+                f"Workspace path is not a directory: " f"{workspace}",
+            )
+
+        probe = workspace / ".entropy-write-test"
+
+        try:
+
+            probe.touch(
+                exist_ok=False,
+            )
+
+            probe.unlink()
+
+        except OSError as exc:
+
+            raise ValueError(
+                f"Workspace is not writable: " f"{workspace}",
+            ) from exc
+
+        return workspace
+
+    # ------------------------------------------------------------------
+    # Launcher
+    # ------------------------------------------------------------------
+
+    def _install_launcher(
+        self,
+        platform,
+        paths: InstallerPathManager,
+    ):
+
         return Launcher(
             platform,
+            paths,
         ).install()
 
-    def _verify_path(self, launcher):
+    # ------------------------------------------------------------------
+    # PATH
+    # ------------------------------------------------------------------
 
-        launcher_dir = str(launcher.parent)
+    def _verify_path(
+        self,
+        launcher: Path,
+    ) -> str:
 
-        paths = os.environ.get("PATH", "").split(os.pathsep)
+        launcher_dir = str(
+            launcher.parent,
+        )
 
-        shell = os.environ.get("SHELL", "")
+        environment_paths = os.environ.get(
+            "PATH",
+            "",
+        ).split(os.pathsep)
+
+        shell = os.environ.get(
+            "SHELL",
+            "",
+        )
 
         reload_cmd = "Restart your shell"
 
         if shell.endswith("zsh"):
+
             reload_cmd = "source ~/.zshrc"
+
         elif shell.endswith("bash"):
+
             reload_cmd = "source ~/.bashrc"
 
-        path_exists = launcher_dir in paths
+        if launcher_dir in environment_paths:
 
-        launcher_not_exists = f"""
-The launcher directory is not on your PATH.
+            return "You can now start Entropy by running:\n\n" "    ent\n"
 
-Add the following line to your shell profile (~/.zshrc, ~/.bashrc, etc.):
-
-    export PATH="$HOME/.local/bin:$PATH"
-
-Then reload your shell:
-
-    {reload_cmd}
-
-or open a new terminal.
-
-After that, run:
-
-    ent
-"""
-        if path_exists:
-            return """
-You can now start Entropy by running:
-
-    ent
-"""
-        else:
-            return launcher_not_exists
+        return (
+            "The launcher directory is not on your PATH.\n\n"
+            "Add the following line to your shell profile:\n\n"
+            '    export PATH="$HOME/.local/bin:$PATH"\n\n'
+            f"Then reload your shell with:\n\n"
+            f"    {reload_cmd}\n\n"
+            "or open a new terminal.\n"
+        )

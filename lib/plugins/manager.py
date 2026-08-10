@@ -7,7 +7,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.context import EntropyContext
-
 from lib.database.repositories.plugin_registry import PluginRepository
 from lib.models.plugin import Plugin
 
@@ -120,8 +119,7 @@ class PluginManager:
         self.refresh()
 
         self._events.log.success(
-            f"Plugin '{plugin.qualified_name}' "
-            f"installed successfully.",
+            f"Plugin '{plugin.qualified_name}' " f"installed successfully.",
         )
 
         return plugin
@@ -153,8 +151,7 @@ class PluginManager:
         self.refresh()
 
         self._events.log.success(
-            f"Plugin '{qualified_name}' "
-            f"uninstalled successfully.",
+            f"Plugin '{qualified_name}' " f"uninstalled successfully.",
         )
 
     # ------------------------------------------------------------------
@@ -182,8 +179,7 @@ class PluginManager:
         )
 
         self._events.log.success(
-            f"Plugin '{qualified_name}' "
-            f"verified successfully.",
+            f"Plugin '{qualified_name}' " f"verified successfully.",
         )
 
     # ------------------------------------------------------------------
@@ -227,15 +223,13 @@ class PluginManager:
         if repaired is not None:
 
             self._events.log.success(
-                f"Plugin '{repaired.qualified_name}' "
-                f"repaired successfully.",
+                f"Plugin '{repaired.qualified_name}' " f"repaired successfully.",
             )
 
         else:
 
             self._events.log.success(
-                f"Plugin '{qualified_name}' "
-                f"repaired successfully.",
+                f"Plugin '{qualified_name}' " f"repaired successfully.",
             )
 
     # ------------------------------------------------------------------
@@ -364,6 +358,23 @@ class PluginManager:
         return self._repository.get_by_qualified_name(
             qualified_name,
         )
+
+    def finalize_installation(
+        self,
+        source: Path,
+        destination: Path,
+    ) -> None:
+        """
+        Finalize plugin paths after installation staging
+        has been promoted to the permanent installation root.
+        """
+
+        self._repository.relocate_paths(
+            source,
+            destination,
+        )
+
+        self.refresh()
 
     # ------------------------------------------------------------------
     # Runtime

@@ -4,7 +4,7 @@ Plugin manifest validator.
 
 from __future__ import annotations
 
-from packaging.version import Version, InvalidVersion
+from packaging.version import InvalidVersion, Version
 
 from lib.models.plugin import PluginManifest
 

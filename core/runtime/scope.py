@@ -5,7 +5,7 @@ Base execution scope.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Literal
 
 from core.models.enums import EventType
 from core.models.runtime import RuntimeNodeType
@@ -78,7 +78,7 @@ class ExecutionScope(ABC):
         exc_type,
         exc,
         tb,
-    ) -> bool:
+    ) -> Literal[False]:
 
         assert self._node is not None
 
@@ -178,6 +178,13 @@ class ExecutionScope(ABC):
     def completed_event(self) -> EventType:
         """
         Lifecycle event emitted when execution completes.
+        """
+
+    @property
+    @abstractmethod
+    def cancelled_event(self) -> EventType:
+        """
+        Lifecycle event emitted when execution is cancelled.
         """
 
     @property

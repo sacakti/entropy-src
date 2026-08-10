@@ -8,7 +8,6 @@ from pathlib import Path
 
 from core.constants import PLUGIN_MANIFEST
 from core.context import EntropyContext
-
 from lib.models.plugin import (
     EntropyRequirement,
     ExtensionRequirement,
@@ -44,10 +43,7 @@ class ManifestReader:
         Read a plugin manifest.
         """
 
-        manifest = (
-            directory /
-            PLUGIN_MANIFEST
-        )
+        manifest = directory / PLUGIN_MANIFEST
 
         if not self._executor.exists(
             manifest,
@@ -140,8 +136,7 @@ class ManifestReader:
                 )
 
             raise ValueError(
-                f"Unsupported Entropy requirement "
-                f"'{requirement}'.",
+                f"Unsupported Entropy requirement " f"'{requirement}'.",
             )
 
         if isinstance(
@@ -157,8 +152,7 @@ class ManifestReader:
             )
 
         raise TypeError(
-            "Plugin 'entropy' must be a string "
-            "or an object.",
+            "Plugin 'entropy' must be a string " "or an object.",
         )
 
     # ------------------------------------------------------------------
@@ -168,10 +162,7 @@ class ManifestReader:
     @staticmethod
     def _read_extensions(
         dependencies: list[dict],
-    ) -> tuple[
-        ExtensionRequirement,
-        ...
-    ]:
+    ) -> tuple[ExtensionRequirement, ...]:
         """
         Read plugin extension dependencies.
         """

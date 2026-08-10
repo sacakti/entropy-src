@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -25,6 +26,7 @@ class Extension:
     entry_points: list[str] = field(
         default_factory=list,
     )
+
 
 @dataclass(frozen=True)
 class ExtensionManifest:

@@ -10,11 +10,10 @@ import inspect
 import pkgutil
 import traceback
 from argparse import Namespace
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from core.commands import __path__
 from core.commands.base import BaseCommand
-from core.models.logger import LogLevel
 from core.commands.exceptions import (
     CommandAlreadyExistsError,
     CommandNotFoundError,
@@ -36,7 +35,7 @@ class CommandManager:
 
         self._context = context
 
-        self._commands: Dict[str, BaseCommand] = {}
+        self._commands: dict[str, BaseCommand] = {}
 
         self._events = context.observability.emitter(
             "cli",
@@ -53,9 +52,7 @@ class CommandManager:
         Discover commands.
         """
 
-        self._events.log.debug(
-            "Discovering commands..."
-        )
+        self._events.log.debug("Discovering commands...")
 
         for _, module_name, _ in pkgutil.iter_modules(
             __path__,
@@ -267,31 +264,27 @@ class CommandManager:
                 str(exc),
             )
 
-            raise SystemExit(1)
+            raise SystemExit(1) from exc
 
-        except Exception:
+        except Exception as exc:
 
             self._events.log.critical(
                 traceback.format_exc(),
             )
 
-            raise SystemExit(2)
+            raise SystemExit(2) from exc
 
     # ------------------------------------------------------------------
     # Parse
     # ------------------------------------------------------------------
 
-    def parse(
-        self,
-        argv: list[str],
-    ) -> Namespace:
+    def parse(self, argv: List[str]) -> Namespace:
 
         parser = self.build_parser()
 
         return parser.parse_args(
             argv,
         )
-
 
     # ------------------------------------------------------------------
     # Run

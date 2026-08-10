@@ -107,9 +107,7 @@ class ExtensionRepository(Repository):
             FROM extensions
             WHERE id = ?
             """,
-            (
-                extension_id,
-            ),
+            (extension_id,),
         )
 
         if row is None:
@@ -136,9 +134,7 @@ class ExtensionRepository(Repository):
             FROM extensions
             WHERE name = ?
             """,
-            (
-                name,
-            ),
+            (name,),
         )
 
         if row is None:
@@ -171,9 +167,7 @@ class ExtensionRepository(Repository):
                 WHERE name = ?
                 LIMIT 1
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
             is not None
         )
@@ -198,16 +192,19 @@ class ExtensionRepository(Repository):
             FROM extensions
             WHERE name = ?
             """,
-            (
-                name,
-            ),
+            (name,),
         )
 
         if row is None:
 
             return None
 
-        return row["version"]
+        version = row["version"]
+
+        if version is None:
+            return None
+
+        return str(version)
 
     # ------------------------------------------------------------------
     # List
@@ -253,9 +250,7 @@ class ExtensionRepository(Repository):
             FROM extensions
             WHERE name = ?
             """,
-            (
-                name,
-            ),
+            (name,),
         )
 
         self.connection.commit()

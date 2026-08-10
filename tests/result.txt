@@ -1,93 +1,140 @@
-ruff check .
-All checks passed!
-black --check .
-mypy .
-core/configuration/configuration.py:120: error: Returning Any from function declared to return "dict[str, Any]"  [no-any-return]
-core/commands/user.py:323: error: Returning Any from function declared to return "str"  [no-any-return]
-tests/runtime/test_node.py:26: error: Unsupported operand types for <= ("int" and "None")  [operator]
-tests/runtime/test_node.py:26: note: Left operand is of type "Optional[int]"
-tests/runtime/test_node.py:30: error: Unsupported operand types for <= ("int" and "None")  [operator]
-tests/runtime/test_node.py:30: note: Left operand is of type "Optional[int]"
-core/runtime/scope.py:79: error: "bool" is invalid as return type for "__exit__" that always returns False  [exit-return]
-core/runtime/scope.py:79: note: Use "typing.Literal[False]" as the return type or change it to "None"
-core/runtime/scope.py:79: note: If return type of "__exit__" implies that it may return True, the context manager may swallow exceptions
-lib/executor/filesystem.py:16: error: Library stubs not installed for "yaml"  [import-untyped]
-lib/executor/filesystem.py:16: note: Hint: "python3 -m pip install types-PyYAML"
-lib/executor/filesystem.py:16: note: (or run "mypy --install-types" to install all missing stub packages)
-lib/executor/filesystem.py:16: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
-lib/migrations/history.py:76: error: Returning Any from function declared to return "Optional[int]"  [no-any-return]
-tests/migration/test_manager.py:19: error: Cannot assign to a method  [method-assign]
-tests/migration/test_manager.py:39: error: Cannot assign to a method  [method-assign]
-tests/migration/test_manager.py:41: error: Cannot assign to a method  [method-assign]
-core/observability/console/renderer.py:249: error: Argument "style" to "Text" has incompatible type "Optional[str]"; expected "Union[str, Style]"  [arg-type]
-tests/test.py:12: error: Missing positional arguments "renderer", "prompt" in call to "UIManager"  [call-arg]
-tests/test.py:14: error: "UIManager" has no attribute "initialize"  [attr-defined]
-tests/test.py:18: error: "UIManager" has no attribute "system"  [attr-defined]
-tests/test.py:19: error: "UIManager" has no attribute "system"  [attr-defined]
-tests/test.py:25: error: "UIManager" has no attribute "workflow"  [attr-defined]
-tests/test.py:32: error: "UIManager" has no attribute "workflow"  [attr-defined]
-tests/test.py:37: error: "UIManager" has no attribute "workflow"  [attr-defined]
-tests/test.py:39: error: "UIManager" has no attribute "step"  [attr-defined]
-tests/test.py:46: error: "UIManager" has no attribute "database"  [attr-defined]
-tests/test.py:53: error: "UIManager" has no attribute "database"  [attr-defined]
-tests/test.py:58: error: "UIManager" has no attribute "database"  [attr-defined]
-tests/test.py:60: error: "UIManager" has no attribute "sub"  [attr-defined]
-tests/test.py:61: error: "UIManager" has no attribute "sub"  [attr-defined]
-tests/test.py:62: error: "UIManager" has no attribute "sub"  [attr-defined]
-tests/test.py:63: error: "UIManager" has no attribute "sub"  [attr-defined]
-tests/test.py:67: error: "UIManager" has no attribute "database"  [attr-defined]
-tests/test.py:74: error: "UIManager" has no attribute "database"  [attr-defined]
-tests/test.py:79: error: "UIManager" has no attribute "sub"  [attr-defined]
-tests/test.py:83: error: "UIManager" has no attribute "database"  [attr-defined]
-tests/test.py:88: error: "UIManager" has no attribute "sub"  [attr-defined]
-tests/test.py:89: error: "UIManager" has no attribute "sub"  [attr-defined]
-tests/test.py:90: error: "UIManager" has no attribute "sub"  [attr-defined]
-tests/test.py:92: error: "UIManager" has no attribute "step"  [attr-defined]
-tests/test.py:99: error: "UIManager" has no attribute "oc"  [attr-defined]
-tests/test.py:106: error: "UIManager" has no attribute "oc"  [attr-defined]
-tests/test.py:111: error: "UIManager" has no attribute "step"  [attr-defined]
-tests/test.py:118: error: "UIManager" has no attribute "report"  [attr-defined]
-tests/test.py:123: error: "UIManager" has no attribute "system"  [attr-defined]
-tests/test.py:125: error: "UIManager" has no attribute "shutdown"  [attr-defined]
-core/observability/console/sink.py:186: error: Missing positional argument "message" in call to "spinner" of "ConsoleRenderer"  [call-arg]
-core/observability/console/sink.py:186: error: "spinner" of "ConsoleRenderer" does not return a value (it only ever returns None)  [func-returns-value]
-core/observability/console/sink.py:203: error: Argument 1 to "spinner_success" of "ConsoleRenderer" has incompatible type "Optional[TaskID]"; expected "str"  [arg-type]
-core/observability/console/sink.py:218: error: Argument 1 to "spinner_error" of "ConsoleRenderer" has incompatible type "Optional[TaskID]"; expected "str"  [arg-type]
-core/context.py:15: error: Module "core.observability" has no attribute "Observability"; maybe "ObservabilityManager"?  [attr-defined]
-lib/users/manager.py:40: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-lib/users/manager.py:46: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-lib/plugins/loader.py:99: error: Returning Any from function declared to return "Plugin"  [no-any-return]
-lib/plugins/discovery.py:62: error: Argument 1 to "register" of "PluginRegistry" has incompatible type "Plugin"; expected "PluginMetadata"  [arg-type]
-lib/auth/service.py:29: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-lib/auth/service.py:37: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-core/runtime/context.py:16: error: Module "core.observability.logging.manager" has no attribute "ExecutionLogManager"; maybe "ExecutionLogger"?  [attr-defined]
-core/runtime/context.py:86: error: "EntropyContext" has no attribute "logger"  [attr-defined]
-core/runtime/context.py:88: error: "EntropyContext" has no attribute "logger"  [attr-defined]
-core/runtime/context.py:97: error: Returning Any from function declared to return "Emitter"  [no-any-return]
-core/runtime/context.py:145: error: "EntropyContext" has no attribute "variable_manager"  [attr-defined]
-core/runtime/context.py:150: error: "EntropyContext" has no attribute "secret_manager"; maybe "user_manager"?  [attr-defined]
-lib/workflow/manager.py:107: error: Incompatible types in assignment (expression has type "WorkflowDefinition", variable has type "Path")  [assignment]
-lib/workflow/manager.py:112: error: Argument 1 to "validate" of "WorkflowValidator" has incompatible type "Path"; expected "WorkflowDefinition"  [arg-type]
-lib/workflow/manager.py:115: error: Incompatible types in assignment (expression has type "Path", variable has type "Optional[WorkflowDefinition]")  [assignment]
-lib/workflow/manager.py:117: error: Incompatible return value type (got "Path", expected "WorkflowDefinition")  [return-value]
-lib/plugins/manager.py:159: error: "PluginManager" has no attribute "initialize"  [attr-defined]
-lib/plugins/manager.py:163: error: "PluginManager" has no attribute "validate"  [attr-defined]
-lib/plugins/manager.py:165: error: "PluginManager" has no attribute "execute"  [attr-defined]
-lib/plugins/manager.py:172: error: "PluginManager" has no attribute "dispose"  [attr-defined]
-lib/auth/manager.py:32: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-lib/auth/manager.py:49: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-tests/users/test_repository.py:22: error: Returning Any from function declared to return "User"  [no-any-return]
-tests/users/conftest.py:81: error: The return type of a generator function should be "Generator" or one of its supertypes  [misc]
-tests/users/conftest.py:114: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-tests/plugins/test_loader.py:25: error: Module has no attribute "PLUGIN_CLASS"  [attr-defined]
-tests/plugins/test_loader.py:27: error: Module has no attribute "DummyPlugin"  [attr-defined]
-tests/plugins/test_loader.py:59: error: Module has no attribute "PLUGIN_CLASS"  [attr-defined]
-tests/plugins/test_loader.py:61: error: Module has no attribute "DummyPlugin"  [attr-defined]
-tests/auth/conftest.py:69: error: The return type of a generator function should be "Generator" or one of its supertypes  [misc]
-tests/auth/conftest.py:114: error: Incompatible types in assignment (expression has type "Paths", variable has type "Optional[RuntimePathManager]")  [assignment]
-tests/auth/conftest.py:119: error: Incompatible types in assignment (expression has type "DummyConfiguration", variable has type "Optional[ConfigurationManager]")  [assignment]
-tests/auth/conftest.py:123: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-core/application.py:142: error: Argument "configuration" to "RuntimePathManager" has incompatible type "Configuration"; expected "ConfigurationModel"  [arg-type]
-core/application.py:175: error: "EntropyContext" has no attribute "diagnostics"  [attr-defined]
-core/application.py:210: error: "ConsoleSink" has no attribute "banner"  [attr-defined]
-Found 81 errors in 24 files (checked 234 source files)
+core/runtime/context.py:230: error: Cannot instantiate abstract class "Stage"
+with abstract attribute "cancelled_event"  [abstract]
+            return Stage(
+                   ^~~~~~
+core/runtime/context.py:246: error: Cannot instantiate abstract class
+"Activity" with abstract attribute "cancelled_event"  [abstract]
+            return Activity(
+                   ^~~~~~~~~
+lib/workflow/runner.py:112: error: Argument 1 to "start" of
+"WorkflowJobManager" has incompatible type "Optional[int]"; expected "int" 
+[arg-type]
+                job.id,
+                ^~~~~~
+lib/workflow/runner.py:116: error: Argument 1 to "running" of
+"WorkflowJobManager" has incompatible type "Optional[int]"; expected "int" 
+[arg-type]
+                job.id,
+                ^~~~~~
+lib/workflow/runner.py:175: error: Argument 1 to "complete" of
+"WorkflowJobManager" has incompatible type "Optional[int]"; expected "int" 
+[arg-type]
+                    job.id,
+                    ^~~~~~
+lib/workflow/runner.py:187: error: Argument 1 to "cancel" of
+"WorkflowJobManager" has incompatible type "Optional[int]"; expected "int" 
+[arg-type]
+                    job.id,
+                    ^~~~~~
+lib/workflow/runner.py:202: error: Argument 1 to "fail" of "WorkflowJobManager"
+has incompatible type "Optional[int]"; expected "int"  [arg-type]
+                    job.id,
+                    ^~~~~~
+lib/plugins/installer.py:197: error: Argument 1 to "install" of
+"ExtensionManager" has incompatible type "ExtensionRequirement"; expected
+"ExtensionManifest"  [arg-type]
+                    requirement,
+                    ^~~~~~~~~~~
+lib/plugins/installer.py:220: error: "MigrationManager" has no attribute "run" 
+[attr-defined]
+                self._migrations.run(
+                ^~~~~~~~~~~~~~~~~~~~
+lib/plugins/installer.py:391: error: "RuntimePathManager" has no attribute
+"home"  [attr-defined]
+            assert self._paths.home != self._paths.staging
+                   ^~~~~~~~~~~~~~~~
+lib/plugins/installer.py:391: error: "RuntimePathManager" has no attribute
+"staging"  [attr-defined]
+            assert self._paths.home != self._paths.staging
+                                       ^~~~~~~~~~~~~~~~~~~
+lib/plugins/installer.py:393: error: "RuntimePathManager" has no attribute
+"staging"  [attr-defined]
+            staging = self._paths.staging
+                      ^~~~~~~~~~~~~~~~~~~
+lib/plugins/installer.py:394: error: "RuntimePathManager" has no attribute
+"home"  [attr-defined]
+            final = self._paths.home
+                    ^~~~~~~~~~~~~~~~
+lib/workflow/manager.py:197: error: Argument "job_id" to "WorkflowProcess" has
+incompatible type "Optional[int]"; expected "int"  [arg-type]
+                job_id=job.id,
+                       ^~~~~~
+lib/workflow/manager.py:199: error: "ApplicationPaths" has no attribute
+"worker"  [attr-defined]
+                worker=self._context.bootstrap.application.worker,
+                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+lib/workflow/manager.py:212: error: Argument 1 to "get" of "WorkflowJobManager"
+has incompatible type "Optional[int]"; expected "int"  [arg-type]
+                job.id,
+                ^~~~~~
+lib/workflow/jobs/sink.py:117: error: Argument "level" to "event" of
+"WorkflowJobManager" has incompatible type "int"; expected "Optional[str]" 
+[arg-type]
+                level=event.level.value,
+                      ^~~~~~~~~~~~~~~~~
+core/observability/logging/sink.py:64: error: Argument 1 to "_logger" of
+"LoggingSink" has incompatible type "MessageEvent"; expected "LifecycleEvent" 
+[arg-type]
+                    event,
+                    ^~~~~
+core/generators/plugin.py:39: error: Signature of "generate" incompatible with
+supertype "core.generators.base.BaseGenerator"  [override]
+        def generate(
+        ^~~~~~~~~~~~~
+core/generators/plugin.py:39: note:      Superclass:
+core/generators/plugin.py:39: note:          def generate(self, args: Any, context: Optional[EntropyContext] = ...) -> None
+core/generators/plugin.py:39: note:      Subclass:
+core/generators/plugin.py:39: note:          def generate(self, args: Any, context: Any) -> Path
+core/generators/plugin.py:62: error: Item "None" of
+"Optional[BootstrapPathManager]" has no attribute "resources"  [union-attr]
+            root = self._context.bootstrap.resources.plugins
+                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+core/generators/plugin.py:93: error: Item "None" of "Optional[LinuxExecutor]"
+has no attribute "mkdir"  [union-attr]
+            self._context.executor.mkdir(
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+core/generators/plugin.py:120: error: Item "None" of "Optional[LinuxExecutor]"
+has no attribute "move"  [union-attr]
+                self._context.executor.move(
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+core/generators/plugin.py:153: error: Item "None" of "Optional[LinuxExecutor]"
+has no attribute "remove"  [union-attr]
+                self._context.executor.remove(
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+core/generators/plugin.py:167: error: Item "None" of "Optional[TemplateEngine]"
+has no attribute "render"  [union-attr]
+                self._context.template.render(
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+core/generators/plugin.py:180: error: Item "None" of "Optional[LinuxExecutor]"
+has no attribute "mkdir"  [union-attr]
+                self._context.executor.mkdir(
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+core/context_factory.py:112: error: Argument "configuration" to
+"RuntimePathManager" has incompatible type "Configuration"; expected
+"ConfigurationModel"  [arg-type]
+                configuration=self._context.configuration.configuration,
+                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+core/context_factory.py:212: error: "ConsoleSink" has no attribute "banner" 
+[attr-defined]
+                console.banner(
+                ^~~~~~~~~~~~~~
+lib/install/installer.py:307: error: Item "None" of
+"Optional[InstallerPathManager]" has no attribute "workspace"  [union-attr]
+            assert self._paths.workspace is not None
+                   ^~~~~~~~~~~~~~~~~~~~~
+lib/install/installer.py:309: error: Item "None" of
+"Optional[InstallerPathManager]" has no attribute "default_config"  [union-attr]
+            with self._paths.default_config.open(
+                 ^~~~~~~~~~~~~~~~~~~~~~~~~~
+lib/install/installer.py:319: error: Item "None" of
+"Optional[InstallerPathManager]" has no attribute "workspace"  [union-attr]
+                self._paths.workspace,
+                ^~~~~~~~~~~~~~~~~~~~~
+lib/install/installer.py:322: error: Item "None" of
+"Optional[InstallerPathManager]" has no attribute "config_file"  [union-attr]
+            self._paths.config_file.write_text(
+            ^~~~~~~~~~~~~~~~~~~~~~~
+scripts/install.py:13: error: Missing return statement  [return]
+    def main() -> int:
+    ^~~~~~~~~~~~~~~~~~
+Found 32 errors in 10 files (checked 217 source files)

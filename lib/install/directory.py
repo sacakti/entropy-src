@@ -3,9 +3,12 @@ from lib.install.paths import InstallerPathManager
 
 class DirectoryInstaller:
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        paths: InstallerPathManager,
+    ) -> None:
 
-        self._paths = InstallerPathManager()
+        self._paths = paths
 
     def install(self) -> None:
 

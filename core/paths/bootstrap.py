@@ -8,6 +8,7 @@ configuration has been loaded.
 from pathlib import Path
 
 from core.models.paths import (
+    ApplicationPaths,
     ConfigurationPaths,
     ResourcePaths,
     VendorPaths,
@@ -31,6 +32,7 @@ class BootstrapPathManager:
         self._project_root = project_root
         self._entropy_home = entropy_home
 
+        self._application = self._build_application_paths()
         self._configuration = self._build_configuration_paths()
         self._resources = self._build_resource_paths()
         self._vendor = self._build_vendor_paths()
@@ -38,6 +40,9 @@ class BootstrapPathManager:
     # ------------------------------------------------------------------
     # Public Properties
     # ------------------------------------------------------------------
+    @property
+    def application(self) -> ApplicationPaths:
+        return self._application
 
     @property
     def home(self) -> Path:
@@ -59,9 +64,34 @@ class BootstrapPathManager:
     def vendor(self) -> VendorPaths:
         return self._vendor
 
+    @property
+    def worker(self) -> Path:
+        return (
+            self._project_root
+            / "lib"
+            / "workflow"
+            / "worker.py"
+        )
+
     # ------------------------------------------------------------------
     # Builders
     # ------------------------------------------------------------------
+    def _build_application_paths(
+        self,
+    ) -> ApplicationPaths:
+
+        root = Path.home() / ".local" / "share" / "entropy"
+
+        directory = root / "application"
+
+        return ApplicationPaths(
+            root=root,
+            directory=directory,
+            executable=directory / "entropy.py",
+            staging=root / "staging",
+            versions=root / "versions",
+            transaction=root / "transaction.json",
+        )
 
     def _build_configuration_paths(self) -> ConfigurationPaths:
 

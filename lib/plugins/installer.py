@@ -4,6 +4,7 @@ Plugin installer.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from pathlib import Path
 
 from core.context import EntropyContext
@@ -13,11 +14,11 @@ from lib.extensions.manager import ExtensionManager
 from lib.migrations.manager import MigrationManager
 from lib.models.plugin import Plugin, PluginManifest
 
-from .manifest import ManifestReader
-from .validator import ManifestValidator
 from .exceptions import (
     PluginAlreadyInstalledError,
 )
+from .manifest import ManifestReader
+from .validator import ManifestValidator
 
 
 class PluginInstaller:
@@ -69,11 +70,7 @@ class PluginInstaller:
             directory,
         )
 
-        destination = (
-            self._paths.plugins.directory /
-            manifest.namespace /
-            manifest.name
-        )
+        destination = self._paths.plugins.directory / manifest.namespace / manifest.name
 
         self._validator.validate(
             manifest,
@@ -118,7 +115,6 @@ class PluginInstaller:
             manifest,
             destination.resolve(),
         )
-
 
     # ------------------------------------------------------------------
     # Uninstall
@@ -213,21 +209,17 @@ class PluginInstaller:
         Execute plugin migrations.
         """
 
-        migrations = (
-            directory /
-            "migrations"
-        )
+        migrations = directory / "migrations"
 
         if not migrations.exists():
 
             return
 
-        try:
+        with suppress(Exception):
+
             self._migrations.run(
                 migrations,
             )
-        except Exception:
-            pass
 
     # ------------------------------------------------------------------
     # Registration
@@ -271,27 +263,21 @@ class PluginInstaller:
         if not plugin.path.exists():
 
             raise EntropyException(
-                f"Plugin directory not found for "
-                f"'{plugin.qualified_name}': {plugin.path}",
+                f"Plugin directory not found for " f"'{plugin.qualified_name}': {plugin.path}",
             )
 
         if not plugin.path.is_dir():
 
             raise EntropyException(
-                f"Plugin path is not a directory for "
-                f"'{plugin.qualified_name}': {plugin.path}",
+                f"Plugin path is not a directory for " f"'{plugin.qualified_name}': {plugin.path}",
             )
 
-        manifest_file = (
-            plugin.path /
-            "plugin.json"
-        )
+        manifest_file = plugin.path / "plugin.json"
 
         if not manifest_file.exists():
 
             raise EntropyException(
-                f"Plugin manifest not found for "
-                f"'{plugin.qualified_name}': {manifest_file}",
+                f"Plugin manifest not found for " f"'{plugin.qualified_name}': {manifest_file}",
             )
 
         manifest = self._reader.read(
@@ -305,15 +291,13 @@ class PluginInstaller:
         if manifest.namespace != plugin.namespace:
 
             raise EntropyException(
-                f"Plugin namespace mismatch for "
-                f"'{plugin.qualified_name}'.",
+                f"Plugin namespace mismatch for " f"'{plugin.qualified_name}'.",
             )
 
         if manifest.name != plugin.name:
 
             raise EntropyException(
-                f"Plugin name mismatch for "
-                f"'{plugin.qualified_name}'.",
+                f"Plugin name mismatch for " f"'{plugin.qualified_name}'.",
             )
 
         if manifest.version != plugin.version:
@@ -334,23 +318,14 @@ class PluginInstaller:
             "plugin.py",
         )
 
-        missing = [
-            plugin.path / file
-            for file in required
-            if not (plugin.path / file).exists()
-        ]
+        missing = [plugin.path / file for file in required if not (plugin.path / file).exists()]
 
         if missing:
 
-            files = "\n".join(
-                f"- {path}"
-                for path in missing
-            )
+            files = "\n".join(f"- {path}" for path in missing)
 
             raise EntropyException(
-                f"Plugin '{plugin.qualified_name}' "
-                f"is incomplete. Missing files:\n"
-                f"{files}",
+                f"Plugin '{plugin.qualified_name}' " f"is incomplete. Missing files:\n" f"{files}",
             )
 
     # ------------------------------------------------------------------
@@ -389,10 +364,7 @@ class PluginInstaller:
             manifest,
         )
 
-        if (
-            manifest.namespace != plugin.namespace
-            or manifest.name != plugin.name
-        ):
+        if manifest.namespace != plugin.namespace or manifest.name != plugin.name:
 
             raise EntropyException(
                 f"Plugin source '{manifest.qualified_name}' "
@@ -407,3 +379,41 @@ class PluginInstaller:
         return self.install(
             source,
         )
+
+    # Path
+    def finalize_paths(
+        self,
+    ) -> None:
+        """
+        Replace staging installation paths with final installation paths.
+        """
+
+        assert self._paths.home != self._paths.staging
+
+        staging = self._paths.staging
+        final = self._paths.home
+
+        plugins = self._repository.list()
+
+        for plugin in plugins:
+
+            path = plugin.path
+
+            try:
+
+                relative = path.relative_to(
+                    staging,
+                )
+
+            except ValueError:
+
+                continue
+
+            plugin.path = final / relative
+
+            assert plugin.id is not None
+
+            self._repository.update_path(
+                plugin.id,
+                plugin.path.resolve(),
+            )

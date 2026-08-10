@@ -47,7 +47,6 @@ class ConsoleRenderer:
 
         self._progress.shutdown()
 
-
     # ------------------------------------------------------------------
     # Progress
     # ------------------------------------------------------------------
@@ -60,7 +59,6 @@ class ConsoleRenderer:
         """
 
         self._progress.suspend()
-
 
     def _resume_progress(
         self,
@@ -105,22 +103,42 @@ class ConsoleRenderer:
         title: str,
     ) -> None:
 
-        self._console.print()
+        self._suspend_progress()
 
-        self._console.print(
-            Rule(
-                style="bright_black",
+        try:
+
+            self._console.print()
+
+            self._console.print(
+                Rule(
+                    style="bright_black",
+                )
             )
-        )
 
-        self._console.print(f"[bold cyan]▶ {title}[/]")
+            self._console.print(
+                f"[bold cyan]▶ {title}[/]"
+            )
+
+        finally:
+
+            self._resume_progress()
 
     def rule(
         self,
         title: str = "",
     ) -> None:
 
-        self._console.rule(title)
+        self._suspend_progress()
+
+        try:
+
+            self._console.rule(
+                title,
+            )
+
+        finally:
+
+            self._resume_progress()
 
     # ------------------------------------------------------------------
     # Messages
@@ -131,35 +149,48 @@ class ConsoleRenderer:
         message: str,
     ) -> None:
 
-        self._console.print(f"[{ConsoleTheme.INFO}]ℹ[/] {message}")
+        self._print(
+            f"[{ConsoleTheme.INFO}]ℹ[/] {message}",
+        )
 
     def success(
         self,
         message: str,
     ) -> None:
 
-        self._console.print(f"[{ConsoleTheme.SUCCESS}]✔[/] {message}")
+        self._print(
+            f"[{ConsoleTheme.SUCCESS}]✔[/] {message}",
+        )
+
 
     def warning(
         self,
         message: str,
     ) -> None:
 
-        self._console.print(f"[{ConsoleTheme.WARNING}]⚠[/] {message}")
+        self._print(
+            f"[{ConsoleTheme.WARNING}]⚠[/] {message}",
+        )
+
 
     def error(
         self,
         message: str,
     ) -> None:
 
-        self._console.print(f"[{ConsoleTheme.ERROR}]✖[/] {message}")
+        self._print(
+            f"[{ConsoleTheme.ERROR}]✖[/] {message}",
+        )
+
 
     def debug(
         self,
         message: str,
     ) -> None:
 
-        self._console.print(f"[{ConsoleTheme.DEBUG}]•[/] {message}")
+        self._print(
+            f"[{ConsoleTheme.DEBUG}]•[/] {message}",
+        )
 
     # ------------------------------------------------------------------
     # Progress
@@ -288,12 +319,20 @@ class ConsoleRenderer:
 
         try:
 
-            self._console.print(
-                Text(
-                    content,
-                    style=style,
+            if style is None:
+
+                self._console.print(
+                    Text(content),
                 )
-            )
+
+            else:
+
+                self._console.print(
+                    Text(
+                        content,
+                        style=style,
+                    )
+                )
 
         finally:
 
@@ -305,18 +344,10 @@ class ConsoleRenderer:
         **kwargs: Any,
     ) -> None:
 
-        self._suspend_progress()
-
-        try:
-
-            self._console.print(
-                *args,
-                **kwargs,
-            )
-
-        finally:
-
-            self._resume_progress()
+        self._print(
+            *args,
+            **kwargs,
+        )
 
     def blank(
         self,
@@ -386,3 +417,23 @@ class ConsoleRenderer:
     def console(self) -> Console:
 
         return self._console
+
+    # Helper
+    def _print(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+
+        self._suspend_progress()
+
+        try:
+
+            self._console.print(
+                *args,
+                **kwargs,
+            )
+
+        finally:
+
+            self._resume_progress()

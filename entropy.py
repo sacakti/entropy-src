@@ -6,6 +6,7 @@ bootstrap()
 
 from core.application import Application
 
+
 def main():
 
     app = Application()
@@ -18,9 +19,7 @@ def main():
         global_args,
     )
 
-    app.run(
-        argv
-    )
+    app.run(argv)
 
 
 if __name__ == "__main__":

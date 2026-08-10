@@ -66,7 +66,6 @@ class LogConsoleSink(Sink):
     def level(self) -> LogLevel:
         return self._level
 
-
     @level.setter
     def level(
         self,

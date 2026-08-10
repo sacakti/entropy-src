@@ -1,8 +1,9 @@
+from pathlib import Path
+
 from core.observability.event import BaseEvent, LogEvent
 from core.observability.logging.manager import LoggingManager
 from core.observability.sink import Sink
 
-from pathlib import Path
 
 class LogFileSink(Sink):
     """

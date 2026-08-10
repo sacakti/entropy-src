@@ -4,6 +4,7 @@ Extension validator.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 from core.context import EntropyContext
@@ -32,7 +33,6 @@ class ExtensionValidator:
     # Helper
     #
 
-    @DeprecationWarning
     def _installed_files(
         self,
         record: Path,
@@ -40,6 +40,12 @@ class ExtensionValidator:
         """
         Return files recorded by RECORD.
         """
+
+        warnings.warn(
+            "_installed_files() is deprecated.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         import csv
 
@@ -60,8 +66,7 @@ class ExtensionValidator:
                     continue
 
                 files.append(
-                    self._paths.site_packages /
-                    row[0],
+                    self._paths.site_packages / row[0],
                 )
 
         return files
@@ -140,7 +145,6 @@ class ExtensionValidator:
     # ------------------------------------------------------------------
     # Verification
     # ------------------------------------------------------------------
-    @DeprecationWarning
     def verify(
         self,
         name: str,
@@ -153,20 +157,22 @@ class ExtensionValidator:
         and that all files listed by RECORD are present.
         """
 
+        warnings.warn(
+            "verify() is deprecated.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         extension = self._repository.get_by_name(
             name,
         )
 
-        dist_info = (
-            self._paths.site_packages /
-            extension.dist_info
-        )
+        dist_info = self._paths.site_packages / extension.dist_info
 
         if not dist_info.exists():
 
             raise ExtensionInstallationError(
-                f"Dist-info directory not found for '{name}': "
-                f"{dist_info}",
+                f"Dist-info directory not found for '{name}': " f"{dist_info}",
             )
 
         record = dist_info / "RECORD"
@@ -191,10 +197,7 @@ class ExtensionValidator:
 
         if missing:
 
-            files = "\n".join(
-                f"  - {path}"
-                for path in missing
-            )
+            files = "\n".join(f"  - {path}" for path in missing)
 
             raise ExtensionInstallationError(
                 f"Extension '{name}' is incomplete. "
@@ -204,15 +207,10 @@ class ExtensionValidator:
 
         for entry_point in extension.entry_points:
 
-            launcher = (
-                self._paths.site_packages /
-                "bin" /
-                entry_point
-            )
+            launcher = self._paths.site_packages / "bin" / entry_point
 
             if not launcher.exists():
 
                 raise ExtensionInstallationError(
-                    f"Entry point launcher not found for "
-                    f"'{name}': {launcher}",
+                    f"Entry point launcher not found for " f"'{name}': {launcher}",
                 )

@@ -30,25 +30,17 @@ class SessionManager:
         assert context.paths is not None
         assert context.observability is not None
 
-        self._authentication: AuthenticationService = (
-            context.authentication
-        )
+        self._authentication: AuthenticationService = context.authentication
 
         self._executor: LinuxExecutor = context.executor
 
-        self._session_file = (
-            context.paths.session.current
-        )
+        self._session_file = context.paths.session.current
 
-        self._session_directory = (
-            context.paths.session.directory
-        )
+        self._session_directory = context.paths.session.directory
 
-        self._session_timeout = (
-            context.configuration.get(
-                "auth.session.timeout",
-                8,
-            )
+        self._session_timeout = context.configuration.get(
+            "auth.session.timeout",
+            8,
         )
 
         self._events = context.observability.emitter(

@@ -34,7 +34,6 @@ class MigrationManager:
 
             self._events = NullEmitter()
 
-
         self._registry = MigrationRegistry(package)
 
         self._history = MigrationHistory(

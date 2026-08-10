@@ -7,7 +7,6 @@ from __future__ import annotations
 import sys
 
 from core.context import EntropyContext
-
 from lib.extensions.exceptions import ExtensionDownloadError
 from lib.models.extensions import ExtensionManifest
 

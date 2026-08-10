@@ -117,10 +117,15 @@ class Configuration:
         name: str,
     ) -> dict[str, Any]:
 
-        return self._data.get(
+        value = self._data.get(
             name,
             {},
         )
+
+        if not isinstance(value, dict):
+            return {}
+
+        return value
 
     # ------------------------------------------------------------------
     # Paths

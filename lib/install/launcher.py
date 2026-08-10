@@ -17,11 +17,14 @@ from .platform import Platform
 
 class Launcher:
 
-    def __init__(self, platform):
+    def __init__(
+        self,
+        platform,
+        paths: InstallerPathManager,
+    ) -> None:
 
         self._platform = platform
-
-        self.paths = InstallerPathManager()
+        self._paths = paths
 
     # ------------------------------------------------------------------
     # Install
@@ -65,13 +68,13 @@ class Launcher:
 
         if self._platform == Platform.WINDOWS:
 
-            return self.paths.launcher_windows
+            return self._paths.launcher_windows
 
-        return self.paths.launcher_unix
+        return self._paths.launcher_unix
 
     def _script(self) -> str:
 
-        entropy = self.paths.application
+        entropy = self._paths.installed_application
 
         if self._platform == Platform.WINDOWS:
 

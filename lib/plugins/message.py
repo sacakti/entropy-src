@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 from core.models.logger import LogLevel
 
 if TYPE_CHECKING:
-    from core.runtime.context import ExecutionContext
     from core.observability.emitter import Emitter
+    from core.runtime.context import ExecutionContext
 
 
 class PluginMessage:

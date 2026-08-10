@@ -23,12 +23,14 @@ class WorkflowProcess:
         job_id: int,
         workflow: Path,
         *,
+        worker: Path,
         project_root: Path,
         python_packages: Path,
     ) -> None:
 
         self._job_id = job_id
         self._workflow = workflow
+        self._worker = worker
         self._project_root = project_root
         self._python_packages = python_packages
 
@@ -43,8 +45,7 @@ class WorkflowProcess:
 
         command = [
             sys.executable,
-            "-m",
-            "lib.workflow.worker",
+            str(self._worker),
             str(self._job_id),
             str(self._workflow.resolve()),
             "--project-root",
@@ -53,11 +54,27 @@ class WorkflowProcess:
             str(self._python_packages),
         ]
 
+        # worker_log = (
+        #     self._project_root
+        #     / "tmp"
+        #     / f"workflow-worker-{self._job_id}.log"
+        # )
+
+        # worker_log.parent.mkdir(
+        #     parents=True,
+        #     exist_ok=True,
+        # )
+
+        # log_file = worker_log.open(
+        #     "ab",
+        # )
+
         process = subprocess.Popen(
             command,
             stdin=subprocess.DEVNULL,
+            # stdout=log_file,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
             close_fds=True,
         )
@@ -69,7 +86,6 @@ class WorkflowProcess:
             )
 
         return process.pid
-
 
     # ------------------------------------------------------------------
     # Stop

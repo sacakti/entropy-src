@@ -40,7 +40,7 @@ class BaseGenerator(ABC):
     def generate(
         self,
         args: Any,
-        context: EntropyContext = None,
+        context: EntropyContext | None = None,
     ) -> None:
         """
         Generate an artifact.

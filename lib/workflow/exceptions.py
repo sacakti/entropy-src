@@ -43,6 +43,7 @@ class WorkflowCancelledError(EntropyException):
     Raised when a workflow is cancelled by the user.
     """
 
+
 class WorkflowJobNotFoundError(
     WorkflowError,
 ):

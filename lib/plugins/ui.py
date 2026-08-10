@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Iterable, Sequence
 
-from core.ui import UIManager
+from core.runtime.ui import ExecutionUI
 
 
 class PluginUI:
@@ -26,7 +26,7 @@ class PluginUI:
 
     def __init__(
         self,
-        ui: UIManager,
+        ui: ExecutionUI,
     ) -> None:
 
         self._ui = ui

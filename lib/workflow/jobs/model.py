@@ -60,3 +60,18 @@ class WorkflowJob:
             JobState.FAILED,
             JobState.CANCELLED,
         )
+
+    def require_id(self) -> int:
+        """
+        Return the persistent database identifier.
+
+        Raises ValueError when the job has not been persisted yet.
+        """
+
+        if self.id is None:
+
+            raise ValueError(
+                "Workflow job has not been persisted.",
+            )
+
+        return self.id

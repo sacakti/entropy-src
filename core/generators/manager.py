@@ -92,9 +92,7 @@ class GeneratorManager:
         generator: BaseGenerator,
     ) -> None:
 
-        self._generators[
-            generator.metadata.name
-        ] = generator
+        self._generators[generator.metadata.name] = generator
 
     def get(
         self,

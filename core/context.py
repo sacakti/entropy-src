@@ -6,32 +6,31 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-
 if TYPE_CHECKING:
     from core.commands.manager import CommandManager
     from core.configuration.manager import ConfigurationManager
     from core.generators.manager import GeneratorManager
     from core.observability import ObservabilityManager
+    from core.observability.console import LogConsoleSink
     from core.paths.bootstrap import BootstrapPathManager
     from core.paths.manager import RuntimePathManager
     from core.runtime.manager import ExecutionManager
     from core.template.engine import TemplateEngine
     from core.ui import UIManager
-    from core.observability.console import LogConsoleSink
     from lib.auth.manager import SessionManager
     from lib.auth.service import AuthenticationService
     from lib.database.manager import DatabaseManager
     from lib.database.repositories.users import UserRepository
     from lib.executor import LinuxExecutor
+    from lib.extensions.manager import ExtensionManager
+    from lib.migrations.manager import MigrationManager
     from lib.plugins.manager import PluginManager
     from lib.users.manager import UserManager
     from lib.users.password import PasswordService
-    from lib.workflow.manager import WorkflowManager
-    from lib.extensions.manager import ExtensionManager
-    from lib.plugins.manager import PluginManager
-    from lib.migrations.manager import MigrationManager
+
     # from lib.plugins.runner import PluginRunner
     from lib.workflow.jobs.manager import WorkflowJobManager
+    from lib.workflow.manager import WorkflowManager
     from lib.workflow.runner import WorkflowRunner
 
 

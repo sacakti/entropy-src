@@ -4,11 +4,11 @@ Workflow validator.
 
 from __future__ import annotations
 
-from lib.plugins.manager import PluginManager
 from lib.models.workflow import (
     Workflow,
     WorkflowStep,
 )
+from lib.plugins.manager import PluginManager
 
 from .exceptions import (
     InvalidWorkflowError,

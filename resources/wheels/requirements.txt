@@ -9,4 +9,4 @@ pycparser==2.22
 Pygments==2.20.0
 rich==15.0.0
 ruamel.yaml==0.19.1
-
+packaging==26.3

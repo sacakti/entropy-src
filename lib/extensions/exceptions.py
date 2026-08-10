@@ -22,6 +22,7 @@ class ExtensionNotFoundError(ExtensionError):
             f"Extension '{name}' is not installed.",
         )
 
+
 class ExtensionWheelNotFoundError(ExtensionError):
 
     def __init__(
@@ -29,9 +30,8 @@ class ExtensionWheelNotFoundError(ExtensionError):
         name: str,
     ):
 
-        super().__init__(
-            f"No offline package found for extension '{name}'."
-        )
+        super().__init__(f"No offline package found for extension '{name}'.")
+
 
 class ExtensionAlreadyInstalledError(ExtensionError):
 
@@ -67,6 +67,7 @@ class ExtensionValidationError(ExtensionError):
         super().__init__(
             message,
         )
+
 
 class ExtensionDownloadError(ExtensionError):
 

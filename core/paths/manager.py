@@ -15,9 +15,10 @@ from core.models.paths import (
     LogPaths,
     PluginPaths,
     PythonPaths,
-    RuntimePaths,
+    # RuntimePaths,
     SessionPaths,
     WorkflowPaths,
+    WorkspacePaths,
 )
 from lib.models.configuration import ConfigurationModel
 
@@ -42,18 +43,18 @@ class RuntimePathManager:
 
         self._database = self._build_database_paths()
         self._extensions = self._build_extension_paths()
-        self._runtime = self._build_runtime_paths()
+        # self._runtime = self._build_runtime_paths()
         self._session = self._build_session_paths()
         self._python = self._build_python_paths()
         self._logs = self._build_log_paths()
         self._workflow = self._build_workflow_paths()
         self._git = self._build_git_paths()
         self._plugins = self._build_plugin_paths()
+        self._workspace = self._build_workspace_paths()
 
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
-
     @property
     def database(self) -> DatabasePaths:
         return self._database
@@ -62,9 +63,9 @@ class RuntimePathManager:
     def extensions(self) -> ExtensionPaths:
         return self._extensions
 
-    @property
-    def runtime(self) -> RuntimePaths:
-        return self._runtime
+    # @property
+    # def runtime(self) -> RuntimePaths:
+    #     return self._runtime
 
     @property
     def session(self) -> SessionPaths:
@@ -89,6 +90,10 @@ class RuntimePathManager:
     @property
     def plugins(self) -> PluginPaths:
         return self._plugins
+
+    @property
+    def workspace(self) -> WorkspacePaths:
+        return self._workspace
 
     # ------------------------------------------------------------------
     # Builders
@@ -124,23 +129,23 @@ class RuntimePathManager:
             downloads=root / "downloads",
         )
 
-    def _build_runtime_paths(
-        self,
-    ) -> RuntimePaths:
+    # def _build_runtime_paths(
+    #     self,
+    # ) -> RuntimePaths:
 
-        runtime = self._resolve(
-            self._configuration.get(
-                "runtime.workspace",
-            )
-        )
+    #     runtime = self._resolve(
+    #         self._configuration.get(
+    #             "runtime.workspace",
+    #         )
+    #     )
 
-        return RuntimePaths(
-            root=runtime,
-            pid=runtime / "pid",
-            state=runtime / "state",
-            lock=runtime / "lock",
-            workspaces=runtime / "workspaces",
-        )
+    #     return RuntimePaths(
+    #         root=runtime,
+    #         pid=runtime / "pid",
+    #         state=runtime / "state",
+    #         lock=runtime / "lock",
+    #         workspaces=runtime / "workspaces",
+    #     )
 
     def _build_session_paths(
         self,
@@ -193,14 +198,7 @@ class RuntimePathManager:
         self,
     ) -> WorkflowPaths:
 
-        directory = self._resolve(
-            self._configuration.get(
-                "workflow.directory",
-            )
-        )
-
         return WorkflowPaths(
-            directory=directory,
             default=self._configuration.get(
                 "workflow.default",
             ),
@@ -234,6 +232,22 @@ class RuntimePathManager:
             directory=directory,
         )
 
+    def _build_workspace_paths(
+        self,
+    ) -> WorkspacePaths:
+
+        root = self._resolve_workspace(
+            self._configuration.get(
+                "workspace.root",
+            )
+        )
+
+        return WorkspacePaths(
+            root=root,
+            workflows=root / "workflows",
+            executions=root / "executions",
+        )
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -259,3 +273,22 @@ class RuntimePathManager:
             return path
 
         return self._bootstrap.home / path
+
+    def _resolve_workspace(
+        self,
+        path: Union[str, Path],
+    ) -> Path:
+
+        if path is None:
+            raise ValueError(
+                "Workspace root is missing.",
+            )
+
+        path = Path(path).expanduser()
+
+        if not path.is_absolute():
+            raise ValueError(
+                "Workspace root must be an absolute path.",
+            )
+
+        return path

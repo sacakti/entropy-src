@@ -5,18 +5,22 @@ User management command.
 from __future__ import annotations
 
 from argparse import ArgumentParser, Namespace
+from typing import TYPE_CHECKING
 
 from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
 from lib.users.exceptions import (
+    SystemUserError,
     UnauthorizedActionError,
     UserAlreadyActiveError,
-    UserAlreadyInactiveError,
     UserAlreadyExistsError,
-    SystemUserError,
+    UserAlreadyInactiveError,
 )
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
 
 
 class UserCommand(BaseCommand):
@@ -32,7 +36,7 @@ class UserCommand(BaseCommand):
 
     def __init__(
         self,
-        context,
+        context: EntropyContext,
     ) -> None:
 
         super().__init__(
@@ -176,9 +180,7 @@ class UserCommand(BaseCommand):
             "password": self._password,
             "enable": self._enable,
             "disable": self._disable,
-        }[
-            args.action
-        ](
+        }[args.action](
             args,
         )
 

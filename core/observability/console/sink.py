@@ -121,12 +121,9 @@ class ConsoleSink(Sink):
             event.node.depth - 1,
         )
 
-        message = (
-            indent
-            + event.message.replace(
-                "\n",
-                "\n" + indent,
-            )
+        message = indent + event.message.replace(
+            "\n",
+            "\n" + indent,
         )
 
         if event.level is LogLevel.INFO:
@@ -256,8 +253,7 @@ class ConsoleSink(Sink):
     ) -> None:
 
         self._renderer.warning(
-            f"Step {event.node.get('index')}/{event.node.get('total')} : "
-            f"{event.name}"
+            f"Step {event.node.get('index')}/{event.node.get('total')} : " f"{event.name}"
         )
 
         self._end_step(

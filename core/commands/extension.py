@@ -23,7 +23,7 @@ class ExtensionCommand(
     metadata = CommandMetadata(
         name="extension",
         description="Manage Python extensions.",
-        aliases=("extensions","ext"),
+        aliases=("extensions", "ext"),
     )
 
     def __init__(
@@ -67,7 +67,7 @@ class ExtensionCommand(
         # list wheels
         #
 
-        wheels = subparsers.add_parser(
+        subparsers.add_parser(
             "wheels",
             help="List locally available extension wheels.",
         )
@@ -109,10 +109,7 @@ class ExtensionCommand(
         # repair
         #
 
-        repair = subparsers.add_parser(
-            "repair",
-            help="Repair an extension."
-        )
+        repair = subparsers.add_parser("repair", help="Repair an extension.")
 
         repair.add_argument(
             "name",
@@ -178,9 +175,7 @@ class ExtensionCommand(
             "list": self._list,
             "verify": self._verify,
             "repair": self._repair,
-        }[
-            args.action
-        ](
+        }[args.action](
             args,
         )
 
@@ -332,6 +327,7 @@ class ExtensionCommand(
                 for wheel in wheels
             ],
         )
+
     # ------------------------------------------------------------------
     # Verify
     # ------------------------------------------------------------------

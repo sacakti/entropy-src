@@ -1,18 +1,21 @@
 """
 Offline extension installer.
 """
+
 from __future__ import annotations
-from pathlib import Path
-import sys
+
 import csv
+import sys
 from configparser import ConfigParser
+from contextlib import suppress
+from pathlib import Path
 
 from core.context import EntropyContext
-
 from lib.extensions.base import BaseInstaller
 from lib.extensions.exceptions import ExtensionInstallationError
-from lib.models.extensions import Extension, ExtensionManifest
 from lib.extensions.inspector import WheelInspector
+from lib.models.extensions import Extension, ExtensionManifest
+
 
 class OfflineInstaller(BaseInstaller):
     """
@@ -47,9 +50,7 @@ class OfflineInstaller(BaseInstaller):
 
         if manifest.version:
 
-            package = (
-                f"{package}=={manifest.version}"
-            )
+            package = f"{package}=={manifest.version}"
 
         return [
             sys.executable,
@@ -167,23 +168,18 @@ class OfflineInstaller(BaseInstaller):
         every file recorded by RECORD.
         """
 
-        dist_info = (
-            self._paths.site_packages /
-            extension.dist_info
-        )
+        dist_info = self._paths.site_packages / extension.dist_info
 
         if not dist_info.exists():
 
             raise ExtensionInstallationError(
-                f"Dist-info directory not found for "
-                f"'{extension.name}': {dist_info}",
+                f"Dist-info directory not found for " f"'{extension.name}': {dist_info}",
             )
 
         if not dist_info.is_dir():
 
             raise ExtensionInstallationError(
-                f"Dist-info path is not a directory for "
-                f"'{extension.name}': {dist_info}",
+                f"Dist-info path is not a directory for " f"'{extension.name}': {dist_info}",
             )
 
         record = dist_info / "RECORD"
@@ -197,8 +193,7 @@ class OfflineInstaller(BaseInstaller):
         if not record.is_file():
 
             raise ExtensionInstallationError(
-                f"RECORD path is not a file for "
-                f"'{extension.name}': {record}",
+                f"RECORD path is not a file for " f"'{extension.name}': {record}",
             )
 
         missing = [
@@ -211,10 +206,7 @@ class OfflineInstaller(BaseInstaller):
 
         if missing:
 
-            files = "\n".join(
-                f"- {path}"
-                for path in missing
-            )
+            files = "\n".join(f"- {path}" for path in missing)
 
             raise ExtensionInstallationError(
                 f"Extension '{extension.name}' is incomplete. "
@@ -276,17 +268,9 @@ class OfflineInstaller(BaseInstaller):
             if not directory.is_dir():
                 continue
 
-            try:
+            with suppress(OSError):
 
                 directory.rmdir()
-
-            except OSError:
-
-                #
-                # Directory is not empty.
-                #
-
-                pass
 
     # ------------------------------------------------------------------
     # Helpers
@@ -321,20 +305,13 @@ class OfflineInstaller(BaseInstaller):
         Return the RECORD file.
         """
 
-        record = (
-            self._paths.site_packages /
-            extension.dist_info /
-            "RECORD"
-        )
+        record = self._paths.site_packages / extension.dist_info / "RECORD"
 
         if not record.exists():
 
-            raise ExtensionInstallationError(
-                f"RECORD not found for '{extension.name}'."
-            )
+            raise ExtensionInstallationError(f"RECORD not found for '{extension.name}'.")
 
         return record
-
 
     def _installed_files(
         self,
@@ -361,8 +338,7 @@ class OfflineInstaller(BaseInstaller):
                     continue
 
                 files.append(
-                    self._paths.site_packages /
-                    row[0],
+                    self._paths.site_packages / row[0],
                 )
 
         return files
@@ -379,11 +355,7 @@ class OfflineInstaller(BaseInstaller):
         Return installed console entry points.
         """
 
-        file = (
-            self._paths.site_packages /
-            extension.dist_info /
-            "entry_points.txt"
-        )
+        file = self._paths.site_packages / extension.dist_info / "entry_points.txt"
 
         if not file.exists():
 

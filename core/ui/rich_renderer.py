@@ -155,7 +155,6 @@ class RichRenderer(Renderer):
 
         return self._console
 
-
     def info(
         self,
         message: str,
@@ -167,7 +166,6 @@ class RichRenderer(Renderer):
         self.print(
             f"[cyan]ℹ[/] {message}",
         )
-
 
     def success(
         self,
@@ -181,7 +179,6 @@ class RichRenderer(Renderer):
             f"[green]✔[/] {message}",
         )
 
-
     def warning(
         self,
         message: str,
@@ -193,7 +190,6 @@ class RichRenderer(Renderer):
         self.print(
             f"[yellow]⚠[/] {message}",
         )
-
 
     def error(
         self,

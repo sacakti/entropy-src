@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.context import EntropyContext
-
 from lib.models.workflow import (
     Workflow,
     WorkflowStep,

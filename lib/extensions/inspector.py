@@ -47,7 +47,7 @@ class WheelInspector:
         tag = next(
             iter(tags),
         )
-        installed_at=datetime.now(
+        installed_at = datetime.now(
             timezone.utc,
         )
         return Extension(

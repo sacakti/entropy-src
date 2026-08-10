@@ -308,3 +308,58 @@ class PluginRepository(Repository):
         namespace, name = qualified_name.split(".", 1)
 
         return self.get_by_name(namespace, name)
+
+    # Update path
+    def update_path(
+        self,
+        plugin_id: int,
+        path: Path,
+    ) -> None:
+        """
+        Update the installed plugin filesystem path.
+        """
+
+        with self.connection.transaction():
+
+            self.execute(
+                """
+                UPDATE plugin_registry
+                SET path = ?
+                WHERE id = ?
+                """,
+                (
+                    str(path),
+                    plugin_id,
+                ),
+            )
+
+    def relocate_paths(
+        self,
+        source: Path,
+        destination: Path,
+    ) -> None:
+
+        plugins = self.list()
+
+        for plugin in plugins:
+
+            try:
+
+                relative = plugin.path.relative_to(
+                    source,
+                )
+
+            except ValueError:
+
+                continue
+
+            new_path = (destination / relative).resolve()
+
+            assert plugin.id is not None
+
+            with self.connection.transaction():
+
+                self.update_path(
+                    plugin.id,
+                    new_path,
+                )

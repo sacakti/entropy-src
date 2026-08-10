@@ -34,8 +34,8 @@ class ProgressManager:
         )
 
         self._started = False
-
-        self._tasks: dict[str, TaskID] = {}
+        self._task: TaskID | None = None
+        self._node_id: str | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -44,17 +44,14 @@ class ProgressManager:
     def shutdown(
         self,
     ) -> None:
-        """
-        Stop the progress manager.
-        """
 
         if self._started:
 
             self._progress.stop()
 
-            self._started = False
-
-            self._tasks.clear()
+        self._started = False
+        self._task = None
+        self._node_id = None
 
     # ------------------------------------------------------------------
     # Suspension
@@ -63,26 +60,15 @@ class ProgressManager:
     def suspend(
         self,
     ) -> None:
-        """
-        Temporarily suspend progress rendering.
-
-        Used before rendering panels, tables or prompting
-        the user so Rich can redraw the spinner afterwards.
-        """
 
         if self._started:
-
             self._progress.stop()
 
     def resume(
         self,
     ) -> None:
-        """
-        Resume progress rendering.
-        """
 
         if self._started:
-
             self._progress.start()
 
     # ------------------------------------------------------------------
@@ -104,18 +90,19 @@ class ProgressManager:
         node_id: str,
     ) -> None:
 
-        task = self._tasks.pop(
-            node_id,
-            None,
-        )
+        if self._node_id != node_id:
+            return
 
-        if task is not None:
+        if self._task is not None:
 
             self._progress.remove_task(
-                task,
+                self._task,
             )
 
-        if not self._tasks and self._started:
+        self._task = None
+        self._node_id = None
+
+        if self._started:
 
             self._progress.stop()
 
@@ -142,9 +129,19 @@ class ProgressManager:
         message: str,
     ) -> None:
 
+        if self._task is not None:
+
+            self._progress.remove_task(
+                self._task,
+            )
+
+            self._task = None
+
         self._start()
 
-        self._tasks[node_id] = self._progress.add_task(
+        self._node_id = node_id
+
+        self._task = self._progress.add_task(
             f"[{ConsoleTheme.INFO}]{message}",
             total=None,
         )

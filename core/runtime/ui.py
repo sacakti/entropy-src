@@ -4,8 +4,9 @@ Workflow execution UI.
 
 from __future__ import annotations
 
-from typing import Iterable, Sequence
 import multiprocessing
+from typing import Iterable, Sequence
+
 from core.ui import UIManager
 
 
@@ -102,10 +103,7 @@ class ExecutionUI:
             columns,
         )
 
-        materialized_rows = [
-            list(row)
-            for row in rows
-        ]
+        materialized_rows = [list(row) for row in rows]
 
         if self._interactive():
 
@@ -149,6 +147,26 @@ class ExecutionUI:
         )
 
     # ------------------------------------------------------------------
+    # Progress
+    # ------------------------------------------------------------------
+
+    def progress(
+        self,
+        description: str,
+        total: int | None = None,
+    ):
+        """
+        Create a progress indicator.
+
+        Progress rendering is delegated to the application UI.
+        """
+
+        return self._ui.progress(
+            description,
+            total,
+        )
+
+    # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
 
@@ -184,21 +202,9 @@ class ExecutionUI:
             execution_id=execution.id,
             event_type="render",
             source="workflow",
-            node_type=(
-                node.type.value
-                if node is not None
-                else None
-            ),
-            node_id=(
-                node.id
-                if node is not None
-                else None
-            ),
-            node_name=(
-                node.name
-                if node is not None
-                else None
-            ),
+            node_type=(node.type.value if node is not None else None),
+            node_id=(node.id if node is not None else None),
+            node_name=(node.name if node is not None else None),
             payload=payload,
         )
 
@@ -214,7 +220,4 @@ class ExecutionUI:
         interactive foreground process.
         """
 
-        return (
-            multiprocessing.current_process().name
-            == "MainProcess"
-        )
+        return multiprocessing.current_process().name == "MainProcess"

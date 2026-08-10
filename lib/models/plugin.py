@@ -115,10 +115,7 @@ class PluginManifest:
     # Dependencies
     #
 
-    extensions: tuple[
-        ExtensionRequirement,
-        ...
-    ] = field(
+    extensions: tuple[ExtensionRequirement, ...] = field(
         default_factory=tuple,
     )
 
@@ -126,10 +123,7 @@ class PluginManifest:
     # Classification
     #
 
-    tags: tuple[
-        str,
-        ...
-    ] = field(
+    tags: tuple[str, ...] = field(
         default_factory=tuple,
     )
 
@@ -145,7 +139,4 @@ class PluginManifest:
         Return the fully-qualified plugin name.
         """
 
-        return (
-            f"{self.namespace}."
-            f"{self.name}"
-        )
+        return f"{self.namespace}." f"{self.name}"

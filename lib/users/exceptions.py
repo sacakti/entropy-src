@@ -68,6 +68,7 @@ class SystemUserError(UserError):
     def __init__(self, *args):
         super().__init__("System user cannot be disabled or deleted.")
 
+
 class PasswordsNotMatchError(UserError):
 
     def __init__(self):
@@ -94,6 +95,7 @@ class PasswordReuseError(UserError):
             "New password cannot be the same as the current password.",
         )
 
+
 class PasswordResetError(UserError):
 
     def __init__(
@@ -105,6 +107,7 @@ class PasswordResetError(UserError):
             message,
         )
 
+
 class UserAlreadyActiveError(UserError):
 
     def __init__(self):
@@ -113,6 +116,7 @@ class UserAlreadyActiveError(UserError):
             "User is already active.",
         )
 
+
 class UserAlreadyInactiveError(UserError):
 
     def __init__(self):
@@ -120,6 +124,7 @@ class UserAlreadyInactiveError(UserError):
         super().__init__(
             "User is already inactive.",
         )
+
 
 class UnauthorizedActionError(UserError):
 

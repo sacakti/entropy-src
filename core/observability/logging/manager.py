@@ -18,12 +18,7 @@ class LoggingManager:
     Creates and caches loggers by their target log file.
     """
 
-    FORMAT = (
-        "%(asctime)s "
-        "%(levelname)-8s "
-        "<module:%(module_name)s> "
-        "%(message)s"
-    )
+    FORMAT = "%(asctime)s " "%(levelname)-8s " "<module:%(module_name)s> " "%(message)s"
 
     DATEFMT = "%Y-%m-%d %H:%M:%S"
 

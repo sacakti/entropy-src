@@ -19,7 +19,7 @@ class ConfigurationValidator:
         "console",
         "logging",
         "database",
-        "runtime",
+        # "runtime",
         "session",
         "python",
         "workflow",

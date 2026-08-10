@@ -2,10 +2,11 @@
 Password service.
 """
 
-from dataclasses import dataclass
-from typing import cast
 import secrets
 import string
+from dataclasses import dataclass
+from typing import cast
+
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -105,7 +106,9 @@ class PasswordService:
             "admin123",
         }:
 
-            raise WeakPasswordError("Password is too common and must contain at least 8 characters.")
+            raise WeakPasswordError(
+                "Password is too common and must contain " "at least 8 characters.",
+            )
 
     # ------------------------------------------------------------------
     # Generate
@@ -120,18 +123,11 @@ class PasswordService:
         the current password policy.
         """
 
-        alphabet = (
-            string.ascii_letters
-            + string.digits
-            + "!@#$%^&*()-_=+"
-        )
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
 
         while True:
 
-            password = "".join(
-                secrets.choice(alphabet)
-                for _ in range(length)
-            )
+            password = "".join(secrets.choice(alphabet) for _ in range(length))
 
             try:
 

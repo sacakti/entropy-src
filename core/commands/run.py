@@ -5,7 +5,6 @@ Run command.
 from __future__ import annotations
 
 from argparse import ArgumentParser, Namespace
-from pathlib import Path
 
 from core.commands.base import BaseCommand, CommandMetadata
 

@@ -2,12 +2,18 @@
 Application version information.
 """
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
+
 APP_NAME = "Entropy"
 
-VERSION = "1.0.0"
+try:
+    VERSION = package_version(
+        "entropy",
+    )
+except PackageNotFoundError:
+    VERSION = "1.1.2"
 
 AUTHOR = "Aravinthan"
-
-BUILD = "2026.07.26"
 
 COPYRIGHT = "© 2026 Entropy Deployment Framework"

@@ -4,12 +4,10 @@ Workflow runner.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import os
 from typing import TYPE_CHECKING
 
 from core.runtime.context import ExecutionContext
-
 from lib.models.workflow import (
     Workflow,
     WorkflowStep,
@@ -18,7 +16,6 @@ from lib.workflow.exceptions import WorkflowCancelledError
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
-    from core.runtime.execution import WorkflowExecution
     from lib.plugins.runner import PluginRunner
     from lib.workflow.jobs.manager import WorkflowJobManager
 
@@ -40,9 +37,7 @@ class WorkflowRunner:
 
         assert context.workflow_job_manager is not None
 
-        self._jobs: WorkflowJobManager = (
-            context.workflow_job_manager
-        )
+        self._jobs: WorkflowJobManager = context.workflow_job_manager
 
     # ------------------------------------------------------------------
     # Execute
@@ -63,37 +58,18 @@ class WorkflowRunner:
         assert self._context.executor is not None
 
         #
-        # Create execution workspace.
+        # Create or reuse the execution.
         #
 
         if execution is None:
 
-            workspace = (
-                self._context.paths.workflow.directory
-                / (
-                    f"{datetime.now(timezone.utc):%Y%m%d_%H%M%S}_"
-                    f"{workflow.name.lower().replace(' ', '_')}"
-                )
-            )
+            assert self._context.execution_manager is not None
 
-            self._context.executor.mkdir(
-                workspace,
-            )
-
-            runtime = ExecutionContext(
-                entropy=self._context,
-                workspace=workspace,
-            )
-
-            runtime.start(
+            execution = self._context.execution_manager.create(
                 workflow,
             )
 
-            execution = runtime.execution
-
-        else:
-
-            runtime = execution.context
+        runtime = execution.context
 
         #
         # Resolve persistent job.
@@ -114,8 +90,8 @@ class WorkflowRunner:
                 job_id,
             )
 
-            job = self._jobs.set_pid(
-                job.id,
+            self._jobs.set_pid(
+                job.require_id(),
                 os.getpid(),
             )
 
@@ -144,11 +120,7 @@ class WorkflowRunner:
         # Enabled steps.
         #
 
-        enabled_steps = [
-            step
-            for step in workflow.steps
-            if step.enabled
-        ]
+        enabled_steps = [step for step in workflow.steps if step.enabled]
 
         total_steps = len(
             enabled_steps,
@@ -216,9 +188,7 @@ class WorkflowRunner:
                 exit_code=130,
             )
 
-            raise WorkflowCancelledError(
-                "User cancelled operation."
-            ) from exc
+            raise WorkflowCancelledError("User cancelled operation.") from exc
 
         except Exception:
 

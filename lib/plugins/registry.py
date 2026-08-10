@@ -37,9 +37,7 @@ class PluginRegistry:
         Register a plugin.
         """
 
-        self._plugins[
-            plugin.qualified_name
-        ] = plugin
+        self._plugins[plugin.qualified_name] = plugin
 
     # ------------------------------------------------------------------
     # Query
@@ -90,10 +88,7 @@ class PluginRegistry:
         Return True if the plugin is registered.
         """
 
-        return (
-            qualified_name
-            in self._plugins
-        )
+        return qualified_name in self._plugins
 
     def list(
         self,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "entropy"
-version = "0.1.0"
+version = "1.0.2"
 description = "Entropy Deployment Framework"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -104,6 +104,11 @@ exclude = [
     "__pycache__"
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"scripts/install.py" = ["E402"]
+"scripts/uninstall.py" = ["E402"]
+"entropy.py" = ["E402"]
+
 [tool.ruff.lint]
 
 select = [
@@ -127,8 +132,6 @@ ignore = [
     "B027",
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"entropy.py" = ["E402"]
 
 ##########################################################
 # mypy

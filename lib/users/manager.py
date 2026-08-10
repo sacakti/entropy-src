@@ -17,6 +17,7 @@ from lib.users.exceptions import (
 )
 from lib.users.password import PasswordService
 
+
 class UserManager:
     """
     User lifecycle management.
@@ -137,7 +138,6 @@ class UserManager:
             user.id,
         )
 
-
     def change_password(
         self,
         user: User,
@@ -162,7 +162,6 @@ class UserManager:
             new_password,
         )
 
-
     def admin_change_password(
         self,
         user: User,
@@ -178,7 +177,6 @@ class UserManager:
             user,
             password,
         )
-
 
     def reset_password(
         self,

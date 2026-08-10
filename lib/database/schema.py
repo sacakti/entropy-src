@@ -6,16 +6,15 @@ from __future__ import annotations
 
 from lib.database.connection import DatabaseConnection
 from lib.database.objects import (
-    LicensesTable,
+    ExtensionsTable,
+    Indexes,
     PluginRegistryTable,
     SchemaMigrationsTable,
     SettingsTable,
     UsersTable,
-    WorkflowsTable,
-    ExtensionsTable,
     WorkflowEventsTable,
     WorkflowJobsTable,
-    Indexes
+    WorkflowsTable,
 )
 
 

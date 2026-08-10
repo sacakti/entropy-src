@@ -29,9 +29,7 @@ class PluginGenerator(
         ("plugin/requirements.txt.j2", "requirements.txt"),
     )
 
-    DIRECTORIES = (
-        "migrations",
-    )
+    DIRECTORIES = ("migrations",)
 
     metadata = GeneratorMetadata(
         name="plugin",
@@ -53,10 +51,7 @@ class PluginGenerator(
             "generator",
         )
 
-        namespace = (
-            args.namespace
-            or "custom"
-        )
+        namespace = args.namespace or "custom"
 
         name = args.name
 
@@ -64,9 +59,7 @@ class PluginGenerator(
             f"Generate Plugin : {namespace}.{name}",
         )
 
-        root = (
-            self._context.bootstrap.resources.plugins
-        )
+        root = self._context.bootstrap.resources.plugins
 
         events.log.info(
             "Validating plugin.",

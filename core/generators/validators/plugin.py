@@ -145,8 +145,4 @@ class PluginValidator:
         Return the plugin directory.
         """
 
-        return (
-            root /
-            namespace /
-            name
-        )
+        return root / namespace / name

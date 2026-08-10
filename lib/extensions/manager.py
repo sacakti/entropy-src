@@ -3,10 +3,11 @@ Extension manager.
 """
 
 from __future__ import annotations
+
 from pathlib import Path
+from typing import List
 
 from core.context import EntropyContext
-
 from lib.database.repositories.extensions import ExtensionRepository
 from lib.extensions.downloader import ExtensionDownloader
 from lib.extensions.installer import OfflineInstaller
@@ -33,6 +34,9 @@ class ExtensionManager:
     ) -> None:
 
         self._context = context
+
+        assert context.paths is not None
+        self._paths = context.paths
 
         # ------------------------------------------------------------------
         # Database
@@ -89,7 +93,7 @@ class ExtensionManager:
 
     def list(
         self,
-    ) -> list[Extension]:
+    ) -> List[Extension]:
         """
         Return installed extensions.
         """
@@ -241,10 +245,7 @@ class ExtensionManager:
             name,
         )
 
-        wheel = (
-            self._context.paths.extensions.wheels /
-            extension.wheel
-        )
+        wheel = self._paths.extensions.wheels / extension.wheel
 
         if not wheel.exists():
 
@@ -271,7 +272,7 @@ class ExtensionManager:
 
     def wheels(
         self,
-    ) -> list[Path]:
+    ) -> List[Path]:
         """
         Return locally available extension wheels.
         """

@@ -38,7 +38,6 @@ class DatabaseManager:
             self._database,
         )
 
-
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -55,7 +54,6 @@ class DatabaseManager:
         )
 
         self._connection.open()
-
 
     def close(self) -> None:
         """

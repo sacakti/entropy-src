@@ -4,9 +4,8 @@ Workflow activity.
 
 from __future__ import annotations
 
-from core.models.runtime import RuntimeNodeType
-
 from core.models.enums import EventType
+from core.models.runtime import RuntimeNodeType
 
 from .scope import ExecutionScope
 
@@ -40,3 +39,8 @@ class Activity(ExecutionScope):
     def failed_event(self) -> EventType:
 
         return EventType.ACTIVITY_FAILED
+
+    @property
+    def cancelled_event(self) -> EventType:
+
+        return EventType.ACTIVITY_CANCELLED

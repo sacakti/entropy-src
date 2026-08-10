@@ -4,9 +4,8 @@ Workflow stage.
 
 from __future__ import annotations
 
-from core.models.runtime import RuntimeNodeType
-
 from core.models.enums import EventType
+from core.models.runtime import RuntimeNodeType
 
 from .scope import ExecutionScope
 
@@ -40,3 +39,8 @@ class Stage(ExecutionScope):
     def failed_event(self) -> EventType:
 
         return EventType.STAGE_FAILED
+
+    @property
+    def cancelled_event(self) -> EventType:
+
+        return EventType.STAGE_CANCELLED

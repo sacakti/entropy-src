@@ -7,16 +7,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.context import EntropyContext
-from core.ui import UIManager
-
 from lib.models.workflow import Workflow
 from lib.workflow.jobs.model import WorkflowJob
 
-from .loader import WorkflowLoader
-from .validator import WorkflowValidator
 from .follower import WorkflowFollower
-from .renderer import WorkflowEventRenderer
+from .loader import WorkflowLoader
 from .process import WorkflowProcess
+from .renderer import WorkflowEventRenderer
+from .validator import WorkflowValidator
+
 
 class WorkflowManager:
     """
@@ -65,7 +64,7 @@ class WorkflowManager:
         file: Path,
     ) -> Workflow:
         """
-        Load a workflow definition.
+        Load and validate a workflow definition.
         """
 
         workflow = self._loader.load(
@@ -77,6 +76,33 @@ class WorkflowManager:
         )
 
         return workflow
+
+    def resolve(
+        self,
+        file: Path,
+    ) -> Path:
+        """
+        Resolve a workflow definition path.
+
+        Relative paths are resolved against the configured
+        workspace workflow directory.
+
+        Absolute paths are used as supplied.
+        """
+
+        file = file.expanduser()
+
+        if file.is_absolute():
+            return file
+
+        assert self._context.paths is not None
+
+        workspace_file = self._context.paths.workspace.workflows / file
+
+        if workspace_file.exists():
+            return workspace_file
+
+        return file
 
     # ------------------------------------------------------------------
     # Execute
@@ -140,10 +166,11 @@ class WorkflowManager:
     ) -> WorkflowJob:
         """
         Start a workflow in a background process.
-
-        The persistent workflow job is created before the worker
-        process is started so the worker can attach to it.
         """
+
+        file = self.resolve(
+            file,
+        )
 
         workflow = self.load(
             file,
@@ -166,9 +193,12 @@ class WorkflowManager:
         assert self._context.bootstrap is not None
         assert self._context.paths is not None
 
+        job_id = job.require_id()
+
         process = WorkflowProcess(
-            job_id=job.id,
+            job_id=job_id,
             workflow=file,
+            worker=self._context.bootstrap.worker,
             project_root=self._context.bootstrap.project_root,
             python_packages=self._context.paths.python.packages,
         )
@@ -176,18 +206,17 @@ class WorkflowManager:
         pid = process.start()
 
         self._context.workflow_job_manager.set_pid(
-            job.id,
+            job_id,
             pid,
         )
 
         return self._context.workflow_job_manager.get(
-            job.id,
+            job_id,
         )
 
     # ------------------------------------------------------------------
     # Jobs
     # ------------------------------------------------------------------
-
 
     def jobs(self) -> list[WorkflowJob]:
 

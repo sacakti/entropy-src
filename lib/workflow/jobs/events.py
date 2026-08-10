@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
 
 
@@ -101,11 +100,13 @@ class WorkflowEventRepository(Repository):
                     event.node_type,
                     event.node_id,
                     event.node_name,
-                    json.dumps(
-                        event.payload,
-                    )
-                    if event.payload is not None
-                    else None,
+                    (
+                        json.dumps(
+                            event.payload,
+                        )
+                        if event.payload is not None
+                        else None
+                    ),
                 ),
             )
 
@@ -225,11 +226,7 @@ class WorkflowEventRepository(Repository):
             node_type=row["node_type"],
             node_id=row["node_id"],
             node_name=row["node_name"],
-            payload=(
-                json.loads(payload)
-                if payload
-                else None
-            ),
+            payload=(json.loads(payload) if payload else None),
             created_at=(
                 datetime.fromisoformat(
                     row["created_at"],

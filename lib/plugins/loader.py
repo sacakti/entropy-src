@@ -70,9 +70,7 @@ class PluginLoader:
             plugin,
         )
 
-        self._cache[
-            plugin.id
-        ] = plugin_class
+        self._cache[plugin.id] = plugin_class
 
         return plugin_class
 
@@ -141,15 +139,10 @@ class PluginLoader:
             plugin.module_file,
         )
 
-        if (
-            spec is None
-            or
-            spec.loader is None
-        ):
+        if spec is None or spec.loader is None:
 
             raise PluginLoadError(
-                f"Unable to import plugin "
-                f"'{plugin.qualified_name}'.",
+                f"Unable to import plugin " f"'{plugin.qualified_name}'.",
             )
 
         try:
@@ -165,8 +158,7 @@ class PluginLoader:
         except Exception as exc:
 
             raise PluginLoadError(
-                f"Unable to load plugin "
-                f"'{plugin.qualified_name}'.",
+                f"Unable to load plugin " f"'{plugin.qualified_name}'.",
             ) from exc
 
         return module
@@ -181,28 +173,26 @@ class PluginLoader:
         """
 
         classes = [
-
             cls
-
             for _, cls in inspect.getmembers(
                 module,
                 inspect.isclass,
             )
-
             if (
                 issubclass(
                     cls,
                     BasePlugin,
                 )
-                and
-                cls is not BasePlugin
+                and cls is not BasePlugin
             )
-
         ]
 
-        if len(
-            classes,
-        ) != 1:
+        if (
+            len(
+                classes,
+            )
+            != 1
+        ):
 
             raise PluginClassNotFoundError(
                 plugin.qualified_name,

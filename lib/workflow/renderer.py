@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from core.models.enums import EventType
 from core.ui import UIManager
-
 from lib.workflow.jobs.events import WorkflowEvent
 
 
@@ -80,47 +79,20 @@ class WorkflowEventRenderer:
             return
 
         handlers = {
-            EventType.EXECUTION_STARTED:
-                self._execution_started,
-
-            EventType.EXECUTION_COMPLETED:
-                self._execution_completed,
-
-            EventType.EXECUTION_FAILED:
-                self._execution_failed,
-
-            EventType.EXECUTION_CANCELLED:
-                self._execution_cancelled,
-
-            EventType.STEP_STARTED:
-                self._step_started,
-
-            EventType.STEP_COMPLETED:
-                self._step_completed,
-
-            EventType.STEP_FAILED:
-                self._step_failed,
-
-            EventType.STEP_SKIPPED:
-                self._step_skipped,
-
-            EventType.STAGE_STARTED:
-                self._stage_started,
-
-            EventType.STAGE_COMPLETED:
-                self._stage_completed,
-
-            EventType.STAGE_FAILED:
-                self._stage_failed,
-
-            EventType.ACTIVITY_STARTED:
-                self._activity_started,
-
-            EventType.ACTIVITY_COMPLETED:
-                self._activity_completed,
-
-            EventType.ACTIVITY_FAILED:
-                self._activity_failed,
+            EventType.EXECUTION_STARTED: self._execution_started,
+            EventType.EXECUTION_COMPLETED: self._execution_completed,
+            EventType.EXECUTION_FAILED: self._execution_failed,
+            EventType.EXECUTION_CANCELLED: self._execution_cancelled,
+            EventType.STEP_STARTED: self._step_started,
+            EventType.STEP_COMPLETED: self._step_completed,
+            EventType.STEP_FAILED: self._step_failed,
+            EventType.STEP_SKIPPED: self._step_skipped,
+            EventType.STAGE_STARTED: self._stage_started,
+            EventType.STAGE_COMPLETED: self._stage_completed,
+            EventType.STAGE_FAILED: self._stage_failed,
+            EventType.ACTIVITY_STARTED: self._activity_started,
+            EventType.ACTIVITY_COMPLETED: self._activity_completed,
+            EventType.ACTIVITY_FAILED: self._activity_failed,
         }
 
         handler = handlers.get(
@@ -143,8 +115,7 @@ class WorkflowEventRenderer:
     ) -> None:
 
         self._ui.info(
-            f"Execution started : "
-            f"{event.node_name or 'Workflow'}",
+            f"Execution started : " f"{event.node_name or 'Workflow'}",
         )
 
     def _execution_completed(
@@ -154,10 +125,7 @@ class WorkflowEventRenderer:
 
         self._success(
             event,
-            (
-                f"Execution completed : "
-                f"{event.node_name or 'Workflow'}"
-            ),
+            (f"Execution completed : " f"{event.node_name or 'Workflow'}"),
         )
 
     def _execution_failed(
@@ -167,10 +135,7 @@ class WorkflowEventRenderer:
 
         self._error(
             event,
-            (
-                f"Execution failed : "
-                f"{event.node_name or 'Workflow'}"
-            ),
+            (f"Execution failed : " f"{event.node_name or 'Workflow'}"),
         )
 
     def _execution_cancelled(
@@ -179,10 +144,7 @@ class WorkflowEventRenderer:
     ) -> None:
 
         self._ui.warning(
-            (
-                f"Execution cancelled : "
-                f"{event.node_name or 'Workflow'}"
-            ),
+            (f"Execution cancelled : " f"{event.node_name or 'Workflow'}"),
         )
 
     # ------------------------------------------------------------------
@@ -215,8 +177,7 @@ class WorkflowEventRenderer:
         self._ui.rule()
 
         self._ui.print(
-            f"[bold]Step {index}/{total} : "
-            f"{event.node_name}[/]",
+            f"[bold]Step {index}/{total} : " f"{event.node_name}[/]",
         )
 
     def _step_completed(
@@ -306,10 +267,7 @@ class WorkflowEventRenderer:
 
         if duration is not None:
 
-            label = (
-                f"{label} "
-                f"({duration} ms)"
-            )
+            label = f"{label} " f"({duration} ms)"
 
         return label
 
@@ -388,9 +346,7 @@ class WorkflowEventRenderer:
 
         message = event.message or ""
 
-        level = (
-            event.level or "INFO"
-        ).upper()
+        level = (event.level or "INFO").upper()
 
         if level == "ERROR":
 
@@ -544,15 +500,9 @@ class WorkflowEventRenderer:
 
         if index is not None and total is not None:
 
-            return (
-                f"Step {index}/{total} : "
-                f"{event.node_name}"
-            )
+            return f"Step {index}/{total} : " f"{event.node_name}"
 
-        return (
-            event.node_name
-            or "Workflow step"
-        )
+        return event.node_name or "Workflow step"
 
     def _success(
         self,
@@ -568,10 +518,7 @@ class WorkflowEventRenderer:
 
         if duration is not None:
 
-            label = (
-                f"{label} "
-                f"({duration} ms)"
-            )
+            label = f"{label} " f"({duration} ms)"
 
         self._ui.success(
             label,
@@ -591,12 +538,8 @@ class WorkflowEventRenderer:
 
         if duration is not None:
 
-            label = (
-                f"{label} "
-                f"({duration} ms)"
-            )
+            label = f"{label} " f"({duration} ms)"
 
         self._ui.error(
             label,
         )
-

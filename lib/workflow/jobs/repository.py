@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import List
 
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
@@ -160,7 +161,7 @@ class WorkflowJobRepository(Repository):
 
     def list(
         self,
-    ) -> list[WorkflowJob]:
+    ) -> List[WorkflowJob]:
         """
         Return all workflow jobs.
         """
@@ -182,7 +183,7 @@ class WorkflowJobRepository(Repository):
 
     def list_active(
         self,
-    ) -> list[WorkflowJob]:
+    ) -> List[WorkflowJob]:
         """
         Return active workflow jobs.
         """

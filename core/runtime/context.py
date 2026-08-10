@@ -12,18 +12,22 @@ from core.models.runtime import RuntimeNodeType
 from core.observability.emitter import Emitter
 from core.runtime.ui import ExecutionUI
 
-from .execution import WorkflowExecution
 from .activity import Activity
+from .execution import WorkflowExecution
 from .stage import Stage
 from .step import StepScope
 from .tree import RuntimeTree
 from .workflow import WorkflowScope
 
 if TYPE_CHECKING:
-    from core.context import EntropyContext
-    from core.observability.logging.manager import ExecutionLogManager
 
-    from .node import RuntimeNode
+    from core.context import EntropyContext
+    from core.runtime.node import RuntimeNode
+
+    from lib.executor import LinuxExecutor
+    from core.configuration.manager import ConfigurationManager
+    from core.template.engine import TemplateEngine
+    from lib.database.manager import DatabaseManager
 
 
 class ExecutionContext:
@@ -250,22 +254,30 @@ class ExecutionContext:
     # ------------------------------------------------------------------
 
     @property
-    def configuration(self):
+    def configuration(self) -> ConfigurationManager:
+
+        assert self._entropy.configuration is not None
 
         return self._entropy.configuration
 
     @property
-    def executor(self):
+    def executor(self) -> LinuxExecutor:
+
+        assert self._entropy.executor is not None
 
         return self._entropy.executor
 
     @property
-    def template(self):
+    def template(self) -> TemplateEngine:
+
+        assert self._entropy.template is not None
 
         return self._entropy.template
 
     @property
-    def database(self):
+    def database(self) -> DatabaseManager:
+
+        assert self._entropy.database_manager is not None
 
         return self._entropy.database_manager
 
@@ -287,15 +299,12 @@ class ExecutionContext:
     # ------------------------------------------------------------------
 
     @property
-    def user(self):
+    def user(self) -> str :
 
         assert self._entropy.session_manager is not None
 
         return self._entropy.session_manager.require().username
 
-    #
-    #
-    #
 
     def enter(
         self,
@@ -313,7 +322,6 @@ class ExecutionContext:
             name=name,
             metadata=metadata,
         )
-
 
     def leave(
         self,

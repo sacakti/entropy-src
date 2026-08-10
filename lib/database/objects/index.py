@@ -18,7 +18,7 @@ class Indexes(DatabaseObject):
         connection: DatabaseConnection,
     ) -> None:
 
-        connection.execute(
+        connection.executescript(
             """
             CREATE INDEX idx_workflow_jobs_state
             ON workflow_jobs (

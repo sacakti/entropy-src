@@ -3,6 +3,7 @@ Extension manifest loader.
 """
 
 from __future__ import annotations
+
 from pathlib import Path
 
 from lib.models.extensions import ExtensionManifest
@@ -23,7 +24,7 @@ class ExtensionLoader:
     def from_name(
         self,
         name: str,
-        version: str | None = None,
+        version: str,
     ) -> ExtensionManifest:
         """
         Create a manifest from a package name.
@@ -44,18 +45,19 @@ class ExtensionLoader:
     ) -> ExtensionManifest:
         """
         Create a manifest from a plugin dependency.
-
-        Example
-        -------
-        {
-            "name": "sqlparse",
-            "version": "0.5.3"
-        }
         """
 
+        name = dependency["name"]
+        version = dependency.get("version")
+
+        if not isinstance(version, str):
+            raise ValueError(
+                f"Extension dependency '{name}' is missing a valid version.",
+            )
+
         return ExtensionManifest(
-            name=dependency["name"],
-            version=dependency.get("version"),
+            name=name,
+            version=version,
         )
 
     # ------------------------------------------------------------------
@@ -70,9 +72,16 @@ class ExtensionLoader:
         Create a manifest from a JSON object.
         """
 
+        version = data.get("version")
+
+        if not isinstance(version, str):
+            raise ValueError(
+                "Extension manifest is missing a valid version.",
+            )
+
         return ExtensionManifest(
             name=data["name"],
-            version=data.get("version"),
+            version=version,
             source=data.get("source"),
             checksum=data.get("checksum"),
             installer=data.get(
@@ -90,7 +99,6 @@ class ExtensionLoader:
         """
 
         raise NotImplementedError()
-
 
     def from_wheel(
         self,

@@ -39,6 +39,9 @@ class RuntimeEvent(BaseEvent):
     runtime node (workflow, step or activity).
     """
 
+    execution: WorkflowExecution
+    node: RuntimeNode
+
     @property
     def execution_id(self) -> str:
 

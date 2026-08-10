@@ -56,9 +56,11 @@ class MigrationHistory:
             """
         )
 
-        return [row["version"] for row in rows]
+        return [int(row["version"]) for row in rows]
 
-    def latest(self) -> int | None:
+    def latest(
+        self,
+    ) -> int | None:
         """
         Return the latest applied migration version.
         """
@@ -73,7 +75,12 @@ class MigrationHistory:
         if row is None:
             return None
 
-        return row["version"]
+        version = row["version"]
+
+        if version is None:
+            return None
+
+        return int(version)
 
     # ------------------------------------------------------------------
     # Commands

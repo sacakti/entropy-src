@@ -10,18 +10,26 @@ from pathlib import Path
 
 
 def bootstrap(
-    paths: list[Path],
+    project_root: Path,
+    python_packages: Path,
 ) -> None:
     """
-    Add Entropy runtime paths to sys.path.
+    Bootstrap import paths for the detached worker.
     """
+
+    paths = (
+        project_root,
+        python_packages,
+    )
 
     for path in paths:
 
         if not path.exists():
             continue
 
-        value = str(path)
+        value = str(
+            path,
+        )
 
         if value not in sys.path:
 
@@ -140,10 +148,8 @@ if __name__ == "__main__":
     args = _parse_args()
 
     bootstrap(
-        [
-            args.project_root,
-            args.python_packages,
-        ],
+        args.project_root,
+        args.python_packages,
     )
 
     worker = WorkflowWorker(

@@ -5,6 +5,7 @@ User input.
 from __future__ import annotations
 
 from getpass import getpass
+from typing import cast
 
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -37,11 +38,16 @@ class PromptManager:
 
         if password:
 
-            return getpass(f"{message}: ")
+            return getpass(
+                f"{message}: ",
+            )
 
-        return Prompt.ask(
-            message,
-            console=self._console,
+        return cast(
+            str,
+            Prompt.ask(
+                message,
+                console=self._console,
+            ),
         )
 
     # ------------------------------------------------------------------

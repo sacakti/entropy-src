@@ -10,25 +10,30 @@ from lib.install.paths import InstallerPathManager
 
 class WheelInstaller:
 
-    def __init__(self, platform):
+    def __init__(
+        self,
+        platform,
+        paths: InstallerPathManager,
+    ) -> None:
 
         self._platform = platform
-
-        self.paths = InstallerPathManager()
+        self._paths = paths
 
     def install(self):
 
-        if not self.paths.requirements.exists():
+        print(f"Wheel install method")
 
-            raise FileNotFoundError(f"Requirements file not found: {self.paths.requirements}")
+        if not self._paths.requirements.exists():
 
-        wheel_directory = self.paths.vendor / self._platform.value
+            raise FileNotFoundError(f"Requirements file not found: {self._paths.requirements}")
+
+        wheel_directory = self._paths.vendor / self._platform.value
 
         if not wheel_directory.exists():
 
             raise FileNotFoundError(f"Wheel directory not found: {wheel_directory}")
 
-        self.paths.packages.mkdir(
+        self._paths.packages.mkdir(
             parents=True,
             exist_ok=True,
         )
@@ -42,9 +47,9 @@ class WheelInstaller:
             "--find-links",
             str(wheel_directory),
             "--target",
-            str(self.paths.packages),
+            str(self._paths.packages),
             "-r",
-            str(self.paths.requirements),
+            str(self._paths.requirements),
         ]
 
         result = subprocess.run(
@@ -52,6 +57,21 @@ class WheelInstaller:
             capture_output=True,
             text=True,
         )
+
+        print("Python executable:", sys.executable)
+        print("Package target:", self._paths.packages)
+        print(
+            "packaging directory:",
+            self._paths.packages / "packaging",
+            "exists=",
+            (self._paths.packages / "packaging").exists(),
+        )
+        print(
+            "packaging dist-info:",
+            list(self._paths.packages.glob("packaging-*.dist-info")),
+        )
+        print(result.stdout)
+        print(result.stderr)
 
         if result.returncode != 0:
 

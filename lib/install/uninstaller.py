@@ -13,15 +13,27 @@ from .platform import PlatformDetector
 
 class Uninstaller:
 
+    def __init__(self) -> None:
+
+        self._paths = InstallerPathManager()
+
+    # ------------------------------------------------------------------
+    # Uninstall
+    # ------------------------------------------------------------------
+
     def uninstall(self) -> InstallerResult:
 
         try:
 
             platform = PlatformDetector.detect()
 
-            Launcher(platform).uninstall()
+            Launcher(
+                platform,
+                self._paths,
+            ).uninstall()
 
-            self._remove_home()
+            # self._remove_home()
+            self._remove_installation()
 
             return InstallerResult(
                 success=True,
@@ -39,10 +51,19 @@ class Uninstaller:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _remove_home(self):
+    def _remove_installation(self) -> None:
+        """
+        Remove Entropy persistent data and installed application.
+        """
 
-        self.paths = InstallerPathManager()
+        if self._paths.home.exists():
 
-        if self.paths.home.exists():
+            shutil.rmtree(
+                self._paths.home,
+            )
 
-            shutil.rmtree(self.paths.home)
+        if self._paths.application_root.exists():
+
+            shutil.rmtree(
+                self._paths.application_root,
+            )

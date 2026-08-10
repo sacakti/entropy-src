@@ -186,3 +186,5 @@ tmp/*
 
 # Archives
 *.zip
+executions/
+workflows/

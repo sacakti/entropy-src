@@ -155,7 +155,6 @@ class UIManager:
             message,
         )
 
-
     def success(
         self,
         message: str,
@@ -165,7 +164,6 @@ class UIManager:
             message,
         )
 
-
     def warning(
         self,
         message: str,
@@ -174,7 +172,6 @@ class UIManager:
         self._renderer.warning(
             message,
         )
-
 
     def error(
         self,

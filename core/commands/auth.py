@@ -77,9 +77,7 @@ class AuthCommand(BaseCommand):
             "login": self._login,
             "logout": self._logout,
             "status": self._status,
-        }[
-            args.action
-        ](
+        }[args.action](
             args,
         )
 

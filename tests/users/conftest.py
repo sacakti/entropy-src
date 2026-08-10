@@ -10,8 +10,8 @@ import pytest
 
 from core.context import EntropyContext
 from lib.database.connection import DatabaseConnection
-from lib.database.schema import SchemaInstaller
 from lib.database.repositories.users import UserRepository
+from lib.database.schema import SchemaInstaller
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
 

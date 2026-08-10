@@ -4,9 +4,9 @@ Workflow execution manager.
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from core.context import EntropyContext
 
@@ -77,14 +77,12 @@ class ExecutionManager:
         workflow: Any,
     ) -> str:
         """
-        Generate a workflow execution id.
+        Generate a unique workflow execution ID.
 
         Example
 
-            deploy_database_20260802_143215
+            deploy_database_20260809_153723_a81f4c2e
         """
-
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
         name = getattr(
             workflow,
@@ -92,9 +90,21 @@ class ExecutionManager:
             "workflow",
         )
 
-        name = str(name).strip().lower().replace(" ", "_")
+        name = (
+            str(
+                name,
+            )
+            .strip()
+            .lower()
+            .replace(
+                " ",
+                "_",
+            )
+        )
 
-        return f"{name}_{timestamp}"
+        suffix = uuid4().hex[:8]
+
+        return f"{name}_{suffix}"
 
     def _workspace(
         self,
@@ -103,7 +113,7 @@ class ExecutionManager:
 
         assert self._context.paths is not None
 
-        return self._context.paths.logs.workflows / execution_id
+        return self._context.paths.workspace.executions / execution_id
 
     def _prepare(
         self,

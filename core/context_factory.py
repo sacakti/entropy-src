@@ -13,10 +13,12 @@ from core.configuration import ConfigurationManager
 from core.context import EntropyContext
 from core.environment import Environment
 from core.generators.manager import GeneratorManager
+from core.models.logger import LogLevel
 from core.observability import ObservabilityManager
-from core.observability.console import ConsoleSink as ObservabilityConsoleSink, LogConsoleSink
+from core.observability.console import ConsoleSink as ObservabilityConsoleSink
+from core.observability.console import LogConsoleSink
 from core.observability.console.renderer import ConsoleRenderer
-from core.observability.logging import LoggingManager, LoggingSink, LogFileSink
+from core.observability.logging import LogFileSink, LoggingManager, LoggingSink
 from core.paths.bootstrap import BootstrapPathManager
 from core.paths.manager import RuntimePathManager
 from core.runtime.manager import ExecutionManager
@@ -25,7 +27,6 @@ from core.ui import UIManager
 from core.ui.prompt import PromptManager
 from core.ui.rich_renderer import RichRenderer
 from core.version import APP_NAME, VERSION
-from core.models.logger import LogLevel
 from lib.auth.manager import SessionManager
 from lib.auth.service import AuthenticationService
 from lib.database.manager import DatabaseManager
@@ -34,14 +35,14 @@ from lib.executor import LinuxExecutor
 from lib.extensions.manager import ExtensionManager
 from lib.migrations.manager import MigrationManager
 from lib.plugins.manager import PluginManager
+
 # from lib.plugins.runner import PluginRunner
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
+from lib.workflow.jobs.manager import WorkflowJobManager
 from lib.workflow.jobs.sink import WorkflowEventSink
 from lib.workflow.manager import WorkflowManager
 from lib.workflow.runner import WorkflowRunner
-from lib.workflow.jobs.manager import WorkflowJobManager
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTROPY_HOME = Path.home() / ".entropy"
@@ -335,7 +336,6 @@ class ContextFactory:
         self._context.command_manager.discover()
 
         self._context.generator_manager.discover()
-
 
     # ------------------------------------------------------------------
     # UI

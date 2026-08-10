@@ -7,6 +7,20 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
+class ApplicationPaths:
+    """
+    Installed application filesystem paths.
+    """
+
+    root: Path
+    directory: Path
+    executable: Path
+    staging: Path
+    versions: Path
+    transaction: Path
+
+
+@dataclass(frozen=True)
 class ConfigurationPaths:
     directory: Path
     file: Path
@@ -40,13 +54,13 @@ class DatabasePaths:
     file: Path
 
 
-@dataclass(frozen=True)
-class RuntimePaths:
-    root: Path
-    pid: Path
-    state: Path
-    lock: Path
-    workspaces: Path
+# @dataclass(frozen=True)
+# class RuntimePaths:
+#     root: Path
+#     pid: Path
+#     state: Path
+#     lock: Path
+#     workspaces: Path
 
 
 @dataclass(frozen=True)
@@ -84,8 +98,6 @@ class WorkflowPaths:
     Workflow filesystem paths.
     """
 
-    directory: Path
-
     default: str
 
 
@@ -96,6 +108,18 @@ class GitPaths:
     """
 
     repository: Path
+
+
+@dataclass(frozen=True)
+class WorkspacePaths:
+    """
+    Workflow workspace filesystem paths.
+    """
+
+    root: Path
+    workflows: Path
+    executions: Path
+
 
 # ------------------------------------------------------------------
 # Extension Models

@@ -14,7 +14,7 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
-from lib.workflow.follower import WorkflowFollower
+
 
 class WorkflowCommand(
     BaseCommand,
@@ -26,7 +26,10 @@ class WorkflowCommand(
     metadata = CommandMetadata(
         name="workflow",
         description="Execute workflows.",
-        aliases=("workflows","wf",),
+        aliases=(
+            "workflows",
+            "wf",
+        ),
     )
 
     def __init__(
@@ -91,7 +94,7 @@ class WorkflowCommand(
             help="Workflow file.",
         )
 
-        jobs = subparsers.add_parser(
+        subparsers.add_parser(
             "jobs",
             help="List workflow jobs.",
         )
@@ -153,9 +156,7 @@ class WorkflowCommand(
             "jobs": self._jobs,
             "follow": self._follow,
             "stop": self._stop,
-        }[
-            args.action
-        ](
+        }[args.action](
             args,
         )
 
@@ -286,9 +287,16 @@ class WorkflowCommand(
                 args.pid,
             )
 
+            if not job:
+
+                self._context.ui.warning(
+                    f"No active workflow found with id " f"'{args.pid}'.",
+                )
+
+                return
+
             self._context.ui.success(
-                f"Stop requested for workflow "
-                f"'{job.workflow}' (PID {job.pid}).",
+                f"Stop requested for workflow " f"'{job.workflow}' (PID {job.pid}).",
             )
 
             return
@@ -296,17 +304,13 @@ class WorkflowCommand(
         if args.name is not None:
 
             jobs = [
-                job
-                for job in self._workflows.jobs()
-                if job.workflow == args.name
-                and job.running
+                job for job in self._workflows.jobs() if job.workflow == args.name and job.running
             ]
 
             if not jobs:
 
                 self._context.ui.warning(
-                    f"No active workflow found with name "
-                    f"'{args.name}'.",
+                    f"No active workflow found with name " f"'{args.name}'.",
                 )
 
                 return
@@ -318,19 +322,14 @@ class WorkflowCommand(
                 )
 
                 self._context.ui.success(
-                    f"Stop requested for workflow "
-                    f"'{job.workflow}' (PID {job.pid}).",
+                    f"Stop requested for workflow " f"'{job.workflow}' (PID {job.pid}).",
                 )
 
             return
 
         if args.all:
 
-            jobs = [
-                job
-                for job in self._workflows.jobs()
-                if job.running
-            ]
+            jobs = [job for job in self._workflows.jobs() if job.running]
 
             if not jobs:
 
@@ -347,6 +346,5 @@ class WorkflowCommand(
                 )
 
                 self._context.ui.success(
-                    f"Stop requested for workflow "
-                    f"'{job.workflow}' (PID {job.pid}).",
+                    f"Stop requested for workflow " f"'{job.workflow}' (PID {job.pid}).",
                 )

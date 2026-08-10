@@ -17,7 +17,7 @@ class ApplicationParser:
 
     def parse(
         self,
-    ) -> Namespace:
+    ) -> tuple[Namespace, list[str]]:
         """
         Parse application arguments.
         """

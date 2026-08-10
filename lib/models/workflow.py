@@ -22,7 +22,7 @@ class Workflow:
         default_factory=dict,
     )
 
-    steps: list["WorkflowStep"] = field(
+    steps: list[WorkflowStep] = field(
         default_factory=list,
     )
 

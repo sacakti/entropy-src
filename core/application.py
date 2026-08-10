@@ -6,10 +6,12 @@ from __future__ import annotations
 
 from argparse import Namespace
 
-from core.parser import ApplicationParser
 from core.context import EntropyContext
 from core.context_factory import ContextFactory
 from core.models.logger import LogLevel
+from core.parser import ApplicationParser
+from lib.upgrade.transaction import UpgradeTransaction
+
 
 class Application:
     """
@@ -45,6 +47,8 @@ class Application:
         """
 
         self._factory.bootstrap()
+
+        self._recover_upgrade()
 
     def parse(
         self,
@@ -107,3 +111,25 @@ class Application:
         self.context.command_manager.execute_command(
             args,
         )
+
+    # Recover upgrade
+    def _recover_upgrade(self) -> None:
+        """
+        Recover an interrupted application upgrade.
+        """
+
+        assert self.context.bootstrap is not None
+
+        transaction = UpgradeTransaction(
+            self.context.bootstrap.application,
+        )
+
+        if not transaction.has_pending_transaction():
+
+            return
+
+        print("Recovering interrupted Entropy upgrade...")
+
+        transaction.recover()
+
+        print("Entropy upgrade recovery completed.")

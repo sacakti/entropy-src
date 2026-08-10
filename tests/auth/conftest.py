@@ -12,8 +12,8 @@ from core.context import EntropyContext
 from lib.auth.manager import SessionManager
 from lib.auth.service import AuthenticationService
 from lib.database.connection import DatabaseConnection
-from lib.database.schema import SchemaInstaller
 from lib.database.repositories.users import UserRepository
+from lib.database.schema import SchemaInstaller
 from lib.executor.linux import LinuxExecutor
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService

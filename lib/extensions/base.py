@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from core.context import EntropyContext
-from lib.models.extensions import Extension
+from lib.models.extensions import Extension, ExtensionManifest
 
 
 class BaseInstaller(ABC):
@@ -21,9 +22,9 @@ class BaseInstaller(ABC):
     @abstractmethod
     def install(
         self,
-        name: str,
-        version: str | None = None,
-    ) -> None:
+        manifest: ExtensionManifest,
+        wheel: Path,
+    ) -> Extension:
         """
         Install an extension.
         """

@@ -7,7 +7,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.context import EntropyContext
-
 from lib.models.workflow import (
     Workflow,
     WorkflowStep,
@@ -76,33 +75,24 @@ class WorkflowLoader:
         try:
 
             return Workflow(
-
                 name=data["name"],
-
                 version=data["version"],
-
                 description=data.get(
                     "description",
                 ),
-
                 variables=data.get(
                     "variables",
                     {},
                 ),
-
                 steps=[
-
                     self._step(
                         item,
                     )
-
                     for item in data.get(
                         "steps",
                         [],
                     )
-
                 ],
-
             )
 
         except KeyError as exc:
@@ -120,21 +110,16 @@ class WorkflowLoader:
         """
 
         return WorkflowStep(
-
             name=data["name"],
-
             plugin=data["plugin"],
-
             arguments=data.get(
                 "arguments",
                 {},
             ),
-
             enabled=data.get(
                 "enabled",
                 True,
             ),
-
             continue_on_error=data.get(
                 "continue_on_error",
                 False,

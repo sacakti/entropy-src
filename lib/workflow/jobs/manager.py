@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import List
 
 from core.context import EntropyContext
 from lib.workflow.exceptions import WorkflowJobNotFoundError
@@ -37,9 +38,7 @@ class WorkflowJobManager:
 
         assert context.database_manager is not None
 
-        connection = (
-            context.database_manager.connection
-        )
+        connection = context.database_manager.connection
 
         self._repository = WorkflowJobRepository(
             connection,
@@ -114,7 +113,7 @@ class WorkflowJobManager:
 
     def list(
         self,
-    ) -> list[WorkflowJob]:
+    ) -> List[WorkflowJob]:
         """
         Return all workflow jobs.
         """
@@ -123,7 +122,7 @@ class WorkflowJobManager:
 
     def active(
         self,
-    ) -> list[WorkflowJob]:
+    ) -> List[WorkflowJob]:
         """
         Return active workflow jobs.
         """
@@ -375,7 +374,7 @@ class WorkflowJobManager:
         *,
         after: int | None = None,
         limit: int = 500,
-    ) -> list[WorkflowEvent]:
+    ) -> List[WorkflowEvent]:
         """
         Return persisted events for a job.
 
@@ -449,8 +448,7 @@ class WorkflowJobManager:
         if target not in allowed[job.state]:
 
             raise ValueError(
-                f"Invalid workflow job transition: "
-                f"'{job.state.value}' -> '{target.value}'.",
+                f"Invalid workflow job transition: " f"'{job.state.value}' -> '{target.value}'.",
             )
 
     # ------------------------------------------------------------------
