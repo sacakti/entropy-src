@@ -25,11 +25,18 @@ class {{ class_name }}(
             "Starting plugin execution."
         )
 
-        with self.activity(
-            "{{ name }}"
-        ):
+        try:
+            with self.activity(
+                "{{ name }}r",
+            ):
+                self._execute()
 
-            self._execute()
+        except Exception as exc:
+            self.message.error(
+                str(exc),
+            )
+
+            raise
 
         self.message.success(
             "Plugin completed successfully."

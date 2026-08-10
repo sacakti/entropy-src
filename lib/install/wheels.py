@@ -21,8 +21,6 @@ class WheelInstaller:
 
     def install(self):
 
-        print(f"Wheel install method")
-
         if not self._paths.requirements.exists():
 
             raise FileNotFoundError(f"Requirements file not found: {self._paths.requirements}")

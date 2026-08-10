@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from core.runtime.manager import ExecutionManager
     from core.template.engine import TemplateEngine
     from core.ui import UIManager
+    from core.observability.logging import LoggingManager
     from lib.auth.manager import SessionManager
     from lib.auth.service import AuthenticationService
     from lib.database.manager import DatabaseManager
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
     from lib.workflow.jobs.manager import WorkflowJobManager
     from lib.workflow.manager import WorkflowManager
     from lib.workflow.runner import WorkflowRunner
+
 
 
 class EntropyContext:
@@ -64,6 +66,8 @@ class EntropyContext:
         self.executor: LinuxExecutor | None = None
 
         self.observability: ObservabilityManager | None = None
+
+        self.logging: LoggingManager | None = None
 
         self.console_log_sink: LogConsoleSink | None = None
 

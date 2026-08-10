@@ -23,10 +23,11 @@ if TYPE_CHECKING:
 
     from core.context import EntropyContext
     from core.runtime.node import RuntimeNode
-
-    from lib.executor import LinuxExecutor
     from core.configuration.manager import ConfigurationManager
     from core.template.engine import TemplateEngine
+    from core.observability.logging import ExecutionLogger
+
+    from lib.executor import LinuxExecutor
     from lib.database.manager import DatabaseManager
 
 
@@ -252,6 +253,20 @@ class ExecutionContext:
     # ------------------------------------------------------------------
     # Application Services
     # ------------------------------------------------------------------
+
+    @property
+    def logger(
+        self,
+    ) -> ExecutionLogger:
+        """
+        Return the logger for the current workflow execution.
+        """
+
+        assert self._entropy.logging is not None
+
+        return self._entropy.logging.logger(
+            self._workspace / "workflow.log",
+        )
 
     @property
     def configuration(self) -> ConfigurationManager:

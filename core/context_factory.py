@@ -187,6 +187,8 @@ class ContextFactory:
             ),
         )
 
+        self._context.logging = log_manager
+
         observability.register(
             LoggingSink(
                 log_manager,

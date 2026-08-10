@@ -14,13 +14,81 @@ from typing import TYPE_CHECKING, Any
 
 from lib.plugins.message import PluginMessage
 from lib.plugins.ui import PluginUI
+from lib.plugins.arguments import PluginArguments
 
 if TYPE_CHECKING:
     from core.observability.emitter import Emitter
+    from core.observability.logging import ExecutionLogger
     from core.runtime.context import ExecutionContext
     from lib.executor import LinuxExecutor
     from lib.plugins.mode import PluginMode
 
+class PluginLog:
+    """
+    Workflow logger exposed to plugins.
+
+    Plugin log messages are written directly to the
+    current workflow execution log.
+    """
+
+    def __init__(
+        self,
+        logger: ExecutionLogger,
+        module: str = "plugin",
+    ) -> None:
+
+        self._logger = logger
+        self._module = module
+
+    def debug(
+        self,
+        message: str,
+    ) -> None:
+
+        self._logger.debug(
+            self._module,
+            message,
+        )
+
+    def info(
+        self,
+        message: str,
+    ) -> None:
+
+        self._logger.info(
+            self._module,
+            message,
+        )
+
+    def warning(
+        self,
+        message: str,
+    ) -> None:
+
+        self._logger.warning(
+            self._module,
+            message,
+        )
+
+    def error(
+        self,
+        message: str,
+    ) -> None:
+
+        self._logger.error(
+            self._module,
+            message,
+        )
+
+    def critical(
+        self,
+        message: str,
+    ) -> None:
+
+        self._logger.critical(
+            self._module,
+            message,
+        )
 
 class PluginContext:
     """
@@ -54,6 +122,10 @@ class PluginContext:
             emitter=self._emitter,
         )
 
+        self._arguments = PluginArguments(
+            context.arguments,
+        )
+
     # ------------------------------------------------------------------
     # Runtime State
     # ------------------------------------------------------------------
@@ -71,12 +143,12 @@ class PluginContext:
     @property
     def arguments(
         self,
-    ) -> dict[str, Any]:
+    ) -> PluginArguments:
         """
-        Current step arguments.
+        Typed workflow arguments.
         """
 
-        return self._runtime.arguments
+        return self._arguments
 
     @property
     def outputs(
@@ -169,12 +241,18 @@ class PluginContext:
     @property
     def log(
         self,
-    ):
+    ) -> PluginLog:
         """
-        Application log emitter.
+        Workflow execution logger exposed to plugins.
+
+        Plugin log messages are written to workflow.log
+        and are not rendered in the workflow execution UI.
         """
 
-        return self._emitter.log
+        return PluginLog(
+            logger=self._runtime.logger,
+            module="plugin",
+        )
 
     @property
     def message(
