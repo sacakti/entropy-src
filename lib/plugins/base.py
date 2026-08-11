@@ -134,6 +134,15 @@ class BasePlugin(ABC):
     # ------------------------------------------------------------------
     # Infrastructure
     # ------------------------------------------------------------------
+    @property
+    def path(
+        self,
+    ):
+        """
+        Return Path.
+        """
+
+        return self._context.path
 
     @property
     def filesystem(

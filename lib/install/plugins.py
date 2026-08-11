@@ -33,8 +33,19 @@ class DefaultPluginInstaller:
         Install Entropy's default plugins.
         """
 
-        source = self._bootstrap.resources.plugins / "custom" / "hello"
-
-        self._plugins.install(
-            source,
+        plugins = (
+            "hello",
+            "shell",
         )
+
+        for name in plugins:
+
+            source = (
+                self._bootstrap.resources.plugins
+                / "builtin"
+                / name
+            )
+
+            self._plugins.install(
+                source,
+            )

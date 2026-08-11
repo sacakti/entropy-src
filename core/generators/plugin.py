@@ -25,6 +25,7 @@ class PluginGenerator(
         ("plugin/plugin.py.j2", "plugin.py"),
         ("plugin/plugin.json.j2", "plugin.json"),
         ("plugin/README.md.j2", "README.md"),
+        ("plugin/MAN.md.j2", "MAN.md"),
         ("plugin/workflow.json.j2", "workflow.json"),
         ("plugin/requirements.txt.j2", "requirements.txt"),
     )

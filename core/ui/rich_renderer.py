@@ -12,6 +12,8 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 from rich.table import Table
+from rich.markdown import Markdown
+from rich.console import Console
 
 from .renderer import Renderer
 
@@ -100,6 +102,43 @@ class RichRenderer(Renderer):
 
         self._console.print(
             table,
+        )
+
+    # ------------------------------------------------------------------
+    # Documentation
+    # ------------------------------------------------------------------
+
+    def markdown(
+        self,
+        content: str,
+        *,
+        pager: bool = False,
+    ) -> None:
+        """
+        Render Markdown content.
+
+        When pager is enabled, Rich displays the rendered
+        Markdown through the configured terminal pager.
+        """
+
+        document = Markdown(
+            content,
+            code_theme="monokai",
+            hyperlinks=True,
+        )
+
+        if pager:
+
+            with self._console.pager():
+
+                self._console.print(
+                    document,
+                )
+
+            return
+
+        self._console.print(
+            document,
         )
 
     # ------------------------------------------------------------------

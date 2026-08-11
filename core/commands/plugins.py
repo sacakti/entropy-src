@@ -166,6 +166,20 @@ class PluginCommand(
             help="Qualified plugin name.",
         )
 
+        #
+        # man
+        #
+
+        man = subparsers.add_parser(
+            "man",
+            help="Read plugin documentation.",
+        )
+
+        man.add_argument(
+            "plugin",
+            help="Qualified plugin name.",
+        )
+
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -182,6 +196,7 @@ class PluginCommand(
             "verify": self._verify,
             "repair": self._repair,
             "set": self._set,
+            "man": self._man,
         }[args.action](
             args,
         )
@@ -373,4 +388,25 @@ class PluginCommand(
 
         self._plugins.disable(
             args.plugin,
+        )
+
+    # ------------------------------------------------------------------
+    # Man release document
+    # ------------------------------------------------------------------
+    def _man(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        self._ui.rule(
+            f"Manual : {args.plugin}",
+        )
+
+        documentation = self._plugins.documentation(
+            args.plugin,
+        )
+
+        self._ui.markdown(
+            documentation,
+            pager=True,
         )

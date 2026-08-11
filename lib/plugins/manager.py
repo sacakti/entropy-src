@@ -434,3 +434,33 @@ class PluginManager:
         """
 
         return self._runner
+
+    # ------------------------------------------------------------------
+    #  Man release notes
+    # ------------------------------------------------------------------
+    def documentation(
+        self,
+        qualified_name: str,
+    ) -> str:
+        """
+        Return documentation for an installed plugin.
+        """
+
+        plugin = self.get(
+            qualified_name,
+        )
+
+        documentation = (
+            plugin.path / "MAN.md"
+        )
+
+        if not documentation.is_file():
+
+            raise FileNotFoundError(
+                f"Documentation not found for "
+                f"plugin '{qualified_name}'."
+            )
+
+        return documentation.read_text(
+            encoding="utf-8",
+        )

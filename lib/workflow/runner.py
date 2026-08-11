@@ -13,6 +13,7 @@ from lib.models.workflow import (
     WorkflowStep,
 )
 from lib.workflow.exceptions import WorkflowCancelledError
+from lib.workflow.variables import WorkflowVariableResolver
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
@@ -56,6 +57,11 @@ class WorkflowRunner:
 
         assert self._context.paths is not None
         assert self._context.executor is not None
+        assert self._context.vault_manager is not None
+
+        resolver = WorkflowVariableResolver(
+            self._context.vault_manager,
+        )
 
         #
         # Create or reuse the execution.
@@ -122,6 +128,12 @@ class WorkflowRunner:
 
         enabled_steps = [step for step in workflow.steps if step.enabled]
 
+        runtime.set_variables(
+            resolver.resolve_variables(
+                workflow.variables,
+            ),
+        )
+
         total_steps = len(
             enabled_steps,
         )
@@ -151,6 +163,7 @@ class WorkflowRunner:
                             runtime,
                             workflow,
                             step,
+                            resolver,
                         )
 
                         self._execute(
@@ -213,13 +226,19 @@ class WorkflowRunner:
         runtime: ExecutionContext,
         workflow: Workflow,
         step: WorkflowStep,
+        resolver: WorkflowVariableResolver,
     ) -> None:
         """
         Prepare step execution.
         """
 
-        runtime.set_arguments(
+        arguments = resolver.resolve(
             step.arguments,
+            runtime.variables,
+        )
+
+        runtime.set_arguments(
+            arguments,
         )
 
     # ------------------------------------------------------------------

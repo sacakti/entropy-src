@@ -185,6 +185,15 @@ class PluginContext:
     # ------------------------------------------------------------------
 
     @property
+    def path(
+        self,
+    ) -> LinuxExecutor:
+        """
+        """
+
+        return self._runtime.executor
+
+    @property
     def filesystem(
         self,
     ) -> LinuxExecutor:

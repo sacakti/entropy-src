@@ -67,6 +67,30 @@ class Renderer(ABC):
         """
 
     # ------------------------------------------------------------------
+    # Documentation
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    def markdown(
+        self,
+        content: str,
+        *,
+        pager: bool = False,
+    ) -> None:
+        """
+        Render Markdown content.
+
+        Parameters
+        ----------
+        content:
+            Markdown document content.
+
+        pager:
+            Display the rendered document through a terminal pager
+            when supported.
+        """
+
+    # ------------------------------------------------------------------
     # Input
     # ------------------------------------------------------------------
 

@@ -98,6 +98,30 @@ class UIManager:
             rows,
         )
 
+    def markdown(
+        self,
+        content: str,
+        *,
+        pager: bool = False,
+    ) -> None:
+        """
+        Render Markdown content.
+
+        Parameters
+        ----------
+        content:
+            Markdown document content.
+
+        pager:
+            Display the rendered document through a pager
+            when supported.
+        """
+
+        self._renderer.markdown(
+            content,
+            pager=pager,
+        )
+
     # ------------------------------------------------------------------
     # Input
     # ------------------------------------------------------------------
