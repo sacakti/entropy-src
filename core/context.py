@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from core.template.engine import TemplateEngine
     from core.ui import UIManager
     from core.observability.logging import LoggingManager
+    from lib.vault.manager import VaultManager
     from lib.auth.manager import SessionManager
     from lib.auth.service import AuthenticationService
     from lib.database.manager import DatabaseManager
@@ -28,8 +29,6 @@ if TYPE_CHECKING:
     from lib.plugins.manager import PluginManager
     from lib.users.manager import UserManager
     from lib.users.password import PasswordService
-
-    # from lib.plugins.runner import PluginRunner
     from lib.workflow.jobs.manager import WorkflowJobManager
     from lib.workflow.manager import WorkflowManager
     from lib.workflow.runner import WorkflowRunner
@@ -116,3 +115,5 @@ class EntropyContext:
         self.user_manager: UserManager | None = None
 
         self.session_manager: SessionManager | None = None
+
+        self.vault_manager: VaultManager | None = None

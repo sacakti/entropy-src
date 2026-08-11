@@ -15,7 +15,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-VENDOR_DIR = PROJECT_ROOT / "core" / "vendor"
+VENDOR_DIR = PROJECT_ROOT / "resources" / "wheels"
 REQUIREMENTS = VENDOR_DIR / "requirements.txt"
 
 SUPPORTED_PLATFORMS = {

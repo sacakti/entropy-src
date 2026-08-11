@@ -143,3 +143,12 @@ class ExtensionPaths:
     cache: Path
 
     downloads: Path
+
+@dataclass(frozen=True)
+class VaultPaths:
+    """
+    Vault filesystem paths.
+    """
+
+    directory: Path
+    key: Path

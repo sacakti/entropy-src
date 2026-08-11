@@ -35,14 +35,18 @@ from lib.executor import LinuxExecutor
 from lib.extensions.manager import ExtensionManager
 from lib.migrations.manager import MigrationManager
 from lib.plugins.manager import PluginManager
-
-# from lib.plugins.runner import PluginRunner
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
 from lib.workflow.jobs.manager import WorkflowJobManager
 from lib.workflow.jobs.sink import WorkflowEventSink
 from lib.workflow.manager import WorkflowManager
 from lib.workflow.runner import WorkflowRunner
+from lib.vault import (
+    VaultKeyProvider,
+    VaultManager,
+    VaultSerializer,
+    VaultRepository,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTROPY_HOME = Path.home() / ".entropy"
@@ -268,6 +272,8 @@ class ContextFactory:
     def services(self) -> None:
 
         assert self._context.database_manager is not None
+        assert self._context.executor is not None
+        assert self._context.paths is not None
 
         self._context.password_service = PasswordService()
 
@@ -285,6 +291,27 @@ class ContextFactory:
 
         self._context.session_manager = SessionManager(
             self._context,
+        )
+
+        #
+        # Vault
+        #
+
+        vault_repository = VaultRepository(
+            self._context.database_manager.connection,
+        )
+
+        vault_serializer = VaultSerializer()
+
+        vault_key_provider = VaultKeyProvider(
+            executor=self._context.executor,
+            path=self._context.bootstrap.vault.key,
+        )
+
+        self._context.vault_manager = VaultManager(
+            repository=vault_repository,
+            serializer=vault_serializer,
+            key_provider=vault_key_provider,
         )
 
     # ------------------------------------------------------------------

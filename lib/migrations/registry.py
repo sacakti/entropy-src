@@ -7,6 +7,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import pkgutil
+from typing import Optional
 
 from .base import BaseMigration
 from .exceptions import (
@@ -93,7 +94,7 @@ class MigrationRegistry:
     def get(
         self,
         version: int,
-    ) -> BaseMigration | None:
+    ) -> Optional[BaseMigration]:
         """
         Return a migration.
         """

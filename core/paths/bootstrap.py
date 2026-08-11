@@ -12,6 +12,7 @@ from core.models.paths import (
     ConfigurationPaths,
     ResourcePaths,
     VendorPaths,
+    VaultPaths,
 )
 
 
@@ -36,6 +37,7 @@ class BootstrapPathManager:
         self._configuration = self._build_configuration_paths()
         self._resources = self._build_resource_paths()
         self._vendor = self._build_vendor_paths()
+        self._vault = self._build_vault_paths()
 
     # ------------------------------------------------------------------
     # Public Properties
@@ -72,6 +74,10 @@ class BootstrapPathManager:
             / "workflow"
             / "worker.py"
         )
+
+    @property
+    def vault(self) -> VaultPaths:
+        return self._vault
 
     # ------------------------------------------------------------------
     # Builders
@@ -123,4 +129,15 @@ class BootstrapPathManager:
         return VendorPaths(
             root=vendor_root,
             requirements=vendor_root / "requirements.txt",
+        )
+
+    def _build_vault_paths(
+        self,
+    ) -> VaultPaths:
+
+        directory = self._entropy_home / "vault"
+
+        return VaultPaths(
+            directory=directory,
+            key=directory / "master.key",
         )
