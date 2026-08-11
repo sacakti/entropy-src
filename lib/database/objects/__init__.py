@@ -8,6 +8,7 @@ from lib.database.objects.plugin_registry import PluginRegistryTable
 from lib.database.objects.schema_migrations import SchemaMigrationsTable
 from lib.database.objects.settings import SettingsTable
 from lib.database.objects.users import UsersTable
+from lib.database.objects.workflow_registry import WorkflowRegistryTable
 from lib.database.objects.workflows import WorkflowsTable
 from lib.database.objects.vault import VaultEntriesTable
 
@@ -25,4 +26,5 @@ __all__ = [
     "WorkflowJobsTable",
     "Indexes",
     "VaultEntriesTable",
+    "WorkflowRegistryTable",
 ]

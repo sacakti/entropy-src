@@ -17,6 +17,7 @@ from core.commands.base import (
 from lib.vault import (
     VaultValueType,
 )
+from lib.vault.exceptions import VaultValueError
 
 if TYPE_CHECKING:
 
@@ -219,7 +220,7 @@ class VaultCommand(BaseCommand):
 
         if action is None:
 
-            raise ValueError(
+            raise VaultValueError(
                 f"Unsupported Vault action: {args.action}",
             )
 
@@ -473,7 +474,7 @@ class VaultCommand(BaseCommand):
 
         if args.enc and args.plain:
 
-            raise ValueError(
+            raise VaultValueError(
                 "Use either --enc or --plain, not both.",
             )
 
@@ -529,7 +530,7 @@ class VaultCommand(BaseCommand):
 
         if entry.sensitive and args.value is not None:
 
-            raise ValueError(
+            raise VaultValueError(
                 "Sensitive values must be entered interactively. "
                 "Do not provide them on the command line.",
             )
@@ -903,7 +904,7 @@ class VaultCommand(BaseCommand):
 
         if selected_type is None:
 
-            raise ValueError(
+            raise VaultValueError(
                 "Value input cancelled.",
             )
 
@@ -944,7 +945,7 @@ class VaultCommand(BaseCommand):
 
             if result is None:
 
-                raise ValueError(
+                raise VaultValueError(
                     "Value input cancelled.",
                 )
 
@@ -963,7 +964,7 @@ class VaultCommand(BaseCommand):
                 VaultValueType.ARRAY,
             )
 
-        raise ValueError(
+        raise VaultValueError(
             f"Unsupported field type: {selected_type}",
         )
 
@@ -1269,7 +1270,7 @@ class VaultCommand(BaseCommand):
 
                 if not values:
 
-                    raise ValueError(
+                    raise VaultValueError(
                         "At least one JSON key/value pair "
                         "is required.",
                     )
@@ -1282,7 +1283,7 @@ class VaultCommand(BaseCommand):
 
             if key in values:
 
-                raise ValueError(
+                raise VaultValueError(
                     f"JSON key '{key}' already exists.",
                 )
 
@@ -1316,7 +1317,7 @@ class VaultCommand(BaseCommand):
 
         if not normalized:
 
-            raise ValueError(
+            raise VaultValueError(
                 "JSON value cannot be empty.",
             )
 
@@ -1381,7 +1382,7 @@ class VaultCommand(BaseCommand):
 
             except json.JSONDecodeError as exc:
 
-                raise ValueError(
+                raise VaultValueError(
                     f"Invalid JSON array: {exc}",
                 ) from exc
 
@@ -1390,7 +1391,7 @@ class VaultCommand(BaseCommand):
                 list,
             ):
 
-                raise ValueError(
+                raise VaultValueError(
                     "JSON value is not an array.",
                 )
 
@@ -1398,7 +1399,7 @@ class VaultCommand(BaseCommand):
                 result,
             ):
 
-                raise ValueError(
+                raise VaultValueError(
                     "Nested JSON objects are not allowed "
                     "inside Vault JSON values.",
                 )
@@ -1422,7 +1423,7 @@ class VaultCommand(BaseCommand):
 
             except json.JSONDecodeError as exc:
 
-                raise ValueError(
+                raise VaultValueError(
                     f"Invalid JSON string: {exc}",
                 ) from exc
 
@@ -1431,7 +1432,7 @@ class VaultCommand(BaseCommand):
                 str,
             ):
 
-                raise ValueError(
+                raise VaultValueError(
                     "Invalid JSON string value.",
                 )
 
@@ -1485,7 +1486,7 @@ class VaultCommand(BaseCommand):
 
             except ValueError as exc:
 
-                raise ValueError(
+                raise VaultValueError(
                     f"Invalid number value: {value!r}",
                 ) from exc
 
@@ -1509,7 +1510,7 @@ class VaultCommand(BaseCommand):
 
                 return False
 
-            raise ValueError(
+            raise VaultValueError(
                 "Boolean value must be true or false.",
             )
 
@@ -1523,7 +1524,7 @@ class VaultCommand(BaseCommand):
 
             except json.JSONDecodeError as exc:
 
-                raise ValueError(
+                raise VaultValueError(
                     "Array value must be valid JSON.",
                 ) from exc
 
@@ -1532,7 +1533,7 @@ class VaultCommand(BaseCommand):
                 list,
             ):
 
-                raise ValueError(
+                raise VaultValueError(
                     "Vault array value must be a JSON array.",
                 )
 
@@ -1540,7 +1541,7 @@ class VaultCommand(BaseCommand):
                 result,
             ):
 
-                raise ValueError(
+                raise VaultValueError(
                     "Nested JSON objects are not allowed "
                     "inside Vault arrays.",
                 )
@@ -1557,7 +1558,7 @@ class VaultCommand(BaseCommand):
 
             except json.JSONDecodeError as exc:
 
-                raise ValueError(
+                raise VaultValueError(
                     "Object value must be valid JSON.",
                 ) from exc
 
@@ -1566,7 +1567,7 @@ class VaultCommand(BaseCommand):
                 dict,
             ):
 
-                raise ValueError(
+                raise VaultValueError(
                     "Vault object value must be a JSON object.",
                 )
 
@@ -1582,11 +1583,11 @@ class VaultCommand(BaseCommand):
 
             except json.JSONDecodeError as exc:
 
-                raise ValueError(
+                raise VaultValueError(
                     "Value must be valid JSON.",
                 ) from exc
 
-        raise ValueError(
+        raise VaultValueError(
             f"Unsupported Vault value type: {value_type!r}",
         )
 
@@ -1683,7 +1684,7 @@ class VaultCommand(BaseCommand):
 
         except ValueError as exc:
 
-            raise ValueError(
+            raise VaultValueError(
                 f"Unsupported Vault value type: {value!r}",
             ) from exc
 
@@ -1709,7 +1710,7 @@ class VaultCommand(BaseCommand):
 
         if not value:
 
-            raise ValueError(
+            raise VaultValueError(
                 f"{message} is required.",
             )
 
@@ -1746,7 +1747,7 @@ class VaultCommand(BaseCommand):
 
         if not value:
 
-            raise ValueError(
+            raise VaultValueError(
                 f"{message} is required.",
             )
 
@@ -1772,13 +1773,13 @@ class VaultCommand(BaseCommand):
             str,
         ):
 
-            raise ValueError(
+            raise VaultValueError(
                 "Vault key must be a string.",
             )
 
         if not key:
 
-            raise ValueError(
+            raise VaultValueError(
                 "Vault key cannot be empty.",
             )
 
@@ -1792,7 +1793,7 @@ class VaultCommand(BaseCommand):
                 )
             ):
 
-                raise ValueError(
+                raise VaultValueError(
                     "Vault key may contain only "
                     "letters, numbers, and underscore (_).",
                 )

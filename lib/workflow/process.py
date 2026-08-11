@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from lib.workflow.exceptions import WorkflowProcessIDError, WorkflowProcessNotRunningError
+
 
 class WorkflowProcess:
     """
@@ -54,26 +56,26 @@ class WorkflowProcess:
             str(self._python_packages),
         ]
 
-        # worker_log = (
-        #     self._project_root
-        #     / "tmp"
-        #     / f"workflow-worker-{self._job_id}.log"
-        # )
+        worker_log = (
+            self._project_root
+            / "tmp"
+            / f"workflow-worker-{self._job_id}.log"
+        )
 
-        # worker_log.parent.mkdir(
-        #     parents=True,
-        #     exist_ok=True,
-        # )
+        worker_log.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-        # log_file = worker_log.open(
-        #     "ab",
-        # )
+        log_file = worker_log.open(
+            "ab",
+        )
 
         process = subprocess.Popen(
             command,
             stdin=subprocess.DEVNULL,
-            # stdout=log_file,
-            stdout=subprocess.DEVNULL,
+            stdout=log_file,
+            # stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
             start_new_session=True,
             close_fds=True,
@@ -104,9 +106,7 @@ class WorkflowProcess:
 
         if pid <= 0:
 
-            raise ValueError(
-                "Process ID must be greater than zero.",
-            )
+            raise WorkflowProcessIDError()
 
         try:
 
@@ -117,6 +117,6 @@ class WorkflowProcess:
 
         except ProcessLookupError as exc:
 
-            raise ProcessLookupError(
-                f"Workflow process '{pid}' was not found.",
+            raise WorkflowProcessNotRunningError(
+               pid,
             ) from exc

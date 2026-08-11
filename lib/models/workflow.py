@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-
 @dataclass(frozen=True)
 class Workflow:
     """
@@ -55,7 +54,13 @@ class WorkflowStep:
 
     enabled: bool = True
 
-    continue_on_error: bool = False
+    # continue_on_error: bool = False
+
+    tags: list[str] = field(
+        default_factory=list,
+    )
+
+    on_failure: str = "abort"
 
     @property
     def qualified_plugin(
@@ -63,3 +68,12 @@ class WorkflowStep:
     ) -> str:
 
         return self.plugin
+
+@dataclass(frozen=True)
+class WorkflowEditResult:
+    """
+    Result of editing a registered workflow.
+    """
+
+    workflow: Workflow
+    changed: bool

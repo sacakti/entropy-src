@@ -6,6 +6,11 @@ from __future__ import annotations
 
 from getpass import getpass
 from typing import Iterable, Optional, Sequence
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+
 
 from rich.console import Console
 from rich.panel import Panel
@@ -140,6 +145,72 @@ class RichRenderer(Renderer):
         self._console.print(
             document,
         )
+
+    def editor(
+        self,
+        content: str,
+        *,
+        filename: str = "workflow.json",
+    ) -> str:
+        """
+        Open content in the user's configured editor.
+
+        Returns the edited content. If the editor exits without
+        changing the file, the original content is returned.
+        """
+
+        editor = os.environ.get(
+            "EDITOR",
+            "vi",
+        )
+
+        suffix = Path(
+            filename,
+        ).suffix or ".json"
+
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            suffix=suffix,
+            delete=False,
+        ) as temporary:
+
+            temporary.write(
+                content,
+            )
+
+            path = Path(
+                temporary.name,
+            )
+
+        try:
+
+            result = subprocess.run(
+                [
+                    editor,
+                    str(path),
+                ],
+                check=False,
+            )
+
+            if result.returncode != 0:
+
+                raise RuntimeError(
+                    f"Editor '{editor}' exited with "
+                    f"status {result.returncode}.",
+                )
+
+            edited = path.read_text(
+                encoding="utf-8",
+            )
+
+            return edited
+
+        finally:
+
+            path.unlink(
+                missing_ok=True,
+            )
 
     # ------------------------------------------------------------------
     # Input

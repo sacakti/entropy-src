@@ -7,10 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.context import EntropyContext
-from lib.models.workflow import (
-    Workflow,
-    WorkflowStep,
-)
+from lib.models.workflow import Workflow
 
 from .exceptions import (
     InvalidWorkflowError,
@@ -29,8 +26,10 @@ class WorkflowLoader:
     ) -> None:
 
         assert context.executor is not None
+        assert context.workflow_codecs is not None
 
         self._executor = context.executor
+        self._codecs = context.workflow_codecs
 
     # ------------------------------------------------------------------
     # Public
@@ -41,8 +40,12 @@ class WorkflowLoader:
         workflow: Path,
     ) -> Workflow:
         """
-        Load a workflow.
+        Load a workflow definition.
         """
+
+        workflow = self._executor.path(
+            str(workflow),
+        )
 
         if not self._executor.exists(
             workflow,
@@ -52,76 +55,26 @@ class WorkflowLoader:
                 workflow,
             )
 
-        data = self._executor.read_json(
-            workflow,
-        )
-
-        return self._model(
-            data,
-        )
-
-    # ------------------------------------------------------------------
-    # Mapper
-    # ------------------------------------------------------------------
-
-    def _model(
-        self,
-        data: dict,
-    ) -> Workflow:
-        """
-        Convert JSON into a workflow model.
-        """
-
         try:
 
-            return Workflow(
-                name=data["name"],
-                version=data["version"],
-                description=data.get(
-                    "description",
-                ),
-                variables=data.get(
-                    "variables",
-                    {},
-                ),
-                steps=[
-                    self._step(
-                        item,
-                    )
-                    for item in data.get(
-                        "steps",
-                        [],
-                    )
-                ],
+            codec = self._codecs.for_path(
+                workflow,
             )
 
-        except KeyError as exc:
+            return codec.decode_file(
+                workflow,
+            )
+
+        except (
+            WorkflowNotFoundError,
+            InvalidWorkflowError,
+        ):
+
+            raise
+
+        except Exception as exc:
 
             raise InvalidWorkflowError(
-                f"Missing required field '{exc.args[0]}'.",
+                f"Unable to load workflow "
+                f"'{workflow}': {exc}",
             ) from exc
-
-    def _step(
-        self,
-        data: dict,
-    ) -> WorkflowStep:
-        """
-        Convert JSON into a workflow step.
-        """
-
-        return WorkflowStep(
-            name=data["name"],
-            plugin=data["plugin"],
-            arguments=data.get(
-                "arguments",
-                {},
-            ),
-            enabled=data.get(
-                "enabled",
-                True,
-            ),
-            continue_on_error=data.get(
-                "continue_on_error",
-                False,
-            ),
-        )

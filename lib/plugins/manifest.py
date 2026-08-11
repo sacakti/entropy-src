@@ -14,7 +14,7 @@ from lib.models.plugin import (
     PluginManifest,
 )
 
-from .exceptions import PluginManifestNotFoundError
+from .exceptions import PluginInvalidRequirementError, PluginManifestNotFoundError, PluginVersionError
 
 
 class ManifestReader:
@@ -127,7 +127,7 @@ class ManifestReader:
 
                 if not minimum:
 
-                    raise ValueError(
+                    raise PluginVersionError(
                         "Entropy minimum version cannot be empty.",
                     )
 
@@ -135,7 +135,7 @@ class ManifestReader:
                     minimum=minimum,
                 )
 
-            raise ValueError(
+            raise PluginInvalidRequirementError(
                 f"Unsupported Entropy requirement " f"'{requirement}'.",
             )
 

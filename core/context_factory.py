@@ -47,6 +47,9 @@ from lib.vault import (
     VaultSerializer,
     VaultRepository,
 )
+from lib.workflow.codec.json import JsonWorkflowCodec
+from lib.workflow.codec.registry import WorkflowCodecRegistry
+from lib.workflow.codec.yaml import YamlWorkflowCodec
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTROPY_HOME = Path.home() / ".entropy"
@@ -224,7 +227,15 @@ class ContextFactory:
     # Infrastructure
     # ------------------------------------------------------------------
 
-    def infrastructure(self) -> None:
+    def infrastructure(
+        self,
+    ) -> None:
+
+        assert self._context.executor is not None
+
+        #
+        # Database
+        #
 
         self._context.database_manager = DatabaseManager(
             self._context,
@@ -234,6 +245,10 @@ class ContextFactory:
 
         self._context.database_manager.open()
 
+        #
+        # Extensions / migrations
+        #
+
         self._context.extension_manager = ExtensionManager(
             self._context,
         )
@@ -242,9 +257,17 @@ class ContextFactory:
             self._context,
         )
 
+        #
+        # Plugins
+        #
+
         self._context.plugin_manager = PluginManager(
             self._context,
         )
+
+        #
+        # Execution
+        #
 
         self._context.execution_manager = ExecutionManager(
             self._context,
@@ -254,12 +277,35 @@ class ContextFactory:
             self._context,
         )
 
+        #
+        # Workflow codecs
+        #
+
+        self._context.workflow_codecs = WorkflowCodecRegistry(
+            [
+                JsonWorkflowCodec(
+                    self._context.executor,
+                ),
+                YamlWorkflowCodec(
+                    self._context.executor,
+                ),
+            ],
+        )
+
+        #
+        # Workflow runner
+        #
+
         assert self._context.plugin_manager is not None
 
         self._context.workflow_runner = WorkflowRunner(
             context=self._context,
             plugin_runner=self._context.plugin_manager.runner,
         )
+
+        #
+        # Workflow manager
+        #
 
         self._context.workflow_manager = WorkflowManager(
             self._context,

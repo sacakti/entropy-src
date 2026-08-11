@@ -212,3 +212,15 @@ class PluginLoader:
         return self._registry.resolve(
             qualified_name,
         )
+
+    def get(
+        self,
+        qualified_name: str,
+    ) -> Plugin:
+        """
+        Return registered plugin metadata.
+        """
+
+        return self._plugin(
+            qualified_name,
+        )

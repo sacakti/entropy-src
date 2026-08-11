@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lib.plugins.exceptions import PluginDisabledError
+
 from .context import PluginContext
 from .loader import PluginLoader
 from .mode import PluginMode
@@ -76,6 +78,16 @@ class PluginRunner:
         """
         Load and instantiate a plugin.
         """
+
+        plugin = self._loader.get(
+            qualified_name,
+        )
+
+        if not plugin.enabled:
+
+            raise PluginDisabledError(
+                qualified_name,
+            )
 
         plugin_class = self._loader.load(
             qualified_name,

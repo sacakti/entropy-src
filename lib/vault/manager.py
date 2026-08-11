@@ -9,7 +9,7 @@ from typing import Any
 from lib.models.vault import VaultEntry, VaultValueType
 from lib.database.repositories.vault import VaultRepository
 from lib.vault.cipher import VaultCipher
-from lib.vault.exceptions import VaultEntryExistsError, VaultEntryNotFoundError
+from lib.vault.exceptions import VaultEntryExistsError, VaultEntryNotFoundError, VaultValueError
 from lib.vault.key import VaultKeyProvider
 from lib.vault.serializer import VaultSerializer
 
@@ -338,12 +338,12 @@ class VaultManager:
             current,
             dict,
         ):
-            raise ValueError(
+            raise VaultValueError(
                 f"Vault entry '{key}' is not an object.",
             )
 
         if field not in current:
-            raise ValueError(
+            raise VaultValueError(
                 f"Field '{field}' does not exist in "
                 f"Vault entry '{key}'.",
             )
@@ -380,12 +380,12 @@ class VaultManager:
             current,
             dict,
         ):
-            raise ValueError(
+            raise VaultValueError(
                 f"Vault entry '{key}' is not an object.",
             )
 
         if field in current:
-            raise ValueError(
+            raise VaultValueError(
                 f"Field '{field}' already exists "
                 f"in Vault entry '{key}'.",
             )
@@ -425,12 +425,12 @@ class VaultManager:
             current,
             dict,
         ):
-            raise ValueError(
+            raise VaultValueError(
                 f"Vault entry '{key}' is not an object.",
             )
 
         if field not in current:
-            raise ValueError(
+            raise VaultValueError(
                 f"Field '{field}' does not exist "
                 f"in Vault entry '{key}'.",
             )
@@ -438,7 +438,7 @@ class VaultManager:
         del current[field]
 
         if not current:
-            raise ValueError(
+            raise VaultValueError(
                 "Vault object cannot be empty.",
             )
 
@@ -473,13 +473,13 @@ class VaultManager:
             str,
         ):
 
-            raise ValueError(
+            raise VaultValueError(
                 "Vault key must be a string.",
             )
 
         if not key:
 
-            raise ValueError(
+            raise VaultValueError(
                 "Vault key cannot be empty.",
             )
 
@@ -493,7 +493,7 @@ class VaultManager:
                 )
             ):
 
-                raise ValueError(
+                raise VaultValueError(
                     "Vault key may contain only "
                     "letters, numbers, and underscore (_).",
                 )

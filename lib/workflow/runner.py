@@ -7,12 +7,14 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+from core.exceptions import EntropyException
 from core.runtime.context import ExecutionContext
 from lib.models.workflow import (
     Workflow,
     WorkflowStep,
 )
-from lib.workflow.exceptions import WorkflowCancelledError
+from lib.plugins.exceptions import PluginDisabledError
+from lib.workflow.exceptions import WorkflowCancelledError, WorkflowError
 from lib.workflow.variables import WorkflowVariableResolver
 
 if TYPE_CHECKING:
@@ -203,7 +205,24 @@ class WorkflowRunner:
 
             raise WorkflowCancelledError("User cancelled operation.") from exc
 
-        except Exception:
+        except PluginDisabledError:
+
+            #
+            # Expected application error.
+            #
+            # Preserve the original exception so CommandManager
+            # can display the correct domain-specific message.
+            #
+
+            execution.fail()
+
+            self._jobs.fail(
+                job.id,
+            )
+
+            raise
+
+        except Exception as exc:
 
             #
             # Workflow execution failed.
@@ -214,8 +233,9 @@ class WorkflowRunner:
             self._jobs.fail(
                 job.id,
             )
+            import traceback
 
-            raise
+            raise WorkflowError(f"Failed: {traceback.format_exc()}") from exc
 
     # ------------------------------------------------------------------
     # Initialize

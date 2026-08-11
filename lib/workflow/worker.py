@@ -130,7 +130,7 @@ class WorkflowWorker:
             #
 
             context.workflow_manager.run(
-                self._workflow,
+                file=self._workflow,
                 job_id=self._job_id,
             )
 

@@ -16,6 +16,7 @@ from lib.models.plugin import Plugin, PluginManifest
 
 from .exceptions import (
     PluginAlreadyInstalledError,
+    PluginValueError,
 )
 from .manifest import ManifestReader
 from .validator import ManifestValidator
@@ -86,7 +87,9 @@ class PluginInstaller:
             if not reinstall:
 
                 raise PluginAlreadyInstalledError(
-                    manifest.qualified_name,
+                    f"Plugin '{manifest.qualified_name}' already exists."
+                    "To replace use 'ent plugin install"
+                    " --reinstall /plugin/path'",
                 )
 
             plugin = self._repository.get_by_name(
@@ -262,13 +265,13 @@ class PluginInstaller:
 
         if not plugin.path.exists():
 
-            raise EntropyException(
+            raise PluginValueError(
                 f"Plugin directory not found for " f"'{plugin.qualified_name}': {plugin.path}",
             )
 
         if not plugin.path.is_dir():
 
-            raise EntropyException(
+            raise PluginValueError(
                 f"Plugin path is not a directory for " f"'{plugin.qualified_name}': {plugin.path}",
             )
 
@@ -276,7 +279,7 @@ class PluginInstaller:
 
         if not manifest_file.exists():
 
-            raise EntropyException(
+            raise PluginValueError(
                 f"Plugin manifest not found for " f"'{plugin.qualified_name}': {manifest_file}",
             )
 

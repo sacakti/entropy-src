@@ -10,7 +10,7 @@ from pathlib import Path
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
 from lib.models.plugin import Plugin
-from lib.plugins.exceptions import PluginNotFoundError
+from lib.plugins.exceptions import InvalidPluginNameError, PluginNotFoundError
 
 
 class PluginRepository(Repository):
@@ -135,7 +135,7 @@ class PluginRepository(Repository):
         if row is None:
 
             raise PluginNotFoundError(
-                f"{namespace}.{name}",
+                f"Plugin '{namespace}.{name}' does not exists.",
             )
 
         return self._from_row(
@@ -304,10 +304,35 @@ class PluginRepository(Repository):
         self,
         qualified_name: str,
     ) -> Plugin:
+        """
+        Return a plugin by qualified name.
+        """
 
-        namespace, name = qualified_name.split(".", 1)
+        parts = qualified_name.split(
+            ".",
+            1,
+        )
 
-        return self.get_by_name(namespace, name)
+        if len(parts) != 2:
+
+            raise InvalidPluginNameError(
+                qualified_name,
+            )
+
+        namespace, name = parts
+
+        if not namespace or not name:
+
+            raise InvalidPluginNameError(
+                qualified_name,
+            )
+
+        plugin_name = self.get_by_name(
+            namespace,
+            name,
+        )
+
+        return plugin_name
 
     # Update path
     def update_path(

@@ -122,6 +122,24 @@ class UIManager:
             pager=pager,
         )
 
+    def editor(
+        self,
+        content: str,
+        *,
+        filename: str = "workflow.json",
+    ) -> str:
+        """
+        Open content in the configured system editor.
+
+        The editor receives a temporary file containing the supplied
+        content. The edited content is returned.
+        """
+
+        return self._renderer.editor(
+            content,
+            filename=filename,
+        )
+
     # ------------------------------------------------------------------
     # Input
     # ------------------------------------------------------------------

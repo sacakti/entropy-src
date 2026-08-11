@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from core.commands.manager import CommandManager
     from core.configuration.manager import ConfigurationManager
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from core.observability.logging import LoggingManager
     from lib.vault.manager import VaultManager
     from lib.auth.manager import SessionManager
+    from lib.workflow.codec.registry import WorkflowCodecRegistry
     from lib.auth.service import AuthenticationService
     from lib.database.manager import DatabaseManager
     from lib.database.repositories.users import UserRepository
@@ -71,6 +73,8 @@ class EntropyContext:
         self.console_log_sink: LogConsoleSink | None = None
 
         self.workflow_runner: WorkflowRunner | None = None
+
+        workflow_codecs: WorkflowCodecRegistry | None = None
 
         # ---------------------------------------------------------
         # Core Managers

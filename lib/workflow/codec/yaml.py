@@ -1,0 +1,166 @@
+"""
+YAML workflow codec.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from lib.models.workflow import Workflow
+from lib.workflow.exceptions import (
+    WorkflowFileNotFoundError,
+    WorkflowFileReadError,
+    WorkflowFileWriteError,
+    WorkflowPathNotFileError,
+)
+
+from .structured import StructuredWorkflowCodec
+
+if TYPE_CHECKING:
+    from lib.executor.linux import LinuxExecutor
+
+
+class YamlWorkflowCodec(
+    StructuredWorkflowCodec,
+):
+    """
+    YAML workflow codec.
+
+    Workflow mapping and model conversion are implemented
+    by StructuredWorkflowCodec.
+
+    LinuxExecutor owns filesystem I/O.
+    """
+
+    def __init__(
+        self,
+        executor: LinuxExecutor,
+    ) -> None:
+
+        self._executor = executor
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def format(
+        self,
+    ) -> str:
+
+        return "yaml"
+
+    # ------------------------------------------------------------------
+    # Decode
+    # ------------------------------------------------------------------
+
+    def decode(
+        self,
+        data: str,
+    ) -> Workflow:
+
+        value = self._executor.parse_yaml(
+            data,
+        )
+
+        return self._from_mapping(
+            value,
+        )
+
+    # ------------------------------------------------------------------
+    # Encode
+    # ------------------------------------------------------------------
+
+    def encode(
+        self,
+        workflow: Workflow,
+    ) -> str:
+
+        value = self._to_mapping(
+            workflow,
+        )
+
+        return self._executor.serialize_yaml(
+            value,
+        )
+
+    # ------------------------------------------------------------------
+    # File Decode
+    # ------------------------------------------------------------------
+
+    def decode_file(
+        self,
+        path: Path,
+    ) -> Workflow:
+        """
+        Read and decode a YAML workflow file.
+        """
+
+        path = self._executor.path(
+            str(path),
+        )
+
+        if not self._executor.exists(
+            path,
+        ):
+
+            raise WorkflowFileNotFoundError(
+                path,
+            )
+
+        if not self._executor.is_file(
+            path,
+        ):
+
+            raise WorkflowPathNotFileError(
+                path,
+            )
+
+        try:
+
+            data = self._executor.read_text(
+                path,
+            )
+
+        except OSError as exc:
+
+            raise WorkflowFileReadError(
+                path,
+            ) from exc
+
+        return self.decode(
+            data,
+        )
+
+    # ------------------------------------------------------------------
+    # File Encode
+    # ------------------------------------------------------------------
+
+    def encode_file(
+        self,
+        workflow: Workflow,
+        path: Path,
+    ) -> None:
+        """
+        Write a Workflow to a YAML file.
+        """
+
+        path = self._executor.path(
+            str(path),
+        )
+
+        try:
+
+            self._executor.write_text(
+                path,
+                self.encode(
+                    workflow,
+                ),
+            )
+
+        except OSError as exc:
+
+            raise WorkflowFileWriteError(
+                path,
+            ) from exc

@@ -9,15 +9,22 @@ from pathlib import Path
 from typing import List
 
 from core.context import EntropyContext
-from lib.workflow.exceptions import WorkflowJobNotFoundError
+from lib.workflow.exceptions import (
+    WorkflowInvalidTransitionError,
+    WorkflowJobIsNotPausedError,
+    WorkflowJobNotFoundError,
+    WorkflowJobNotRunningError,
+    WorkflowNotQueuedError,
+    WorkflowProcessIDError
+)
 from lib.workflow.process import WorkflowProcess
+from lib.database.repositories.workflow_jobs import WorkflowJobRepository
 
 from .events import (
     WorkflowEvent,
     WorkflowEventRepository,
 )
 from .model import WorkflowJob
-from .repository import WorkflowJobRepository
 from .state import JobState
 
 
@@ -198,9 +205,7 @@ class WorkflowJobManager:
 
         if pid <= 0:
 
-            raise ValueError(
-                "Process ID must be greater than zero.",
-            )
+            raise WorkflowProcessIDError
 
         return self._repository.set_pid(
             job_id,
@@ -224,8 +229,8 @@ class WorkflowJobManager:
 
         if job.state is not JobState.RUNNING:
 
-            raise ValueError(
-                f"Job '{job_id}' is not running.",
+            raise WorkflowJobNotRunningError(
+                job_id,
             )
 
         return self._repository.set_state(
@@ -250,8 +255,8 @@ class WorkflowJobManager:
 
         if job.state is not JobState.PAUSED:
 
-            raise ValueError(
-                f"Job '{job_id}' is not paused.",
+            raise WorkflowJobIsNotPausedError(
+                job_id,
             )
 
         return self._repository.set_state(
@@ -318,8 +323,8 @@ class WorkflowJobManager:
 
         if not job.running:
 
-            raise ValueError(
-                f"Workflow job '{job.id}' is not running.",
+            raise WorkflowJobNotRunningError(
+                job.id,
             )
 
         WorkflowProcess.stop(
@@ -447,8 +452,9 @@ class WorkflowJobManager:
 
         if target not in allowed[job.state]:
 
-            raise ValueError(
-                f"Invalid workflow job transition: " f"'{job.state.value}' -> '{target.value}'.",
+            raise WorkflowInvalidTransitionError(
+                job.state.value,
+                target.value,
             )
 
     # ------------------------------------------------------------------
@@ -480,8 +486,8 @@ class WorkflowJobManager:
 
         if job.state is not JobState.QUEUED:
 
-            raise ValueError(
-                f"Workflow job '{job_id}' is not queued.",
+            raise WorkflowNotQueuedError(
+                job_id,
             )
 
         return job

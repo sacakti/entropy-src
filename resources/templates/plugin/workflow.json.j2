@@ -12,7 +12,7 @@
             "name": "Execute {{ class_name }}",
             "plugin": "{{ namespace }}.{{ name }}",
             "enabled": true,
-            "continue_on_error": false,
+            "on_failure": "abort",
             "tags": [
                 "{{ name }}"
             ],

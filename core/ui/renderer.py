@@ -66,6 +66,18 @@ class Renderer(ABC):
         Display a table.
         """
 
+    @abstractmethod
+    def editor(
+        self,
+        content: str,
+        *,
+        filename: str = "workflow.json",
+    ) -> str:
+        """
+        Open content in the configured system editor
+        and return the edited content.
+        """
+
     # ------------------------------------------------------------------
     # Documentation
     # ------------------------------------------------------------------

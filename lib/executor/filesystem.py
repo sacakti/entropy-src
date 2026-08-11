@@ -618,3 +618,70 @@ class FileSystemMixin:
         )
 
         return path
+
+    # ------------------------------------------------------------------
+    # Document Serialization
+    # ------------------------------------------------------------------
+
+    def parse_json(
+        self,
+        data: str,
+    ) -> dict[str, Any]:
+        """
+        Parse a JSON document from text.
+        """
+
+        return cast(
+            dict[str, Any],
+            json.loads(
+                data,
+            ),
+        )
+
+    def serialize_json(
+        self,
+        data: Any,
+        indent: int = 4,
+        *,
+        sort_keys: bool = True,
+    ) -> str:
+        """
+        Serialize data into formatted JSON.
+        """
+
+        return json.dumps(
+            data,
+            indent=indent,
+            sort_keys=sort_keys,
+        )
+
+    def parse_yaml(
+        self,
+        data: str,
+    ) -> dict[str, Any]:
+        """
+        Parse a YAML document from text.
+        """
+
+        value = yaml.safe_load(
+            data,
+        )
+
+        return value or {}
+
+    def serialize_yaml(
+        self,
+        data: Any,
+        *,
+        sort_keys: bool = False,
+    ) -> str:
+        """
+        Serialize data into YAML.
+        """
+
+        return yaml.safe_dump(
+            data,
+            default_flow_style=False,
+            sort_keys=sort_keys,
+            allow_unicode=True,
+        )

@@ -79,3 +79,14 @@ class ExtensionDownloadError(ExtensionError):
         super().__init__(
             message,
         )
+
+class ExtensionValueError(ExtensionError):
+
+    def __init__(
+        self,
+        message: str,
+    ) -> None:
+
+        super().__init__(
+            message,
+        )

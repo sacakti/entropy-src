@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from lib.extensions.exceptions import ExtensionValueError
 from lib.models.extensions import ExtensionManifest
 
 
@@ -51,7 +52,7 @@ class ExtensionLoader:
         version = dependency.get("version")
 
         if not isinstance(version, str):
-            raise ValueError(
+            raise ExtensionValueError(
                 f"Extension dependency '{name}' is missing a valid version.",
             )
 
@@ -75,7 +76,7 @@ class ExtensionLoader:
         version = data.get("version")
 
         if not isinstance(version, str):
-            raise ValueError(
+            raise ExtensionValueError(
                 "Extension manifest is missing a valid version.",
             )
 

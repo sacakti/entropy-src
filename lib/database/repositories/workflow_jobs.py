@@ -11,8 +11,9 @@ from typing import List
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
 
-from .model import WorkflowJob
-from .state import JobState
+from lib.workflow.exceptions import WorkflowInvalidTerminalError, WorkflowJobIDRequiredError
+from lib.workflow.jobs.model import WorkflowJob
+from lib.workflow.jobs.state import JobState
 
 
 class WorkflowJobRepository(Repository):
@@ -223,9 +224,7 @@ class WorkflowJobRepository(Repository):
 
         if job.id is None:
 
-            raise ValueError(
-                "Cannot update a workflow job without an id.",
-            )
+            raise WorkflowJobIDRequiredError()
 
         with self.connection.transaction():
 
@@ -338,8 +337,8 @@ class WorkflowJobRepository(Repository):
             JobState.CANCELLED,
         ):
 
-            raise ValueError(
-                f"Invalid terminal state '{state.value}'.",
+            raise WorkflowInvalidTerminalError(
+               state.value,
             )
 
         finished_at = datetime.now(

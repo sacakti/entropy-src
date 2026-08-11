@@ -26,7 +26,6 @@ class PluginDiscovery:
     ) -> None:
 
         self._repository = repository
-
         self._registry = registry
 
     # ------------------------------------------------------------------
@@ -43,10 +42,6 @@ class PluginDiscovery:
         self._registry.clear()
 
         for plugin in self._repository.list():
-
-            if not plugin.enabled:
-
-                continue
 
             self._registry.register(
                 plugin,

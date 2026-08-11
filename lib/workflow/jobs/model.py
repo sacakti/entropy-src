@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from lib.workflow.exceptions import WorkflowJobIDRequiredError
+
 from .state import JobState
 
 
@@ -65,12 +67,12 @@ class WorkflowJob:
         """
         Return the persistent database identifier.
 
-        Raises ValueError when the job has not been persisted yet.
+        Raises WorkflowJobIDRequiredError when the job has not been persisted yet.
         """
 
         if self.id is None:
 
-            raise ValueError(
+            raise WorkflowJobIDRequiredError(
                 "Workflow job has not been persisted.",
             )
 

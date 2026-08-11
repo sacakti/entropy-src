@@ -7,6 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, TypeVar
 
+from lib.plugins.exceptions import PluginValueError
+
 
 T = TypeVar("T")
 
@@ -51,12 +53,12 @@ class PluginArguments:
         """
         Return a required argument.
 
-        Raises ValueError when the argument is missing or None.
+        Raises PluginValueError when the argument is missing or None.
         """
 
         if name not in self._arguments:
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Required argument '{name}' "
                 "is missing."
             )
@@ -65,7 +67,7 @@ class PluginArguments:
 
         if value is None:
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Required argument '{name}' "
                 "cannot be null."
             )
@@ -101,7 +103,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "is missing."
                 )
@@ -114,7 +116,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "cannot be null."
                 )
@@ -126,7 +128,7 @@ class PluginArguments:
             str,
         ):
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 "a string."
             )
@@ -135,7 +137,7 @@ class PluginArguments:
 
         if not value and required:
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Required argument '{name}' "
                 "cannot be empty."
             )
@@ -170,7 +172,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "is missing."
                 )
@@ -183,7 +185,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "cannot be null."
                 )
@@ -222,7 +224,7 @@ class PluginArguments:
 
                 return False
 
-        raise ValueError(
+        raise PluginValueError(
             f"Argument '{name}' must be "
             "a boolean."
         )
@@ -248,7 +250,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "is missing."
                 )
@@ -261,7 +263,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "cannot be null."
                 )
@@ -273,7 +275,7 @@ class PluginArguments:
             bool,
         ):
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 "an integer."
             )
@@ -286,10 +288,10 @@ class PluginArguments:
 
         except (
             TypeError,
-            ValueError,
+            PluginValueError,
         ) as exc:
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 "an integer."
             ) from exc
@@ -324,7 +326,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "is missing."
                 )
@@ -337,7 +339,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "cannot be null."
                 )
@@ -349,7 +351,7 @@ class PluginArguments:
             bool,
         ):
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 "a number."
             )
@@ -362,10 +364,10 @@ class PluginArguments:
 
         except (
             TypeError,
-            ValueError,
+            PluginValueError,
         ) as exc:
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 "a number."
             ) from exc
@@ -437,7 +439,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "is missing."
                 )
@@ -450,7 +452,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "cannot be null."
                 )
@@ -462,7 +464,7 @@ class PluginArguments:
             list,
         ):
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 "a list."
             )
@@ -488,7 +490,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "is missing."
                 )
@@ -501,7 +503,7 @@ class PluginArguments:
 
             if required:
 
-                raise ValueError(
+                raise PluginValueError(
                     f"Required argument '{name}' "
                     "cannot be null."
                 )
@@ -513,7 +515,7 @@ class PluginArguments:
             dict,
         ):
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 "an object."
             )
@@ -540,7 +542,7 @@ class PluginArguments:
             and value < minimum
         ):
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 f"greater than or equal to "
                 f"{minimum}."
@@ -551,7 +553,7 @@ class PluginArguments:
             and value > maximum
         ):
 
-            raise ValueError(
+            raise PluginValueError(
                 f"Argument '{name}' must be "
                 f"less than or equal to "
                 f"{maximum}."

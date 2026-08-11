@@ -7,6 +7,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
+from lib.workflow.exceptions import WorkflowError
 from lib.workflow.jobs.events import WorkflowEvent
 from lib.workflow.jobs.manager import WorkflowJobManager
 
@@ -50,7 +51,7 @@ class WorkflowFollower:
 
         if job.id is None:
 
-            raise ValueError(
+            raise WorkflowError(
                 "Cannot follow a workflow job without an id.",
             )
 
