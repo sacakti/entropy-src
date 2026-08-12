@@ -4,12 +4,27 @@ User input.
 
 from __future__ import annotations
 
-from getpass import getpass
 from typing import cast
 
+import questionary
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
+from core.exceptions import EntropyException
+
+
+class UserInputCancelledError(
+    EntropyException,
+):
+    """
+    Raised when the user cancels interactive input.
+    """
+
+    def __init__(self) -> None:
+
+        super().__init__(
+            "Input cancelled.",
+        )
 
 class PromptManager:
     """
@@ -36,19 +51,31 @@ class PromptManager:
         Prompt for user input.
         """
 
-        if password:
+        try:
 
-            return getpass(
-                f"{message}: ",
+            if password:
+
+                value = questionary.password(
+                    f"{message}:",
+                ).ask()
+
+                if value is None:
+
+                    raise UserInputCancelledError()
+
+                return value
+
+            return cast(
+                str,
+                Prompt.ask(
+                    message,
+                    console=self._console,
+                ),
             )
 
-        return cast(
-            str,
-            Prompt.ask(
-                message,
-                console=self._console,
-            ),
-        )
+        except KeyboardInterrupt as exc:
+
+            raise UserInputCancelledError() from exc
 
     # ------------------------------------------------------------------
     # Confirm

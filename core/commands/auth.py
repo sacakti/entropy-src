@@ -5,6 +5,7 @@ Authentication command.
 from __future__ import annotations
 
 from argparse import ArgumentParser, Namespace
+import sys
 
 from core.commands.base import BaseCommand, CommandMetadata
 
@@ -48,11 +49,32 @@ class AuthCommand(BaseCommand):
             dest="action",
         )
 
-        subparsers.add_parser(
+        login = subparsers.add_parser(
             "login",
             help="Authenticate.",
         )
 
+        login.add_argument(
+            "-u",
+            "--user",
+            dest="username",
+            help="Username.",
+        )
+
+        password_group = login.add_mutually_exclusive_group()
+
+        password_group.add_argument(
+            "-p",
+            "--password",
+            dest="password",
+            help="Password. Warning: visible in shell history/process arguments.",
+        )
+
+        password_group.add_argument(
+            "--password-stdin",
+            action="store_true",
+            help="Read the password from standard input.",
+        )
         subparsers.add_parser(
             "logout",
             help="Logout the current session.",
@@ -100,14 +122,44 @@ class AuthCommand(BaseCommand):
 
             return
 
-        username = self._ui.prompt(
-            "Username",
-        )
+        username = args.username
 
-        password = self._ui.prompt(
-            "Password",
-            password=True,
-        )
+        if username is None:
+
+            username = self._ui.prompt(
+                "Username",
+            )
+
+        if args.password_stdin:
+
+            password = sys.stdin.readline().rstrip(
+                "\r\n",
+            )
+
+            if not password:
+
+                self._ui.error(
+                    "No password was provided through standard input.",
+                )
+
+                return
+
+        elif args.password is not None:
+
+            self._ui.warning(
+                "Passing a password through the command line is insecure. "
+                "The password may be visible in shell history or process "
+                "arguments.",
+            )
+
+            password = args.password
+
+        else:
+
+            password = self._ui.prompt(
+                "Password",
+                password=True,
+            )
 
         self._session.login(
             username,
