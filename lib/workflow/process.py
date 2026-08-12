@@ -10,8 +10,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from lib.workflow.exceptions import WorkflowProcessIDError, WorkflowProcessNotRunningError
-
+from lib.workflow.exceptions import (
+    WorkflowProcessIDError,
+    WorkflowProcessNotRunningError
+    )
+from lib.models.workflow import WorkflowExecutionOptions
 
 class WorkflowProcess:
     """
@@ -28,6 +31,7 @@ class WorkflowProcess:
         worker: Path,
         project_root: Path,
         python_packages: Path,
+        options: WorkflowExecutionOptions,
     ) -> None:
 
         self._job_id = job_id
@@ -35,6 +39,7 @@ class WorkflowProcess:
         self._worker = worker
         self._project_root = project_root
         self._python_packages = python_packages
+        self._options = options
 
     # ------------------------------------------------------------------
     # Start
@@ -54,28 +59,50 @@ class WorkflowProcess:
             str(self._project_root),
             "--python-packages",
             str(self._python_packages),
+            "--tags",
+            ",".join(
+                self._options.tags,
+            ),
         ]
 
-        worker_log = (
-            self._project_root
-            / "tmp"
-            / f"workflow-worker-{self._job_id}.log"
-        )
+        if self._options.from_step is not None:
 
-        worker_log.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+            command.extend(
+                [
+                    "--from-step",
+                    self._options.from_step,
+                ],
+            )
 
-        log_file = worker_log.open(
-            "ab",
-        )
+        if self._options.to_step is not None:
+
+            command.extend(
+                [
+                    "--to-step",
+                    self._options.to_step,
+                ],
+            )
+
+        # worker_log = (
+        #     self._project_root
+        #     / "tmp"
+        #     / f"workflow-worker-{self._job_id}.log"
+        # )
+
+        # worker_log.parent.mkdir(
+        #     parents=True,
+        #     exist_ok=True,
+        # )
+
+        # log_file = worker_log.open(
+        #     "ab",
+        # )
 
         process = subprocess.Popen(
             command,
             stdin=subprocess.DEVNULL,
-            stdout=log_file,
-            # stdout=subprocess.DEVNULL,
+            # stdout=log_file,
+            stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
             start_new_session=True,
             close_fds=True,

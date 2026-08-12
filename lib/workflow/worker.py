@@ -70,6 +70,24 @@ def _parse_args() -> argparse.Namespace:
         required=True,
     )
 
+    parser.add_argument(
+        "--tags",
+        default="",
+        help="Comma-separated workflow step tags.",
+    )
+
+    parser.add_argument(
+        "--from-step",
+        default=None,
+        help="First workflow step to execute.",
+    )
+
+    parser.add_argument(
+        "--to-step",
+        default=None,
+        help="Last workflow step to execute.",
+    )
+
     return parser.parse_args()
 
 
@@ -85,10 +103,17 @@ class WorkflowWorker:
         self,
         job_id: int,
         workflow: Path,
+        *,
+        tags: tuple[str, ...] = (),
+        from_step: str | None = None,
+        to_step: str | None = None,
     ) -> None:
 
         self._job_id = job_id
         self._workflow = workflow
+        self._tags = tags
+        self._from_step = from_step
+        self._to_step = to_step
 
     # ------------------------------------------------------------------
     # Execute
@@ -102,6 +127,7 @@ class WorkflowWorker:
         """
 
         from core.context_factory import ContextFactory
+        from lib.models.workflow import WorkflowExecutionOptions
         from lib.workflow.exceptions import WorkflowCancelledError
 
         factory = ContextFactory(
@@ -111,6 +137,13 @@ class WorkflowWorker:
         context = factory.build()
 
         factory.discover()
+
+        options = WorkflowExecutionOptions(
+            tags=self._tags,
+            from_step=self._from_step,
+            to_step=self._to_step,
+            dry_run=False,
+        )
 
         try:
 
@@ -132,6 +165,7 @@ class WorkflowWorker:
             context.workflow_manager.run(
                 file=self._workflow,
                 job_id=self._job_id,
+                options=options,
             )
 
         except WorkflowCancelledError:
@@ -152,9 +186,18 @@ if __name__ == "__main__":
         args.python_packages,
     )
 
+    tags = tuple(
+        tag.strip()
+        for tag in args.tags.split(",")
+        if tag.strip()
+    )
+
     worker = WorkflowWorker(
         job_id=args.job_id,
         workflow=args.workflow,
+        tags=tags,
+        from_step=args.from_step,
+        to_step=args.to_step,
     )
 
     worker.execute()

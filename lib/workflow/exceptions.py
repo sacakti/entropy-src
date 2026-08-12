@@ -1,6 +1,7 @@
 """
 Workflow exceptions.
 """
+from __future__ import annotations
 
 from core.exceptions import EntropyException
 
@@ -344,4 +345,39 @@ class WorkflowInvalidTerminalError(
 
         super().__init__(
            f"Invalid terminal state '{state}'.",
+        )
+
+class WorkflowStepNotFoundError(
+    WorkflowError,
+):
+    """
+    Raised when a requested workflow step does not exist.
+    """
+
+    def __init__(
+        self,
+        name: str,
+    ) -> None:
+
+        super().__init__(
+            f"Workflow step '{name}' does not exist.",
+        )
+
+
+class WorkflowStepRangeError(
+    WorkflowError,
+):
+    """
+    Raised when the workflow step range is invalid.
+    """
+
+    def __init__(
+        self,
+        from_step: str | None,
+        to_step: str | None,
+    ) -> None:
+
+        super().__init__(
+            f"Workflow step range is invalid: "
+            f"'{from_step}' -> '{to_step}'.",
         )

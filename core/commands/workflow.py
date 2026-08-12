@@ -14,6 +14,7 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+from lib.models.workflow import WorkflowExecutionOptions
 from lib.workflow.exceptions import WorkflowInvalidProvidedError, WorkflowTooManyFilesError
 
 
@@ -191,6 +192,27 @@ class WorkflowCommand(
             help="Run a workflow definition from a file.",
         )
 
+        run.add_argument(
+            "--tags",
+            help="Run only steps with the tags.",
+        )
+
+        run.add_argument(
+            "--from-step",
+            help="Start execution from this step.",
+        )
+
+        run.add_argument(
+            "--to-step",
+            help="Stop execution after this step.",
+        )
+
+        run.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Show selected steps without executing them.",
+        )
+
         #
         # start
         #
@@ -211,6 +233,21 @@ class WorkflowCommand(
             "--from-file",
             type=Path,
             help="Start a workflow definition from a file.",
+        )
+
+        start.add_argument(
+            "--tags",
+            help="Run only steps with tags.",
+        )
+
+        start.add_argument(
+            "--from-step",
+            help="Start execution from this step.",
+        )
+
+        start.add_argument(
+            "--to-step",
+            help="Stop execution after this step.",
         )
 
         #
@@ -309,34 +346,60 @@ class WorkflowCommand(
             args,
         )
 
+        options = self._execution_options(
+            args,
+        )
+
         if workflow_file is not None:
 
+            source = f"workflow file '{workflow_file}'"
+
             self._events.log.info(
-                f"Executing workflow from '{workflow_file}'.",
+                (
+                    f"Previewing {source}."
+                    if options.dry_run
+                    else f"Executing {source}."
+                ),
             )
 
             self._workflows.run(
                 file=workflow_file,
+                options=options,
             )
 
             self._events.log.info(
-                f"Workflow file '{workflow_file}' completed.",
+                (
+                    f"{source.capitalize()} dry-run completed."
+                    if options.dry_run
+                    else f"{source.capitalize()} completed."
+                ),
             )
 
             return
 
         assert workflow_name is not None
 
+        source = f"workflow '{workflow_name}'"
+
         self._events.log.info(
-            f"Executing workflow '{workflow_name}'.",
+            (
+                f"Previewing {source}."
+                if options.dry_run
+                else f"Executing {source}."
+            ),
         )
 
         self._workflows.run(
             name=workflow_name,
+            options=options,
         )
 
         self._events.log.info(
-            f"Workflow '{workflow_name}' completed.",
+            (
+                f"{source.capitalize()} dry-run completed."
+                if options.dry_run
+                else f"{source.capitalize()} completed."
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -355,10 +418,26 @@ class WorkflowCommand(
             args,
         )
 
+        options = self._start_execution_options(
+            args,
+        )
+
+        #
+        # start does not support dry-run.
+        #
+
+        options = WorkflowExecutionOptions(
+            tags=options.tags,
+            from_step=options.from_step,
+            to_step=options.to_step,
+            dry_run=False,
+        )
+
         if workflow_file is not None:
 
             job = self._workflows.start(
                 file=workflow_file,
+                options=options,
             )
 
         else:
@@ -367,6 +446,7 @@ class WorkflowCommand(
 
             job = self._workflows.start(
                 name=workflow_name,
+                options=options,
             )
 
         self._context.ui.success(
@@ -741,4 +821,46 @@ class WorkflowCommand(
         return (
             args.workflow,
             args.from_file,
+        )
+
+    def _execution_options(
+        self,
+        args: Namespace,
+    ) -> WorkflowExecutionOptions:
+        """
+        Build workflow execution options from CLI arguments.
+        """
+
+        tags = tuple(
+            tag.strip()
+            for tag in (args.tags or "").split(",")
+            if tag.strip()
+        )
+
+        return WorkflowExecutionOptions(
+            tags=tags,
+            from_step=args.from_step,
+            to_step=args.to_step,
+            dry_run=args.dry_run,
+        )
+
+    def _start_execution_options(
+        self,
+        args: Namespace,
+    ) -> WorkflowExecutionOptions:
+        """
+        Build execution options for a background workflow.
+        """
+
+        tags = tuple(
+            tag.strip()
+            for tag in (args.tags or "").split(",")
+            if tag.strip()
+        )
+
+        return WorkflowExecutionOptions(
+            tags=tags,
+            from_step=args.from_step,
+            to_step=args.to_step,
+            dry_run=False,
         )

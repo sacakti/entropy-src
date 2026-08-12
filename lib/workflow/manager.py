@@ -10,8 +10,15 @@ from datetime import datetime, timezone
 from core.context import EntropyContext
 from lib.database.repositories.workflow_registry import WorkflowRegistryRepository
 from lib.models.workflow import Workflow, WorkflowEditResult
-from lib.workflow.exceptions import WorkflowAlreadyExistsError, WorkflowInvalidProvidedError, WorkflowNotFoundError, WorkflowNotMatchError, WorkflowTooManyFilesError
+from lib.workflow.exceptions import (
+    WorkflowAlreadyExistsError,
+    WorkflowInvalidProvidedError,
+    WorkflowNotFoundError,
+    WorkflowNotMatchError,
+    WorkflowTooManyFilesError
+    )
 from lib.workflow.jobs.model import WorkflowJob
+from lib.models.workflow import WorkflowExecutionOptions
 
 from .follower import WorkflowFollower
 from .loader import WorkflowLoader
@@ -123,6 +130,7 @@ class WorkflowManager:
         *,
         execution=None,
         job_id: int | None = None,
+        options: WorkflowExecutionOptions | None = None,
     ) -> None:
         """
         Execute a validated workflow.
@@ -135,6 +143,7 @@ class WorkflowManager:
             workflow,
             job_id=job_id,
             execution=execution,
+            options=options,
         )
 
     # ------------------------------------------------------------------
@@ -148,6 +157,7 @@ class WorkflowManager:
         file: Path | None = None,
         execution=None,
         job_id: int | None = None,
+        options: WorkflowExecutionOptions | None = None,
     ) -> None:
         """
         Execute a registered workflow or workflow file.
@@ -182,6 +192,7 @@ class WorkflowManager:
             workflow,
             execution=execution,
             job_id=job_id,
+            options=options,
         )
 
     # ------------------------------------------------------------------
@@ -193,6 +204,7 @@ class WorkflowManager:
         name: str | None = None,
         *,
         file: Path | None = None,
+        options: WorkflowExecutionOptions | None = None,
     ) -> WorkflowJob:
         """
         Start a registered workflow or workflow file
@@ -237,6 +249,10 @@ class WorkflowManager:
         # Create execution.
         #
 
+        if options is None:
+
+            options = WorkflowExecutionOptions()
+
         assert self._context.workflow_job_manager is not None
         assert self._context.execution_manager is not None
 
@@ -266,6 +282,7 @@ class WorkflowManager:
             worker=self._context.bootstrap.worker,
             project_root=self._context.bootstrap.project_root,
             python_packages=self._context.paths.python.packages,
+            options=options,
         )
 
         pid = process.start()

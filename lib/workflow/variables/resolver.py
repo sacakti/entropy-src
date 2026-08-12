@@ -401,3 +401,76 @@ class WorkflowVariableResolver:
             )
 
         return str(value)
+
+    def validate_variables(
+        self,
+        variables: Dict[str, Any],
+    ) -> tuple[Dict[str, Any], list[str]]:
+        """
+        Validate workflow variables.
+
+        Returns
+        -------
+        tuple
+            Successfully resolved variables and validation errors.
+        """
+
+        resolved: Dict[str, Any] = {}
+        errors: list[str] = []
+
+        for name in variables:
+
+            try:
+
+                self._resolve_variable(
+                    name,
+                    variables,
+                    resolved,
+                    set(),
+                )
+
+            except VariableNotFoundError as exc:
+
+                errors.append(
+                    str(exc),
+                )
+
+            except VariableCircularReferenceError as exc:
+
+                errors.append(
+                    str(exc),
+                )
+
+        return resolved, errors
+
+    def validate(
+        self,
+        value: Any,
+        variables: Dict[str, Any],
+    ) -> list[str]:
+        """
+        Validate references contained in an arbitrary value.
+        """
+
+        errors: list[str] = []
+
+        try:
+
+            self.resolve(
+                value,
+                variables,
+            )
+
+        except VariableNotFoundError as exc:
+
+            errors.append(
+                str(exc),
+            )
+
+        except VariableCircularReferenceError as exc:
+
+            errors.append(
+                str(exc),
+            )
+
+        return errors
