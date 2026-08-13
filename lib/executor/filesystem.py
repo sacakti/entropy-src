@@ -13,7 +13,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import IO, Any, cast
 
-import yaml
+from io import StringIO
+from ruamel.yaml import YAML
 
 from lib.executor.types import PathLike
 
@@ -22,6 +23,8 @@ class FileSystemMixin:
     """
     Provides filesystem operations.
     """
+
+    _yaml = YAML()
 
     # ------------------------------------------------------------------
     # Path
@@ -347,7 +350,7 @@ class FileSystemMixin:
             encoding="utf-8",
         ) as fp:
 
-            data = yaml.safe_load(fp)
+            data = self._yaml.load(fp)
 
         return data or {}
 
@@ -367,16 +370,16 @@ class FileSystemMixin:
             Updated file.
         """
 
-        text = yaml.safe_dump(
+        stream = StringIO()
+
+        self._yaml.dump(
             data,
-            default_flow_style=False,
-            sort_keys=sort_keys,
-            allow_unicode=True,
+            stream,
         )
 
         return self.write_text(
             path,
-            text,
+            stream.getvalue(),
         )
 
     def read_json(
@@ -663,7 +666,7 @@ class FileSystemMixin:
         Parse a YAML document from text.
         """
 
-        value = yaml.safe_load(
+        value = self._yaml.load(
             data,
         )
 
@@ -679,9 +682,42 @@ class FileSystemMixin:
         Serialize data into YAML.
         """
 
-        return yaml.safe_dump(
+        stream = StringIO()
+
+        self._yaml.dump(
             data,
-            default_flow_style=False,
-            sort_keys=sort_keys,
-            allow_unicode=True,
+            stream,
         )
+
+        return stream.getvalue()
+
+    def load_yaml_documents(
+        self,
+        content: str,
+    ) -> list[Any]:
+        """
+        Parse multiple YAML documents from text.
+        """
+
+        return list(
+            self._yaml.load_all(
+                content,
+            ),
+        )
+
+    def serialize_yaml_documents(
+        self,
+        documents: list[Any],
+    ) -> str:
+        """
+        Serialize multiple YAML documents into text.
+        """
+
+        stream = StringIO()
+
+        self._yaml.dump_all(
+            documents,
+            stream,
+        )
+
+        return stream.getvalue()

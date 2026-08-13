@@ -241,6 +241,23 @@ class WorkflowRunner:
 
             raise WorkflowCancelledError("User cancelled operation.") from exc
 
+        except EntropyException:
+
+                    #
+                    # Expected application error.
+                    #
+                    # Preserve the original exception so CommandManager
+                    # can display the correct domain-specific message.
+                    #
+
+                    execution.fail()
+
+                    self._jobs.fail(
+                        job.id,
+                    )
+
+                    raise
+
         except PluginDisabledError:
 
             #

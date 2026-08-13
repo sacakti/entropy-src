@@ -15,7 +15,6 @@ from core.models.paths import (
     LogPaths,
     PluginPaths,
     PythonPaths,
-    # RuntimePaths,
     SessionPaths,
     WorkflowPaths,
     WorkspacePaths,
@@ -43,7 +42,6 @@ class RuntimePathManager:
 
         self._database = self._build_database_paths()
         self._extensions = self._build_extension_paths()
-        # self._runtime = self._build_runtime_paths()
         self._session = self._build_session_paths()
         self._python = self._build_python_paths()
         self._logs = self._build_log_paths()
@@ -124,28 +122,9 @@ class RuntimePathManager:
             root=root,
             wheels=root / "wheels",
             site_packages=root / "site-packages",
-            # metadata=root / "metadata",
             cache=root / "cache",
             downloads=root / "downloads",
         )
-
-    # def _build_runtime_paths(
-    #     self,
-    # ) -> RuntimePaths:
-
-    #     runtime = self._resolve(
-    #         self._configuration.get(
-    #             "runtime.workspace",
-    #         )
-    #     )
-
-    #     return RuntimePaths(
-    #         root=runtime,
-    #         pid=runtime / "pid",
-    #         state=runtime / "state",
-    #         lock=runtime / "lock",
-    #         workspaces=runtime / "workspaces",
-    #     )
 
     def _build_session_paths(
         self,
@@ -246,6 +225,7 @@ class RuntimePathManager:
             root=root,
             workflows=root / "workflows",
             executions=root / "executions",
+            generated=root / "generated",
         )
 
     # ------------------------------------------------------------------

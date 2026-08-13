@@ -109,6 +109,40 @@ class VaultRepository(Repository):
             row,
         )
 
+    def get_by_prefix(
+        self,
+        prefix: str,
+    ) -> list[VaultEntry]:
+        """
+        Return Vault entries whose keys start with the given prefix.
+        """
+
+        upper_bound = (
+            prefix
+            + "\U0010ffff"
+        )
+
+        rows = self.connection.fetchall(
+            """
+            SELECT *
+            FROM vault_entries
+            WHERE key >= ?
+            AND key < ?
+            ORDER BY key
+            """,
+            (
+                prefix,
+                upper_bound,
+            ),
+        )
+
+        return [
+            self._from_row(
+                row,
+            )
+            for row in rows
+        ]
+
     # ------------------------------------------------------------------
     # Get by key
     # ------------------------------------------------------------------
@@ -282,4 +316,29 @@ class VaultRepository(Repository):
                 if row["updated_at"]
                 else None
             ),
+        )
+
+    # helper
+    @staticmethod
+    def _escape_like_prefix(
+        prefix: str,
+    ) -> str:
+        """
+        Escape LIKE metacharacters in a prefix.
+        """
+
+        return (
+            prefix
+            .replace(
+                "\\",
+                "\\\\",
+            )
+            .replace(
+                "%",
+                "\\%",
+            )
+            .replace(
+                "_",
+                "\\_",
+            )
         )

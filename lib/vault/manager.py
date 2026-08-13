@@ -116,6 +116,88 @@ class VaultManager:
             entry.type,
         )
 
+    def get_matching(
+        self,
+        pattern: str,
+    ) -> dict[str, Any]:
+        """
+        Return Vault values matching a prefix pattern.
+
+        Only trailing '*' is supported.
+
+        Example
+        -------
+        uat_*
+            {
+                "username": "...",
+                "password": "...",
+            }
+        """
+
+        if not isinstance(
+            pattern,
+            str,
+        ):
+
+            raise VaultValueError(
+                "Vault pattern must be a string.",
+            )
+
+        pattern = pattern.strip()
+
+        if not pattern:
+
+            raise VaultValueError(
+                "Vault pattern cannot be empty.",
+            )
+
+        if not pattern.endswith("*"):
+
+            raise VaultValueError(
+                "Vault pattern must end with '*'.",
+            )
+
+        prefix = pattern[:-1]
+
+        if not prefix:
+
+            raise VaultValueError(
+                "Vault wildcard pattern must contain a prefix.",
+            )
+
+        entries = self._repository.get_by_prefix(
+            prefix,
+        )
+
+        if not entries:
+
+            raise VaultEntryNotFoundError(
+                f"No Vault entries matched pattern '{pattern}'.",
+            )
+
+        matches: dict[str, Any] = {}
+
+        for entry in entries:
+
+            key = entry.key[
+                len(prefix):
+            ]
+
+            if not key:
+                continue
+
+            payload = self._unprotect(
+                entry.value,
+                entry.sensitive,
+            )
+
+            matches[key] = self._serializer.deserialize(
+                payload,
+                entry.type,
+            )
+
+        return matches
+
     # ------------------------------------------------------------------
     # Get Entry
     # ------------------------------------------------------------------

@@ -1,0 +1,59 @@
+apiVersion: entropy/v1
+kind: ConfigMapSecretUpdate
+
+target:
+  kind: ConfigMap
+  name: application-config
+
+operations:
+
+  # Update an existing scalar key.
+  - action: update
+    key: environment
+    value: uat
+
+  # Update properties inside an embedded .properties file.
+  - action: update
+    key: application.properties
+    format: properties
+    entries:
+      application.name: entropy
+      application.port: "8081"
+
+  # Update nested values inside embedded YAML.
+  - action: update
+    key: redis.yaml
+    format: yaml
+    entries:
+      nettyThreads: 64
+      singleServerConfig:
+        timeout: 1500
+
+  # Add a completely new ConfigMap data key.
+  - action: add
+    key: new.setting
+    value: enabled
+
+---
+apiVersion: entropy/v1
+kind: ConfigMapSecretUpdate
+
+target:
+  kind: Secret
+  name: application-secret
+
+operations:
+
+  # Update an existing Secret value.
+  - action: update
+    key: username
+    value: admin3
+
+  # Add a new Secret value.
+  - action: add
+    key: api_token
+    value: "test3-token"
+
+  # Delete an existing Secret value.
+  - action: delete
+    key: old_password

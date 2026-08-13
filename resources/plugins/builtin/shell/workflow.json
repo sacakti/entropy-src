@@ -1,0 +1,25 @@
+{
+    "name": "shell",
+    "version": "1.0.0",
+    "description": "Example workflow for builtin.shell",
+    "variables": {
+        "name": "${entv:name}"
+    },
+    "steps": [
+        {
+            "name": "Execute ShellPlugin",
+            "plugin": "builtin.shell",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "shell"
+            ],
+            "arguments": {
+                "command": "echo I am \"$1\"",
+                "args": [
+                    "${name}"
+                ]
+            }
+        }
+    ]
+}

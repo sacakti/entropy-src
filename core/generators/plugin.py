@@ -10,6 +10,7 @@ from core.generators.base import (
     BaseGenerator,
     GeneratorMetadata,
 )
+from core.constants import PLUGIN_FILES, PLUGIN_DIRECTORIES
 from core.generators.validators.plugin import PluginValidator
 
 
@@ -19,18 +20,6 @@ class PluginGenerator(
     """
     Generates plugin skeletons.
     """
-
-    FILES = (
-        ("plugin/__init__.py.j2", "__init__.py"),
-        ("plugin/plugin.py.j2", "plugin.py"),
-        ("plugin/plugin.json.j2", "plugin.json"),
-        ("plugin/README.md.j2", "README.md"),
-        ("plugin/MAN.md.j2", "MAN.md"),
-        ("plugin/workflow.json.j2", "workflow.json"),
-        ("plugin/requirements.txt.j2", "requirements.txt"),
-    )
-
-    DIRECTORIES = ("migrations",)
 
     metadata = GeneratorMetadata(
         name="plugin",
@@ -60,7 +49,7 @@ class PluginGenerator(
             f"Generate Plugin : {namespace}.{name}",
         )
 
-        root = self._context.bootstrap.resources.plugins
+        root = self._context.paths.workspace.generated
 
         events.log.info(
             "Validating plugin.",
@@ -163,7 +152,7 @@ class PluginGenerator(
         context: dict,
     ) -> None:
 
-        for template, filename in self.FILES:
+        for template, filename in PLUGIN_FILES:
 
             self._context.template.render(
                 template,
@@ -176,7 +165,7 @@ class PluginGenerator(
         root: Path,
     ) -> None:
 
-        for directory in self.DIRECTORIES:
+        for directory in PLUGIN_DIRECTORIES:
 
             self._context.executor.mkdir(
                 root / directory,

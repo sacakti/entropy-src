@@ -152,7 +152,7 @@ Desktop.ini
 plugins/local/
 resources/workflows/local/
 resources/config/*.local.json
-resources/plugins
+# resources/plugins
 
 # -----------------------------------------------------------------------------
 # Application packaging

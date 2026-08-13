@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+from pathlib import Path
+import sys
 from types import ModuleType
 
 from lib.models.plugin import Plugin
@@ -134,34 +136,57 @@ class PluginLoader:
                 f"Plugin module '{plugin.module_file}' does not exist.",
             )
 
-        spec = importlib.util.spec_from_file_location(
-            plugin.qualified_name,
-            plugin.module_file,
-        )
+        plugin_directory = plugin.module_file.parent
 
-        if spec is None or spec.loader is None:
-
-            raise PluginLoadError(
-                f"Unable to import plugin " f"'{plugin.qualified_name}'.",
-            )
+        qualified_name = plugin.qualified_name
 
         try:
+
+            self._ensure_package(
+                qualified_name,
+                plugin_directory,
+            )
+
+            module_name = (
+                f"{qualified_name}.plugin"
+            )
+
+            spec = importlib.util.spec_from_file_location(
+                module_name,
+                plugin.module_file,
+            )
+
+            if spec is None or spec.loader is None:
+
+                raise PluginLoadError(
+                    f"Unable to import plugin "
+                    f"'{qualified_name}'.",
+                )
 
             module = importlib.util.module_from_spec(
                 spec,
             )
 
+            sys.modules[
+                module_name
+            ] = module
+
             spec.loader.exec_module(
                 module,
             )
 
+            return module
+
+        except PluginLoadError:
+
+            raise
+
         except Exception as exc:
 
             raise PluginLoadError(
-                f"Unable to load plugin " f"'{plugin.qualified_name}'.",
+                f"Unable to load plugin "
+                f"'{qualified_name}'.",
             ) from exc
-
-        return module
 
     def _find_plugin_class(
         self,
@@ -224,3 +249,68 @@ class PluginLoader:
         return self._plugin(
             qualified_name,
         )
+
+    @staticmethod
+    def _ensure_package(
+        qualified_name: str,
+        plugin_directory: Path,
+    ) -> None:
+        """
+        Ensure the plugin package hierarchy exists.
+
+        The plugin loader dynamically imports plugins, so Python
+        cannot rely on the normal filesystem package discovery
+        mechanism.
+        """
+
+        parts = qualified_name.split(
+            ".",
+        )
+
+        parent_name = ""
+
+        for index, part in enumerate(
+            parts,
+        ):
+
+            if parent_name:
+
+                parent_name = (
+                    f"{parent_name}.{part}"
+                )
+
+            else:
+
+                parent_name = part
+
+            if parent_name in sys.modules:
+
+                continue
+
+            if index == len(parts) - 1:
+
+                package_path = plugin_directory
+
+            else:
+
+                package_path = (
+                    plugin_directory.parents[
+                        len(parts) - index - 1
+                    ]
+                )
+
+            module = ModuleType(
+                parent_name,
+            )
+
+            module.__path__ = [
+                str(
+                    package_path,
+                ),
+            ]
+
+            module.__package__ = parent_name
+
+            sys.modules[
+                parent_name
+            ] = module

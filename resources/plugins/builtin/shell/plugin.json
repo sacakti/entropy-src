@@ -1,0 +1,14 @@
+{
+    "name": "shell",
+    "namespace": "builtin",
+    "version": "1.0.0",
+    "description": "Shell script execution or shell command execution",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "tags": [],
+
+    "license": ""
+}

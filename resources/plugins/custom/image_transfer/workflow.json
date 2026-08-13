@@ -1,0 +1,38 @@
+{
+    "name": "ImageTransfer",
+    "version": "1.0.0",
+    "description": "Prepare release and transfer container images.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "Execute ImageTransferPlugin",
+            "plugin": "custom.image_transfer",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "image_transfer"
+            ],
+            "arguments": {
+                "release": "/Users/aravinthselvaraj/Desktop/releases/H001.zip",
+
+                "release_scripts_directory": "scripts/deploy",
+                "transfer_script": "image_transfer.sh",
+                "apply_script": "apply_yaml.sh",
+
+                "release_base_path": "/home/devops",
+
+                "force_remove_processed": true,
+
+                "skip_docker": true,
+                "cleanup_builder_cache": false,
+
+                "validate_yaml": true,
+
+                "min_free_storage_gb": 10,
+                "old_image_pattern": ":25.01.01."
+            }
+        }
+    ]
+}

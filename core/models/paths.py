@@ -119,6 +119,7 @@ class WorkspacePaths:
     root: Path
     workflows: Path
     executions: Path
+    generated: Path
 
 
 # ------------------------------------------------------------------

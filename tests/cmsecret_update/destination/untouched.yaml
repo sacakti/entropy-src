@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: untouched-config
+  labels:
+    app: entropy
+data:
+  should.remain: unchanged

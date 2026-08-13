@@ -39,65 +39,19 @@ TAR_MODES: dict[str, TarMode] = {
     "xztar": "w:xz",
 }
 
-# # ------------------------------------------------------------------
-# # Plugin constants
-# # ------------------------------------------------------------------
-
-# SEARCH_PATHS = (
-#     "plugins.custom",
-#     "plugins.builtin",
-# )
-
-# # ------------------------------------------------------------------
-# # Logger contants
-# # ------------------------------------------------------------------
-
-# CATEGORIES = (
-#     "system",
-#     "user",
-#     "auth",
-#     "cli",
-#     "workflow",
-#     "database",
-#     "shell",
-#     "oc",
-#     "plugin",
-#     "process",
-#     "report",
-#     "git",
-# )
-
-# LEVELS = {
-#     "DEBUG": 10,
-#     "INFO": 20,
-#     "SUCCESS": 20,
-#     "WARNING": 30,
-#     "ERROR": 40,
-#     "EXCEPTION": 40,
-#     "CRITICAL": 50,
-# }
-
-# CONSOLE_LEVELS = {
-#     "NORMAL": 0,
-#     "VERBOSE": 1,
-#     "DEBUG": 2,
-# }
-
-
-# EXTENSION_METADATA_FILE = "extensions.json"
-
 # ------------------------------------------------------------------
 # Template constants
 # ------------------------------------------------------------------
 
 PLUGIN_MANIFEST = "plugin.json"
+PLUGIN_FILES = (
+        ("plugin/__init__.py.j2", "__init__.py"),
+        ("plugin/plugin.py.j2", "plugin.py"),
+        ("plugin/plugin.json.j2", "plugin.json"),
+        ("plugin/README.md.j2", "README.md"),
+        ("plugin/MAN.md.j2", "MAN.md"),
+        ("plugin/workflow.json.j2", "workflow.json"),
+        ("plugin/requirements.txt.j2", "requirements.txt"),
+    )
 
-
-# class PluginTemplates:
-#     """
-#     Plugin template paths.
-#     """
-
-#     INIT = "plugin/__init__.py.j2"
-#     MANIFEST = "plugin/plugin.json.j2"
-#     PLUGIN = "plugin/plugin.py.j2"
+PLUGIN_DIRECTORIES = ("migrations",)

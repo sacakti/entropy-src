@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: application-config
+  labels:
+    app: entropy
+data:
+  environment: uat
+
+  application.properties: |
+    # Application configuration
+    application.name=entropy
+    application.port=8081
+    application.debug=true
+
+  redis.yaml: |
+    nettyThreads: 64
+    singleServerConfig:
+      timeout: 1500
+      connectionMinimumIdleSize: 10
+
+  new.setting: enabled

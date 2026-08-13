@@ -1,0 +1,18 @@
+{
+    "name": "image_transfer",
+    "namespace": "custom",
+    "version": "1.0.0",
+    "description": "Pull image from azure image registry and push it to quay image registry",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "tags": [
+        "image",
+        "quay",
+        "azure"
+    ],
+
+    "license": ""
+}

@@ -1,0 +1,27 @@
+{
+    "name": "StageReleaseCopy",
+    "version": "1.0.0",
+    "description": "Stage release artifacts into the local Docker repository.",
+    "variables": {},
+    "steps": [
+        {
+            "name": "Stage Release",
+            "plugin": "custom.stage_release_copy",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "release",
+                "stage"
+            ],
+            "arguments": {
+                "release_path": "/Users/aravinthselvaraj/Desktop/releases/H002.zip",
+                "destination_path": "/Users/aravinthselvaraj/Desktop/repo",
+                "backup": true,
+                "rotate_backup_type": "max_files",
+                "max_files": 5,
+                "max_timestamp": 5,
+                "max_timestamp_unit": "days"
+            }
+        }
+    ]
+}

@@ -1,0 +1,14 @@
+{
+    "name": "cm_secret_update",
+    "namespace": "custom",
+    "version": "1.0.0",
+    "description": "",
+    "author": "",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "tags": [],
+
+    "license": ""
+}

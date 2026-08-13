@@ -205,8 +205,8 @@ class ConsoleSink(Sink):
         event: LifecycleEvent,
     ) -> None:
 
-        self._renderer.blank()
-        self._renderer.rule()
+        # self._renderer.blank()
+        # self._renderer.rule()
 
         index = event.node.get("index", "?")
         total = event.node.get("total", "?")

@@ -1,0 +1,24 @@
+{
+    "name": "hello",
+    "version": "1.0.0",
+    "description": "Example workflow for builtin.hello.",
+
+    "variables": {
+
+    },
+
+    "steps": [
+        {
+            "name": "Execute HelloPlugin",
+            "plugin": "builtin.hello",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "hello"
+            ],
+            "arguments": {
+
+            }
+        }
+    ]
+}
