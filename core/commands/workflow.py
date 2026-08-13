@@ -3,7 +3,6 @@ Workflow command.
 """
 
 from __future__ import annotations
-
 from argparse import (
     ArgumentParser,
     Namespace,
@@ -14,9 +13,13 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+from lib.workflow.exceptions import (
+    WorkflowArgumentError,
+    WorkflowInvalidProvidedError,
+    WorkflowTooManyFilesError
+)
 from lib.models.workflow import WorkflowExecutionOptions
-from lib.workflow.exceptions import WorkflowInvalidProvidedError, WorkflowTooManyFilesError
-
+from lib.workflow.assignments import WorkflowAssignments
 
 class WorkflowCommand(
     BaseCommand,
@@ -49,6 +52,8 @@ class WorkflowCommand(
         assert context.observability is not None
 
         self._workflows = context.workflow_manager
+
+        self._assignments = WorkflowAssignments()
 
         self._events = context.observability.emitter(
             "workflow",
@@ -213,6 +218,56 @@ class WorkflowCommand(
             help="Show selected steps without executing them.",
         )
 
+        run.add_argument(
+            "-a",
+            "--arguments",
+            action="append",
+            default=[],
+            metavar="KEY=VALUE",
+            help=(
+                "Workflow variable override. "
+                "May contain multiple assignments separated by ';'. "
+                "May be specified multiple times."
+            ),
+        )
+
+        run.add_argument(
+            "--set",
+            action="append",
+            default=[],
+            metavar="STEP.KEY=VALUE",
+            help=(
+                "Workflow step argument override. "
+                "May contain multiple assignments separated by ';'. "
+                "May be specified multiple times."
+            ),
+        )
+
+        run.add_argument(
+            "--separator",
+            default=WorkflowAssignments.DEFAULT_SEPARATOR,
+            help="Assignment separator. Default: ';'.",
+        )
+
+        run.add_argument(
+            "--type",
+            choices=(
+                "auto",
+                "string",
+                "integer",
+                "float",
+                "boolean",
+                "json",
+                "list",
+                "dict",
+            ),
+            default="auto",
+            help=(
+                "Type of --set values. "
+                "Default: auto."
+            ),
+        )
+
         #
         # start
         #
@@ -248,6 +303,56 @@ class WorkflowCommand(
         start.add_argument(
             "--to-step",
             help="Stop execution after this step.",
+        )
+
+        start.add_argument(
+            "-a",
+            "--arguments",
+            action="append",
+            default=[],
+            metavar="KEY=VALUE",
+            help=(
+                "Workflow variable override. "
+                "May contain multiple assignments separated by ';'. "
+                "May be specified multiple times."
+            ),
+        )
+
+        start.add_argument(
+            "--set",
+            action="append",
+            default=[],
+            metavar="STEP.KEY=VALUE",
+            help=(
+                "Workflow step argument override. "
+                "May contain multiple assignments separated by ';'. "
+                "May be specified multiple times."
+            ),
+        )
+
+        start.add_argument(
+            "--separator",
+            default=WorkflowAssignments.DEFAULT_SEPARATOR,
+            help="Assignment separator. Default: ';'.",
+        )
+
+        start.add_argument(
+            "--type",
+            choices=(
+                "auto",
+                "string",
+                "integer",
+                "float",
+                "boolean",
+                "json",
+                "list",
+                "dict",
+            ),
+            default="auto",
+            help=(
+                "Type of --set values. "
+                "Default: auto."
+            ),
         )
 
         #
@@ -431,6 +536,8 @@ class WorkflowCommand(
             from_step=options.from_step,
             to_step=options.to_step,
             dry_run=False,
+            variables=options.variables,
+            step_overrides=options.step_overrides,
         )
 
         if workflow_file is not None:
@@ -837,11 +944,17 @@ class WorkflowCommand(
             if tag.strip()
         )
 
+        variables, step_overrides = self._argument_overrides(
+            args,
+        )
+
         return WorkflowExecutionOptions(
             tags=tags,
             from_step=args.from_step,
             to_step=args.to_step,
             dry_run=args.dry_run,
+            variables=variables,
+            step_overrides=step_overrides,
         )
 
     def _start_execution_options(
@@ -858,9 +971,70 @@ class WorkflowCommand(
             if tag.strip()
         )
 
+        variables, step_overrides = self._argument_overrides(
+            args,
+        )
+
         return WorkflowExecutionOptions(
             tags=tags,
             from_step=args.from_step,
             to_step=args.to_step,
             dry_run=False,
+            variables=variables,
+            step_overrides=step_overrides,
+        )
+
+    def _argument_overrides(
+        self,
+        args: Namespace,
+    ) -> tuple[
+        dict[str, object],
+        dict[str, dict[str, object]],
+    ]:
+        """
+        Parse workflow variable and step argument overrides.
+        """
+
+        variables = self._assignments.parse(
+            args.arguments,
+            separator=args.separator,
+        )
+
+        assignments = self._assignments.parse_typed(
+            args.set,
+            separator=args.separator,
+            value_type=args.type,
+        )
+
+        step_overrides: dict[str, dict[str, object]] = {}
+
+        for key, value in assignments.items():
+
+            if "." not in key:
+
+                raise WorkflowArgumentError(
+                    f"Invalid step override '{key}'. "
+                    "Expected STEP.KEY=VALUE.",
+                )
+
+            step_name, argument_name = key.split(
+                ".",
+                1,
+            )
+
+            if not step_name or not argument_name:
+
+                raise WorkflowArgumentError(
+                    f"Invalid step override '{key}'. "
+                    "Expected STEP.KEY=VALUE.",
+                )
+
+            step_overrides.setdefault(
+                step_name,
+                {},
+            )[argument_name] = value
+
+        return (
+            variables,
+            step_overrides,
         )

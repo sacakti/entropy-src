@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 @dataclass(frozen=True)
 class Workflow:
@@ -87,9 +88,20 @@ class WorkflowExecutionOptions:
     """
 
     tags: tuple[str, ...] = ()
+
     from_step: str | None = None
+
     to_step: str | None = None
+
     dry_run: bool = False
+
+    variables: dict[str, Any] = field(
+        default_factory=dict,
+    )
+
+    step_overrides: dict[str, dict[str, Any]] = field(
+        default_factory=dict,
+    )
 
 @dataclass
 class WorkflowDryRunResult:

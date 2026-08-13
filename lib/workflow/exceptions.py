@@ -382,5 +382,5 @@ class WorkflowStepRangeError(
             f"'{from_step}' -> '{to_step}'.",
         )
 
-class WorkflowArgumentError(Exception):
+class WorkflowArgumentError(EntropyException):
     """Raised when workflow argument resolution fails."""

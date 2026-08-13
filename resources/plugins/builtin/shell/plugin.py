@@ -7,8 +7,9 @@ from __future__ import annotations
 import shutil
 from typing import Any
 
-from lib.plugins.base import BasePlugin
 from lib.models.plugin import PluginResult
+from lib.plugins.base import BasePlugin
+from lib.plugins.exceptions import PluginException
 
 class ShellPlugin(
     BasePlugin,
@@ -278,7 +279,7 @@ class ShellPlugin(
 
             if path is None:
 
-                raise ValueError(
+                raise PluginException(
                     f"Shell '{shell}' was not found on this system.",
                 )
 
@@ -323,13 +324,13 @@ class ShellPlugin(
 
         if command is None and script is None:
 
-            raise ValueError(
+            raise PluginException(
                 "Either 'command' or 'script' must be specified.",
             )
 
         if command is not None and script is not None:
 
-            raise ValueError(
+            raise PluginException(
                 "Only one of 'command' or 'script' may be specified.",
             )
 
@@ -340,7 +341,7 @@ class ShellPlugin(
                 str,
             ) or not command.strip():
 
-                raise ValueError(
+                raise PluginException(
                     "Argument 'command' must be a non-empty string.",
                 )
 
@@ -351,7 +352,7 @@ class ShellPlugin(
                 str,
             ) or not script.strip():
 
-                raise ValueError(
+                raise PluginException(
                     "Argument 'script' must be a non-empty string.",
                 )
 
@@ -360,7 +361,7 @@ class ShellPlugin(
             str,
         ):
 
-            raise ValueError(
+            raise PluginException(
                 "Argument 'shell' must be a string.",
             )
 
@@ -369,7 +370,7 @@ class ShellPlugin(
             list,
         ):
 
-            raise ValueError(
+            raise PluginException(
                 "Argument 'args' must be a list.",
             )
 
@@ -381,7 +382,7 @@ class ShellPlugin(
             for argument in args
         ):
 
-            raise ValueError(
+            raise PluginException(
                 "All values in 'args' must be strings.",
             )
 
@@ -390,7 +391,7 @@ class ShellPlugin(
             str,
         ):
 
-            raise ValueError(
+            raise PluginException(
                 "Argument 'cwd' must be a string.",
             )
 
@@ -404,13 +405,13 @@ class ShellPlugin(
                 bool,
             ):
 
-                raise ValueError(
+                raise PluginException(
                     "Argument 'timeout' must be an integer.",
                 )
 
             if timeout <= 0:
 
-                raise ValueError(
+                raise PluginException(
                     "Argument 'timeout' must be greater than zero.",
                 )
 
@@ -421,7 +422,7 @@ class ShellPlugin(
                 dict,
             ):
 
-                raise ValueError(
+                raise PluginException(
                     "Argument 'env' must be a dictionary.",
                 )
 
@@ -437,7 +438,7 @@ class ShellPlugin(
                 for key, value in env.items()
             ):
 
-                raise ValueError(
+                raise PluginException(
                     "All environment variable names and values "
                     "must be strings.",
                 )

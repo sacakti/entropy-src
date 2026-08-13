@@ -5,6 +5,7 @@ Workflow runner.
 from __future__ import annotations
 
 import os
+import traceback
 from typing import TYPE_CHECKING, Any
 
 from core.exceptions import EntropyException
@@ -17,7 +18,7 @@ from lib.models.workflow import (
     WorkflowExecutionOptions
 )
 from lib.plugins.exceptions import PluginDisabledError
-from lib.workflow.exceptions import WorkflowCancelledError, WorkflowError
+from lib.workflow.exceptions import WorkflowArgumentError, WorkflowCancelledError, WorkflowError
 from lib.workflow.variables import WorkflowVariableResolver
 from lib.workflow.selector import WorkflowStepSelector
 from lib.workflow.arguments import WorkflowArgumentResolver
@@ -101,6 +102,7 @@ class WorkflowRunner:
                 workflow=workflow,
                 steps=enabled_steps,
                 resolver=resolver,
+                options=options,
             )
 
             self._dry_run(
@@ -173,10 +175,22 @@ class WorkflowRunner:
             job.id,
         )
 
+        variables = dict(
+            workflow.variables,
+        )
+
+        variables.update(
+            options.variables,
+        )
+
+        variables = dict(workflow.variables)
+
+        variables.update(
+            options.variables,
+        )
+
         runtime.set_variables(
-            resolver.resolve_variables(
-                workflow.variables,
-            ),
+            variables,
         )
 
         total_steps = len(
@@ -209,6 +223,9 @@ class WorkflowRunner:
                             workflow,
                             step,
                             resolver,
+                            options.step_overrides.get(
+                                step.name,
+                            ),
                         )
 
                         self._execute(
@@ -253,24 +270,24 @@ class WorkflowRunner:
 
             raise WorkflowCancelledError("User cancelled operation.") from exc
 
-        except EntropyException:
-
-                    #
-                    # Expected application error.
-                    #
-                    # Preserve the original exception so CommandManager
-                    # can display the correct domain-specific message.
-                    #
-
-                    execution.fail()
-
-                    self._jobs.fail(
-                        job.id,
-                    )
-
-                    raise
-
         except PluginDisabledError:
+
+            #
+            # Expected application error.
+            #
+            # Preserve the original exception so CommandManager
+            # can display the correct domain-specific message.
+            #
+
+            execution.fail()
+
+            self._jobs.fail(
+                job.id,
+            )
+
+            raise
+
+        except EntropyException as exc:
 
             #
             # Expected application error.
@@ -298,7 +315,6 @@ class WorkflowRunner:
             self._jobs.fail(
                 job.id,
             )
-            import traceback
 
             raise WorkflowError(f"Failed: {traceback.format_exc()}") from exc
 
@@ -318,8 +334,19 @@ class WorkflowRunner:
         Prepare step execution.
         """
 
-        arguments = resolver.resolve(
+        arguments = dict(
             step.arguments,
+        )
+
+        if overrides:
+
+            arguments = self._argument_overrides.apply(
+                arguments,
+                overrides,
+            )
+
+        arguments = resolver.resolve(
+            arguments,
             runtime.variables,
         )
 
@@ -328,13 +355,6 @@ class WorkflowRunner:
             variables=runtime.variables,
             step_results=runtime.step_results,
         )
-
-        if overrides:
-            arguments = self._argument_overrides.apply(
-                arguments,
-                overrides,
-            )
-
 
         runtime.set_arguments(
             arguments,
@@ -349,24 +369,30 @@ class WorkflowRunner:
         workflow: Workflow,
         steps: list[WorkflowStep],
         resolver: WorkflowVariableResolver,
+        options: WorkflowExecutionOptions,
     ) -> WorkflowDryRunResult:
         """
         Validate workflow without executing plugins.
+
+        Dry-run uses the same argument resolution order
+        as normal workflow execution.
         """
 
         result = WorkflowDryRunResult()
 
         #
-        # Validate workflow variables and obtain
-        # successfully resolved values.
+        # Workflow variables.
+        #
+        # Keep definitions unresolved. Individual step arguments
+        # will resolve only the variables they actually reference.
         #
 
-        variables, errors = resolver.validate_variables(
+        variables = dict(
             workflow.variables,
         )
 
-        result.errors.extend(
-            errors,
+        variables.update(
+            options.variables,
         )
 
         #
@@ -375,11 +401,82 @@ class WorkflowRunner:
 
         for step in steps:
 
-            if not step.arguments:
+            arguments = dict(
+                step.arguments,
+            )
+
+            overrides = options.step_overrides.get(
+                step.name,
+            )
+
+            #
+            # Apply CLI step overrides BEFORE variable resolution.
+            #
+
+            if overrides:
+
+                try:
+
+                    arguments = self._argument_overrides.apply(
+                        arguments,
+                        overrides,
+                    )
+
+                except WorkflowArgumentError as exc:
+
+                    result.add_error(
+                        f"Step '{step.name}': {exc}",
+                    )
+
+                    continue
+
+            #
+            # Resolve workflow / vault references.
+            #
+
+            try:
+
+                arguments = resolver.resolve(
+                    arguments,
+                    variables,
+                )
+
+            except EntropyException as exc:
+
+                result.add_error(
+                    f"Step '{step.name}': {exc}",
+                )
+
                 continue
 
+            #
+            # Resolve workflow step output references.
+            #
+            # Dry-run has no previous plugin results.
+            #
+
+            try:
+
+                arguments = self._argument_resolver.resolve(
+                    arguments,
+                    variables=variables,
+                    step_results={},
+                )
+
+            except WorkflowArgumentError as exc:
+
+                result.add_error(
+                    f"Step '{step.name}': {exc}",
+                )
+
+                continue
+
+            #
+            # Validate resolved arguments.
+            #
+
             errors = resolver.validate(
-                step.arguments,
+                arguments,
                 variables,
             )
 

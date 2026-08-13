@@ -55,3 +55,6 @@ PLUGIN_FILES = (
     )
 
 PLUGIN_DIRECTORIES = ("migrations",)
+
+# Workflow
+DEFAULT_SEPARATOR = ";"

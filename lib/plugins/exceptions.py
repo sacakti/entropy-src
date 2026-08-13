@@ -16,6 +16,14 @@ class PluginNotFoundError(PluginException):
     Raised when a plugin is not found.
     """
 
+    def __init__(
+        self,
+        qualified_name: str,
+    ) -> None:
+
+        super().__init__(
+            f"Plugin '{qualified_name}' was not found.",
+        )
 
 class PluginManifestNotFoundError(PluginException):
     """
