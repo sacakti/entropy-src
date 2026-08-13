@@ -468,3 +468,21 @@ class PluginManager:
         return documentation.read_text(
             encoding="utf-8",
         )
+
+    # Execute local plugin
+    def execute_local(
+        self,
+        context,
+        directory: Path,
+        *,
+        mode: PluginMode = PluginMode.CLI,
+    ) -> PluginResult:
+        """
+        Execute a plugin directly from a local directory.
+        """
+
+        return self._runner.execute_local(
+            context=context,
+            directory=directory,
+            mode=mode,
+        )

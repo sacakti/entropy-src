@@ -114,7 +114,14 @@ class PluginCommand(
 
         run.add_argument(
             "plugin",
+            nargs="?",
             help="Qualified plugin name.",
+        )
+
+        run.add_argument(
+            "--local",
+            type=Path,
+            help="Execute a plugin directly from a local directory.",
         )
 
         run.add_argument(
@@ -350,6 +357,18 @@ class PluginCommand(
         args: Namespace,
     ) -> None:
 
+        if args.plugin is None and args.local is None:
+
+            raise ValueError(
+                "Either a plugin name or --local path must be specified.",
+            )
+
+        if args.plugin is not None and args.local is not None:
+
+            raise ValueError(
+                "Plugin name and --local cannot be used together.",
+            )
+
         arguments = self._parse_arguments(
             args.argument,
         )
@@ -358,11 +377,23 @@ class PluginCommand(
             arguments=arguments,
         )
 
-        result = self._plugins.execute(
-            context=context,
-            qualified_name=args.plugin,
-            mode=PluginMode.CLI,
-        )
+        if args.local is not None:
+
+            result = self._plugins.execute_local(
+                context=context,
+                directory=args.local,
+                mode=PluginMode.CLI,
+            )
+
+        else:
+
+            assert args.plugin is not None
+
+            result = self._plugins.execute(
+                context=context,
+                qualified_name=args.plugin,
+                mode=PluginMode.CLI,
+            )
 
         self._render_result(
             result,

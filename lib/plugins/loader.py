@@ -4,6 +4,7 @@ Plugin loader.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import inspect
 from pathlib import Path
@@ -119,7 +120,7 @@ class PluginLoader:
 
         return self._find_plugin_class(
             module,
-            plugin,
+            plugin.qualified_name,
         )
 
     def _load_module(
@@ -314,3 +315,92 @@ class PluginLoader:
             sys.modules[
                 parent_name
             ] = module
+
+    def load_local(
+        self,
+        directory: Path,
+    ) -> type[BasePlugin]:
+
+        directory = directory.expanduser().resolve()
+
+        if not directory.is_dir():
+
+            raise PluginLoadError(
+                f"Local plugin directory "
+                f"'{directory}' does not exist.",
+            )
+
+        module_file = directory / "plugin.py"
+
+        if not module_file.is_file():
+
+            raise PluginLoadError(
+                f"Local plugin module "
+                f"'{module_file}' does not exist.",
+            )
+
+        module = self._load_local_module(
+            module_file,
+        )
+
+        return self._find_plugin_class(
+            module,
+            str(directory),
+        )
+
+    def _load_local_module(
+        self,
+        module_file: Path,
+    ) -> ModuleType:
+        """
+        Import a local plugin module.
+        """
+
+        directory = module_file.parent
+
+        identifier = hashlib.sha256(
+            str(directory).encode(
+                "utf-8",
+            ),
+        ).hexdigest()[:16]
+
+        module_name = (
+            f"entropy_local_{identifier}"
+        )
+
+        try:
+
+            spec = importlib.util.spec_from_file_location(
+                module_name,
+                module_file,
+            )
+
+            if spec is None or spec.loader is None:
+
+                raise PluginLoadError(
+                    f"Unable to import local plugin "
+                    f"'{directory}'.",
+                )
+
+            module = importlib.util.module_from_spec(
+                spec,
+            )
+
+            sys.modules[module_name] = module
+
+            spec.loader.exec_module(
+                module,
+            )
+
+            return module
+
+        except PluginLoadError:
+
+            raise
+
+        except Exception as exc:
+
+            raise PluginLoadError(
+                f"Unable to load local plugin "
+                f"'{directory}'.",
+            ) from exc

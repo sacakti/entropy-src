@@ -4,6 +4,7 @@ Plugin runner.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lib.models.plugin import PluginResult
@@ -138,3 +139,69 @@ class PluginRunner:
                 mode=mode,
             ),
         )
+
+    def execute_local(
+        self,
+        context: ExecutionContext,
+        directory: Path,
+        mode: PluginMode = PluginMode.CLI,
+    ) -> PluginResult:
+        """
+        Load and execute a plugin from a local directory.
+        """
+
+        plugin_class = self._loader.load_local(
+            directory,
+        )
+
+        plugin = plugin_class(
+            self._create_context(
+                context=context,
+                mode=mode,
+            ),
+        )
+
+        identifier = str(
+            directory,
+        )
+
+        if mode is PluginMode.CLI:
+
+            context.start_plugin_scope(
+                identifier,
+            )
+
+        try:
+
+            result = plugin.execute()
+
+            if not isinstance(
+                result,
+                PluginResult,
+            ):
+
+                raise PluginExecutionError(
+                    f"Local plugin '{directory}' returned "
+                    f"'{type(result).__name__}', "
+                    "expected PluginResult.",
+                )
+
+        except Exception:
+
+            if mode is PluginMode.CLI:
+
+                context.finish_plugin_scope(
+                    success=False,
+                )
+
+            raise
+
+        else:
+
+            if mode is PluginMode.CLI:
+
+                context.finish_plugin_scope(
+                    success=True,
+                )
+
+        return result
