@@ -9,7 +9,7 @@ from __future__ import annotations
 from time import sleep
 
 from lib.plugins.base import BasePlugin
-
+from lib.models.plugin import PluginResult
 
 class HelloPlugin(BasePlugin):
     """
@@ -18,7 +18,7 @@ class HelloPlugin(BasePlugin):
 
     def execute(
         self,
-    ) -> None:
+    ) -> PluginResult:
         """
         Execute the plugin.
         """
@@ -35,6 +35,20 @@ class HelloPlugin(BasePlugin):
 
         self.message.success(
             "Plugin completed successfully."
+        )
+
+        return PluginResult(
+            success=True,
+            changed=True,
+            outputs=dict(
+                self.outputs,
+            ),
+            metadata={
+                "artifacts": {
+                    name: str(path)
+                    for name, path in self.artifacts.items()
+                },
+            },
         )
 
     # ------------------------------------------------------------------
@@ -138,8 +152,4 @@ class HelloPlugin(BasePlugin):
                     self.artifacts["hello"].name,
                 ],
             ],
-        )
-
-        self.message.success(
-            "Plugin completed successfully."
         )

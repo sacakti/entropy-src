@@ -381,3 +381,6 @@ class WorkflowStepRangeError(
             f"Workflow step range is invalid: "
             f"'{from_step}' -> '{to_step}'.",
         )
+
+class WorkflowArgumentError(Exception):
+    """Raised when workflow argument resolution fails."""

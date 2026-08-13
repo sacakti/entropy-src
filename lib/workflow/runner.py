@@ -5,10 +5,11 @@ Workflow runner.
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.exceptions import EntropyException
 from core.runtime.context import ExecutionContext
+from lib.models.plugin import PluginResult
 from lib.models.workflow import (
     Workflow,
     WorkflowDryRunResult,
@@ -19,6 +20,8 @@ from lib.plugins.exceptions import PluginDisabledError
 from lib.workflow.exceptions import WorkflowCancelledError, WorkflowError
 from lib.workflow.variables import WorkflowVariableResolver
 from lib.workflow.selector import WorkflowStepSelector
+from lib.workflow.arguments import WorkflowArgumentResolver
+from lib.workflow.overrides import WorkflowArgumentOverrides
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
@@ -42,6 +45,10 @@ class WorkflowRunner:
         self._plugins = plugin_runner
 
         self._selector = WorkflowStepSelector()
+
+        self._argument_resolver = WorkflowArgumentResolver()
+
+        self._argument_overrides = WorkflowArgumentOverrides()
 
         assert context.workflow_job_manager is not None
 
@@ -210,6 +217,11 @@ class WorkflowRunner:
                             step,
                         )
 
+                        self._report_step_result(
+                            runtime,
+                            step,
+                        )
+
                         self._finalize(
                             runtime,
                             workflow,
@@ -300,6 +312,7 @@ class WorkflowRunner:
         workflow: Workflow,
         step: WorkflowStep,
         resolver: WorkflowVariableResolver,
+        overrides: dict[str, Any] | None = None,
     ) -> None:
         """
         Prepare step execution.
@@ -309,6 +322,19 @@ class WorkflowRunner:
             step.arguments,
             runtime.variables,
         )
+
+        arguments = self._argument_resolver.resolve(
+            arguments,
+            variables=runtime.variables,
+            step_results=runtime.step_results,
+        )
+
+        if overrides:
+            arguments = self._argument_overrides.apply(
+                arguments,
+                overrides,
+            )
+
 
         runtime.set_arguments(
             arguments,
@@ -481,12 +507,17 @@ class WorkflowRunner:
         step: WorkflowStep,
     ) -> None:
         """
-        Execute the workflow plugin.
+        Execute the workflow plugin and retain its result.
         """
 
-        self._plugins.execute(
+        result = self._plugins.execute(
             context=runtime,
             qualified_name=step.plugin,
+        )
+
+        runtime.set_step_result(
+            step.name,
+            result,
         )
 
     # ------------------------------------------------------------------
@@ -504,3 +535,58 @@ class WorkflowRunner:
         """
 
         pass
+
+    # ------------------------------------------------------------------
+    # Finalize
+    # ------------------------------------------------------------------
+
+    def _report_step_result(
+        self,
+        runtime: ExecutionContext,
+        step: WorkflowStep,
+    ) -> None:
+        """
+        Report a step result unless result rendering is suppressed.
+        """
+
+        result = runtime.get_step_result(
+            step.name,
+        )
+
+        if result is None:
+            return
+
+        if step.suppress_result:
+            return
+
+        self._report_result(
+            step,
+            result,
+        )
+
+    def _report_result(
+        self,
+        step: WorkflowStep,
+        result: PluginResult,
+    ) -> None:
+        """
+        Report a plugin result.
+        """
+
+        assert self._context.ui is not None
+
+        if result.success:
+
+            self._context.ui.info(
+                f"Result: {step.name}",
+            )
+
+        else:
+
+            self._context.ui.error(
+                f"Result: {step.name} failed.",
+            )
+
+        self._context.ui.print(
+            result.to_dict(),
+        )

@@ -15,13 +15,13 @@ from typing import TYPE_CHECKING, Any
 from lib.plugins.message import PluginMessage
 from lib.plugins.ui import PluginUI
 from lib.plugins.arguments import PluginArguments
+from lib.plugins.mode import PluginMode
 
 if TYPE_CHECKING:
     from core.observability.emitter import Emitter
     from core.observability.logging import ExecutionLogger
     from core.runtime.context import ExecutionContext
     from lib.executor import LinuxExecutor
-    from lib.plugins.mode import PluginMode
 
 class PluginLog:
     """

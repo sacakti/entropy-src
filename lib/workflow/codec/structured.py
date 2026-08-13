@@ -265,6 +265,21 @@ class StructuredWorkflowCodec(
                 "Supported values: abort, continue.",
             )
 
+        suppress_result = value.get(
+            "suppress_result",
+            False,
+        )
+
+        if not isinstance(
+            suppress_result,
+            bool,
+        ):
+
+            raise InvalidWorkflowError(
+                f"'suppress_result' for workflow step '{name}' "
+                "must be a boolean.",
+            )
+
         return WorkflowStep(
             name=name,
             plugin=plugin,
@@ -272,6 +287,7 @@ class StructuredWorkflowCodec(
             enabled=enabled,
             tags=list(tags),
             on_failure=on_failure,
+            suppress_result=suppress_result,
         )
 
     # ------------------------------------------------------------------
@@ -321,4 +337,5 @@ class StructuredWorkflowCodec(
             ),
             "on_failure": step.on_failure,
             "arguments": step.arguments,
+            "suppress_result": step.suppress_result,
         }

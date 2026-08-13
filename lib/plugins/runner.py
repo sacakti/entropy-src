@@ -6,7 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lib.plugins.exceptions import PluginDisabledError
+from lib.models.plugin import PluginResult
+from lib.plugins.exceptions import PluginDisabledError, PluginExecutionError
 
 from .context import PluginContext
 from .loader import PluginLoader
@@ -38,7 +39,7 @@ class PluginRunner:
         context: ExecutionContext,
         qualified_name: str,
         mode: PluginMode = PluginMode.WORKFLOW,
-    ) -> None:
+    ) -> PluginResult:
         """
         Load and execute a plugin.
         """
@@ -49,7 +50,45 @@ class PluginRunner:
             mode=mode,
         )
 
-        plugin.execute()
+        if mode is PluginMode.CLI:
+
+            context.start_plugin_scope(
+                qualified_name,
+            )
+
+        try:
+
+            result = plugin.execute()
+
+            if not isinstance(
+                result,
+                PluginResult,
+            ):
+                raise PluginExecutionError(
+                    f"Plugin '{qualified_name}' returned "
+                    f"'{type(result).__name__}', "
+                    "expected PluginResult.",
+                )
+
+        except Exception:
+
+            if mode is PluginMode.CLI:
+
+                context.finish_plugin_scope(
+                    success=False,
+                )
+
+            raise
+
+        else:
+
+            if mode is PluginMode.CLI:
+
+                context.finish_plugin_scope(
+                    success=True,
+                )
+
+        return result
 
     # ------------------------------------------------------------------
     # Helpers

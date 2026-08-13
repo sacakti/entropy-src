@@ -8,7 +8,8 @@ from pathlib import Path
 
 from core.context import EntropyContext
 from lib.database.repositories.plugin_registry import PluginRepository
-from lib.models.plugin import Plugin
+from lib.models.plugin import Plugin, PluginResult
+from lib.plugins.mode import PluginMode
 
 from .discovery import PluginDiscovery
 from .installer import PluginInstaller
@@ -396,14 +397,17 @@ class PluginManager:
         self,
         context,
         qualified_name: str,
-    ) -> None:
+        *,
+        mode: PluginMode = PluginMode.WORKFLOW,
+    ) -> PluginResult:
         """
         Execute a plugin.
         """
 
-        self._runner.execute(
-            context,
-            qualified_name,
+        return self._runner.execute(
+            context=context,
+            qualified_name=qualified_name,
+            mode=mode,
         )
 
     # ------------------------------------------------------------------

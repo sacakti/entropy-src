@@ -11,6 +11,7 @@ from uuid import uuid4
 from core.models.runtime import RuntimeNodeType
 from core.observability.emitter import Emitter
 from core.runtime.ui import ExecutionUI
+from lib.models.plugin import PluginResult
 
 from .activity import Activity
 from .execution import WorkflowExecution
@@ -75,6 +76,8 @@ class ExecutionContext:
 
         self.artifacts: dict[str, Path] = {}
 
+        self._step_results: dict[str, PluginResult] = {}
+
     # ------------------------------------------------------------------
     # Execution
     # ------------------------------------------------------------------
@@ -111,6 +114,8 @@ class ExecutionContext:
         self.outputs.clear()
 
         self.artifacts.clear()
+
+        self._step_results.clear()
 
     @property
     def workspace(self) -> Path:
@@ -346,3 +351,113 @@ class ExecutionContext:
         """
 
         self._tree.leave()
+
+    def set_step_result(
+        self,
+        step_name: str,
+        result: PluginResult,
+    ) -> None:
+        """
+        Store the result produced by a workflow step.
+        """
+
+        self.step_results[step_name] = result
+
+
+    def get_step_result(
+        self,
+        step_name: str,
+    ) -> PluginResult | None:
+        """
+        Return a previously stored step result.
+        """
+
+        return self.step_results.get(
+            step_name,
+        )
+
+    @property
+    def step_results(
+        self,
+    ) -> dict[str, PluginResult]:
+        """
+        Return results produced by workflow steps.
+        """
+
+        return self._step_results
+
+    # Standalone plugin run
+    def start_plugin(
+        self,
+        *,
+        execution_id: str,
+        arguments: dict[str, Any] | None = None,
+        variables: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Initialize runtime state for standalone plugin execution.
+        """
+
+        self._execution = WorkflowExecution(
+            id=execution_id,
+            workflow=None,
+            context=self,
+        )
+
+        self.job_id = None
+
+        self.set_variables(
+            variables or {},
+        )
+
+        self.set_arguments(
+            arguments or {},
+        )
+
+        self.outputs.clear()
+
+        self.artifacts.clear()
+
+        self._step_results.clear()
+
+        self.execution.start()
+
+    def start_plugin_scope(
+        self,
+        name: str,
+    ) -> None:
+        """
+        Enter the runtime root for standalone plugin execution.
+        """
+
+        self.enter(
+            type=RuntimeNodeType.WORKFLOW,
+            name=name,
+            metadata={
+                "mode": "plugin",
+            },
+        )
+
+        assert self.node is not None
+
+        self.node.start()
+
+    def finish_plugin_scope(
+        self,
+        *,
+        success: bool,
+    ) -> None:
+        """
+        Finish the runtime root for standalone plugin execution.
+        """
+
+        node = self.node
+
+        assert node is not None
+
+        if success:
+            node.complete()
+        else:
+            node.fail()
+
+        self.leave()

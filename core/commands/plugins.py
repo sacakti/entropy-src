@@ -11,7 +11,8 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
-
+from lib.models.plugin import PluginResult
+from lib.plugins.mode import PluginMode
 
 class PluginCommand(
     BaseCommand,
@@ -100,6 +101,29 @@ class PluginCommand(
         subparsers.add_parser(
             "list",
             help="List installed plugins.",
+        )
+
+        #
+        # run
+        #
+
+        run = subparsers.add_parser(
+            "run",
+            help="Execute a plugin.",
+        )
+
+        run.add_argument(
+            "plugin",
+            help="Qualified plugin name.",
+        )
+
+        run.add_argument(
+            "--argument",
+            "-a",
+            action="append",
+            default=[],
+            metavar="KEY=VALUE",
+            help="Plugin argument. May be specified multiple times.",
         )
 
         #
@@ -193,6 +217,7 @@ class PluginCommand(
             "install": self._install,
             "uninstall": self._uninstall,
             "list": self._list,
+            "run": self._run,
             "verify": self._verify,
             "repair": self._repair,
             "set": self._set,
@@ -317,6 +342,33 @@ class PluginCommand(
         )
 
     # ------------------------------------------------------------------
+    # Run
+    # ------------------------------------------------------------------
+
+    def _run(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        arguments = self._parse_arguments(
+            args.argument,
+        )
+
+        context = self._create_plugin_execution_context(
+            arguments=arguments,
+        )
+
+        result = self._plugins.execute(
+            context=context,
+            qualified_name=args.plugin,
+            mode=PluginMode.CLI,
+        )
+
+        self._render_result(
+            result,
+        )
+
+    # ------------------------------------------------------------------
     # Verify
     # ------------------------------------------------------------------
 
@@ -409,4 +461,66 @@ class PluginCommand(
         self._ui.markdown(
             documentation,
             pager=True,
+        )
+
+    # Helper
+    def _parse_arguments(
+        self,
+        values: list[str],
+    ) -> dict[str, str]:
+        """
+        Parse CLI plugin arguments.
+
+        Arguments use KEY=VALUE syntax.
+        """
+
+        arguments: dict[str, str] = {}
+
+        for value in values:
+
+            if "=" not in value:
+
+                raise ValueError(
+                    f"Invalid plugin argument '{value}'. "
+                    "Expected KEY=VALUE.",
+                )
+
+            key, argument_value = value.split(
+                "=",
+                1,
+            )
+
+            key = key.strip()
+
+            if not key:
+
+                raise ValueError(
+                    "Plugin argument name cannot be empty.",
+                )
+
+            arguments[key] = argument_value
+
+        return arguments
+
+    def _create_plugin_execution_context(
+        self,
+        *,
+        arguments: dict[str, str] | None = None,
+    ):
+        assert self.context.execution_manager is not None
+
+        return self.context.execution_manager.create_plugin(
+            arguments=arguments,
+        )
+
+    def _render_result(
+        self,
+        result: PluginResult,
+    ) -> None:
+        """
+        Render standalone plugin result.
+        """
+
+        self._ui.print(
+            result.to_dict(),
         )

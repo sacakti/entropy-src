@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -140,3 +141,38 @@ class PluginManifest:
         """
 
         return f"{self.namespace}." f"{self.name}"
+
+@dataclass
+class PluginResult:
+    """
+    Standard result returned by a plugin execution.
+
+    The result is intentionally independent from workflow
+    presentation. A workflow may suppress rendering of the
+    result while the runtime still retains it.
+    """
+
+    success: bool = True
+    changed: bool = False
+    outputs: dict[str, Any] = field(
+        default_factory=dict,
+    )
+    changes: list[dict[str, Any]] = field(
+        default_factory=list,
+    )
+    errors: list[dict[str, Any]] = field(
+        default_factory=list,
+    )
+    warnings: list[str] = field(
+        default_factory=list,
+    )
+    metadata: dict[str, Any] = field(
+        default_factory=dict,
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Return the result as JSON-compatible data.
+        """
+
+        return asdict(self)

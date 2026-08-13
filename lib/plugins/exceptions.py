@@ -101,3 +101,8 @@ class PluginDisabledError(
         super().__init__(
             f"Plugin '{qualified_name}' is disabled.",
         )
+
+class PluginExecutionError(
+    PluginException,
+):
+    """Raised when plugin execution violates the plugin contract."""

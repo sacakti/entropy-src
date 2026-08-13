@@ -8,7 +8,7 @@ import shutil
 from typing import Any
 
 from lib.plugins.base import BasePlugin
-
+from lib.models.plugin import PluginResult
 
 class ShellPlugin(
     BasePlugin,
@@ -30,7 +30,7 @@ class ShellPlugin(
 
     def execute(
         self,
-    ) -> None:
+    ) -> PluginResult:
         """
         Execute the configured shell command or script.
         """
@@ -57,6 +57,20 @@ class ShellPlugin(
 
         self.message.success(
             "Plugin completed successfully.",
+        )
+
+        return PluginResult(
+            success=True,
+            changed=True,
+            outputs=dict(
+                self.outputs,
+            ),
+            metadata={
+                "artifacts": {
+                    name: str(path)
+                    for name, path in self.artifacts.items()
+                },
+            },
         )
 
     # ------------------------------------------------------------------

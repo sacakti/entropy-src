@@ -62,6 +62,8 @@ class WorkflowStep:
 
     on_failure: str = "abort"
 
+    suppress_result: bool = False
+
     @property
     def qualified_plugin(
         self,

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
+from lib.models.plugin import PluginResult
 from lib.plugins.arguments import PluginArguments
 
 if TYPE_CHECKING:
@@ -297,9 +298,9 @@ class BasePlugin(ABC):
     @abstractmethod
     def execute(
         self,
-    ) -> None:
+    ) -> PluginResult:
         """
-        Execute the plugin.
+        Execute the plugin and return its result.
         """
 
         raise NotImplementedError()

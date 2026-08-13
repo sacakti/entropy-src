@@ -125,3 +125,62 @@ class ExecutionManager:
         self._context.executor.mkdir(
             workspace,
         )
+
+    def create_plugin(
+        self,
+        *,
+        arguments: dict[str, Any] | None = None,
+        variables: dict[str, Any] | None = None,
+    ) -> ExecutionContext:
+        """
+        Create a runtime context for standalone plugin execution.
+        """
+
+        execution_id = (
+            f"plugin_{uuid4().hex[:8]}"
+        )
+
+        workspace = self._workspace(
+            execution_id,
+        )
+
+        self._prepare(
+            workspace,
+        )
+
+        runtime = ExecutionContext(
+            entropy=self._context,
+            workspace=workspace,
+        )
+
+        runtime.start_plugin(
+            arguments=arguments,
+            variables=variables,
+            execution_id=execution_id,
+        )
+
+        return runtime
+
+    def _plugin_execution_id(
+        self,
+    ) -> str:
+        """
+        Generate a unique standalone plugin execution ID.
+        """
+
+        return f"plugin_{uuid4().hex[:8]}"
+
+    def _plugin_workspace(
+        self,
+        execution_id: str,
+    ) -> Path:
+        """
+        Return the workspace for standalone plugin execution.
+        """
+
+        assert self._context.paths is not None
+
+        return (
+            self._context.paths.workspace.executions
+            / execution_id
+        )
