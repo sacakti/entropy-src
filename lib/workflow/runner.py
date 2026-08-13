@@ -176,14 +176,8 @@ class WorkflowRunner:
         )
 
         variables = dict(
-            workflow.variables,
+            workflow.variables
         )
-
-        variables.update(
-            options.variables,
-        )
-
-        variables = dict(workflow.variables)
 
         variables.update(
             options.variables,

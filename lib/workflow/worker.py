@@ -7,7 +7,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-
+import json
 
 def bootstrap(
     project_root: Path,
@@ -88,6 +88,12 @@ def _parse_args() -> argparse.Namespace:
         help="Last workflow step to execute.",
     )
 
+    parser.add_argument(
+        "--options",
+        default="{}",
+        help="Serialized workflow execution options.",
+    )
+
     return parser.parse_args()
 
 
@@ -107,6 +113,8 @@ class WorkflowWorker:
         tags: tuple[str, ...] = (),
         from_step: str | None = None,
         to_step: str | None = None,
+        variables: dict[str, object] | None = None,
+        step_overrides: dict[str, dict[str, object]] | None = None,
     ) -> None:
 
         self._job_id = job_id
@@ -114,6 +122,8 @@ class WorkflowWorker:
         self._tags = tags
         self._from_step = from_step
         self._to_step = to_step
+        self._variables = variables or {}
+        self._step_overrides = step_overrides or {}
 
     # ------------------------------------------------------------------
     # Execute
@@ -143,6 +153,8 @@ class WorkflowWorker:
             from_step=self._from_step,
             to_step=self._to_step,
             dry_run=False,
+            variables=self._variables,
+            step_overrides=self._step_overrides,
         )
 
         try:
@@ -192,12 +204,24 @@ if __name__ == "__main__":
         if tag.strip()
     )
 
+    options = json.loads(
+        args.options,
+    )
+
     worker = WorkflowWorker(
         job_id=args.job_id,
         workflow=args.workflow,
         tags=tags,
         from_step=args.from_step,
         to_step=args.to_step,
+        variables=options.get(
+            "variables",
+            {},
+        ),
+        step_overrides=options.get(
+            "step_overrides",
+            {},
+        ),
     )
 
     worker.execute()

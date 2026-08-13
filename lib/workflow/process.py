@@ -9,6 +9,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
+import json
 
 from lib.workflow.exceptions import (
     WorkflowProcessIDError,
@@ -83,26 +84,40 @@ class WorkflowProcess:
                 ],
             )
 
-        # worker_log = (
-        #     self._project_root
-        #     / "tmp"
-        #     / f"workflow-worker-{self._job_id}.log"
-        # )
+        options_payload = json.dumps(
+            {
+                "variables": self._options.variables,
+                "step_overrides": self._options.step_overrides,
+            },
+        )
 
-        # worker_log.parent.mkdir(
-        #     parents=True,
-        #     exist_ok=True,
-        # )
+        command.extend(
+            [
+                "--options",
+                options_payload,
+            ],
+        )
 
-        # log_file = worker_log.open(
-        #     "ab",
-        # )
+        worker_log = (
+            self._project_root
+            / "tmp"
+            / f"workflow-worker-{self._job_id}.log"
+        )
+
+        worker_log.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        log_file = worker_log.open(
+            "ab",
+        )
 
         process = subprocess.Popen(
             command,
             stdin=subprocess.DEVNULL,
-            # stdout=log_file,
-            stdout=subprocess.DEVNULL,
+            stdout=log_file,
+            # stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
             start_new_session=True,
             close_fds=True,
