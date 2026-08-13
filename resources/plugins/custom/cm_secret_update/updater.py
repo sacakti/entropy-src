@@ -211,12 +211,18 @@ class ConfigMapSecretUpdater:
         self,
         resource: TargetResource,
         definition: ConfigMapSecretUpdate,
-    ) -> ConfigMapSecretUpdate:
+    ) -> tuple[
+        ConfigMapSecretUpdate,
+        set[str],
+    ]:
         """
         Normalize operations for replacement mode.
 
         An add operation targeting an existing top-level key
         becomes an update operation.
+
+        Returns the normalized definition together with the
+        keys whose add operations were replaced by updates.
         """
 
         adapter = ConfigMapSecretTarget(
@@ -224,7 +230,9 @@ class ConfigMapSecretUpdater:
             definition.target.kind,
         )
 
-        operations = []
+        operations: list[UpdateOperation] = []
+
+        replaced_add_keys: set[str] = set()
 
         for operation in definition.operations:
 
@@ -234,6 +242,10 @@ class ConfigMapSecretUpdater:
                     operation.key,
                 )
             ):
+
+                replaced_add_keys.add(
+                    operation.key,
+                )
 
                 operations.append(
                     UpdateOperation(
@@ -251,11 +263,14 @@ class ConfigMapSecretUpdater:
                     operation,
                 )
 
-        return ConfigMapSecretUpdate(
-            api_version=definition.api_version,
-            kind=definition.kind,
-            target=definition.target,
-            operations=operations,
+        return (
+            ConfigMapSecretUpdate(
+                api_version=definition.api_version,
+                kind=definition.kind,
+                target=definition.target,
+                operations=operations,
+            ),
+            replaced_add_keys,
         )
 
     @staticmethod
@@ -332,6 +347,8 @@ class ConfigMapSecretUpdater:
 
         changes: list[dict[str, Any]] = []
 
+        replaced_add_keys: set[str] = set()
+
         for definition in definitions:
 
             effective_definition = definition
@@ -346,18 +363,23 @@ class ConfigMapSecretUpdater:
                     document_index=resource.document_index,
                 )
 
-                effective_definition = (
-                    self._normalize_for_replace(
-                        working_resource,
-                        definition,
-                    )
+                (
+                    effective_definition,
+                    definition_replaced_add_keys,
+                ) = self._normalize_for_replace(
+                    working_resource,
+                    definition,
+                )
+
+                replaced_add_keys.update(
+                    definition_replaced_add_keys,
                 )
 
             changes.extend(
                 self._engine.apply(
                     working_document,
                     effective_definition,
-                    replace=replace
+                    replace=replace,
                 ),
             )
 
@@ -375,6 +397,17 @@ class ConfigMapSecretUpdater:
                     managed_keys,
                 ),
             )
+
+        # Annotate operations that were originally "add"
+        # but were converted to "update" in replace mode.
+        for change in changes:
+
+            if (
+                change.get("action") == "update"
+                and change.get("key") in replaced_add_keys
+            ):
+
+                change["status"] = "replaced_add"
 
         # Commit only after every operation succeeds.
         resource.document.clear()

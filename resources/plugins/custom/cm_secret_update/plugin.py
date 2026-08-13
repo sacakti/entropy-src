@@ -375,11 +375,37 @@ class CmSecretUpdatePlugin(
 
                 for change in result.changes:
 
-                    self.message.info(
-                        f"    "
-                        f"{change['action'].upper():<6} "
-                        f"{change['key']}",
+                    action = change["action"].upper()
+                    key = change["key"]
+                    status = change.get(
+                        "status",
                     )
+
+                    if status == "replaced_add":
+
+                        self.message.info(
+                            f"    "
+                            f"{action:<6} "
+                            f"{key} "
+                            f"(replaced add)",
+                        )
+
+                    elif status == "unchanged":
+
+                        self.message.info(
+                            f"    "
+                            f"{action:<6} "
+                            f"{key} "
+                            f"(unchanged)",
+                        )
+
+                    else:
+
+                        self.message.info(
+                            f"    "
+                            f"{action:<6} "
+                            f"{key}",
+                        )
 
         if summary.errors:
 
