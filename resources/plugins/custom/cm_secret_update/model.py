@@ -4,7 +4,8 @@ ConfigMap and Secret update models.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace as dataclass_replace
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 
@@ -41,10 +42,6 @@ class ConfigMapSecretUpdate:
     kind: str
     target: UpdateTarget
     operations: list[UpdateOperation]
-
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 
 
 @dataclass(frozen=True)

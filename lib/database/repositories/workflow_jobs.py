@@ -10,7 +10,6 @@ from typing import List
 
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
-
 from lib.workflow.exceptions import WorkflowInvalidTerminalError, WorkflowJobIDRequiredError
 from lib.workflow.jobs.model import WorkflowJob
 from lib.workflow.jobs.state import JobState
@@ -338,7 +337,7 @@ class WorkflowJobRepository(Repository):
         ):
 
             raise WorkflowInvalidTerminalError(
-               state.value,
+                state.value,
             )
 
         finished_at = datetime.now(

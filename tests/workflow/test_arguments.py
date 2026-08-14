@@ -16,9 +16,7 @@ def test_resolves_nested_step_output() -> None:
 
     arguments = resolver.resolve(
         {
-            "destination": (
-                "${steps.collect_release.outputs.release.destination}"
-            ),
+            "destination": ("${steps.collect_release.outputs.release.destination}"),
         },
         variables={},
         step_results={
@@ -88,9 +86,7 @@ def test_resolves_nested_values_inside_list() -> None:
 
     arguments = resolver.resolve(
         {
-            "services": [
-                "${steps.collect_release.outputs.services}"
-            ],
+            "services": ["${steps.collect_release.outputs.services}"],
         },
         variables={},
         step_results={

@@ -6,11 +6,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from core.constants import PLUGIN_DIRECTORIES, PLUGIN_FILES
 from core.generators.base import (
     BaseGenerator,
     GeneratorMetadata,
 )
-from core.constants import PLUGIN_FILES, PLUGIN_DIRECTORIES
 from core.generators.validators.plugin import PluginValidator
 
 

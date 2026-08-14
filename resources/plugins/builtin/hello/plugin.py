@@ -8,12 +8,15 @@ from __future__ import annotations
 
 from time import sleep
 
-from lib.plugins.base import BasePlugin
 from lib.models.plugin import PluginResult
+from lib.plugins.base import BasePlugin
 
-class HelloPlugin(BasePlugin):
+
+class HelloPlugin(
+    BasePlugin,
+):
     """
-    Plugin implementation.
+    Demonstrates the Entropy Plugin SDK.
     """
 
     def execute(
@@ -24,17 +27,17 @@ class HelloPlugin(BasePlugin):
         """
 
         self.message.info(
-            "Starting plugin execution."
+            "Starting plugin execution.",
         )
 
         with self.activity(
-            "hello"
+            "hello",
         ):
 
             self._execute()
 
         self.message.success(
-            "Plugin completed successfully."
+            "Plugin completed successfully.",
         )
 
         return PluginResult(
@@ -44,10 +47,7 @@ class HelloPlugin(BasePlugin):
                 self.outputs,
             ),
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 
@@ -58,26 +58,21 @@ class HelloPlugin(BasePlugin):
     def _execute(
         self,
     ) -> None:
-
-        #
-        # Introduction
-        #
+        """
+        Execute the Hello demonstration.
+        """
 
         self.message.info(
-            "Hello Entropy!"
+            "Hello Entropy!",
         )
 
         self.message.info(
-            f"Workspace : {self.workspace}"
+            f"Workspace : {self.workspace}",
         )
 
         self.message.info(
-            f"Current User : {self.user}"
+            f"Current User : {self.user}",
         )
-
-        #
-        # Filesystem
-        #
 
         output = self.workspace / "hello.txt"
 
@@ -97,15 +92,11 @@ class HelloPlugin(BasePlugin):
         self.artifacts["hello"] = output
 
         self.message.success(
-            f"Created '{output.name}'."
+            f"Created '{output.name}'.",
         )
 
-        #
-        # Shell
-        #
-
         self.message.info(
-            "Collecting system information."
+            "Collecting system information.",
         )
 
         with self.activity(
@@ -116,7 +107,7 @@ class HelloPlugin(BasePlugin):
                 [
                     "uname",
                     "-a",
-                ]
+                ],
             )
 
             sleep(1)
@@ -127,10 +118,6 @@ class HelloPlugin(BasePlugin):
                 result.stdout,
             ],
         )
-
-        #
-        # Summary
-        #
 
         self.ui.table(
             title="Execution Summary",

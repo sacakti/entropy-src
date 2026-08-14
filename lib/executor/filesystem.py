@@ -10,10 +10,10 @@ import json
 import os
 import shutil
 from collections.abc import Iterator
+from io import StringIO
 from pathlib import Path
 from typing import IO, Any, cast
 
-from io import StringIO
 from ruamel.yaml import YAML
 
 from lib.executor.types import PathLike

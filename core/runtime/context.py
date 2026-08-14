@@ -22,14 +22,13 @@ from .workflow import WorkflowScope
 
 if TYPE_CHECKING:
 
-    from core.context import EntropyContext
-    from core.runtime.node import RuntimeNode
     from core.configuration.manager import ConfigurationManager
-    from core.template.engine import TemplateEngine
+    from core.context import EntropyContext
     from core.observability.logging import ExecutionLogger
-
-    from lib.executor import LinuxExecutor
+    from core.runtime.node import RuntimeNode
+    from core.template.engine import TemplateEngine
     from lib.database.manager import DatabaseManager
+    from lib.executor import LinuxExecutor
 
 
 class ExecutionContext:
@@ -319,12 +318,11 @@ class ExecutionContext:
     # ------------------------------------------------------------------
 
     @property
-    def user(self) -> str :
+    def user(self) -> str:
 
         assert self._entropy.session_manager is not None
 
         return self._entropy.session_manager.require().username
-
 
     def enter(
         self,
@@ -362,7 +360,6 @@ class ExecutionContext:
         """
 
         self.step_results[step_name] = result
-
 
     def get_step_result(
         self,

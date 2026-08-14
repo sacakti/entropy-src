@@ -115,9 +115,7 @@ class ConsoleRenderer:
                 )
             )
 
-            self._console.print(
-                f"[bold cyan]▶ {title}[/]"
-            )
+            self._console.print(f"[bold cyan]▶ {title}[/]")
 
         finally:
 
@@ -162,7 +160,6 @@ class ConsoleRenderer:
             f"[{ConsoleTheme.SUCCESS}]✔[/] {message}",
         )
 
-
     def warning(
         self,
         message: str,
@@ -172,7 +169,6 @@ class ConsoleRenderer:
             f"[{ConsoleTheme.WARNING}]⚠[/] {message}",
         )
 
-
     def error(
         self,
         message: str,
@@ -181,7 +177,6 @@ class ConsoleRenderer:
         self._print(
             f"[{ConsoleTheme.ERROR}]✖[/] {message}",
         )
-
 
     def debug(
         self,

@@ -17,6 +17,7 @@ def workflow_runner(entropy_context):
         plugin_runner=plugin_runner,
     )
 
+
 def test_step_output_is_passed_to_next_step(
     workflow_runner,
     runtime,
@@ -55,9 +56,7 @@ def test_step_output_is_passed_to_next_step(
     second_step.name = "build_image"
     second_step.plugin = "custom.docker_build"
     second_step.arguments = {
-        "source": (
-            "${steps.collect_release.outputs.release_path}"
-        ),
+        "source": ("${steps.collect_release.outputs.release_path}"),
     }
 
     variable_resolver = Mock()
@@ -71,6 +70,7 @@ def test_step_output_is_passed_to_next_step(
     )
 
     assert runtime.arguments["source"] == "/workspace/release"
+
 
 def test_external_override_takes_precedence_over_step_output(
     workflow_runner,
@@ -92,9 +92,7 @@ def test_external_override_takes_precedence_over_step_output(
     step.name = "build_image"
     step.plugin = "custom.docker_build"
     step.arguments = {
-        "source": (
-            "${steps.collect_release.outputs.release_path}"
-        ),
+        "source": ("${steps.collect_release.outputs.release_path}"),
     }
 
     resolver = Mock()
@@ -111,6 +109,7 @@ def test_external_override_takes_precedence_over_step_output(
     )
 
     assert runtime.arguments["source"] == "/cli/release"
+
 
 def test_step_output_is_used_without_override(
     workflow_runner,
@@ -130,9 +129,7 @@ def test_step_output_is_used_without_override(
     step.name = "build_image"
     step.plugin = "custom.docker_build"
     step.arguments = {
-        "source": (
-            "${steps.collect_release.outputs.release_path}"
-        ),
+        "source": ("${steps.collect_release.outputs.release_path}"),
     }
 
     resolver = Mock()

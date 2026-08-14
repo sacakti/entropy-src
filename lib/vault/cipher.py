@@ -75,9 +75,7 @@ class VaultCipher:
 
         except Exception as exc:
 
-            raise VaultEncryptionError(
-                "Unable to encrypt Vault value."
-            ) from exc
+            raise VaultEncryptionError("Unable to encrypt Vault value.") from exc
 
         return nonce + ciphertext
 
@@ -91,17 +89,11 @@ class VaultCipher:
 
         if len(value) <= self.NONCE_SIZE:
 
-            raise VaultEncryptionError(
-                "Invalid Vault ciphertext."
-            )
+            raise VaultEncryptionError("Invalid Vault ciphertext.")
 
-        nonce = value[
-            : self.NONCE_SIZE
-        ]
+        nonce = value[: self.NONCE_SIZE]
 
-        ciphertext = value[
-            self.NONCE_SIZE :
-        ]
+        ciphertext = value[self.NONCE_SIZE :]
 
         try:
 
@@ -113,12 +105,8 @@ class VaultCipher:
 
         except InvalidTag as exc:
 
-            raise VaultEncryptionError(
-                "Vault value authentication failed."
-            ) from exc
+            raise VaultEncryptionError("Vault value authentication failed.") from exc
 
         except Exception as exc:
 
-            raise VaultEncryptionError(
-                "Unable to decrypt Vault value."
-            ) from exc
+            raise VaultEncryptionError("Unable to decrypt Vault value.") from exc

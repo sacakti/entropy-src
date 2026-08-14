@@ -73,6 +73,7 @@ def test_codec_serializes_suppress_result():
 
 def test_codec_rejects_invalid_on_failure():
     import pytest
+
     from lib.workflow.exceptions import InvalidWorkflowError
 
     document = {
@@ -93,6 +94,7 @@ def test_codec_rejects_invalid_on_failure():
 
 def test_codec_rejects_non_boolean_suppress_result():
     import pytest
+
     from lib.workflow.exceptions import InvalidWorkflowError
 
     document = {

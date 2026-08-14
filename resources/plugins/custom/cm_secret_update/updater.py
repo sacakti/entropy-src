@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +21,7 @@ from .model import (
     UpdateSummary,
 )
 from .target_loader import TargetFile, TargetResource
+
 
 class ConfigMapSecretUpdater:
     """
@@ -94,11 +94,7 @@ class ConfigMapSecretUpdater:
 
                 if resource is None:
 
-                    result = self._create_group(
-                        group,
-                        target_directory,
-                        replace
-                    )
+                    result = self._create_group(group, target_directory, replace)
 
                 else:
 
@@ -123,9 +119,7 @@ class ConfigMapSecretUpdater:
                         kind=kind,
                         name=name,
                         path=(
-                            resource.target_file.path
-                            if resource is not None
-                            else target_directory
+                            resource.target_file.path if resource is not None else target_directory
                         ),
                         key=self._error_key(
                             group,
@@ -236,11 +230,8 @@ class ConfigMapSecretUpdater:
 
         for operation in definition.operations:
 
-            if (
-                operation.action == "add"
-                and adapter.contains(
-                    operation.key,
-                )
+            if operation.action == "add" and adapter.contains(
+                operation.key,
             ):
 
                 replaced_add_keys.add(
@@ -386,9 +377,7 @@ class ConfigMapSecretUpdater:
         if replace:
 
             managed_keys = {
-                operation.key
-                for definition in definitions
-                for operation in definition.operations
+                operation.key for definition in definitions for operation in definition.operations
             }
 
             changes.extend(
@@ -402,10 +391,7 @@ class ConfigMapSecretUpdater:
         # but were converted to "update" in replace mode.
         for change in changes:
 
-            if (
-                change.get("action") == "update"
-                and change.get("key") in replaced_add_keys
-            ):
+            if change.get("action") == "update" and change.get("key") in replaced_add_keys:
 
                 change["status"] = "replaced_add"
 
@@ -425,10 +411,7 @@ class ConfigMapSecretUpdater:
         )
 
     def _create_group(
-        self,
-        definitions: list[ConfigMapSecretUpdate],
-        target_directory: Path,
-        replace
+        self, definitions: list[ConfigMapSecretUpdate], target_directory: Path, replace
     ) -> UpdateResult:
         """
         Create one resource from multiple definitions atomically.
@@ -449,17 +432,10 @@ class ConfigMapSecretUpdater:
         for definition in definitions:
 
             changes.extend(
-                self._engine.apply(
-                    document,
-                    definition,
-                    replace=replace
-                ),
+                self._engine.apply(document, definition, replace=replace),
             )
 
-        path = target_directory / (
-            f"{first.target.kind.lower()}-"
-            f"{first.target.name}.yaml"
-        )
+        path = target_directory / (f"{first.target.kind.lower()}-" f"{first.target.name}.yaml")
 
         if self._filesystem.exists(
             path,

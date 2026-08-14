@@ -25,6 +25,7 @@ class PluginNotFoundError(PluginException):
             f"Plugin '{qualified_name}' was not found.",
         )
 
+
 class PluginManifestNotFoundError(PluginException):
     """
     Raised when a plugin manifest is not found.
@@ -54,20 +55,24 @@ class PluginLoadError(PluginException):
     Raised when a plugin fails to load.
     """
 
+
 class PluginVersionError(PluginException):
     """
     Raised when plugin version is empty.
     """
+
 
 class PluginInvalidRequirementError(PluginException):
     """
     Raised when plugin requirement is not supported.
     """
 
+
 class PluginValueError(PluginException):
     """
     Raised plugin value error.
     """
+
     def __init__(
         self,
         message: str,
@@ -76,6 +81,7 @@ class PluginValueError(PluginException):
         super().__init__(
             message,
         )
+
 
 class InvalidPluginNameError(
     PluginException,
@@ -90,9 +96,9 @@ class InvalidPluginNameError(
     ) -> None:
 
         super().__init__(
-            f"Invalid plugin name '{qualified_name}'. "
-            "Expected format: '<namespace>.<name>'.",
+            f"Invalid plugin name '{qualified_name}'. " "Expected format: '<namespace>.<name>'.",
         )
+
 
 class PluginDisabledError(
     PluginException,
@@ -109,6 +115,7 @@ class PluginDisabledError(
         super().__init__(
             f"Plugin '{qualified_name}' is disabled.",
         )
+
 
 class PluginExecutionError(
     PluginException,

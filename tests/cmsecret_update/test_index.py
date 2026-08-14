@@ -58,15 +58,21 @@ def test_get_existing_resource() -> None:
         ],
     )
 
-    assert index.get(
-        "ConfigMap",
-        "application-config",
-    ) is configmap
+    assert (
+        index.get(
+            "ConfigMap",
+            "application-config",
+        )
+        is configmap
+    )
 
-    assert index.get(
-        "Secret",
-        "application-secret",
-    ) is secret
+    assert (
+        index.get(
+            "Secret",
+            "application-secret",
+        )
+        is secret
+    )
 
 
 def test_get_missing_resource_returns_none() -> None:
@@ -81,10 +87,13 @@ def test_get_missing_resource_returns_none() -> None:
         ],
     )
 
-    assert index.get(
-        "ConfigMap",
-        "missing",
-    ) is None
+    assert (
+        index.get(
+            "ConfigMap",
+            "missing",
+        )
+        is None
+    )
 
 
 def test_kind_is_part_of_identity() -> None:
@@ -105,15 +114,21 @@ def test_kind_is_part_of_identity() -> None:
         ],
     )
 
-    assert index.get(
-        "ConfigMap",
-        "application",
-    ) is configmap
+    assert (
+        index.get(
+            "ConfigMap",
+            "application",
+        )
+        is configmap
+    )
 
-    assert index.get(
-        "Secret",
-        "application",
-    ) is secret
+    assert (
+        index.get(
+            "Secret",
+            "application",
+        )
+        is secret
+    )
 
 
 def test_contains_existing_resource() -> None:
@@ -128,10 +143,13 @@ def test_contains_existing_resource() -> None:
         ],
     )
 
-    assert index.contains(
-        "ConfigMap",
-        "application-config",
-    ) is True
+    assert (
+        index.contains(
+            "ConfigMap",
+            "application-config",
+        )
+        is True
+    )
 
 
 def test_contains_missing_resource() -> None:
@@ -146,10 +164,13 @@ def test_contains_missing_resource() -> None:
         ],
     )
 
-    assert index.contains(
-        "ConfigMap",
-        "missing",
-    ) is False
+    assert (
+        index.contains(
+            "ConfigMap",
+            "missing",
+        )
+        is False
+    )
 
 
 def test_resources_returns_all_indexed_resources() -> None:
@@ -204,14 +225,20 @@ def test_empty_index() -> None:
         [],
     )
 
-    assert index.get(
-        "ConfigMap",
-        "application-config",
-    ) is None
+    assert (
+        index.get(
+            "ConfigMap",
+            "application-config",
+        )
+        is None
+    )
 
-    assert index.contains(
-        "ConfigMap",
-        "application-config",
-    ) is False
+    assert (
+        index.contains(
+            "ConfigMap",
+            "application-config",
+        )
+        is False
+    )
 
     assert index.resources() == []

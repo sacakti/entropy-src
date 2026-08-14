@@ -167,9 +167,7 @@ def main() -> None:
 
     else:
 
-        raise AssertionError(
-            "Invalid number value was accepted."
-        )
+        raise AssertionError("Invalid number value was accepted.")
 
     # ---------------------------------------------------------
     # Boolean must not be accepted as number
@@ -188,13 +186,9 @@ def main() -> None:
 
     else:
 
-        raise AssertionError(
-            "Boolean was incorrectly accepted as number."
-        )
+        raise AssertionError("Boolean was incorrectly accepted as number.")
 
-    print(
-        "All Vault serializer tests passed."
-    )
+    print("All Vault serializer tests passed.")
 
 
 if __name__ == "__main__":

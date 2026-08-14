@@ -145,6 +145,7 @@ class ExtensionPaths:
 
     downloads: Path
 
+
 @dataclass(frozen=True)
 class VaultPaths:
     """

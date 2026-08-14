@@ -1,53 +1,95 @@
-# Shell Plugin — Release Notes
+# ShellPlugin
 
-## Overview
+## 1. NAME
 
-The `builtin.shell` plugin allows workflows to execute shell commands and shell scripts directly on the system where Entropy is running.
+`builtin.shell` — execute shell commands or shell scripts.
+
+---
+
+## 2. DESCRIPTION
+
+ShellPlugin is a generic Entropy workflow plugin for executing shell commands and shell scripts on the target system.
 
 It supports:
 
-* Inline shell commands
-* Shell scripts
-* Multiple shell interpreters
-* Command-line arguments
-* Working directories
-* Execution timeouts
-* Environment variables
-* Standard output and error output
-* Exit-code and success status
+- Inline commands.
+- Shell scripts.
+- Shell selection.
+- Positional arguments.
+- Working directories.
+- Execution timeouts.
+- Environment variables.
+- Standard output and standard error.
+- Exit-code and success status.
+- Workflow variable resolution.
+- Entropy Vault-backed workflow variables.
 
-The plugin is designed to be generic, so commands such as `grep`, `find`, `awk`, `sed`, `curl`, `jq`, `oc`, and other installed command-line tools can be used without requiring separate Entropy plugins.
+The plugin relies on the Entropy Plugin SDK and does not directly resolve workflow variables or Vault entries.
 
 ---
 
-## Basic Usage
+## 3. PLUGIN CONTRACT
 
-A shell command can be executed using the `command` argument.
+The plugin:
+
+- Inherits from `BasePlugin`.
+- Implements `execute()`.
+- Returns a `PluginResult`.
+- Publishes execution values through `self.outputs`.
+- Uses the SDK message and activity APIs.
+- Raises `PluginException` for plugin validation errors.
+
+---
+
+## 4. ARGUMENTS
+
+### 4.1 `command`
+
+**Type:** `string`
+
+**Required:** One of `command` or `script`.
+
+Inline shell command to execute.
+
+Example:
 
 ```json
 {
-    "name": "Execute Command",
-    "plugin": "custom.shell",
-    "enabled": true,
-    "continue_on_error": false,
-    "tags": [
-        "shell"
-    ],
-    "arguments": {
-        "command": "echo Hello Entropy"
-    }
+    "command": "echo Hello Entropy"
 }
 ```
 
-If no shell is specified, Entropy automatically selects an available shell.
+---
+
+### 4.2 `script`
+
+**Type:** `string`
+
+**Required:** One of `command` or `script`.
+
+Path to the shell script to execute.
+
+Example:
+
+```json
+{
+    "script": "/home/devops/scripts/deploy.sh"
+}
+```
 
 ---
 
-## Selecting a Shell
+### 4.3 `shell`
 
-The `shell` argument is optional.
+**Type:** `string`
 
-When omitted, Entropy searches for an available shell in the following order:
+**Required:** No.
+
+**Default:** Automatically detected.
+
+Explicit shell interpreter.
+
+When omitted, the plugin searches in this order:
 
 ```text
 bash
@@ -55,318 +97,242 @@ sh
 zsh
 ```
 
-For example:
+Example:
 
 ```json
 {
-    "arguments": {
-        "command": "echo Hello"
-    }
-}
-```
-
-To explicitly select Bash:
-
-```json
-{
-    "arguments": {
-        "command": "echo Hello",
-        "shell": "bash"
-    }
-}
-```
-
-To use another available shell:
-
-```json
-{
-    "arguments": {
-        "command": "echo Hello",
-        "shell": "zsh"
-    }
-}
-```
-
-If an explicitly requested shell is not available, the step fails with an appropriate error.
-
----
-
-## Passing Arguments
-
-Arguments can be supplied through the `args` array.
-
-```json
-{
-    "arguments": {
-        "command": "echo Hello $1 from $2",
-        "shell": "bash",
-        "args": [
-            "Entropy",
-            "DevOps"
-        ]
-    }
-}
-```
-
-The command receives:
-
-```text
-$1 = Entropy
-$2 = DevOps
-```
-
-This is useful when the same command needs to be executed with different values.
-
-For example:
-
-```json
-{
-    "arguments": {
-        "command": "grep -i \"$1\" \"$2\"",
-        "shell": "bash",
-        "args": [
-            "error",
-            "/var/log/application.log"
-        ]
-    }
+    "shell": "bash"
 }
 ```
 
 ---
 
-## Executing Shell Scripts
+### 4.4 `args`
 
-Use the `script` argument when executing a shell script.
+**Type:** `list[string]`
 
-```json
-{
-    "arguments": {
-        "script": "/home/devops/scripts/deploy.sh"
-    }
-}
-```
+**Required:** No.
 
-Arguments can also be passed to the script:
+**Default:** `[]`
+
+Positional arguments passed to the command or script.
+
+Example:
 
 ```json
 {
-    "arguments": {
-        "script": "/home/devops/scripts/deploy.sh",
-        "args": [
-            "sit",
-            "application"
-        ]
-    }
-}
-```
-
-Entropy executes the script through the selected shell.
-
-For example:
-
-```json
-{
-    "arguments": {
-        "script": "/home/devops/scripts/deploy.sh",
-        "shell": "bash",
-        "args": [
-            "sit"
-        ]
-    }
-}
-```
-
-This means the script does not need to be directly executable or depend on its executable bit.
-
----
-
-## Command or Script
-
-A step must provide **exactly one** of:
-
-```text
-command
-```
-
-or:
-
-```text
-script
-```
-
-This is valid:
-
-```json
-{
-    "arguments": {
-        "command": "echo Hello"
-    }
-}
-```
-
-This is also valid:
-
-```json
-{
-    "arguments": {
-        "script": "/home/devops/test.sh"
-    }
-}
-```
-
-This is invalid:
-
-```json
-{
-    "arguments": {
-        "command": "echo Hello",
-        "script": "/home/devops/test.sh"
-    }
-}
-```
-
-Entropy will reject the step because both were specified.
-
----
-
-## Working Directory
-
-Use `cwd` to control the working directory of the command or script.
-
-```json
-{
-    "arguments": {
-        "command": "ls -la",
-        "cwd": "/home/devops/application"
-    }
-}
-```
-
-The command executes as though it were started from:
-
-```text
-/home/devops/application
-```
-
----
-
-## Execution Timeout
-
-Use `timeout` to limit how long the command can run.
-
-```json
-{
-    "arguments": {
-        "command": "./long-running-task.sh",
-        "timeout": 300
-    }
-}
-```
-
-The value is specified in seconds.
-
-For example:
-
-```text
-timeout: 30
-```
-
-allows the command to run for up to 30 seconds.
-
----
-
-## Environment Variables
-
-Environment variables can be supplied through `env`.
-
-```json
-{
-    "arguments": {
-        "command": "echo \"$APP_ENV\"",
-        "env": {
-            "APP_ENV": "sit"
-        }
-    }
-}
-```
-
-Multiple environment variables can be supplied:
-
-```json
-{
-    "arguments": {
-        "command": "./deploy.sh",
-        "env": {
-            "APP_ENV": "sit",
-            "APP_NAME": "myapp"
-        }
-    }
-}
-```
-
----
-
-## Using Workflow Variables
-
-ShellPlugin arguments can use workflow variables resolved by Entropy.
-
-For example:
-
-```json
-{
-    "variables": {
-        "environment": "sit"
-    },
-    "steps": [
-        {
-            "name": "Show Environment",
-            "plugin": "custom.shell",
-            "arguments": {
-                "command": "echo \"$1\"",
-                "args": [
-                    "${environment}"
-                ]
-            }
-        }
+    "command": "echo \"$1\"",
+    "args": [
+        "Pravin"
     ]
 }
 ```
 
-The workflow engine resolves:
-
-```text
-${environment}
-```
-
-before the ShellPlugin executes.
-
-The ShellPlugin itself does not need to know how the variable was obtained.
+All values must be strings.
 
 ---
 
-## Using Vault Values
+### 4.5 `cwd`
 
-Workflow variables can reference Entropy Vault entries using:
+**Type:** `string`
+
+**Required:** No.
+
+Working directory for the process.
+
+Example:
+
+```json
+{
+    "command": "pwd",
+    "cwd": "/home/devops"
+}
+```
+
+---
+
+### 4.6 `timeout`
+
+**Type:** `integer`
+
+**Required:** No.
+
+Positive execution timeout in seconds.
+
+Example:
+
+```json
+{
+    "command": "./deploy.sh",
+    "timeout": 300
+}
+```
+
+---
+
+### 4.7 `env`
+
+**Type:** `dict[string, string]`
+
+**Required:** No.
+
+Environment variables supplied to the process.
+
+Example:
+
+```json
+{
+    "command": "./deploy.sh",
+    "env": {
+        "APP_ENV": "prod"
+    }
+}
+```
+
+All environment variable names and values must be strings.
+
+---
+
+## 5. VALIDATION
+
+The following rules are enforced:
+
+1. Exactly one of `command` and `script` must be specified.
+2. `command` must be a non-empty string.
+3. `script` must be a non-empty string.
+4. `shell`, when supplied, must be a string.
+5. `args` must be a list.
+6. Every value in `args` must be a string.
+7. `cwd`, when supplied, must be a string.
+8. `timeout`, when supplied, must be a positive integer.
+9. `env`, when supplied, must be a dictionary.
+10. All environment variable names and values must be strings.
+
+---
+
+## 6. SHELL RESOLUTION
+
+If `shell` is explicitly supplied, the plugin resolves it using the system `PATH`.
+
+If no shell is supplied, the plugin searches:
 
 ```text
-${entv:key}
+bash
+sh
+zsh
+```
+
+The first available interpreter is selected.
+
+If no supported shell is available, execution fails.
+
+---
+
+## 7. COMMAND EXECUTION
+
+For an inline command, the plugin invokes the selected shell using the equivalent process structure:
+
+```text
+<shell> -c <command> -- <args...>
+```
+
+This allows the command to use positional parameters such as:
+
+```text
+$1
+$2
 ```
 
 Example:
 
 ```json
 {
+    "command": "echo \"Environment: $1\"",
+    "args": [
+        "prod"
+    ]
+}
+```
+
+---
+
+## 8. SCRIPT EXECUTION
+
+For a script, the plugin invokes the selected shell with the script path and positional arguments.
+
+Conceptually:
+
+```text
+<shell> <script> <args...>
+```
+
+Example:
+
+```json
+{
+    "script": "/home/devops/scripts/deploy.sh",
+    "shell": "bash",
+    "args": [
+        "prod"
+    ]
+}
+```
+
+---
+
+## 9. OUTPUTS
+
+The plugin publishes the following outputs:
+
+| Output | Type | Description |
+|--------|------|-------------|
+| `exit_code` | integer | Process exit code. |
+| `success` | boolean | Whether execution succeeded. |
+| `stdout` | string | Standard output. |
+| `stderr` | string | Standard error. |
+| `duration` | number | Execution duration in seconds. |
+
+These values are stored in `self.outputs` and returned through `PluginResult`.
+
+---
+
+## 10. FAILURE HANDLING
+
+If the process reports failure, the plugin raises an execution error containing the exit code.
+
+The workflow engine determines the final workflow behavior according to the step's `on_failure` policy.
+
+Example:
+
+```json
+{
+    "on_failure": "abort"
+}
+```
+
+The plugin does not convert a failed process into a successful result.
+
+---
+
+## 11. WORKFLOW VARIABLES
+
+Workflow variables are resolved before ShellPlugin execution.
+
+Example:
+
+```json
+{
     "variables": {
-        "schema2": "${entv:schema2}"
+        "environment": "prod"
     },
     "steps": [
         {
-            "name": "Test Vault Value",
-            "plugin": "custom.shell",
+            "name": "Show Environment",
+            "plugin": "builtin.shell",
             "arguments": {
                 "command": "echo \"$1\"",
                 "args": [
-                    "${schema2}"
+                    "${environment}"
                 ]
             }
         }
@@ -374,199 +340,168 @@ Example:
 }
 ```
 
-The resolution flow is:
-
-```text
-Entropy Vault
-      ↓
-Workflow Variable
-      ↓
-Step Argument
-      ↓
-ShellPlugin
-      ↓
-Shell Command
-```
-
-This allows deployment scripts and command-line tools to consume Vault-managed values without the ShellPlugin directly accessing the Vault.
+The plugin receives the resolved value rather than resolving `${environment}` itself.
 
 ---
 
-## Using Command-Line Tools
+## 12. VAULT VALUES
 
-ShellPlugin is not limited to `echo` or simple commands.
-
-Any command available on the target system can be used.
-
-### grep
+Vault-backed workflow variables can be used:
 
 ```json
 {
-    "arguments": {
-        "command": "grep -i \"$1\" /var/log/application.log",
-        "args": [
-            "error"
-        ]
-    }
-}
-```
-
-### find
-
-```json
-{
-    "arguments": {
-        "command": "find /opt/application -type f"
-    }
-}
-```
-
-### jq
-
-```json
-{
-    "arguments": {
-        "command": "cat config.json | jq -r '.database.host'"
-    }
-}
-```
-
-### OpenShift
-
-If `oc` is installed and configured:
-
-```json
-{
-    "arguments": {
-        "command": "oc get pods -n \"$1\"",
-        "args": [
-            "my-namespace"
-        ]
-    }
-}
-```
-
-### Shell pipelines
-
-Shell features such as pipes can be used when supported by the selected shell:
-
-```json
-{
-    "arguments": {
-        "command": "cat application.log | grep -i error | tail -20"
-    }
-}
-```
-
----
-
-## Plugin Outputs
-
-After execution, the plugin exposes the command result through workflow outputs.
-
-Available values include:
-
-```text
-exit_code
-success
-stdout
-stderr
-duration
-```
-
-For example:
-
-```text
-exit_code
-    0
-
-success
-    true
-
-stdout
-    command output
-
-stderr
-    error output
-
-duration
-    execution time in seconds
-```
-
-A successful command returns an exit code of `0`.
-
-If the command exits with a non-zero status, the ShellPlugin reports the failure and the workflow follows the step's `continue_on_error` behavior.
-
----
-
-## Complete Example
-
-The following workflow demonstrates Vault variables, command arguments, shell selection, working directory, environment variables, and timeout.
-
-```json
-{
-    "name": "Shell Plugin Example",
-    "version": "1.0.0",
-    "description": "Example workflow demonstrating custom.shell.",
     "variables": {
-        "environment": "${entv:environment}"
+        "name": "${entv:name}"
     },
     "steps": [
         {
-            "name": "Execute Shell Command",
-            "plugin": "custom.shell",
-            "enabled": true,
-            "continue_on_error": false,
-            "tags": [
-                "shell"
-            ],
+            "name": "Show Name",
+            "plugin": "builtin.shell",
             "arguments": {
-                "command": "echo \"Environment: $1\" && echo \"Application: $APP_NAME\"",
-                "shell": "bash",
+                "command": "echo \"$1\"",
                 "args": [
-                    "${environment}"
-                ],
-                "cwd": "/home/devops",
-                "timeout": 30,
-                "env": {
-                    "APP_NAME": "entropy"
-                }
+                    "${name}"
+                ]
             }
         }
     ]
 }
 ```
 
+Resolution occurs before plugin execution:
+
+```text
+Vault
+  ↓
+Workflow variable
+  ↓
+Step argument
+  ↓
+ShellPlugin
+  ↓
+Shell process
+```
+
 ---
 
-## Argument Reference
+## 13. CLI VARIABLE OVERRIDES
 
-| Argument  | Required                    | Description                                            |
-| --------- | --------------------------- | ------------------------------------------------------ |
-| `command` | One of `command` / `script` | Inline shell command                                   |
-| `script`  | One of `command` / `script` | Path to a shell script                                 |
-| `shell`   | No                          | Shell interpreter; automatically detected when omitted |
-| `args`    | No                          | Positional arguments passed to the command or script   |
-| `cwd`     | No                          | Working directory                                      |
-| `timeout` | No                          | Maximum execution time in seconds                      |
-| `env`     | No                          | Environment variables                                  |
+Workflow variables can be overridden using:
+
+```text
+-a
+--arguments
+```
+
+Example:
+
+```bash
+ent workflow run shell \
+    -a 'name=Pravin'
+```
+
+Multiple assignments use the configured assignment separator.
+
+Default separator:
+
+```text
+;
+```
+
+Example:
+
+```bash
+ent workflow run deployment \
+    -a 'environment=prod;version=1.0.0'
+```
+
+---
+
+## 14. CLI STEP OVERRIDES
+
+Step arguments can be overridden using:
+
+```text
+--set
+```
+
+Example:
+
+```bash
+ent workflow run shell \
+    --set 'Execute ShellPlugin.command="echo Hello"'
+```
+
+Typed values are supported through:
+
+```text
+--type
+```
+
+### String
+
+```bash
+--set 'Execute ShellPlugin.command="echo Hello"' \
+--type string
+```
+
+### List
+
+```bash
+--set 'Execute ShellPlugin.args=["Pravin"]' \
+--type list
+```
+
+### Dictionary
+
+```bash
+--set 'Execute ShellPlugin.env={"APP_ENV":"prod"}' \
+--type dict
+```
+
+Multiple step assignments can be combined using the configured assignment separator:
+
+```bash
+--set 'Execute ShellPlugin.args=["Pravin"];Execute ShellPlugin.command="echo Hello $1"' \
+--type auto
+```
+
+---
+
+## 15. EXAMPLES
 
 ### Minimal command
 
 ```json
 {
+    "plugin": "builtin.shell",
     "arguments": {
         "command": "echo Hello"
     }
 }
 ```
 
-### Minimal script
+### Command with arguments
 
 ```json
 {
+    "plugin": "builtin.shell",
     "arguments": {
-        "script": "/home/devops/test.sh"
+        "command": "echo Hello $1",
+        "args": [
+            "Entropy"
+        ]
+    }
+}
+```
+
+### Script
+
+```json
+{
+    "plugin": "builtin.shell",
+    "arguments": {
+        "script": "/home/devops/scripts/deploy.sh"
     }
 }
 ```
@@ -575,6 +510,7 @@ The following workflow demonstrates Vault variables, command arguments, shell se
 
 ```json
 {
+    "plugin": "builtin.shell",
     "arguments": {
         "command": "echo \"$1\"",
         "shell": "bash",
@@ -592,18 +528,91 @@ The following workflow demonstrates Vault variables, command arguments, shell se
 
 ---
 
-## Important Notes
+## 16. WORKFLOW EXAMPLE
 
-1. `command` and `script` are mutually exclusive.
-2. `shell` is optional.
-3. `args` must be a list of strings.
-4. `timeout` is specified in seconds.
-5. The required shell or command-line utilities must exist on the target system.
-6. Workflow and Vault variables are resolved before plugin execution.
-7. ShellPlugin does not directly access Entropy Vault.
-8. Commands execute with the permissions of the Entropy process.
-9. Be careful when constructing commands from external or untrusted input.
-10. The ShellPlugin is intended as a generic workflow execution primitive and can use any appropriate command-line utility available on the target host.
+The included `workflow.json` demonstrates a Vault-backed workflow variable:
 
+```json
+{
+    "name": "shell",
+    "version": "1.0.0",
+    "description": "Example workflow for builtin.shell",
+    "variables": {
+        "name": "${entv:name}"
+    },
+    "steps": [
+        {
+            "name": "Execute ShellPlugin",
+            "plugin": "builtin.shell",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "shell"
+            ],
+            "arguments": {
+                "command": "echo I am \"$1\"",
+                "args": [
+                    "${name}"
+                ]
+            }
+        }
+    ]
+}
 ```
+
+Run:
+
+```bash
+ent workflow run resources/plugins/builtin/shell/workflow.json
 ```
+
+---
+
+## 17. LOCAL EXECUTION
+
+The plugin can be executed directly from its source directory:
+
+```bash
+ent plugin run \
+    --local resources/plugins/builtin/shell
+```
+
+Example:
+
+```bash
+ent plugin run \
+    --local resources/plugins/builtin/shell \
+    -a 'command=echo Hello'
+```
+
+---
+
+## 18. DEPENDENCIES
+
+ShellPlugin has no external Python package dependencies.
+
+The selected shell and any command-line utilities used by a workflow are system-level dependencies.
+
+---
+
+## 19. SECURITY
+
+ShellPlugin executes processes using the permissions of the Entropy process.
+
+Commands, scripts, arguments, environment variables, and paths should therefore be treated as executable input.
+
+Do not use ShellPlugin as a security boundary or execute untrusted command content without appropriate validation and authorization.
+
+---
+
+## 20. FAILURE POLICY
+
+Workflow behavior after a ShellPlugin failure is controlled by the workflow step:
+
+```json
+"on_failure": "abort"
+```
+
+or the other failure policies supported by the workflow engine.
+
+The plugin itself is responsible for reporting the process result and raising execution failures; the workflow engine owns workflow-level failure handling.

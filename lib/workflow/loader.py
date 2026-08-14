@@ -75,6 +75,5 @@ class WorkflowLoader:
         except Exception as exc:
 
             raise InvalidWorkflowError(
-                f"Unable to load workflow "
-                f"'{workflow}': {exc}",
+                f"Unable to load workflow " f"'{workflow}': {exc}",
             ) from exc

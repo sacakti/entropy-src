@@ -17,8 +17,9 @@ from lib.models.plugin import (
 from .exceptions import (
     PluginInvalidRequirementError,
     PluginManifestNotFoundError,
-    PluginVersionError
+    PluginVersionError,
 )
+
 
 class ManifestReader:
     """

@@ -4,21 +4,19 @@ Rich UI renderer.
 
 from __future__ import annotations
 
-from getpass import getpass
-from typing import Iterable, Optional, Sequence
 import os
 import subprocess
 import tempfile
+from getpass import getpass
 from pathlib import Path
-
+from typing import Iterable, Optional, Sequence
 
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 from rich.table import Table
-from rich.markdown import Markdown
-from rich.console import Console
 
 from .renderer import Renderer
 
@@ -164,9 +162,12 @@ class RichRenderer(Renderer):
             "vi",
         )
 
-        suffix = Path(
-            filename,
-        ).suffix or ".json"
+        suffix = (
+            Path(
+                filename,
+            ).suffix
+            or ".json"
+        )
 
         with tempfile.NamedTemporaryFile(
             mode="w",
@@ -196,8 +197,7 @@ class RichRenderer(Renderer):
             if result.returncode != 0:
 
                 raise RuntimeError(
-                    f"Editor '{editor}' exited with "
-                    f"status {result.returncode}.",
+                    f"Editor '{editor}' exited with " f"status {result.returncode}.",
                 )
 
             edited = path.read_text(

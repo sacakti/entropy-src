@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from cm_secret_update.exceptions import (
     UpdateFileError,
 )
@@ -139,9 +138,7 @@ def test_load_file_returns_configmap(
     assert resource.kind == "ConfigMap"
     assert resource.name == "application-config"
     assert resource.document["kind"] == "ConfigMap"
-    assert resource.document["metadata"]["name"] == (
-        "application-config"
-    )
+    assert resource.document["metadata"]["name"] == ("application-config")
 
     assert resource.target_file.path == path
     assert resource.target_file.documents == [

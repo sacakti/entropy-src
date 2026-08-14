@@ -1,9 +1,11 @@
 """
 Workflow exceptions.
 """
+
 from __future__ import annotations
 
 from core.exceptions import EntropyException
+
 
 class WorkflowError(
     EntropyException,
@@ -45,6 +47,7 @@ class WorkflowCancelledError(
     Raised when a workflow is cancelled by the user.
     """
 
+
 class WorkflowProcessNotRunningError(
     WorkflowError,
 ):
@@ -60,6 +63,7 @@ class WorkflowProcessNotRunningError(
         super().__init__(
             f"PID '{pid}' is not running.",
         )
+
 
 class WorkflowJobNotFoundError(
     WorkflowError,
@@ -77,19 +81,16 @@ class WorkflowJobNotFoundError(
             f"Workflow process '{pid}' was not found.",
         )
 
+
 class WorkflowNotMatchError(
     WorkflowError,
 ):
-    def __init__(
-            self,
-            workflow_name: str,
-            name: str
-        ) -> None:
+    def __init__(self, workflow_name: str, name: str) -> None:
 
-            super().__init__(
-                f"Workflow name '{workflow_name}' "
-                f"does not match registered workflow '{name}'.",
-            )
+        super().__init__(
+            f"Workflow name '{workflow_name}' " f"does not match registered workflow '{name}'.",
+        )
+
 
 class WorkflowAlreadyExistsError(
     WorkflowError,
@@ -107,6 +108,7 @@ class WorkflowAlreadyExistsError(
             f"Workflow '{name}' already exists.",
         )
 
+
 class WorkflowJobNotRunningError(
     WorkflowError,
 ):
@@ -123,6 +125,7 @@ class WorkflowJobNotRunningError(
             f"Job '{job_id}' is not running.",
         )
 
+
 class WorkflowJobIsNotPausedError(
     WorkflowError,
 ):
@@ -138,6 +141,7 @@ class WorkflowJobIsNotPausedError(
         super().__init__(
             f"Job '{job_id}' is not paused.",
         )
+
 
 class WorkflowInvalidTransitionError(
     WorkflowError,
@@ -156,6 +160,7 @@ class WorkflowInvalidTransitionError(
             f"Invalid workflow job transition: " f"'{current_state}' -> '{target_state}'.",
         )
 
+
 class WorkflowNotQueuedError(
     WorkflowError,
 ):
@@ -172,6 +177,7 @@ class WorkflowNotQueuedError(
             f"Workflow job '{job_id}' is not queued.",
         )
 
+
 class WorkflowProcessIDError(
     WorkflowError,
 ):
@@ -186,6 +192,7 @@ class WorkflowProcessIDError(
         super().__init__(
             "Process ID must be greater than zero.",
         )
+
 
 class WorkflowFileRequiredError(
     WorkflowError,
@@ -202,6 +209,7 @@ class WorkflowFileRequiredError(
             "Either a workflow name or workflow file is required.",
         )
 
+
 class WorkflowTooManyFilesError(
     WorkflowError,
 ):
@@ -214,9 +222,9 @@ class WorkflowTooManyFilesError(
     ) -> None:
 
         super().__init__(
-            "Specify either a workflow name or a workflow file, "
-            "not both.",
+            "Specify either a workflow name or a workflow file, " "not both.",
         )
+
 
 class WorkflowInvalidProvidedError(
     WorkflowError,
@@ -232,6 +240,7 @@ class WorkflowInvalidProvidedError(
         super().__init__(
             "Specify a workflow name or a workflow file.",
         )
+
 
 class WorkflowFormatError(
     WorkflowError,
@@ -255,6 +264,7 @@ class WorkflowJobIDRequiredError(
         super().__init__(
             "Workflow job has not been persisted.",
         )
+
 
 class WorkflowFileError(
     WorkflowError,
@@ -331,6 +341,7 @@ class WorkflowPathNotFileError(
             f"Workflow path is not a file: {path}",
         )
 
+
 class WorkflowInvalidTerminalError(
     WorkflowFileError,
 ):
@@ -344,8 +355,9 @@ class WorkflowInvalidTerminalError(
     ) -> None:
 
         super().__init__(
-           f"Invalid terminal state '{state}'.",
+            f"Invalid terminal state '{state}'.",
         )
+
 
 class WorkflowStepNotFoundError(
     WorkflowError,
@@ -378,9 +390,9 @@ class WorkflowStepRangeError(
     ) -> None:
 
         super().__init__(
-            f"Workflow step range is invalid: "
-            f"'{from_step}' -> '{to_step}'.",
+            f"Workflow step range is invalid: " f"'{from_step}' -> '{to_step}'.",
         )
+
 
 class WorkflowArgumentError(EntropyException):
     """Raised when workflow argument resolution fails."""

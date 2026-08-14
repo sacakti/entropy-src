@@ -1,13 +1,13 @@
 {
     "name": "shell",
     "version": "1.0.0",
-    "description": "Example workflow for builtin.shell",
+    "description": "Example workflow demonstrating the builtin.shell plugin and Entropy workflow capabilities.",
     "variables": {
         "name": "${entv:name}"
     },
     "steps": [
         {
-            "name": "Execute ShellPlugin",
+            "name": "ShellPlugin",
             "plugin": "builtin.shell",
             "enabled": true,
             "on_failure": "abort",
@@ -15,7 +15,7 @@
                 "shell"
             ],
             "arguments": {
-                "command": "echo I am \"$1\"",
+                "command": "echo Welcome \"$1\" to Entropy. Entropy is a deployment automation and workflow orchestration platform that brings plugins, workflows, variables, Vault integration, and reusable execution capabilities together to build composable and dynamic automation.",
                 "args": [
                     "${name}"
                 ]

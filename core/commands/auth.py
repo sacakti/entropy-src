@@ -4,8 +4,8 @@ Authentication command.
 
 from __future__ import annotations
 
-from argparse import ArgumentParser, Namespace
 import sys
+from argparse import ArgumentParser, Namespace
 
 from core.commands.base import BaseCommand, CommandMetadata
 

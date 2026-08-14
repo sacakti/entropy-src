@@ -343,8 +343,7 @@ class WorkflowVariableResolver:
             except Exception as exc:
 
                 raise VariableNotFoundError(
-                    f"Entropy Vault entry "
-                    f"'{key}' could not be resolved.",
+                    f"Entropy Vault entry " f"'{key}' could not be resolved.",
                 ) from exc
 
         return self._resolve_variable(

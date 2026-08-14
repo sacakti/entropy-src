@@ -9,8 +9,8 @@ from pathlib import Path
 
 from lib.database.connection import DatabaseConnection
 from lib.database.objects.vault import VaultEntriesTable
-from lib.models.vault import VaultEntry, VaultValueType
 from lib.database.repositories.vault import VaultRepository
+from lib.models.vault import VaultEntry, VaultValueType
 
 
 def main() -> None:

@@ -11,7 +11,8 @@ class VariableResolutionError(EntropyException):
     """
     Raised when a workflow variable cannot be resolved.
     """
-    def __init__(self,message):
+
+    def __init__(self, message):
         print(message)
 
 

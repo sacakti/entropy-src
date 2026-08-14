@@ -109,8 +109,7 @@ class WorkflowArgumentResolver:
             if len(parts) < 2:
 
                 raise WorkflowArgumentError(
-                    f"Variable reference '{reference}' "
-                    "must specify a variable name.",
+                    f"Variable reference '{reference}' " "must specify a variable name.",
                 )
 
             return self._lookup(
@@ -121,10 +120,7 @@ class WorkflowArgumentResolver:
 
         if parts[0] == "steps":
 
-            if (
-                len(parts) < 4
-                or parts[2] != "outputs"
-            ):
+            if len(parts) < 4 or parts[2] != "outputs":
 
                 raise WorkflowArgumentError(
                     f"Invalid step output reference "
@@ -141,8 +137,7 @@ class WorkflowArgumentResolver:
             if result is None:
 
                 raise WorkflowArgumentError(
-                    f"Step '{step_name}' has not produced "
-                    f"a result.",
+                    f"Step '{step_name}' has not produced " f"a result.",
                 )
 
             return self._lookup(
@@ -152,8 +147,7 @@ class WorkflowArgumentResolver:
             )
 
         raise WorkflowArgumentError(
-            f"Unsupported workflow reference "
-            f"'{reference}'.",
+            f"Unsupported workflow reference " f"'{reference}'.",
         )
 
     @staticmethod
@@ -180,8 +174,7 @@ class WorkflowArgumentResolver:
                 continue
 
             raise WorkflowArgumentError(
-                f"Unable to resolve reference "
-                f"'{reference}'.",
+                f"Unable to resolve reference " f"'{reference}'.",
             )
 
         return current

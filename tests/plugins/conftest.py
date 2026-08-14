@@ -1,13 +1,12 @@
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 from core.runtime.context import ExecutionContext
+from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 from lib.plugins.context import PluginContext
 from lib.plugins.mode import PluginMode
-from lib.models.plugin import PluginResult
 
 
 class DummyPlugin(BasePlugin):
@@ -22,12 +21,14 @@ class DummyPlugin(BasePlugin):
             },
         )
 
+
 class FailingPlugin(BasePlugin):
 
     def execute(self) -> PluginResult:
         raise RuntimeError(
             "plugin failure",
         )
+
 
 @pytest.fixture
 def entropy_context():

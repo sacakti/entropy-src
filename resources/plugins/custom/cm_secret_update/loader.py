@@ -5,7 +5,6 @@ ConfigMap/Secret update definition loader.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from .exceptions import UpdateFileError
 from .model import ConfigMapSecretUpdate
@@ -74,8 +73,7 @@ class ConfigMapSecretUpdateLoader:
         if not definitions:
 
             raise UpdateFileError(
-                f"No YAML update definitions found in "
-                f"'{directory}'.",
+                f"No YAML update definitions found in " f"'{directory}'.",
             )
 
         return definitions
@@ -113,8 +111,7 @@ class ConfigMapSecretUpdateLoader:
         except OSError as exc:
 
             raise UpdateFileError(
-                f"Unable to read source YAML file "
-                f"'{path}': {exc}",
+                f"Unable to read source YAML file " f"'{path}': {exc}",
             ) from exc
 
         try:
@@ -126,8 +123,7 @@ class ConfigMapSecretUpdateLoader:
         except Exception as exc:
 
             raise UpdateFileError(
-                f"Unable to parse source YAML file "
-                f"'{path}': {exc}",
+                f"Unable to parse source YAML file " f"'{path}': {exc}",
             ) from exc
 
         if documents is None:
@@ -162,8 +158,7 @@ class ConfigMapSecretUpdateLoader:
             except Exception as exc:
 
                 raise UpdateFileError(
-                    f"Invalid update definition in "
-                    f"'{path}' document {index}: {exc}",
+                    f"Invalid update definition in " f"'{path}' document {index}: {exc}",
                 ) from exc
 
             definitions.append(

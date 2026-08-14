@@ -24,10 +24,7 @@ class WorkflowCodecRegistry:
         codecs: list[WorkflowCodec],
     ) -> None:
 
-        self._codecs = {
-            codec.format.lower(): codec
-            for codec in codecs
-        }
+        self._codecs = {codec.format.lower(): codec for codec in codecs}
 
         self._extensions = {
             ".json": "json",

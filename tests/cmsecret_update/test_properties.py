@@ -8,10 +8,7 @@ def _updater() -> PropertiesUpdater:
 
 
 def test_updates_equals_separator() -> None:
-    content = (
-        "application.name=old\n"
-        "application.port=8080\n"
-    )
+    content = "application.name=old\n" "application.port=8080\n"
 
     result = _updater().update(
         content,
@@ -21,17 +18,11 @@ def test_updates_equals_separator() -> None:
         },
     )
 
-    assert result == (
-        "application.name=entropy\n"
-        "application.port=8081\n"
-    )
+    assert result == ("application.name=entropy\n" "application.port=8081\n")
 
 
 def test_updates_colon_separator() -> None:
-    content = (
-        "application.name:old\n"
-        "application.port:8080\n"
-    )
+    content = "application.name:old\n" "application.port:8080\n"
 
     result = _updater().update(
         content,
@@ -41,17 +32,11 @@ def test_updates_colon_separator() -> None:
         },
     )
 
-    assert result == (
-        "application.name:entropy\n"
-        "application.port:8081\n"
-    )
+    assert result == ("application.name:entropy\n" "application.port:8081\n")
 
 
 def test_updates_whitespace_separator() -> None:
-    content = (
-        "application.name old\n"
-        "application.port 8080\n"
-    )
+    content = "application.name old\n" "application.port 8080\n"
 
     result = _updater().update(
         content,
@@ -61,18 +46,11 @@ def test_updates_whitespace_separator() -> None:
         },
     )
 
-    assert result == (
-        "application.name entropy\n"
-        "application.port 8081\n"
-    )
+    assert result == ("application.name entropy\n" "application.port 8081\n")
 
 
 def test_preserves_comments() -> None:
-    content = (
-        "# Application configuration\n"
-        "! Another comment\n"
-        "application.name=old\n"
-    )
+    content = "# Application configuration\n" "! Another comment\n" "application.name=old\n"
 
     result = _updater().update(
         content,
@@ -82,19 +60,12 @@ def test_preserves_comments() -> None:
     )
 
     assert result == (
-        "# Application configuration\n"
-        "! Another comment\n"
-        "application.name=entropy\n"
+        "# Application configuration\n" "! Another comment\n" "application.name=entropy\n"
     )
 
 
 def test_preserves_blank_lines() -> None:
-    content = (
-        "application.name=old\n"
-        "\n"
-        "\n"
-        "application.port=8080\n"
-    )
+    content = "application.name=old\n" "\n" "\n" "application.port=8080\n"
 
     result = _updater().update(
         content,
@@ -103,18 +74,11 @@ def test_preserves_blank_lines() -> None:
         },
     )
 
-    assert result == (
-        "application.name=entropy\n"
-        "\n"
-        "\n"
-        "application.port=8080\n"
-    )
+    assert result == ("application.name=entropy\n" "\n" "\n" "application.port=8080\n")
 
 
 def test_adds_missing_properties() -> None:
-    content = (
-        "application.name=old\n"
-    )
+    content = "application.name=old\n"
 
     result = _updater().update(
         content,
@@ -124,16 +88,11 @@ def test_adds_missing_properties() -> None:
         },
     )
 
-    assert result == (
-        "application.name=entropy\n"
-        "application.port=8081\n"
-    )
+    assert result == ("application.name=entropy\n" "application.port=8081\n")
 
 
 def test_does_not_duplicate_existing_property() -> None:
-    content = (
-        "application.name=old\n"
-    )
+    content = "application.name=old\n"
 
     result = _updater().update(
         content,
@@ -142,16 +101,11 @@ def test_does_not_duplicate_existing_property() -> None:
         },
     )
 
-    assert result == (
-        "application.name=entropy\n"
-    )
+    assert result == ("application.name=entropy\n")
 
 
 def test_preserves_unmanaged_properties() -> None:
-    content = (
-        "application.name=old\n"
-        "application.debug=true\n"
-    )
+    content = "application.name=old\n" "application.debug=true\n"
 
     result = _updater().update(
         content,
@@ -160,17 +114,11 @@ def test_preserves_unmanaged_properties() -> None:
         },
     )
 
-    assert result == (
-        "application.name=entropy\n"
-        "application.debug=true\n"
-    )
+    assert result == ("application.name=entropy\n" "application.debug=true\n")
 
 
 def test_handles_crlf_newlines() -> None:
-    content = (
-        "application.name=old\r\n"
-        "application.port=8080\r\n"
-    )
+    content = "application.name=old\r\n" "application.port=8080\r\n"
 
     result = _updater().update(
         content,
@@ -179,10 +127,7 @@ def test_handles_crlf_newlines() -> None:
         },
     )
 
-    assert result == (
-        "application.name=entropy\r\n"
-        "application.port=8080\r\n"
-    )
+    assert result == ("application.name=entropy\r\n" "application.port=8080\r\n")
 
 
 def test_handles_line_without_trailing_newline() -> None:
@@ -208,17 +153,11 @@ def test_adds_missing_property_with_newline() -> None:
         },
     )
 
-    assert result == (
-        "application.name=old"
-        "application.port=8081\n"
-    )
+    assert result == ("application.name=old" "application.port=8081\n")
 
 
 def test_ignores_unparseable_lines() -> None:
-    content = (
-        "this-is-not-a-property\n"
-        "application.name=old\n"
-    )
+    content = "this-is-not-a-property\n" "application.name=old\n"
 
     result = _updater().update(
         content,
@@ -227,17 +166,11 @@ def test_ignores_unparseable_lines() -> None:
         },
     )
 
-    assert result == (
-        "this-is-not-a-property\n"
-        "application.name=entropy\n"
-    )
+    assert result == ("this-is-not-a-property\n" "application.name=entropy\n")
 
 
 def test_handles_escaped_separator() -> None:
-    content = (
-        r"application\.name=old"
-        "\n"
-    )
+    content = r"application\.name=old" "\n"
 
     result = _updater().update(
         content,
@@ -246,16 +179,11 @@ def test_handles_escaped_separator() -> None:
         },
     )
 
-    assert result == (
-        r"application\.name=entropy"
-        "\n"
-    )
+    assert result == (r"application\.name=entropy" "\n")
 
 
 def test_first_unescaped_separator_is_used() -> None:
-    content = (
-        "application.name=old=value\n"
-    )
+    content = "application.name=old=value\n"
 
     result = _updater().update(
         content,
@@ -264,9 +192,7 @@ def test_first_unescaped_separator_is_used() -> None:
         },
     )
 
-    assert result == (
-        "application.name=entropy\n"
-    )
+    assert result == ("application.name=entropy\n")
 
 
 def test_empty_content_adds_properties() -> None:
@@ -278,17 +204,11 @@ def test_empty_content_adds_properties() -> None:
         },
     )
 
-    assert result == (
-        "application.name=entropy\n"
-        "application.port=8081\n"
-    )
+    assert result == ("application.name=entropy\n" "application.port=8081\n")
 
 
 def test_empty_entries_preserves_content() -> None:
-    content = (
-        "# comment\n"
-        "application.name=entropy\n"
-    )
+    content = "# comment\n" "application.name=entropy\n"
 
     result = _updater().update(
         content,

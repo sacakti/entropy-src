@@ -37,19 +37,19 @@ from lib.migrations.manager import MigrationManager
 from lib.plugins.manager import PluginManager
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
-from lib.workflow.jobs.manager import WorkflowJobManager
-from lib.workflow.jobs.sink import WorkflowEventSink
-from lib.workflow.manager import WorkflowManager
-from lib.workflow.runner import WorkflowRunner
 from lib.vault import (
     VaultKeyProvider,
     VaultManager,
-    VaultSerializer,
     VaultRepository,
+    VaultSerializer,
 )
 from lib.workflow.codec.json import JsonWorkflowCodec
 from lib.workflow.codec.registry import WorkflowCodecRegistry
 from lib.workflow.codec.yaml import YamlWorkflowCodec
+from lib.workflow.jobs.manager import WorkflowJobManager
+from lib.workflow.jobs.sink import WorkflowEventSink
+from lib.workflow.manager import WorkflowManager
+from lib.workflow.runner import WorkflowRunner
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTROPY_HOME = Path.home() / ".entropy"

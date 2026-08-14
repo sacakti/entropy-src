@@ -24,6 +24,7 @@ from __future__ import annotations
 import re
 import shlex
 from pathlib import Path
+
 from lib.plugins.base import BasePlugin
 
 
@@ -33,22 +34,15 @@ class ImageTransferPlugin(BasePlugin):
     """
 
     DOCKER_COMMAND_PATTERN = re.compile(
-        r"^\s*docker\s+"
-        r"(?P<operation>login|pull|tag|push)\b"
-        r"(?P<arguments>.*)$"
+        r"^\s*docker\s+" r"(?P<operation>login|pull|tag|push)\b" r"(?P<arguments>.*)$"
     )
 
     OC_APPLY_PATTERN = re.compile(
-        r"^(?P<indent>\s*)"
-        r"oc\s+apply\s+-f\s+"
-        r"(?P<path>\S+)"
-        r"(?P<trailing>\s*)$",
-        re.MULTILINE
+        r"^(?P<indent>\s*)" r"oc\s+apply\s+-f\s+" r"(?P<path>\S+)" r"(?P<trailing>\s*)$",
+        re.MULTILINE,
     )
 
-    OC_LOGIN_PATTERN = re.compile(
-        r"^\s*oc\s+login\b"
-    )
+    OC_LOGIN_PATTERN = re.compile(r"^\s*oc\s+login\b")
 
     YAML_SUFFIXES = {
         ".yaml",
@@ -66,9 +60,7 @@ class ImageTransferPlugin(BasePlugin):
         Execute the image transfer workflow.
         """
 
-        self.message.info(
-            "Starting image transfer preparation."
-        )
+        self.message.info("Starting image transfer preparation.")
 
         try:
 
@@ -78,17 +70,15 @@ class ImageTransferPlugin(BasePlugin):
 
                 self._execute()
 
-        except Exception as exc:
+        except Exception:
 
-            self.message.error(
-                str(exc),
-            )
+            # self.message.error(
+            #     str(exc),
+            # )
 
             raise
 
-        self.message.success(
-            "Image transfer preparation completed successfully."
-        )
+        self.message.success("Image transfer preparation completed successfully.")
 
     # ------------------------------------------------------------------
     # Main workflow
@@ -147,10 +137,7 @@ class ImageTransferPlugin(BasePlugin):
         assert min_free_storage_gb is not None
 
         if min_free_storage_gb <= 0:
-            raise ValueError(
-                "Argument 'min_free_storage_gb' must be "
-                "greater than zero."
-            )
+            raise ValueError("Argument 'min_free_storage_gb' must be " "greater than zero.")
 
         old_image_pattern = self.arguments.string(
             "old_image_pattern",
@@ -189,31 +176,21 @@ class ImageTransferPlugin(BasePlugin):
         #
 
         self.outputs["configuration"] = {
-            "release_scripts_directory": (
-                release_scripts_directory
-            ),
+            "release_scripts_directory": (release_scripts_directory),
             "transfer_script": transfer_script_name,
             "apply_script": apply_script_name,
             "release_base_path": str(
                 release_base_path,
             ),
-            "min_free_storage_gb": (
-                min_free_storage_gb
-            ),
+            "min_free_storage_gb": (min_free_storage_gb),
             "old_image_pattern": old_image_pattern,
-            "cleanup_builder_cache": (
-                cleanup_builder_cache
-            ),
+            "cleanup_builder_cache": (cleanup_builder_cache),
             "skip_docker": skip_docker,
             "validate_yaml": validate_yaml,
-            "force_remove_processed": (
-                force_remove_processed
-            ),
+            "force_remove_processed": (force_remove_processed),
         }
 
-        self.log.info(
-            "Image transfer configuration resolved."
-        )
+        self.log.info("Image transfer configuration resolved.")
 
         #
         # Extract release.
@@ -244,10 +221,8 @@ class ImageTransferPlugin(BasePlugin):
         # Parse image transfer commands.
         #
 
-        docker_commands = (
-            self._read_transfer_commands(
-                transfer_script,
-            )
+        docker_commands = self._read_transfer_commands(
+            transfer_script,
         )
 
         #
@@ -256,14 +231,9 @@ class ImageTransferPlugin(BasePlugin):
 
         if skip_docker:
 
-            self.message.warning(
-                "Docker prerequisite checks and image "
-                "transfer are skipped."
-            )
+            self.message.warning("Docker prerequisite checks and image " "transfer are skipped.")
 
-            self.outputs[
-                "docker_skipped"
-            ] = True
+            self.outputs["docker_skipped"] = True
 
         else:
 
@@ -293,9 +263,7 @@ class ImageTransferPlugin(BasePlugin):
                 docker_commands,
             )
 
-            self.outputs[
-                "docker_skipped"
-            ] = False
+            self.outputs["docker_skipped"] = False
 
         #
         # Prepare apply_yaml.sh.
@@ -308,40 +276,29 @@ class ImageTransferPlugin(BasePlugin):
         # /home/devops path has been replaced.
         #
 
-        prepared_apply_script, yaml_paths = (
-            self._prepare_apply_script(
-                apply_script,
-                extracted_release,
-                release_base_path,
-                validate_yaml,
-            )
+        prepared_apply_script, yaml_paths = self._prepare_apply_script(
+            apply_script,
+            extracted_release,
+            release_base_path,
+            validate_yaml,
         )
 
         #
         # Outputs.
         #
 
-        self.outputs["image_transfer"] = (
-            not skip_docker
-        )
+        self.outputs["image_transfer"] = not skip_docker
 
-        self.outputs["cleanup_performed"] = (
-            self.outputs.get(
-                "cleanup_performed",
-                False,
-            )
+        self.outputs["cleanup_performed"] = self.outputs.get(
+            "cleanup_performed",
+            False,
         )
 
         self.outputs["yaml_script_prepared"] = True
 
-        self.outputs[
-            "yaml_validation_enabled"
-        ] = validate_yaml
+        self.outputs["yaml_validation_enabled"] = validate_yaml
 
-        self.outputs["yaml_paths"] = [
-            str(path)
-            for path in yaml_paths
-        ]
+        self.outputs["yaml_paths"] = [str(path) for path in yaml_paths]
 
         self.outputs["release_path"] = str(
             extracted_release,
@@ -351,19 +308,11 @@ class ImageTransferPlugin(BasePlugin):
         # Artifacts.
         #
 
-        self.artifacts["release"] = (
-            extracted_release
-        )
+        self.artifacts["release"] = extracted_release
 
-        self.artifacts["apply_yaml_script"] = (
-            prepared_apply_script
-        )
+        self.artifacts["apply_yaml_script"] = prepared_apply_script
 
-        self.message.success(
-            f"Prepared release directory: "
-            f"{extracted_release}"
-        )
-
+        self.message.success(f"Prepared release directory: " f"{extracted_release}")
 
     # ------------------------------------------------------------------
     # Release
@@ -378,24 +327,15 @@ class ImageTransferPlugin(BasePlugin):
         if not self.filesystem.exists(
             release,
         ):
-            raise FileNotFoundError(
-                "Release archive not found: "
-                f"{release}"
-            )
+            raise FileNotFoundError("Release archive not found: " f"{release}")
 
         if not self.filesystem.is_file(
             release,
         ):
-            raise ValueError(
-                "Release path is not a file: "
-                f"{release}"
-            )
+            raise ValueError("Release path is not a file: " f"{release}")
 
         if release.suffix.lower() != ".zip":
-            raise ValueError(
-                "Release path must be a ZIP archive: "
-                f"{release}"
-            )
+            raise ValueError("Release path must be a ZIP archive: " f"{release}")
 
         return release
 
@@ -418,11 +358,7 @@ class ImageTransferPlugin(BasePlugin):
         before extraction.
         """
 
-        destination = (
-            release
-            .with_suffix("")
-            .resolve()
-        )
+        destination = release.with_suffix("").resolve()
 
         if self.filesystem.exists(
             destination,
@@ -431,9 +367,7 @@ class ImageTransferPlugin(BasePlugin):
             if not force_remove_processed:
 
                 raise FileExistsError(
-                    "Release extraction directory "
-                    "already exists: "
-                    f"{destination}"
+                    "Release extraction directory " "already exists: " f"{destination}"
                 )
 
             with self.activity(
@@ -444,11 +378,7 @@ class ImageTransferPlugin(BasePlugin):
                     destination,
                 )
 
-            self.message.info(
-                "Removed previous extracted release: "
-                f"{destination}"
-            )
-
+            self.message.info("Removed previous extracted release: " f"{destination}")
 
         with self.activity(
             "Extract release",
@@ -463,25 +393,13 @@ class ImageTransferPlugin(BasePlugin):
             extracted,
         ):
 
-            raise RuntimeError(
-                f"Release extraction failed: "
-                f"{extracted}"
-            )
+            raise RuntimeError(f"Release extraction failed: " f"{extracted}")
 
-        extracted = (
-            extracted
-            .resolve()
-        )
+        extracted = extracted.resolve()
 
-        self.outputs[
-            "force_remove_processed"
-        ] = force_remove_processed
+        self.outputs["force_remove_processed"] = force_remove_processed
 
-        self.message.info(
-            "Release extracted to: "
-            f"{extracted}"
-        )
-
+        self.message.info("Release extracted to: " f"{extracted}")
 
         return extracted
 
@@ -495,33 +413,21 @@ class ImageTransferPlugin(BasePlugin):
         Locate a required deployment script.
         """
 
-        scripts_root = (
-            release_root
-            / Path(scripts_directory)
-        )
+        scripts_root = release_root / Path(scripts_directory)
 
-        script = (
-            scripts_root
-            / script_name
-        )
+        script = scripts_root / script_name
 
         if not self.filesystem.exists(
             script,
         ):
 
-            raise FileNotFoundError(
-                "Required release script not found: "
-                f"{script}"
-            )
+            raise FileNotFoundError("Required release script not found: " f"{script}")
 
         if not self.filesystem.is_file(
             script,
         ):
 
-            raise ValueError(
-                f"Release script is not a file: "
-                f"{script}"
-            )
+            raise ValueError(f"Release script is not a file: " f"{script}")
 
         return script
 
@@ -541,27 +447,17 @@ class ImageTransferPlugin(BasePlugin):
             "Prepare image transfer script",
         ):
 
-            content = (
-                self.filesystem.read_text(
-                    script,
-                )
+            content = self.filesystem.read_text(
+                script,
             )
 
-            commands = (
-                self._extract_docker_commands(
-                    content,
-                )
+            commands = self._extract_docker_commands(
+                content,
             )
 
-            self._validate_docker_sequence(
-                commands,
-                script
-            )
+            self._validate_docker_sequence(commands, script)
 
-        self.message.info(
-            f"Found {len(commands)} Docker "
-            f"command(s) in '{script.name}'."
-        )
+        self.message.info(f"Found {len(commands)} Docker " f"command(s) in '{script.name}'.")
 
         return commands
 
@@ -585,10 +481,7 @@ class ImageTransferPlugin(BasePlugin):
 
             stripped = line.strip()
 
-            if (
-                not stripped
-                or stripped.startswith("#")
-            ):
+            if not stripped or stripped.startswith("#"):
 
                 continue
 
@@ -610,15 +503,10 @@ class ImageTransferPlugin(BasePlugin):
             except ValueError as exc:
 
                 raise ValueError(
-                    "Invalid shell syntax in "
-                    "image_transfer.sh at line "
-                    f"{line_number}: {exc}"
+                    "Invalid shell syntax in " "image_transfer.sh at line " f"{line_number}: {exc}"
                 ) from exc
 
-            if (
-                len(command) < 2
-                or command[0] != "docker"
-            ):
+            if len(command) < 2 or command[0] != "docker":
 
                 continue
 
@@ -661,9 +549,7 @@ class ImageTransferPlugin(BasePlugin):
                 if len(command) < 3:
 
                     raise ValueError(
-                        "Docker login command is missing "
-                        "the registry at line "
-                        f"{line_number}."
+                        "Docker login command is missing " "the registry at line " f"{line_number}."
                     )
 
             commands.append(
@@ -680,9 +566,7 @@ class ImageTransferPlugin(BasePlugin):
         Join shell lines continued with a backslash.
         """
 
-        result: list[
-            tuple[int, str]
-        ] = []
+        result: list[tuple[int, str]] = []
 
         current = ""
 
@@ -704,10 +588,7 @@ class ImageTransferPlugin(BasePlugin):
 
             if line.endswith("\\"):
 
-                current += (
-                    line[:-1].rstrip()
-                    + " "
-                )
+                current += line[:-1].rstrip() + " "
 
                 continue
 
@@ -733,11 +614,7 @@ class ImageTransferPlugin(BasePlugin):
 
         return result
 
-    def _validate_docker_sequence(
-        self,
-        commands: list[list[str]],
-        script: str
-    ) -> None:
+    def _validate_docker_sequence(self, commands: list[list[str]], script: str) -> None:
         """
         Validate broad Docker operation ordering.
 
@@ -749,15 +626,9 @@ class ImageTransferPlugin(BasePlugin):
 
         if not commands:
 
-            raise ValueError(
-                "No supported Docker commands were found "
-                f"in {script}."
-            )
+            raise ValueError("No supported Docker commands were found " f"in {script}.")
 
-        operations = [
-            command[1]
-            for command in commands
-        ]
+        operations = [command[1] for command in commands]
 
         required_operations = {
             "login",
@@ -766,10 +637,7 @@ class ImageTransferPlugin(BasePlugin):
             "push",
         }
 
-        missing = (
-            required_operations
-            - set(operations)
-        )
+        missing = required_operations - set(operations)
 
         if missing:
 
@@ -779,31 +647,20 @@ class ImageTransferPlugin(BasePlugin):
                 f"{', '.join(sorted(missing))}."
             )
 
-        first_pull = (
-            operations.index("pull")
-        )
+        first_pull = operations.index("pull")
 
-        first_tag = (
-            operations.index("tag")
-        )
+        first_tag = operations.index("tag")
 
-        first_push = (
-            operations.index("push")
-        )
+        first_push = operations.index("push")
 
         #
         # Login must happen before the
         # first pull.
         #
 
-        if "login" not in (
-            operations[:first_pull]
-        ):
+        if "login" not in (operations[:first_pull]):
 
-            raise ValueError(
-                "image_transfer.sh must contain "
-                "a Docker login before Docker pull."
-            )
+            raise ValueError("image_transfer.sh must contain " "a Docker login before Docker pull.")
 
         #
         # Tag must happen after pull.
@@ -811,10 +668,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if first_tag <= first_pull:
 
-            raise ValueError(
-                "Docker tag must occur after "
-                "Docker pull."
-            )
+            raise ValueError("Docker tag must occur after " "Docker pull.")
 
         #
         # Push must happen after tag.
@@ -822,10 +676,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if first_push <= first_tag:
 
-            raise ValueError(
-                "Docker push must occur after "
-                "Docker tag."
-            )
+            raise ValueError("Docker push must occur after " "Docker tag.")
 
     # ------------------------------------------------------------------
     # Docker prerequisites
@@ -883,16 +734,11 @@ class ImageTransferPlugin(BasePlugin):
                     f"{info_result.stderr or info_result.stdout}"
                 )
 
-            docker_root_text = (
-                info_result.stdout.strip()
-            )
+            docker_root_text = info_result.stdout.strip()
 
             if not docker_root_text:
 
-                raise RuntimeError(
-                    "Docker returned an empty Docker "
-                    "root directory."
-                )
+                raise RuntimeError("Docker returned an empty Docker " "root directory.")
 
             docker_root = Path(
                 docker_root_text,
@@ -914,39 +760,22 @@ class ImageTransferPlugin(BasePlugin):
                     f"{filesystem_result.stderr or filesystem_result.stdout}"
                 )
 
-            free_bytes = (
-                self._parse_df_free_bytes(
-                    filesystem_result.stdout,
-                )
+            free_bytes = self._parse_df_free_bytes(
+                filesystem_result.stdout,
             )
 
-            minimum_free_storage_bytes = int(
-                min_free_storage_gb
-                * 1024
-                * 1024
-                * 1024
-            )
+            minimum_free_storage_bytes = int(min_free_storage_gb * 1024 * 1024 * 1024)
 
-            self.outputs[
-                "docker_storage"
-            ] = {
+            self.outputs["docker_storage"] = {
                 "docker_root": str(
                     docker_root,
                 ),
                 "free_bytes": free_bytes,
-                "free_gb": (
-                    free_bytes
-                    / (1024**3)
-                ),
-                "minimum_required_gb": (
-                    min_free_storage_gb
-                ),
+                "free_gb": (free_bytes / (1024**3)),
+                "minimum_required_gb": (min_free_storage_gb),
             }
 
-            if (
-                free_bytes
-                < minimum_free_storage_bytes
-            ):
+            if free_bytes < minimum_free_storage_bytes:
 
                 message = (
                     "Docker filesystem has less than "
@@ -979,27 +808,17 @@ class ImageTransferPlugin(BasePlugin):
         in 1024-byte blocks.
         """
 
-        lines = [
-            line
-            for line in output.splitlines()
-            if line.strip()
-        ]
+        lines = [line for line in output.splitlines() if line.strip()]
 
         if len(lines) < 2:
 
-            raise ValueError(
-                f"Unexpected df output: {output!r}"
-            )
+            raise ValueError(f"Unexpected df output: {output!r}")
 
-        fields = (
-            lines[-1].split()
-        )
+        fields = lines[-1].split()
 
         if len(fields) < 4:
 
-            raise ValueError(
-                f"Unexpected df output: {output!r}"
-            )
+            raise ValueError(f"Unexpected df output: {output!r}")
 
         try:
 
@@ -1010,9 +829,7 @@ class ImageTransferPlugin(BasePlugin):
         except ValueError as exc:
 
             raise ValueError(
-                "Invalid available-space value "
-                "in df output: "
-                f"{fields[3]!r}"
+                "Invalid available-space value " "in df output: " f"{fields[3]!r}"
             ) from exc
 
         return available_kib * 1024
@@ -1036,9 +853,7 @@ class ImageTransferPlugin(BasePlugin):
             dict,
         ):
 
-            raise RuntimeError(
-                "Docker storage state is unavailable."
-            )
+            raise RuntimeError("Docker storage state is unavailable.")
 
         free_bytes = storage.get(
             "free_bytes",
@@ -1049,25 +864,13 @@ class ImageTransferPlugin(BasePlugin):
             int,
         ):
 
-            raise RuntimeError(
-                "Docker storage state is unavailable."
-            )
+            raise RuntimeError("Docker storage state is unavailable.")
 
-        minimum_free_storage_bytes = int(
-            min_free_storage_gb
-            * 1024
-            * 1024
-            * 1024
-        )
+        minimum_free_storage_bytes = int(min_free_storage_gb * 1024 * 1024 * 1024)
 
-        if (
-            free_bytes
-            >= minimum_free_storage_bytes
-        ):
+        if free_bytes >= minimum_free_storage_bytes:
 
-            self.outputs[
-                "cleanup_performed"
-            ] = False
+            self.outputs["cleanup_performed"] = False
 
             return
 
@@ -1087,14 +890,12 @@ class ImageTransferPlugin(BasePlugin):
             if result.failed:
 
                 raise RuntimeError(
-                    "Unable to list Docker images: "
-                    f"{result.stderr or result.stdout}"
+                    "Unable to list Docker images: " f"{result.stderr or result.stdout}"
                 )
 
             images = [
                 image.strip()
-                for image
-                in result.stdout.splitlines()
+                for image in result.stdout.splitlines()
                 if (
                     image.strip()
                     and old_image_pattern.search(
@@ -1105,27 +906,20 @@ class ImageTransferPlugin(BasePlugin):
 
             if not images:
 
-                self.message.warning(
-                    "No matching old Docker images "
-                    "were found for cleanup."
-                )
+                self.message.warning("No matching old Docker images " "were found for cleanup.")
 
-                self.outputs[
-                    "cleanup_performed"
-                ] = False
+                self.outputs["cleanup_performed"] = False
 
                 return
 
             for image in images:
 
-                remove_result = (
-                    self.shell.run(
-                        [
-                            "docker",
-                            "rmi",
-                            image,
-                        ],
-                    )
+                remove_result = self.shell.run(
+                    [
+                        "docker",
+                        "rmi",
+                        image,
+                    ],
                 )
 
                 if remove_result.failed:
@@ -1136,15 +930,9 @@ class ImageTransferPlugin(BasePlugin):
                         f"{remove_result.stderr or remove_result.stdout}"
                     )
 
-            self.outputs[
-                "cleanup_performed"
-            ] = True
+            self.outputs["cleanup_performed"] = True
 
-            self.message.info(
-                f"Removed {len(images)} old "
-                "Docker image(s)."
-            )
-
+            self.message.info(f"Removed {len(images)} old " "Docker image(s).")
 
     def _cleanup_builder_cache(
         self,
@@ -1192,10 +980,8 @@ class ImageTransferPlugin(BasePlugin):
 
         for command in commands:
 
-            activity_name = (
-                self._docker_activity_name(
-                    command,
-                )
+            activity_name = self._docker_activity_name(
+                command,
             )
 
             with self.activity(
@@ -1208,17 +994,11 @@ class ImageTransferPlugin(BasePlugin):
 
                 if result.stdout:
 
-                    self.log.info(
-                        "Docker stdout:\n"
-                        f"{result.stdout}"
-                    )
+                    self.log.info("Docker stdout:\n" f"{result.stdout}")
 
                 if result.stderr:
 
-                    self.log.warning(
-                        "Docker stderr:\n"
-                        f"{result.stderr}"
-                    )
+                    self.log.warning("Docker stderr:\n" f"{result.stderr}")
 
                 if result.failed:
 
@@ -1243,15 +1023,9 @@ class ImageTransferPlugin(BasePlugin):
 
         if operation == "login":
 
-            registry = (
-                command[2]
-                if len(command) > 2
-                else "registry"
-            )
+            registry = command[2] if len(command) > 2 else "registry"
 
-            return (
-                f"Docker login to {registry}"
-            )
+            return f"Docker login to {registry}"
 
         if operation == "pull":
 
@@ -1277,11 +1051,7 @@ class ImageTransferPlugin(BasePlugin):
             source = command[2]
             destination = command[3]
 
-            return (
-                f"Tagging "
-                f"{self._docker_image_name(source)} "
-                f"→ {destination}"
-            )
+            return f"Tagging " f"{self._docker_image_name(source)} " f"→ {destination}"
 
         if operation == "push":
 
@@ -1298,9 +1068,7 @@ class ImageTransferPlugin(BasePlugin):
                 f"{self._docker_registry(image)}"
             )
 
-        return (
-            f"Docker {operation}"
-        )
+        return f"Docker {operation}"
 
     @staticmethod
     def _docker_image_name(
@@ -1311,17 +1079,13 @@ class ImageTransferPlugin(BasePlugin):
         the registry.
         """
 
-        without_digest = (
-            image.split(
-                "@",
-                1,
-            )[0]
-        )
+        without_digest = image.split(
+            "@",
+            1,
+        )[0]
 
-        parts = (
-            without_digest.split(
-                "/",
-            )
+        parts = without_digest.split(
+            "/",
         )
 
         if len(parts) <= 1:
@@ -1330,11 +1094,7 @@ class ImageTransferPlugin(BasePlugin):
 
         first = parts[0]
 
-        if (
-            "." in first
-            or ":" in first
-            or first == "localhost"
-        ):
+        if "." in first or ":" in first or first == "localhost":
 
             return "/".join(
                 parts[1:],
@@ -1361,11 +1121,7 @@ class ImageTransferPlugin(BasePlugin):
 
         first = parts[0]
 
-        if (
-            "." in first
-            or ":" in first
-            or first == "localhost"
-        ):
+        if "." in first or ":" in first or first == "localhost":
 
             return first
 
@@ -1410,27 +1166,19 @@ class ImageTransferPlugin(BasePlugin):
             "Prepare deployment YAML script",
         ):
 
-            original = (
-                self.filesystem.read_text(
-                    script,
-                )
+            original = self.filesystem.read_text(
+                script,
             )
 
-            prepared, yaml_paths = (
-                self._transform_apply_script(
-                    original,
-                    release_root,
-                    release_base_path,
-                )
+            prepared, yaml_paths = self._transform_apply_script(
+                original,
+                release_root,
+                release_base_path,
             )
 
             if not yaml_paths:
 
-                raise ValueError(
-                    "Could not find any "
-                    "'oc apply -f' command "
-                    f"in '{script}'."
-                )
+                raise ValueError("Could not find any " "'oc apply -f' command " f"in '{script}'.")
 
             #
             # Validate the transformed script
@@ -1457,10 +1205,7 @@ class ImageTransferPlugin(BasePlugin):
 
             else:
 
-                self.message.info(
-                    "Deployment YAML path "
-                    "validation skipped."
-                )
+                self.message.info("Deployment YAML path " "validation skipped.")
 
             #
             # Use the Plugin SDK filesystem API.
@@ -1472,11 +1217,8 @@ class ImageTransferPlugin(BasePlugin):
             )
 
         self.message.info(
-            f"Prepared '{script.name}' with "
-            f"{len(yaml_paths)} deployment "
-            "YAML path(s)."
+            f"Prepared '{script.name}' with " f"{len(yaml_paths)} deployment " "YAML path(s)."
         )
-
 
         return (
             script,
@@ -1510,9 +1252,7 @@ class ImageTransferPlugin(BasePlugin):
                 "\r\n",
             )
 
-            newline = raw_line[
-                len(line):
-            ]
+            newline = raw_line[len(line) :]
 
             stripped = line.strip()
 
@@ -1535,12 +1275,7 @@ class ImageTransferPlugin(BasePlugin):
                 stripped,
             ):
 
-                indentation = (
-                    line[
-                        : len(line)
-                        - len(line.lstrip())
-                    ]
-                )
+                indentation = line[: len(line) - len(line.lstrip())]
 
                 try:
 
@@ -1550,16 +1285,13 @@ class ImageTransferPlugin(BasePlugin):
 
                 except ValueError as exc:
 
-                    raise ValueError(
-                        "Invalid shell syntax in "
-                        "apply_yaml.sh: "
-                        f"{exc}"
-                    ) from exc
+                    raise ValueError("Invalid shell syntax in " "apply_yaml.sh: " f"{exc}") from exc
 
                 tokens = [
                     token
                     for token in tokens
-                    if token not in {
+                    if token
+                    not in {
                         "$1",
                         "$2",
                     }
@@ -1570,11 +1302,7 @@ class ImageTransferPlugin(BasePlugin):
                     "login",
                 ]:
 
-                    output.append(
-                        f"{indentation}"
-                        f"{shlex.join(tokens)}"
-                        f"{newline}"
-                    )
+                    output.append(f"{indentation}" f"{shlex.join(tokens)}" f"{newline}")
 
                     continue
 
@@ -1582,10 +1310,8 @@ class ImageTransferPlugin(BasePlugin):
             # Rewrite oc apply paths.
             #
 
-            match = (
-                self.OC_APPLY_PATTERN.match(
-                    line,
-                )
+            match = self.OC_APPLY_PATTERN.match(
+                line,
             )
 
             if match is None:
@@ -1596,16 +1322,12 @@ class ImageTransferPlugin(BasePlugin):
 
                 continue
 
-            original_path = (
-                match.group("path")
-            )
+            original_path = match.group("path")
 
-            updated_path = (
-                self._rewrite_apply_path(
-                    original_path,
-                    release_root,
-                    base,
-                )
+            updated_path = self._rewrite_apply_path(
+                original_path,
+                release_root,
+                base,
             )
 
             resolved_path = (
@@ -1654,11 +1376,8 @@ class ImageTransferPlugin(BasePlugin):
         base = release_base_path.rstrip("/")
         normalized = original_path.rstrip("/")
 
-        if (
-            normalized != base
-            and not normalized.startswith(
-                f"{base}/",
-            )
+        if normalized != base and not normalized.startswith(
+            f"{base}/",
         ):
             raise ValueError(
                 "Unexpected oc apply path. "
@@ -1666,30 +1385,14 @@ class ImageTransferPlugin(BasePlugin):
                 f"'{base}': {original_path}"
             )
 
-        relative_part = (
-            normalized[len(base):]
-            .lstrip("/")
-        )
+        relative_part = normalized[len(base) :].lstrip("/")
 
         if not relative_part:
-            raise ValueError(
-                "oc apply path points directly to "
-                f"'{base}', which is not valid."
-            )
+            raise ValueError("oc apply path points directly to " f"'{base}', which is not valid.")
 
-        target = (
-            release_root
-            / relative_part
-        )
+        target = release_root / relative_part
 
-        return (
-            str(target)
-            + (
-                "/"
-                if original_path.endswith("/")
-                else ""
-            )
-        )
+        return str(target) + ("/" if original_path.endswith("/") else "")
 
     @staticmethod
     def _is_git_command(
@@ -1699,10 +1402,7 @@ class ImageTransferPlugin(BasePlugin):
         Return True for a standalone git command.
         """
 
-        if (
-            not line
-            or line.startswith("#")
-        ):
+        if not line or line.startswith("#"):
 
             return False
 
@@ -1716,10 +1416,7 @@ class ImageTransferPlugin(BasePlugin):
 
             return False
 
-        return bool(
-            tokens
-            and tokens[0] == "git"
-        )
+        return bool(tokens and tokens[0] == "git")
 
     def _validate_prepared_apply_script(
         self,
@@ -1737,10 +1434,7 @@ class ImageTransferPlugin(BasePlugin):
             content,
         ):
 
-            raise ValueError(
-                "Prepared apply_yaml.sh still "
-                "contains a git command."
-            )
+            raise ValueError("Prepared apply_yaml.sh still " "contains a git command.")
 
         matches = list(
             self.OC_APPLY_PATTERN.finditer(
@@ -1750,10 +1444,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if not matches:
 
-            raise ValueError(
-                "Prepared apply_yaml.sh does not "
-                "contain an 'oc apply -f' command."
-            )
+            raise ValueError("Prepared apply_yaml.sh does not " "contain an 'oc apply -f' command.")
 
         root = str(
             release_root.resolve(),
@@ -1761,17 +1452,12 @@ class ImageTransferPlugin(BasePlugin):
 
         for match in matches:
 
-            path = (
-                match.group(
-                    "path",
-                ).rstrip("/")
-            )
+            path = match.group(
+                "path",
+            ).rstrip("/")
 
-            if (
-                path != root
-                and not path.startswith(
-                    f"{root}/",
-                )
+            if path != root and not path.startswith(
+                f"{root}/",
             ):
 
                 raise ValueError(
@@ -1817,29 +1503,17 @@ class ImageTransferPlugin(BasePlugin):
             path,
         ):
 
-            raise FileNotFoundError(
-                "Deployment YAML path not found: "
-                f"{path}"
-            )
+            raise FileNotFoundError("Deployment YAML path not found: " f"{path}")
 
         if self.filesystem.is_file(
             path,
         ):
 
-            if (
-                path.suffix.lower()
-                not in self.YAML_SUFFIXES
-            ):
+            if path.suffix.lower() not in self.YAML_SUFFIXES:
 
-                raise ValueError(
-                    "Deployment YAML file has an "
-                    "unsupported extension: "
-                    f"{path}"
-                )
+                raise ValueError("Deployment YAML file has an " "unsupported extension: " f"{path}")
 
-            self.message.info(
-                f"Validated YAML file: {path}"
-            )
+            self.message.info(f"Validated YAML file: {path}")
 
             return
 
@@ -1847,10 +1521,7 @@ class ImageTransferPlugin(BasePlugin):
             path,
         ):
 
-            raise ValueError(
-                "Deployment YAML path is neither "
-                f"a file nor a directory: {path}"
-            )
+            raise ValueError("Deployment YAML path is neither " f"a file nor a directory: {path}")
 
         yaml_files = [
             file
@@ -1863,24 +1534,17 @@ class ImageTransferPlugin(BasePlugin):
                 self.filesystem.is_file(
                     file,
                 )
-                and file.suffix.lower()
-                in self.YAML_SUFFIXES
+                and file.suffix.lower() in self.YAML_SUFFIXES
             )
         ]
 
         if not yaml_files:
 
             raise FileNotFoundError(
-                "Deployment YAML directory contains "
-                "no .yaml or .yml files: "
-                f"{path}"
+                "Deployment YAML directory contains " "no .yaml or .yml files: " f"{path}"
             )
 
-        self.message.info(
-            f"Validated {len(yaml_files)} YAML "
-            f"file(s) under '{path}'."
-        )
-
+        self.message.info(f"Validated {len(yaml_files)} YAML " f"file(s) under '{path}'.")
 
     # ------------------------------------------------------------------
     # Validation helpers
@@ -1902,7 +1566,4 @@ class ImageTransferPlugin(BasePlugin):
 
         except FileNotFoundError as exc:
 
-            raise RuntimeError(
-                f"Required command '{command}' "
-                "was not found in PATH."
-            ) from exc
+            raise RuntimeError(f"Required command '{command}' " "was not found in PATH.") from exc

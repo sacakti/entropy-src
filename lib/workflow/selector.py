@@ -87,9 +87,7 @@ class WorkflowStepSelector:
                 to_step=to_step,
             )
 
-        selected = steps[
-            start : end + 1
-        ]
+        selected = steps[start : end + 1]
 
         #
         # Apply tag filtering only when tags
@@ -97,14 +95,7 @@ class WorkflowStepSelector:
         #
         if tags:
 
-            selected = [
-                step
-                for step in selected
-                if any(
-                    tag in step.tags
-                    for tag in tags
-                )
-            ]
+            selected = [step for step in selected if any(tag in step.tags for tag in tags)]
 
         return WorkflowSelection(
             steps=selected,

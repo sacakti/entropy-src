@@ -2,11 +2,9 @@ from unittest.mock import Mock
 
 import pytest
 
+from lib.models.plugin import PluginResult
 from lib.plugins.exceptions import PluginDisabledError
 from lib.plugins.runner import PluginRunner
-
-
-from lib.models.plugin import PluginResult
 
 
 def test_runner_returns_plugin_result(execution_context):
@@ -39,9 +37,7 @@ def test_runner_returns_plugin_result(execution_context):
     )
 
     assert actual is result
-    assert actual.outputs["image"] == (
-        "quay.io/example/app:1.0"
-    )
+    assert actual.outputs["image"] == ("quay.io/example/app:1.0")
 
     instance.execute.assert_called_once_with()
 

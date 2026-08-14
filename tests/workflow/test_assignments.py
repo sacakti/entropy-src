@@ -153,6 +153,7 @@ def test_unterminated_quote(
             ['message="hello'],
         )
 
+
 def test_parse_integer() -> None:
     parser = WorkflowAssignments()
 

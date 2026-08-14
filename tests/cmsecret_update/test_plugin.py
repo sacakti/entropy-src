@@ -1,9 +1,9 @@
 from __future__ import annotations
+
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-
 from cm_secret_update.model import (
     ConfigMapSecretUpdate,
 )
@@ -16,8 +16,9 @@ from cm_secret_update.updater import (
     UpdateResult,
     UpdateSummary,
 )
-from unittest.mock import MagicMock, Mock
+
 from lib.plugins.arguments import PluginArguments
+
 
 class _TestContext:
     def __init__(
@@ -58,6 +59,7 @@ def _plugin(
     return CmSecretUpdatePlugin(
         context,
     )
+
 
 def _result(
     *,
@@ -108,16 +110,17 @@ def test_execute_success() -> None:
         ],
     )
 
-    with patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretUpdateLoader",
-    ) as source_loader_class, patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretTargetLoader",
-    ) as target_loader_class, patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretUpdater",
-    ) as updater_class:
+    with (
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretUpdateLoader",
+        ) as source_loader_class,
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretTargetLoader",
+        ) as target_loader_class,
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretUpdater",
+        ) as updater_class,
+    ):
 
         source_loader_class.return_value.load_directory.return_value = [
             Mock(spec=ConfigMapSecretUpdate),
@@ -170,16 +173,17 @@ def test_execute_partial_failure_sets_outputs_and_raises() -> None:
         ],
     )
 
-    with patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretUpdateLoader",
-    ) as source_loader_class, patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretTargetLoader",
-    ) as target_loader_class, patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretUpdater",
-    ) as updater_class:
+    with (
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretUpdateLoader",
+        ) as source_loader_class,
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretTargetLoader",
+        ) as target_loader_class,
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretUpdater",
+        ) as updater_class,
+    ):
 
         source_loader_class.return_value.load_directory.return_value = [
             Mock(spec=ConfigMapSecretUpdate),
@@ -211,10 +215,7 @@ def test_execute_partial_failure_sets_outputs_and_raises() -> None:
             "name": "application-secret",
             "path": "/target/secret.yaml",
             "key": "old_password",
-            "message": (
-                "Cannot delete key 'old_password': "
-                "key does not exist."
-            ),
+            "message": ("Cannot delete key 'old_password': " "key does not exist."),
         },
     ]
 
@@ -226,16 +227,17 @@ def test_execute_passes_replace_false() -> None:
 
     summary = _summary()
 
-    with patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretUpdateLoader",
-    ) as source_loader_class, patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretTargetLoader",
-    ) as target_loader_class, patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretUpdater",
-    ) as updater_class:
+    with (
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretUpdateLoader",
+        ) as source_loader_class,
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretTargetLoader",
+        ) as target_loader_class,
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretUpdater",
+        ) as updater_class,
+    ):
 
         definitions = [
             Mock(spec=ConfigMapSecretUpdate),
@@ -245,13 +247,9 @@ def test_execute_passes_replace_false() -> None:
             Mock(),
         ]
 
-        source_loader_class.return_value.load_directory.return_value = (
-            definitions
-        )
+        source_loader_class.return_value.load_directory.return_value = definitions
 
-        target_loader_class.return_value.load_directory.return_value = (
-            resources
-        )
+        target_loader_class.return_value.load_directory.return_value = resources
 
         updater_class.return_value.update.return_value = summary
 
@@ -272,16 +270,17 @@ def test_execute_passes_replace_true() -> None:
 
     summary = _summary()
 
-    with patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretUpdateLoader",
-    ) as source_loader_class, patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretTargetLoader",
-    ) as target_loader_class, patch(
-        "cm_secret_update.plugin."
-        "ConfigMapSecretUpdater",
-    ) as updater_class:
+    with (
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretUpdateLoader",
+        ) as source_loader_class,
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretTargetLoader",
+        ) as target_loader_class,
+        patch(
+            "cm_secret_update.plugin." "ConfigMapSecretUpdater",
+        ) as updater_class,
+    ):
 
         definitions = [
             Mock(spec=ConfigMapSecretUpdate),
@@ -291,13 +290,9 @@ def test_execute_passes_replace_true() -> None:
             Mock(),
         ]
 
-        source_loader_class.return_value.load_directory.return_value = (
-            definitions
-        )
+        source_loader_class.return_value.load_directory.return_value = definitions
 
-        target_loader_class.return_value.load_directory.return_value = (
-            resources
-        )
+        target_loader_class.return_value.load_directory.return_value = resources
 
         updater_class.return_value.update.return_value = summary
 

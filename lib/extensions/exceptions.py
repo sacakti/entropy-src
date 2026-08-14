@@ -80,6 +80,7 @@ class ExtensionDownloadError(ExtensionError):
             message,
         )
 
+
 class ExtensionValueError(ExtensionError):
 
     def __init__(

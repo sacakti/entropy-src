@@ -1,5 +1,5 @@
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
 from lib.executor import LinuxExecutor
 from lib.vault import (
@@ -29,9 +29,7 @@ def main() -> None:
 
         key1 = provider.key()
 
-        print(
-            f"Key created: {len(key1)} bytes"
-        )
+        print(f"Key created: {len(key1)} bytes")
 
         assert len(key1) == 32
 
@@ -101,9 +99,7 @@ def main() -> None:
 
         else:
 
-            raise AssertionError(
-                "Tampered ciphertext was accepted."
-            )
+            raise AssertionError("Tampered ciphertext was accepted.")
 
         # ---------------------------------------------------------
         # Wrong key
@@ -125,9 +121,7 @@ def main() -> None:
 
         else:
 
-            raise AssertionError(
-                "Ciphertext decrypted with wrong key."
-            )
+            raise AssertionError("Ciphertext decrypted with wrong key.")
 
         # ---------------------------------------------------------
         # Invalid key length
@@ -145,9 +139,7 @@ def main() -> None:
 
         else:
 
-            raise AssertionError(
-                "Invalid key length was accepted."
-            )
+            raise AssertionError("Invalid key length was accepted.")
 
         # ---------------------------------------------------------
         # Key file
@@ -157,13 +149,9 @@ def main() -> None:
             key_path,
         )
 
-        print(
-            f"Key path: {key_path}"
-        )
+        print(f"Key path: {key_path}")
 
-        print(
-            "All Vault crypto tests passed."
-        )
+        print("All Vault crypto tests passed.")
 
 
 if __name__ == "__main__":

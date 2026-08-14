@@ -3,13 +3,13 @@ from __future__ import annotations
 import base64
 
 import pytest
-
 from cm_secret_update.adapter import (
     ConfigMapSecretTarget,
 )
 from cm_secret_update.exceptions import (
     UpdateTargetError,
 )
+
 
 def test_configmap_get_and_set() -> None:
     document = {
@@ -90,9 +90,12 @@ def test_secret_get_decodes_base64() -> None:
         "Secret",
     )
 
-    assert target.get(
-        "password",
-    ) == "password123"
+    assert (
+        target.get(
+            "password",
+        )
+        == "password123"
+    )
 
 
 def test_secret_set_encodes_base64() -> None:

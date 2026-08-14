@@ -7,8 +7,8 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import inspect
-from pathlib import Path
 import sys
+from pathlib import Path
 from types import ModuleType
 
 from lib.models.plugin import Plugin
@@ -148,9 +148,7 @@ class PluginLoader:
                 plugin_directory,
             )
 
-            module_name = (
-                f"{qualified_name}.plugin"
-            )
+            module_name = f"{qualified_name}.plugin"
 
             spec = importlib.util.spec_from_file_location(
                 module_name,
@@ -160,17 +158,14 @@ class PluginLoader:
             if spec is None or spec.loader is None:
 
                 raise PluginLoadError(
-                    f"Unable to import plugin "
-                    f"'{qualified_name}'.",
+                    f"Unable to import plugin " f"'{qualified_name}'.",
                 )
 
             module = importlib.util.module_from_spec(
                 spec,
             )
 
-            sys.modules[
-                module_name
-            ] = module
+            sys.modules[module_name] = module
 
             spec.loader.exec_module(
                 module,
@@ -185,8 +180,7 @@ class PluginLoader:
         except Exception as exc:
 
             raise PluginLoadError(
-                f"Unable to load plugin "
-                f"'{qualified_name}'.",
+                f"Unable to load plugin " f"'{qualified_name}'.",
             ) from exc
 
     def _find_plugin_class(
@@ -274,15 +268,7 @@ class PluginLoader:
             parts,
         ):
 
-            if parent_name:
-
-                parent_name = (
-                    f"{parent_name}.{part}"
-                )
-
-            else:
-
-                parent_name = part
+            parent_name = f"{parent_name}.{part}" if parent_name else part
 
             if parent_name in sys.modules:
 
@@ -294,11 +280,7 @@ class PluginLoader:
 
             else:
 
-                package_path = (
-                    plugin_directory.parents[
-                        len(parts) - index - 1
-                    ]
-                )
+                package_path = plugin_directory.parents[len(parts) - index - 1]
 
             module = ModuleType(
                 parent_name,
@@ -312,9 +294,7 @@ class PluginLoader:
 
             module.__package__ = parent_name
 
-            sys.modules[
-                parent_name
-            ] = module
+            sys.modules[parent_name] = module
 
     def load_local(
         self,
@@ -326,8 +306,7 @@ class PluginLoader:
         if not directory.is_dir():
 
             raise PluginLoadError(
-                f"Local plugin directory "
-                f"'{directory}' does not exist.",
+                f"Local plugin directory " f"'{directory}' does not exist.",
             )
 
         module_file = directory / "plugin.py"
@@ -335,8 +314,7 @@ class PluginLoader:
         if not module_file.is_file():
 
             raise PluginLoadError(
-                f"Local plugin module "
-                f"'{module_file}' does not exist.",
+                f"Local plugin module " f"'{module_file}' does not exist.",
             )
 
         module = self._load_local_module(
@@ -367,13 +345,9 @@ class PluginLoader:
             ),
         ).hexdigest()[:16]
 
-        package_name = (
-            f"entropy_local_{identifier}"
-        )
+        package_name = f"entropy_local_{identifier}"
 
-        module_name = (
-            f"{package_name}.plugin"
-        )
+        module_name = f"{package_name}.plugin"
 
         try:
 
@@ -397,9 +371,7 @@ class PluginLoader:
 
                 package.__package__ = package_name
 
-                sys.modules[
-                    package_name
-                ] = package
+                sys.modules[package_name] = package
 
             #
             # Import plugin.py as package.plugin.
@@ -414,8 +386,7 @@ class PluginLoader:
             if spec is None or spec.loader is None:
 
                 raise PluginLoadError(
-                    f"Unable to import local plugin "
-                    f"'{directory}'.",
+                    f"Unable to import local plugin " f"'{directory}'.",
                 )
 
             module = importlib.util.module_from_spec(
@@ -424,9 +395,7 @@ class PluginLoader:
 
             module.__package__ = package_name
 
-            sys.modules[
-                module_name
-            ] = module
+            sys.modules[module_name] = module
 
             spec.loader.exec_module(
                 module,
@@ -441,6 +410,5 @@ class PluginLoader:
         except Exception as exc:
 
             raise PluginLoadError(
-                f"Unable to load local plugin "
-                f"'{directory}'.",
+                f"Unable to load local plugin " f"'{directory}'.",
             ) from exc

@@ -1,9 +1,11 @@
 from core.exceptions import EntropyException
 
+
 class VaultError(EntropyException):
     """
     Base exception for Vault errors.
     """
+
 
 class VaultEntryExistsError(VaultError):
     """
@@ -16,18 +18,18 @@ class VaultEntryNotFoundError(VaultError):
     Raised when a Vault key does not exist.
     """
 
-class VaultKeyError(
-    EntropyException,
-    RuntimeError
-):
+
+class VaultKeyError(EntropyException, RuntimeError):
     """
     Raised when the Vault master key cannot be loaded or created.
     """
+
 
 class VaultValueError(VaultError):
     """
     Raised value error.
     """
+
     def __init__(
         self,
         message: str,

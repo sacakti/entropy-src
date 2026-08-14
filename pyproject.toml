@@ -108,6 +108,7 @@ exclude = [
 "scripts/install.py" = ["E402"]
 "scripts/uninstall.py" = ["E402"]
 "entropy.py" = ["E402"]
+"lib/migrations/scripts/*.py" = ["N999"]
 
 [tool.ruff.lint]
 

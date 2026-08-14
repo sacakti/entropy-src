@@ -4,24 +4,20 @@ Vault manager tests.
 
 from __future__ import annotations
 
-import sqlite3
 import tempfile
 from pathlib import Path
 
+from lib.database.connection import DatabaseConnection
+from lib.database.objects.vault import VaultEntriesTable
 from lib.executor import LinuxExecutor
 from lib.vault import (
-    VaultCipher,
     VaultEntryExistsError,
     VaultEntryNotFoundError,
-    VaultKeyProvider,
     VaultManager,
     VaultRepository,
     VaultSerializer,
     VaultValueType,
 )
-
-from lib.database.connection import DatabaseConnection
-from lib.database.objects.vault import VaultEntriesTable
 
 
 def main() -> None:
@@ -73,9 +69,12 @@ def main() -> None:
             sensitive=False,
         )
 
-        assert manager.get(
-            "app_url",
-        ) == "https://example.com"
+        assert (
+            manager.get(
+                "app_url",
+            )
+            == "https://example.com"
+        )
 
         print("Plain string: PASS")
 
@@ -162,9 +161,12 @@ def main() -> None:
             sensitive=True,
         )
 
-        assert manager.get(
-            "secret_token",
-        ) == "very-secret-token"
+        assert (
+            manager.get(
+                "secret_token",
+            )
+            == "very-secret-token"
+        )
 
         row = connection.fetchone(
             """
@@ -267,9 +269,12 @@ def main() -> None:
             value_type=VaultValueType.STRING,
         )
 
-        assert manager.get(
-            "schema_123",
-        ) == "valid"
+        assert (
+            manager.get(
+                "schema_123",
+            )
+            == "valid"
+        )
 
         print("Valid key: PASS")
 
@@ -284,9 +289,12 @@ def main() -> None:
             sensitive=False,
         )
 
-        assert manager.get(
-            "app_url",
-        ) == "https://updated.example.com"
+        assert (
+            manager.get(
+                "app_url",
+            )
+            == "https://updated.example.com"
+        )
 
         print("Update: PASS")
 
@@ -301,9 +309,12 @@ def main() -> None:
             sensitive=True,
         )
 
-        assert manager.get(
-            "app_url",
-        ) == "https://secret.example.com"
+        assert (
+            manager.get(
+                "app_url",
+            )
+            == "https://secret.example.com"
+        )
 
         row = connection.fetchone(
             """
@@ -331,9 +342,12 @@ def main() -> None:
             sensitive=False,
         )
 
-        assert manager.get(
-            "app_url",
-        ) == "https://public.example.com"
+        assert (
+            manager.get(
+                "app_url",
+            )
+            == "https://public.example.com"
+        )
 
         row = connection.fetchone(
             """
@@ -356,10 +370,7 @@ def main() -> None:
 
         entries = manager.list()
 
-        keys = {
-            entry.key
-            for entry in entries
-        }
+        keys = {entry.key for entry in entries}
 
         assert "app_url" in keys
         assert "sitdb" in keys

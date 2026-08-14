@@ -35,8 +35,7 @@ class WorkflowArgumentOverrides:
             if key not in result:
 
                 raise WorkflowArgumentError(
-                    f"Override argument '{key}' "
-                    "does not exist in the workflow step.",
+                    f"Override argument '{key}' " "does not exist in the workflow step.",
                 )
 
             result[key] = value

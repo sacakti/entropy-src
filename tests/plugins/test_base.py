@@ -1,5 +1,6 @@
 from lib.models.plugin import PluginResult
 
+
 def test_plugin_exposes_context(plugin, plugin_context):
     assert plugin.context is plugin_context
 

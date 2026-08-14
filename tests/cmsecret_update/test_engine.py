@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 
 import pytest
-
 from cm_secret_update.engine import ConfigMapSecretUpdateEngine
 from cm_secret_update.exceptions import (
     UpdateKeyAlreadyExistsError,
@@ -195,6 +194,7 @@ def test_delete_existing_key() -> None:
         },
     ]
 
+
 def test_delete_missing_key_fails() -> None:
     target = _configmap()
 
@@ -280,6 +280,7 @@ def test_secret_update_decodes_and_reencodes_value() -> None:
         },
     ]
 
+
 def test_delete_missing_key_is_unchanged_with_replace() -> None:
     target = _configmap()
 
@@ -308,6 +309,7 @@ def test_delete_missing_key_is_unchanged_with_replace() -> None:
         },
     ]
 
+
 def test_prune_removes_unmanaged_keys() -> None:
     target = _configmap()
 
@@ -329,6 +331,7 @@ def test_prune_removes_unmanaged_keys() -> None:
         },
     ]
 
+
 def test_prune_keeps_managed_keys() -> None:
     target = _configmap()
 
@@ -346,6 +349,7 @@ def test_prune_keeps_managed_keys() -> None:
     }
 
     assert changes == []
+
 
 def test_prune_empty_target() -> None:
     target = {
@@ -366,5 +370,3 @@ def test_prune_empty_target() -> None:
 
     assert changes == []
     assert target["data"] == {}
-
-

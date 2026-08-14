@@ -4,10 +4,13 @@
 
 from __future__ import annotations
 
-from lib.plugins.base import BasePlugin
 from lib.models.plugin import PluginResult
+from lib.plugins.base import BasePlugin
 
-class {{ class_name }}(
+from .exceptions import {{ class_name }}Exception
+
+
+class {{ class_name }}Plugin(
     BasePlugin,
 ):
     """
@@ -22,24 +25,34 @@ class {{ class_name }}(
         """
 
         self.message.info(
-            "Starting plugin execution."
+            "Starting {{ name }}.",
         )
 
-        try:
-            with self.activity(
-                "{{ name }}r",
-            ):
-                self._execute()
+        with self.activity(
+            "{{ name }}",
+        ):
 
-        except Exception as exc:
-            self.message.error(
-                str(exc),
-            )
-
-            raise
+            self._execute()
 
         self.message.success(
-            "Plugin completed successfully."
+            "{{ name }} completed successfully.",
+        )
+
+        return PluginResult(
+            success=True,
+            changed=True,
+            outputs=dict(
+                self.outputs,
+            ),
+            changes=[],
+            errors=[],
+            warnings=[],
+            metadata={
+                "artifacts": {
+                    name: str(path)
+                    for name, path in self.artifacts.items()
+                },
+            },
         )
 
     # ------------------------------------------------------------------
@@ -50,30 +63,9 @@ class {{ class_name }}(
         self,
     ) -> None:
         """
-        Plugin implementation.
-
-        Examples
-
-            self.arguments["name"]
-
-            self.variables["environment"]
-
-            self.outputs["result"] = value
-
-            self.artifacts["report"] = report
-
-            self.filesystem.write_text(...)
-
-            result = self.shell.run([...])
-
-            self.ui.panel(...)
-
-            self.ui.table(...)
+        Implement the plugin operation here.
         """
 
-        #
-        # TODO:
-        # Implement your plugin here.
-        #
-
-        pass
+        raise {{ class_name }}Exception(
+            "Plugin implementation is not available.",
+        )

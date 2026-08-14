@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
+from typing import Any
 
 from core.commands.base import (
     BaseCommand,
@@ -13,6 +14,8 @@ from core.commands.base import (
 )
 from lib.models.plugin import PluginResult
 from lib.plugins.mode import PluginMode
+from lib.workflow.assignments import WorkflowAssignments
+
 
 class PluginCommand(
     BaseCommand,
@@ -498,40 +501,20 @@ class PluginCommand(
     def _parse_arguments(
         self,
         values: list[str],
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         """
         Parse CLI plugin arguments.
 
         Arguments use KEY=VALUE syntax.
+
+        Values are automatically converted using the same
+        assignment rules used by workflows.
         """
 
-        arguments: dict[str, str] = {}
-
-        for value in values:
-
-            if "=" not in value:
-
-                raise ValueError(
-                    f"Invalid plugin argument '{value}'. "
-                    "Expected KEY=VALUE.",
-                )
-
-            key, argument_value = value.split(
-                "=",
-                1,
-            )
-
-            key = key.strip()
-
-            if not key:
-
-                raise ValueError(
-                    "Plugin argument name cannot be empty.",
-                )
-
-            arguments[key] = argument_value
-
-        return arguments
+        return WorkflowAssignments().parse_typed(
+            values,
+            value_type="auto",
+        )
 
     def _create_plugin_execution_context(
         self,

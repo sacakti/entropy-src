@@ -36,9 +36,7 @@ def test_result_accepts_execution_data() -> None:
 
     assert result.success is True
     assert result.changed is True
-    assert result.outputs["image"] == (
-        "quay.io/example/app:1.2.3"
-    )
+    assert result.outputs["image"] == ("quay.io/example/app:1.2.3")
     assert len(result.changes) == 1
     assert result.warnings == [
         "Existing image was replaced.",
@@ -58,9 +56,7 @@ def test_result_can_represent_failure() -> None:
     )
 
     assert result.success is False
-    assert result.errors[0]["code"] == (
-        "IMAGE_BUILD_FAILED"
-    )
+    assert result.errors[0]["code"] == ("IMAGE_BUILD_FAILED")
 
 
 def test_result_to_dict() -> None:

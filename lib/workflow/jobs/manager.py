@@ -9,16 +9,16 @@ from pathlib import Path
 from typing import List
 
 from core.context import EntropyContext
+from lib.database.repositories.workflow_jobs import WorkflowJobRepository
 from lib.workflow.exceptions import (
     WorkflowInvalidTransitionError,
     WorkflowJobIsNotPausedError,
     WorkflowJobNotFoundError,
     WorkflowJobNotRunningError,
     WorkflowNotQueuedError,
-    WorkflowProcessIDError
+    WorkflowProcessIDError,
 )
 from lib.workflow.process import WorkflowProcess
-from lib.database.repositories.workflow_jobs import WorkflowJobRepository
 
 from .events import (
     WorkflowEvent,

@@ -45,14 +45,15 @@ TAR_MODES: dict[str, TarMode] = {
 
 PLUGIN_MANIFEST = "plugin.json"
 PLUGIN_FILES = (
-        ("plugin/__init__.py.j2", "__init__.py"),
-        ("plugin/plugin.py.j2", "plugin.py"),
-        ("plugin/plugin.json.j2", "plugin.json"),
-        ("plugin/README.md.j2", "README.md"),
-        ("plugin/MAN.md.j2", "MAN.md"),
-        ("plugin/workflow.json.j2", "workflow.json"),
-        ("plugin/requirements.txt.j2", "requirements.txt"),
-    )
+    ("plugin/__init__.py.j2", "__init__.py"),
+    ("plugin/plugin.py.j2", "plugin.py"),
+    ("plugin/plugin.json.j2", "plugin.json"),
+    ("plugin/README.md.j2", "README.md"),
+    ("plugin/MAN.md.j2", "MAN.md"),
+    ("plugin/workflow.json.j2", "workflow.json"),
+    ("plugin/requirements.txt.j2", "requirements.txt"),
+    ("plugin/exceptions.py.j2", "exceptions.py"),
+)
 
 PLUGIN_DIRECTORIES = ("migrations",)
 

@@ -5,9 +5,10 @@ Workflow background worker.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
-import json
+
 
 def bootstrap(
     project_root: Path,
@@ -198,11 +199,7 @@ if __name__ == "__main__":
         args.python_packages,
     )
 
-    tags = tuple(
-        tag.strip()
-        for tag in args.tags.split(",")
-        if tag.strip()
-    )
+    tags = tuple(tag.strip() for tag in args.tags.split(",") if tag.strip())
 
     options = json.loads(
         args.options,

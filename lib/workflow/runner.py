@@ -14,15 +14,15 @@ from lib.models.plugin import PluginResult
 from lib.models.workflow import (
     Workflow,
     WorkflowDryRunResult,
+    WorkflowExecutionOptions,
     WorkflowStep,
-    WorkflowExecutionOptions
 )
 from lib.plugins.exceptions import PluginDisabledError
-from lib.workflow.exceptions import WorkflowArgumentError, WorkflowCancelledError, WorkflowError
-from lib.workflow.variables import WorkflowVariableResolver
-from lib.workflow.selector import WorkflowStepSelector
 from lib.workflow.arguments import WorkflowArgumentResolver
+from lib.workflow.exceptions import WorkflowArgumentError, WorkflowCancelledError, WorkflowError
 from lib.workflow.overrides import WorkflowArgumentOverrides
+from lib.workflow.selector import WorkflowStepSelector
+from lib.workflow.variables import WorkflowVariableResolver
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
@@ -90,11 +90,7 @@ class WorkflowRunner:
 
         selected_steps = selection.steps
 
-        enabled_steps = [
-            step
-            for step in selected_steps
-            if step.enabled
-        ]
+        enabled_steps = [step for step in selected_steps if step.enabled]
 
         if options.dry_run:
 
@@ -175,9 +171,7 @@ class WorkflowRunner:
             job.id,
         )
 
-        variables = dict(
-            workflow.variables
-        )
+        variables = dict(workflow.variables)
 
         variables.update(
             options.variables,
@@ -281,7 +275,7 @@ class WorkflowRunner:
 
             raise
 
-        except EntropyException as exc:
+        except EntropyException:
 
             #
             # Expected application error.
@@ -543,7 +537,7 @@ class WorkflowRunner:
             )
 
             self._context.ui.info(
-                f"Arguments",
+                "Arguments",
             )
 
             self._context.ui.info(
@@ -589,7 +583,6 @@ class WorkflowRunner:
         self._context.ui.info(
             "No steps were executed.",
         )
-
 
     def _execute(
         self,

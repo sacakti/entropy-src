@@ -152,8 +152,7 @@ class ConfigMapSecretTargetLoader:
         except Exception as exc:
 
             raise UpdateFileError(
-                f"Unable to read target YAML file "
-                f"'{path}': {exc}",
+                f"Unable to read target YAML file " f"'{path}': {exc}",
             ) from exc
 
         target_file = TargetFile(
@@ -240,10 +239,13 @@ class ConfigMapSecretTargetLoader:
             "name",
         )
 
-        if not isinstance(
-            name,
-            str,
-        ) or not name.strip():
+        if (
+            not isinstance(
+                name,
+                str,
+            )
+            or not name.strip()
+        ):
 
             raise UpdateFileError(
                 f"Target resource '{kind}' in "

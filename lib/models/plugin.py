@@ -142,6 +142,7 @@ class PluginManifest:
 
         return f"{self.namespace}." f"{self.name}"
 
+
 @dataclass
 class PluginResult:
     """

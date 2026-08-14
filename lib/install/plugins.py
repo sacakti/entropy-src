@@ -40,11 +40,7 @@ class DefaultPluginInstaller:
 
         for name in plugins:
 
-            source = (
-                self._bootstrap.resources.plugins
-                / "builtin"
-                / name
-            )
+            source = self._bootstrap.resources.plugins / "builtin" / name
 
             self._plugins.install(
                 source,

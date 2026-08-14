@@ -23,10 +23,7 @@ def test_set_step_result_stores_result(
         result,
     )
 
-    assert (
-        runtime.step_results["collect_release"]
-        is result
-    )
+    assert runtime.step_results["collect_release"] is result
 
 
 def test_get_step_result_returns_result(

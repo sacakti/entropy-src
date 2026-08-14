@@ -59,19 +59,25 @@ class StructuredWorkflowCodec(
             "description",
         )
 
-        if not isinstance(
-            name,
-            str,
-        ) or not name.strip():
+        if (
+            not isinstance(
+                name,
+                str,
+            )
+            or not name.strip()
+        ):
 
             raise InvalidWorkflowError(
                 "Workflow 'name' must be a non-empty string.",
             )
 
-        if not isinstance(
-            version,
-            str,
-        ) or not version.strip():
+        if (
+            not isinstance(
+                version,
+                str,
+            )
+            or not version.strip()
+        ):
 
             raise InvalidWorkflowError(
                 "Workflow 'version' must be a non-empty string.",
@@ -159,24 +165,28 @@ class StructuredWorkflowCodec(
             "plugin",
         )
 
-        if not isinstance(
-            name,
-            str,
-        ) or not name.strip():
+        if (
+            not isinstance(
+                name,
+                str,
+            )
+            or not name.strip()
+        ):
 
             raise InvalidWorkflowError(
-                "Workflow step 'name' must be a "
-                "non-empty string.",
+                "Workflow step 'name' must be a " "non-empty string.",
             )
 
-        if not isinstance(
-            plugin,
-            str,
-        ) or not plugin.strip():
+        if (
+            not isinstance(
+                plugin,
+                str,
+            )
+            or not plugin.strip()
+        ):
 
             raise InvalidWorkflowError(
-                "Workflow step 'plugin' must be a "
-                "non-empty string.",
+                "Workflow step 'plugin' must be a " "non-empty string.",
             )
 
         arguments = value.get(
@@ -190,8 +200,7 @@ class StructuredWorkflowCodec(
         ):
 
             raise InvalidWorkflowError(
-                f"Arguments for workflow step '{name}' "
-                "must be an object.",
+                f"Arguments for workflow step '{name}' " "must be an object.",
             )
 
         enabled = value.get(
@@ -205,8 +214,7 @@ class StructuredWorkflowCodec(
         ):
 
             raise InvalidWorkflowError(
-                f"'enabled' for workflow step '{name}' "
-                "must be a boolean.",
+                f"'enabled' for workflow step '{name}' " "must be a boolean.",
             )
 
         tags = value.get(
@@ -220,8 +228,7 @@ class StructuredWorkflowCodec(
         ):
 
             raise InvalidWorkflowError(
-                f"'tags' for workflow step '{name}' "
-                "must be an array.",
+                f"'tags' for workflow step '{name}' " "must be an array.",
             )
 
         if not all(
@@ -233,8 +240,7 @@ class StructuredWorkflowCodec(
         ):
 
             raise InvalidWorkflowError(
-                f"'tags' for workflow step '{name}' "
-                "must contain only strings.",
+                f"'tags' for workflow step '{name}' " "must contain only strings.",
             )
 
         on_failure = value.get(
@@ -248,8 +254,7 @@ class StructuredWorkflowCodec(
         ):
 
             raise InvalidWorkflowError(
-                f"'on_failure' for workflow step '{name}' "
-                "must be a string.",
+                f"'on_failure' for workflow step '{name}' " "must be a string.",
             )
 
         on_failure = on_failure.strip().lower()
@@ -276,8 +281,7 @@ class StructuredWorkflowCodec(
         ):
 
             raise InvalidWorkflowError(
-                f"'suppress_result' for workflow step '{name}' "
-                "must be a boolean.",
+                f"'suppress_result' for workflow step '{name}' " "must be a boolean.",
             )
 
         return WorkflowStep(

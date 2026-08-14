@@ -5,19 +5,18 @@ Shell plugin.
 from __future__ import annotations
 
 import shutil
-from typing import Any
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
-from lib.plugins.exceptions import PluginException
+
+from .exceptions import ShellException
+
 
 class ShellPlugin(
     BasePlugin,
 ):
     """
     Execute shell commands or shell scripts.
-
-    The plugin intentionally relies on the public Plugin SDK.
 
     Workflow and Vault variable resolution are handled by the
     workflow engine before plugin execution.
@@ -40,21 +39,11 @@ class ShellPlugin(
             "Starting plugin execution.",
         )
 
-        try:
+        with self.activity(
+            "shell",
+        ):
 
-            with self.activity(
-                "shell",
-            ):
-
-                self._execute()
-
-        except Exception as exc:
-
-            self.message.error(
-                str(exc),
-            )
-
-            raise
+            self._execute()
 
         self.message.success(
             "Plugin completed successfully.",
@@ -67,10 +56,7 @@ class ShellPlugin(
                 self.outputs,
             ),
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 
@@ -85,53 +71,43 @@ class ShellPlugin(
         Execute the configured shell command or script.
         """
 
-        command = self.arguments.get(
+        command = self.arguments.string(
             "command",
         )
 
-        script = self.arguments.get(
+        script = self.arguments.string(
             "script",
         )
 
-        shell = self.arguments.get(
+        shell = self.arguments.string(
             "shell",
         )
 
-        args = self.arguments.get(
+        args = self.arguments.list(
             "args",
             [],
         )
 
-        cwd = self.arguments.get(
+        cwd = self.arguments.string(
             "cwd",
         )
 
-        timeout = self.arguments.get(
+        timeout = self.arguments.integer(
             "timeout",
         )
 
-        env = self.arguments.get(
+        env = self.arguments.dictionary(
             "env",
         )
 
         self._validate(
             command=command,
             script=script,
-            shell=shell,
-            args=args,
-            cwd=cwd,
-            timeout=timeout,
-            env=env,
         )
 
         shell_path = self._resolve_shell(
             shell,
         )
-
-        if shell:
-            self.message.info(
-                f"Shell: {shell_path}",
-            )
 
         if command is not None:
 
@@ -146,6 +122,8 @@ class ShellPlugin(
 
         else:
 
+            assert script is not None
+
             result = self._run_script(
                 shell=shell_path,
                 script=script,
@@ -155,14 +133,58 @@ class ShellPlugin(
                 env=env,
             )
 
+        self._record_result(
+            result,
+        )
+
+        if result.failed:
+
+            raise ShellException(
+                "Shell command failed with exit code " f"{result.exit_code}.",
+            )
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _validate(
+        *,
+        command: str | None,
+        script: str | None,
+    ) -> None:
+        """
+        Validate ShellPlugin-specific arguments.
+        """
+
+        if command is None and script is None:
+
+            raise ShellException(
+                "Either 'command' or 'script' must be specified.",
+            )
+
+        if command is not None and script is not None:
+
+            raise ShellException(
+                "Only one of 'command' or 'script' may be specified.",
+            )
+
+    # ------------------------------------------------------------------
+    # Result
+    # ------------------------------------------------------------------
+
+    def _record_result(
+        self,
+        result,
+    ) -> None:
+        """
+        Record shell execution results.
+        """
+
         self.outputs["exit_code"] = result.exit_code
-
         self.outputs["success"] = result.success
-
         self.outputs["stdout"] = result.stdout
-
         self.outputs["stderr"] = result.stderr
-
         self.outputs["duration"] = result.duration
 
         if result.stdout:
@@ -177,13 +199,6 @@ class ShellPlugin(
                 result.stderr,
             )
 
-        if result.failed:
-
-            raise RuntimeError(
-                f"Shell command failed with exit code "
-                f"{result.exit_code}.",
-            )
-
     # ------------------------------------------------------------------
     # Command
     # ------------------------------------------------------------------
@@ -192,10 +207,10 @@ class ShellPlugin(
         self,
         shell: str,
         command: str,
-        args: list[str],
+        args: list,
         cwd: str | None,
         timeout: int | None,
-        env: dict[str, str] | None,
+        env: dict | None,
     ):
         """
         Execute an inline shell command.
@@ -224,10 +239,10 @@ class ShellPlugin(
         self,
         shell: str,
         script: str,
-        args: list[str],
+        args: list,
         cwd: str | None,
         timeout: int | None,
-        env: dict[str, str] | None,
+        env: dict | None,
     ):
         """
         Execute a shell script using the selected interpreter.
@@ -236,6 +251,14 @@ class ShellPlugin(
         script_path = self.filesystem.path(
             script,
         )
+
+        if not self.filesystem.exists(
+            script_path,
+        ):
+
+            raise ShellException(
+                f"Shell script '{script}' does not exist.",
+            )
 
         return self.shell.run(
             [
@@ -258,18 +281,7 @@ class ShellPlugin(
     ) -> str:
         """
         Resolve the shell executable.
-
-        If no shell is supplied, the first available default
-        shell is selected.
         """
-
-        if shell is not None:
-
-            shell = shell.strip()
-
-            if not shell:
-
-                shell = None
 
         if shell is not None:
 
@@ -279,9 +291,13 @@ class ShellPlugin(
 
             if path is None:
 
-                raise PluginException(
+                raise ShellException(
                     f"Shell '{shell}' was not found on this system.",
                 )
+
+            self.message.info(
+                f"Shell: {path}",
+            )
 
             return path
 
@@ -295,150 +311,10 @@ class ShellPlugin(
 
                 return path
 
-        raise RuntimeError(
+        raise ShellException(
             "No supported shell is available. "
             "Tried: "
             + ", ".join(
                 self.DEFAULT_SHELLS,
             ),
         )
-
-    # ------------------------------------------------------------------
-    # Validation
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _validate(
-        *,
-        command: Any,
-        script: Any,
-        shell: Any,
-        args: Any,
-        cwd: Any,
-        timeout: Any,
-        env: Any,
-    ) -> None:
-        """
-        Validate plugin arguments.
-        """
-
-        if command is None and script is None:
-
-            raise PluginException(
-                "Either 'command' or 'script' must be specified.",
-            )
-
-        if command is not None and script is not None:
-
-            raise PluginException(
-                "Only one of 'command' or 'script' may be specified.",
-            )
-
-        if command is not None:
-
-            if not isinstance(
-                command,
-                str,
-            ) or not command.strip():
-
-                raise PluginException(
-                    "Argument 'command' must be a non-empty string.",
-                )
-
-        if script is not None:
-
-            if not isinstance(
-                script,
-                str,
-            ) or not script.strip():
-
-                raise PluginException(
-                    "Argument 'script' must be a non-empty string.",
-                )
-
-        if shell is not None and not isinstance(
-            shell,
-            str,
-        ):
-
-            raise PluginException(
-                "Argument 'shell' must be a string.",
-            )
-
-        if not isinstance(
-            args,
-            list,
-        ):
-
-            raise PluginException(
-                "Argument 'args' must be a list.",
-            )
-
-        if not all(
-            isinstance(
-                argument,
-                str,
-            )
-            for argument in args
-        ):
-
-            raise PluginException(
-                "All values in 'args' must be strings.",
-            )
-
-        if cwd is not None and not isinstance(
-            cwd,
-            str,
-        ):
-
-            raise PluginException(
-                "Argument 'cwd' must be a string.",
-            )
-
-        if timeout is not None:
-
-            if not isinstance(
-                timeout,
-                int,
-            ) or isinstance(
-                timeout,
-                bool,
-            ):
-
-                raise PluginException(
-                    "Argument 'timeout' must be an integer.",
-                )
-
-            if timeout <= 0:
-
-                raise PluginException(
-                    "Argument 'timeout' must be greater than zero.",
-                )
-
-        if env is not None:
-
-            if not isinstance(
-                env,
-                dict,
-            ):
-
-                raise PluginException(
-                    "Argument 'env' must be a dictionary.",
-                )
-
-            if not all(
-                isinstance(
-                    key,
-                    str,
-                )
-                and isinstance(
-                    value,
-                    str,
-                )
-                for key, value in env.items()
-            ):
-
-                raise PluginException(
-                    "All environment variable names and values "
-                    "must be strings.",
-                )

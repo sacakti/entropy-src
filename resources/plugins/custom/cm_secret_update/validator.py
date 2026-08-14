@@ -64,8 +64,7 @@ class ConfigMapSecretUpdateValidator:
         if api_version != cls.API_VERSION:
 
             raise UpdateDefinitionError(
-                f"Unsupported apiVersion '{api_version}'. "
-                f"Expected '{cls.API_VERSION}'.",
+                f"Unsupported apiVersion '{api_version}'. " f"Expected '{cls.API_VERSION}'.",
             )
 
         kind = value.get(
@@ -75,8 +74,7 @@ class ConfigMapSecretUpdateValidator:
         if kind != cls.KIND:
 
             raise UpdateDefinitionError(
-                f"Invalid update definition kind '{kind}'. "
-                f"Expected '{cls.KIND}'.",
+                f"Invalid update definition kind '{kind}'. " f"Expected '{cls.KIND}'.",
             )
 
         target = cls._target(
@@ -147,18 +145,20 @@ class ConfigMapSecretUpdateValidator:
         if kind not in cls.TARGET_KINDS:
 
             raise UpdateDefinitionError(
-                f"Unsupported target kind '{kind}'. "
-                "Supported values: ConfigMap, Secret.",
+                f"Unsupported target kind '{kind}'. " "Supported values: ConfigMap, Secret.",
             )
 
         name = value.get(
             "name",
         )
 
-        if not isinstance(
-            name,
-            str,
-        ) or not name.strip():
+        if (
+            not isinstance(
+                name,
+                str,
+            )
+            or not name.strip()
+        ):
 
             raise UpdateDefinitionError(
                 "Target 'name' must be a non-empty string.",
@@ -209,18 +209,20 @@ class ConfigMapSecretUpdateValidator:
         if action not in cls.ACTIONS:
 
             raise UpdateDefinitionError(
-                f"Unsupported operation '{action}'. "
-                "Supported values: add, update, delete.",
+                f"Unsupported operation '{action}'. " "Supported values: add, update, delete.",
             )
 
         key = value.get(
             "key",
         )
 
-        if not isinstance(
-            key,
-            str,
-        ) or not key.strip():
+        if (
+            not isinstance(
+                key,
+                str,
+            )
+            or not key.strip()
+        ):
 
             raise UpdateDefinitionError(
                 "Operation 'key' must be a non-empty string.",
@@ -240,8 +242,7 @@ class ConfigMapSecretUpdateValidator:
             ):
 
                 raise UpdateDefinitionError(
-                    f"Format for key '{key}' "
-                    "must be a string.",
+                    f"Format for key '{key}' " "must be a string.",
                 )
 
             operation_format = operation_format.strip().lower()
@@ -264,8 +265,7 @@ class ConfigMapSecretUpdateValidator:
         ):
 
             raise UpdateDefinitionError(
-                f"'entries' for key '{key}' "
-                "must be an object.",
+                f"'entries' for key '{key}' " "must be an object.",
             )
 
         if action == "delete":
@@ -273,22 +273,19 @@ class ConfigMapSecretUpdateValidator:
             if operation_format is not None:
 
                 raise UpdateDefinitionError(
-                    f"Delete operation for key '{key}' "
-                    "cannot specify 'format'.",
+                    f"Delete operation for key '{key}' " "cannot specify 'format'.",
                 )
 
             if entries is not None:
 
                 raise UpdateDefinitionError(
-                    f"Delete operation for key '{key}' "
-                    "cannot specify 'entries'.",
+                    f"Delete operation for key '{key}' " "cannot specify 'entries'.",
                 )
 
             if "value" in value:
 
                 raise UpdateDefinitionError(
-                    f"Delete operation for key '{key}' "
-                    "cannot specify 'value'.",
+                    f"Delete operation for key '{key}' " "cannot specify 'value'.",
                 )
 
         elif operation_format is not None:
@@ -320,15 +317,13 @@ class ConfigMapSecretUpdateValidator:
             if "value" not in value:
 
                 raise UpdateDefinitionError(
-                    f"Operation for key '{key}' "
-                    "requires 'value'.",
+                    f"Operation for key '{key}' " "requires 'value'.",
                 )
 
             if entries is not None:
 
                 raise UpdateDefinitionError(
-                    f"Scalar operation for key '{key}' "
-                    "cannot specify 'entries'.",
+                    f"Scalar operation for key '{key}' " "cannot specify 'entries'.",
                 )
 
         return UpdateOperation(

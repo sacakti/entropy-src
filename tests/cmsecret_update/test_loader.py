@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-
 from cm_secret_update.exceptions import (
     UpdateFileError,
 )

@@ -11,8 +11,8 @@ from core.models.paths import (
     ApplicationPaths,
     ConfigurationPaths,
     ResourcePaths,
-    VendorPaths,
     VaultPaths,
+    VendorPaths,
 )
 
 
@@ -68,12 +68,7 @@ class BootstrapPathManager:
 
     @property
     def worker(self) -> Path:
-        return (
-            self._project_root
-            / "lib"
-            / "workflow"
-            / "worker.py"
-        )
+        return self._project_root / "lib" / "workflow" / "worker.py"
 
     @property
     def vault(self) -> VaultPaths:

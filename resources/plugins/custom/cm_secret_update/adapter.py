@@ -162,8 +162,7 @@ class ConfigMapSecretTarget:
         ):
 
             raise UpdateTargetError(
-                f"Secret value for key '{key}' must be "
-                "a base64 string.",
+                f"Secret value for key '{key}' must be " "a base64 string.",
             )
 
         try:
@@ -181,8 +180,7 @@ class ConfigMapSecretTarget:
         ) as exc:
 
             raise UpdateTargetError(
-                f"Secret value for key '{key}' "
-                "contains invalid base64 data.",
+                f"Secret value for key '{key}' " "contains invalid base64 data.",
             ) from exc
 
     @staticmethod

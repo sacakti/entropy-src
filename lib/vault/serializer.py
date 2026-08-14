@@ -59,9 +59,7 @@ class VaultSerializer:
             ValueError,
         ) as exc:
 
-            raise VaultSerializationError(
-                "Unable to serialize Vault value."
-            ) from exc
+            raise VaultSerializationError("Unable to serialize Vault value.") from exc
 
         return payload.encode(
             "utf-8",
@@ -95,9 +93,7 @@ class VaultSerializer:
             json.JSONDecodeError,
         ) as exc:
 
-            raise VaultSerializationError(
-                "Invalid serialized Vault value."
-            ) from exc
+            raise VaultSerializationError("Invalid serialized Vault value.") from exc
 
         self._validate(
             result,
@@ -126,9 +122,7 @@ class VaultSerializer:
                 str,
             ):
 
-                raise VaultSerializationError(
-                    "Vault string value must be a string."
-                )
+                raise VaultSerializationError("Vault string value must be a string.")
 
             return
 
@@ -145,9 +139,7 @@ class VaultSerializer:
                 ),
             ):
 
-                raise VaultSerializationError(
-                    "Vault number value must be an integer or float."
-                )
+                raise VaultSerializationError("Vault number value must be an integer or float.")
 
             return
 
@@ -158,9 +150,7 @@ class VaultSerializer:
                 bool,
             ):
 
-                raise VaultSerializationError(
-                    "Vault boolean value must be a boolean."
-                )
+                raise VaultSerializationError("Vault boolean value must be a boolean.")
 
             return
 
@@ -171,9 +161,7 @@ class VaultSerializer:
                 list,
             ):
 
-                raise VaultSerializationError(
-                    "Vault array value must be a list."
-                )
+                raise VaultSerializationError("Vault array value must be a list.")
 
             return
 
@@ -184,9 +172,7 @@ class VaultSerializer:
                 dict,
             ):
 
-                raise VaultSerializationError(
-                    "Vault object value must be a dictionary."
-                )
+                raise VaultSerializationError("Vault object value must be a dictionary.")
 
             return
 
@@ -203,12 +189,8 @@ class VaultSerializer:
                 ValueError,
             ) as exc:
 
-                raise VaultSerializationError(
-                    "Vault JSON value is not valid JSON."
-                ) from exc
+                raise VaultSerializationError("Vault JSON value is not valid JSON.") from exc
 
             return
 
-        raise VaultSerializationError(
-            f"Unsupported Vault value type: {value_type!r}"
-        )
+        raise VaultSerializationError(f"Unsupported Vault value type: {value_type!r}")

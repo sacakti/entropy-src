@@ -2,17 +2,10 @@
 Entropy Vault.
 """
 
+from lib.database.repositories.vault import VaultRepository
 from lib.models.vault import (
     VaultEntry,
     VaultValueType,
-)
-from lib.database.repositories.vault import VaultRepository
-from .serializer import (
-    VaultSerializationError,
-    VaultSerializer,
-)
-from .manager import (
-    VaultManager,
 )
 
 from .exceptions import (
@@ -20,10 +13,13 @@ from .exceptions import (
     VaultEntryNotFoundError,
     VaultError,
 )
-
-from .cipher import VaultCipher
-
-from .key import VaultKeyProvider
+from .manager import (
+    VaultManager,
+)
+from .serializer import (
+    VaultSerializationError,
+    VaultSerializer,
+)
 
 __all__ = [
     "VaultEntry",

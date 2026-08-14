@@ -3,6 +3,7 @@ Workflow command.
 """
 
 from __future__ import annotations
+
 from argparse import (
     ArgumentParser,
     Namespace,
@@ -13,13 +14,14 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+from lib.models.workflow import WorkflowExecutionOptions
+from lib.workflow.assignments import WorkflowAssignments
 from lib.workflow.exceptions import (
     WorkflowArgumentError,
     WorkflowInvalidProvidedError,
-    WorkflowTooManyFilesError
+    WorkflowTooManyFilesError,
 )
-from lib.models.workflow import WorkflowExecutionOptions
-from lib.workflow.assignments import WorkflowAssignments
+
 
 class WorkflowCommand(
     BaseCommand,
@@ -262,10 +264,7 @@ class WorkflowCommand(
                 "dict",
             ),
             default="auto",
-            help=(
-                "Type of --set values. "
-                "Default: auto."
-            ),
+            help=("Type of --set values. " "Default: auto."),
         )
 
         #
@@ -349,10 +348,7 @@ class WorkflowCommand(
                 "dict",
             ),
             default="auto",
-            help=(
-                "Type of --set values. "
-                "Default: auto."
-            ),
+            help=("Type of --set values. " "Default: auto."),
         )
 
         #
@@ -460,11 +456,7 @@ class WorkflowCommand(
             source = f"workflow file '{workflow_file}'"
 
             self._events.log.info(
-                (
-                    f"Previewing {source}."
-                    if options.dry_run
-                    else f"Executing {source}."
-                ),
+                (f"Previewing {source}." if options.dry_run else f"Executing {source}."),
             )
 
             self._workflows.run(
@@ -487,11 +479,7 @@ class WorkflowCommand(
         source = f"workflow '{workflow_name}'"
 
         self._events.log.info(
-            (
-                f"Previewing {source}."
-                if options.dry_run
-                else f"Executing {source}."
-            ),
+            (f"Previewing {source}." if options.dry_run else f"Executing {source}."),
         )
 
         self._workflows.run(
@@ -898,15 +886,13 @@ class WorkflowCommand(
         if result.changed:
 
             self._context.ui.success(
-                f"Workflow '{result.workflow.name}' "
-                "updated successfully.",
+                f"Workflow '{result.workflow.name}' " "updated successfully.",
             )
 
         else:
 
             self._context.ui.info(
-                f"Workflow '{result.workflow.name}' "
-                "was not changed.",
+                f"Workflow '{result.workflow.name}' " "was not changed.",
             )
 
     def _workflow_source(
@@ -938,11 +924,7 @@ class WorkflowCommand(
         Build workflow execution options from CLI arguments.
         """
 
-        tags = tuple(
-            tag.strip()
-            for tag in (args.tags or "").split(",")
-            if tag.strip()
-        )
+        tags = tuple(tag.strip() for tag in (args.tags or "").split(",") if tag.strip())
 
         variables, step_overrides = self._argument_overrides(
             args,
@@ -965,11 +947,7 @@ class WorkflowCommand(
         Build execution options for a background workflow.
         """
 
-        tags = tuple(
-            tag.strip()
-            for tag in (args.tags or "").split(",")
-            if tag.strip()
-        )
+        tags = tuple(tag.strip() for tag in (args.tags or "").split(",") if tag.strip())
 
         variables, step_overrides = self._argument_overrides(
             args,
@@ -1013,8 +991,7 @@ class WorkflowCommand(
             if "." not in key:
 
                 raise WorkflowArgumentError(
-                    f"Invalid step override '{key}'. "
-                    "Expected STEP.KEY=VALUE.",
+                    f"Invalid step override '{key}'. " "Expected STEP.KEY=VALUE.",
                 )
 
             step_name, argument_name = key.split(
@@ -1025,8 +1002,7 @@ class WorkflowCommand(
             if not step_name or not argument_name:
 
                 raise WorkflowArgumentError(
-                    f"Invalid step override '{key}'. "
-                    "Expected STEP.KEY=VALUE.",
+                    f"Invalid step override '{key}'. " "Expected STEP.KEY=VALUE.",
                 )
 
             step_overrides.setdefault(

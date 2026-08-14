@@ -4,18 +4,16 @@ Workflow process management.
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import subprocess
 import sys
 from pathlib import Path
-import json
 
-from lib.workflow.exceptions import (
-    WorkflowProcessIDError,
-    WorkflowProcessNotRunningError
-    )
 from lib.models.workflow import WorkflowExecutionOptions
+from lib.workflow.exceptions import WorkflowProcessIDError, WorkflowProcessNotRunningError
+
 
 class WorkflowProcess:
     """
@@ -98,11 +96,7 @@ class WorkflowProcess:
             ],
         )
 
-        worker_log = (
-            self._project_root
-            / "tmp"
-            / f"workflow-worker-{self._job_id}.log"
-        )
+        worker_log = self._project_root / "tmp" / f"workflow-worker-{self._job_id}.log"
 
         worker_log.parent.mkdir(
             parents=True,
@@ -160,5 +154,5 @@ class WorkflowProcess:
         except ProcessLookupError as exc:
 
             raise WorkflowProcessNotRunningError(
-               pid,
+                pid,
             ) from exc

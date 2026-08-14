@@ -5,7 +5,6 @@ Workflow definition repository.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Iterator
 
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
@@ -120,9 +119,7 @@ class WorkflowRegistryRepository(Repository):
                 FROM workflow_registry
                 WHERE name = ?
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
 
         row = cursor.fetchone()
@@ -154,9 +151,7 @@ class WorkflowRegistryRepository(Repository):
                 WHERE name = ?
                 LIMIT 1
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
 
         return cursor.fetchone() is not None
@@ -268,9 +263,7 @@ class WorkflowRegistryRepository(Repository):
                 DELETE FROM workflow_registry
                 WHERE name = ?
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
 
         if cursor.rowcount == 0:

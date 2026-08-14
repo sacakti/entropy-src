@@ -6,18 +6,19 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from .adapter import ConfigMapSecretTarget
 from .exceptions import (
+    UnsupportedUpdateFormatError,
     UpdateKeyAlreadyExistsError,
     UpdateKeyNotFoundError,
-    UnsupportedUpdateFormatError,
     UpdateTargetError,
 )
 from .model import (
     ConfigMapSecretUpdate,
     UpdateOperation,
 )
-from .adapter import ConfigMapSecretTarget
 from .properties import PropertiesUpdater
+
 
 class ConfigMapSecretUpdateEngine:
     """
@@ -35,9 +36,7 @@ class ConfigMapSecretUpdateEngine:
         self._yaml_dumper = yaml_dumper
 
         self._properties = (
-            properties_updater
-            if properties_updater is not None
-            else PropertiesUpdater()
+            properties_updater if properties_updater is not None else PropertiesUpdater()
         )
 
     # ------------------------------------------------------------------
@@ -123,8 +122,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise UpdateKeyAlreadyExistsError(
-                f"Cannot add key '{key}': "
-                "key already exists.",
+                f"Cannot add key '{key}': " "key already exists.",
             )
 
         value = self._value(
@@ -159,8 +157,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise UpdateKeyNotFoundError(
-                f"Cannot update key '{key}': "
-                "key does not exist.",
+                f"Cannot update key '{key}': " "key does not exist.",
             )
 
         old = target.get(
@@ -209,8 +206,7 @@ class ConfigMapSecretUpdateEngine:
                 }
 
             raise UpdateKeyNotFoundError(
-                f"Cannot delete key '{key}': "
-                "key does not exist.",
+                f"Cannot delete key '{key}': " "key does not exist.",
             )
 
         target.delete(
@@ -252,8 +248,7 @@ class ConfigMapSecretUpdateEngine:
             )
 
         raise UnsupportedUpdateFormatError(
-            f"Unsupported update format "
-            f"'{operation.format}'.",
+            f"Unsupported update format " f"'{operation.format}'.",
         )
 
     def _yaml_update(
@@ -278,8 +273,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise UpdateTargetError(
-                f"Embedded YAML value for key "
-                f"'{operation.key}' must be a string.",
+                f"Embedded YAML value for key " f"'{operation.key}' must be a string.",
             )
 
         current = self._yaml_loader(
@@ -292,8 +286,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise UpdateTargetError(
-                f"Embedded YAML value for key "
-                f"'{operation.key}' must contain an object.",
+                f"Embedded YAML value for key " f"'{operation.key}' must contain an object.",
             )
 
         self._merge(
@@ -347,8 +340,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise UpdateTargetError(
-                f"Embedded properties value for key "
-                f"'{operation.key}' must be a string.",
+                f"Embedded properties value for key " f"'{operation.key}' must be a string.",
             )
 
         return self._properties.update(

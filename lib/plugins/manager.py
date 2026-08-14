@@ -454,16 +454,11 @@ class PluginManager:
             qualified_name,
         )
 
-        documentation = (
-            plugin.path / "MAN.md"
-        )
+        documentation = plugin.path / "MAN.md"
 
         if not documentation.is_file():
 
-            raise FileNotFoundError(
-                f"Documentation not found for "
-                f"plugin '{qualified_name}'."
-            )
+            raise FileNotFoundError(f"Documentation not found for " f"plugin '{qualified_name}'.")
 
         return documentation.read_text(
             encoding="utf-8",

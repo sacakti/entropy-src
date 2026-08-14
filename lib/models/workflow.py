@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+
 @dataclass(frozen=True)
 class Workflow:
     """
@@ -72,6 +73,7 @@ class WorkflowStep:
 
         return self.plugin
 
+
 @dataclass(frozen=True)
 class WorkflowEditResult:
     """
@@ -80,6 +82,7 @@ class WorkflowEditResult:
 
     workflow: Workflow
     changed: bool
+
 
 @dataclass(frozen=True)
 class WorkflowExecutionOptions:
@@ -102,6 +105,7 @@ class WorkflowExecutionOptions:
     step_overrides: dict[str, dict[str, Any]] = field(
         default_factory=dict,
     )
+
 
 @dataclass
 class WorkflowDryRunResult:

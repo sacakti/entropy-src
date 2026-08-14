@@ -9,7 +9,6 @@ from typing import Optional
 
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
-
 from lib.models.vault import VaultEntry, VaultValueType
 
 
@@ -117,10 +116,7 @@ class VaultRepository(Repository):
         Return Vault entries whose keys start with the given prefix.
         """
 
-        upper_bound = (
-            prefix
-            + "\U0010ffff"
-        )
+        upper_bound = prefix + "\U0010ffff"
 
         rows = self.connection.fetchall(
             """
@@ -328,8 +324,7 @@ class VaultRepository(Repository):
         """
 
         return (
-            prefix
-            .replace(
+            prefix.replace(
                 "\\",
                 "\\\\",
             )

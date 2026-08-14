@@ -5,10 +5,10 @@ Vault management command.
 from __future__ import annotations
 
 import json
-import questionary
-
 from argparse import ArgumentParser, Namespace
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import questionary
 
 from core.commands.base import (
     BaseCommand,
@@ -105,10 +105,7 @@ class VaultCommand(BaseCommand):
 
         add.add_argument(
             "--type",
-            choices=[
-                value.value
-                for value in VaultValueType
-            ],
+            choices=[value.value for value in VaultValueType],
             default=VaultValueType.STRING.value,
             help="Vault value type.",
         )
@@ -161,10 +158,7 @@ class VaultCommand(BaseCommand):
 
         update.add_argument(
             "--type",
-            choices=[
-                value.value
-                for value in VaultValueType
-            ],
+            choices=[value.value for value in VaultValueType],
             default=None,
             help="Replacement value type.",
         )
@@ -422,8 +416,7 @@ class VaultCommand(BaseCommand):
             )
 
             self._events.log.info(
-                f"Inspected sensitive Vault entry "
-                f"'{entry.key}' without revealing it.",
+                f"Inspected sensitive Vault entry " f"'{entry.key}' without revealing it.",
             )
 
             return
@@ -443,8 +436,7 @@ class VaultCommand(BaseCommand):
         if entry.sensitive:
 
             self._events.log.warning(
-                f"Sensitive Vault entry '{entry.key}' "
-                "was explicitly revealed.",
+                f"Sensitive Vault entry '{entry.key}' " "was explicitly revealed.",
             )
 
         else:
@@ -883,8 +875,7 @@ class VaultCommand(BaseCommand):
         if current is not None:
 
             self._ui.info(
-                f"Current type for '{field}': "
-                f"{value_type.value}",
+                f"Current type for '{field}': " f"{value_type.value}",
             )
 
         choices = [
@@ -897,9 +888,7 @@ class VaultCommand(BaseCommand):
         selected_type = questionary.select(
             f"Value type for '{field}':",
             choices=choices,
-            default=value_type.value
-            if value_type.value in choices
-            else "string",
+            default=value_type.value if value_type.value in choices else "string",
         ).ask()
 
         if selected_type is None:
@@ -933,14 +922,16 @@ class VaultCommand(BaseCommand):
 
             result = questionary.confirm(
                 f"Value for '{field}':",
-                default=bool(
-                    current,
-                )
-                if isinstance(
-                    current,
-                    bool,
-                )
-                else False,
+                default=(
+                    bool(
+                        current,
+                    )
+                    if isinstance(
+                        current,
+                        bool,
+                    )
+                    else False
+                ),
             ).ask()
 
             if result is None:
@@ -954,8 +945,7 @@ class VaultCommand(BaseCommand):
         if selected_type == "array":
 
             raw = self._prompt_value(
-                f"Array for '{field}' "
-                "(JSON array):",
+                f"Array for '{field}' " "(JSON array):",
                 sensitive=sensitive,
             )
 
@@ -987,17 +977,7 @@ class VaultCommand(BaseCommand):
 
         for key, value in values.items():
 
-            if sensitive:
-
-                display = self._mask_value(
-                    value,
-                )
-
-            else:
-
-                display = self._format_value(
-                    value,
-                )
+            display = self._mask_value(value) if sensitive else self._format_value(value)
 
             rows.append(
                 [
@@ -1227,8 +1207,7 @@ class VaultCommand(BaseCommand):
         """
 
         self._ui.info(
-            "Note: Enter key(s) to save and exit "
-            "with 's'. Enter 'e' to exit without saving.",
+            "Note: Enter key(s) to save and exit " "with 's'. Enter 'e' to exit without saving.",
         )
 
         self._ui.info(
@@ -1271,8 +1250,7 @@ class VaultCommand(BaseCommand):
                 if not values:
 
                     raise VaultValueError(
-                        "At least one JSON key/value pair "
-                        "is required.",
+                        "At least one JSON key/value pair " "is required.",
                     )
 
                 return title, values
@@ -1400,8 +1378,7 @@ class VaultCommand(BaseCommand):
             ):
 
                 raise VaultValueError(
-                    "Nested JSON objects are not allowed "
-                    "inside Vault JSON values.",
+                    "Nested JSON objects are not allowed " "inside Vault JSON values.",
                 )
 
             return result
@@ -1410,10 +1387,7 @@ class VaultCommand(BaseCommand):
         # Quoted JSON string
         #
 
-        if (
-            normalized.startswith('"')
-            and normalized.endswith('"')
-        ):
+        if normalized.startswith('"') and normalized.endswith('"'):
 
             try:
 
@@ -1542,8 +1516,7 @@ class VaultCommand(BaseCommand):
             ):
 
                 raise VaultValueError(
-                    "Nested JSON objects are not allowed "
-                    "inside Vault arrays.",
+                    "Nested JSON objects are not allowed " "inside Vault arrays.",
                 )
 
             return result
@@ -1785,17 +1758,10 @@ class VaultCommand(BaseCommand):
 
         for character in key:
 
-            if not (
-                character.isascii()
-                and (
-                    character.isalnum()
-                    or character == "_"
-                )
-            ):
+            if not (character.isascii() and (character.isalnum() or character == "_")):
 
                 raise VaultValueError(
-                    "Vault key may contain only "
-                    "letters, numbers, and underscore (_).",
+                    "Vault key may contain only " "letters, numbers, and underscore (_).",
                 )
 
     @staticmethod

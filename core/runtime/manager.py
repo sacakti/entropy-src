@@ -136,9 +136,7 @@ class ExecutionManager:
         Create a runtime context for standalone plugin execution.
         """
 
-        execution_id = (
-            f"plugin_{uuid4().hex[:8]}"
-        )
+        execution_id = f"plugin_{uuid4().hex[:8]}"
 
         workspace = self._workspace(
             execution_id,
@@ -180,7 +178,4 @@ class ExecutionManager:
 
         assert self._context.paths is not None
 
-        return (
-            self._context.paths.workspace.executions
-            / execution_id
-        )
+        return self._context.paths.workspace.executions / execution_id

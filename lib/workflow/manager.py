@@ -4,21 +4,20 @@ Workflow manager.
 
 from __future__ import annotations
 
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
 from core.context import EntropyContext
 from lib.database.repositories.workflow_registry import WorkflowRegistryRepository
-from lib.models.workflow import Workflow, WorkflowEditResult
+from lib.models.workflow import Workflow, WorkflowEditResult, WorkflowExecutionOptions
 from lib.workflow.exceptions import (
     WorkflowAlreadyExistsError,
     WorkflowInvalidProvidedError,
     WorkflowNotFoundError,
     WorkflowNotMatchError,
-    WorkflowTooManyFilesError
-    )
+    WorkflowTooManyFilesError,
+)
 from lib.workflow.jobs.model import WorkflowJob
-from lib.models.workflow import WorkflowExecutionOptions
 
 from .follower import WorkflowFollower
 from .loader import WorkflowLoader
@@ -162,7 +161,6 @@ class WorkflowManager:
         """
         Execute a registered workflow or workflow file.
         """
-
 
         if name is not None and file is not None:
 
@@ -366,7 +364,6 @@ class WorkflowManager:
             format=format,
         )
 
-
     def deserialize(
         self,
         definition: str,
@@ -504,9 +501,7 @@ class WorkflowManager:
             name,
         ):
 
-            raise WorkflowNotFoundError(
-                name
-            )
+            raise WorkflowNotFoundError(name)
 
         definition = self._serialize(
             workflow,

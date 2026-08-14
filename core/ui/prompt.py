@@ -26,6 +26,7 @@ class UserInputCancelledError(
             "Input cancelled.",
         )
 
+
 class PromptManager:
     """
     Interactive user input.

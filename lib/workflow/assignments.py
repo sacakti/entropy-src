@@ -176,8 +176,7 @@ class WorkflowAssignments:
                 return False
 
             raise WorkflowArgumentError(
-                f"Invalid boolean value '{value}'. "
-                "Expected true or false.",
+                f"Invalid boolean value '{value}'. " "Expected true or false.",
             )
 
         if value_type == "json":
@@ -198,8 +197,7 @@ class WorkflowAssignments:
             ):
 
                 raise WorkflowArgumentError(
-                    f"Invalid list value '{value}'. "
-                    "Expected a JSON array.",
+                    f"Invalid list value '{value}'. " "Expected a JSON array.",
                 )
 
             return result
@@ -216,8 +214,7 @@ class WorkflowAssignments:
             ):
 
                 raise WorkflowArgumentError(
-                    f"Invalid dict value '{value}'. "
-                    "Expected a JSON object.",
+                    f"Invalid dict value '{value}'. " "Expected a JSON object.",
                 )
 
             return result
@@ -228,13 +225,26 @@ class WorkflowAssignments:
             f"Unsupported assignment type '{value_type}'.",
         )
 
+    @staticmethod
     def _parse_auto(
         value: str,
     ) -> Any:
+        """
+        Automatically parse a CLI value.
+
+        JSON-compatible values are converted to their
+        corresponding Python types. Values that are not
+        valid JSON remain strings.
+        """
 
         try:
-            return json.loads(value)
+
+            return json.loads(
+                value,
+            )
+
         except json.JSONDecodeError:
+
             return value
 
     @staticmethod
@@ -302,7 +312,7 @@ class WorkflowAssignments:
                 index += 1
                 continue
 
-            if char in {"'", '"' }:
+            if char in {"'", '"'}:
 
                 quote = char
                 current.append(char)
@@ -360,8 +370,7 @@ class WorkflowAssignments:
         if "=" not in value:
 
             raise WorkflowArgumentError(
-                f"Invalid assignment '{value}'. "
-                "Expected KEY=VALUE.",
+                f"Invalid assignment '{value}'. " "Expected KEY=VALUE.",
             )
 
         key, item = value.split(
@@ -375,8 +384,7 @@ class WorkflowAssignments:
         if not key:
 
             raise WorkflowArgumentError(
-                f"Invalid assignment '{value}'. "
-                "Assignment key must not be empty.",
+                f"Invalid assignment '{value}'. " "Assignment key must not be empty.",
             )
 
         return (
@@ -392,13 +400,8 @@ class WorkflowAssignments:
         Remove matching surrounding quotes.
         """
 
-        if len(value) >= 2:
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
 
-            if (
-                value[0] == value[-1]
-                and value[0] in {"'", '"'}
-            ):
-
-                return value[1:-1]
+            return value[1:-1]
 
         return value

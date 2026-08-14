@@ -52,9 +52,7 @@ class StageReleaseCopyPlugin(
         Execute the stage release operation.
         """
 
-        self.message.info(
-            "Starting release staging."
-        )
+        self.message.info("Starting release staging.")
 
         try:
 
@@ -64,17 +62,15 @@ class StageReleaseCopyPlugin(
 
                 self._execute()
 
-        except Exception as exc:
+        except Exception:
 
-            self.message.error(
-                str(exc),
-            )
+            # self.message.error(
+            #     str(exc),
+            # )
 
             raise
 
-        self.message.success(
-            "Release staging completed successfully."
-        )
+        self.message.success("Release staging completed successfully.")
 
     # ------------------------------------------------------------------
     # Implementation
@@ -134,13 +130,9 @@ class StageReleaseCopyPlugin(
         assert max_timestamp is not None
         assert max_timestamp_unit is not None
 
-        rotate_backup_type = (
-            rotate_backup_type.lower()
-        )
+        rotate_backup_type = rotate_backup_type.lower()
 
-        max_timestamp_unit = (
-            max_timestamp_unit.lower()
-        )
+        max_timestamp_unit = max_timestamp_unit.lower()
 
         self._validate_backup_configuration(
             backup=backup,
@@ -148,25 +140,17 @@ class StageReleaseCopyPlugin(
             max_timestamp_unit=max_timestamp_unit,
         )
 
-        self.outputs[
-            "release_path"
-        ] = str(
+        self.outputs["release_path"] = str(
             release_path,
         )
 
-        self.outputs[
-            "destination_path"
-        ] = str(
+        self.outputs["destination_path"] = str(
             destination_path,
         )
 
-        self.outputs[
-            "backup_enabled"
-        ] = backup
+        self.outputs["backup_enabled"] = backup
 
-        self.outputs[
-            "rotate_backup_type"
-        ] = rotate_backup_type
+        self.outputs["rotate_backup_type"] = rotate_backup_type
 
         #
         # Create destination.
@@ -184,10 +168,8 @@ class StageReleaseCopyPlugin(
         # Extract release into workflow workspace.
         #
 
-        extracted_release = (
-            self._extract_release(
-                release_path,
-            )
+        extracted_release = self._extract_release(
+            release_path,
         )
 
         try:
@@ -196,23 +178,15 @@ class StageReleaseCopyPlugin(
             # Discover artifacts.
             #
 
-            artifacts = (
-                self._discover_artifacts(
-                    extracted_release,
-                )
+            artifacts = self._discover_artifacts(
+                extracted_release,
             )
 
             if not artifacts:
 
-                raise ValueError(
-                    "No release artifacts were found "
-                    f"in '{release_path}'."
-                )
+                raise ValueError("No release artifacts were found " f"in '{release_path}'.")
 
-            self.message.info(
-                f"Discovered {len(artifacts)} "
-                "release artifact(s)."
-            )
+            self.message.info(f"Discovered {len(artifacts)} " "release artifact(s).")
 
             #
             # Create backup if required.
@@ -222,24 +196,20 @@ class StageReleaseCopyPlugin(
 
             if backup:
 
-                backup_root = (
-                    self._create_backup_root(
-                        destination_path,
-                    )
+                backup_root = self._create_backup_root(
+                    destination_path,
                 )
 
             #
             # Stage artifacts.
             #
 
-            copied_files = (
-                self._stage_artifacts(
-                    artifacts=artifacts,
-                    extracted_release=extracted_release,
-                    destination_path=destination_path,
-                    backup_root=backup_root,
-                    backup_enabled=backup,
-                )
+            copied_files = self._stage_artifacts(
+                artifacts=artifacts,
+                extracted_release=extracted_release,
+                destination_path=destination_path,
+                backup_root=backup_root,
+                backup_enabled=backup,
             )
 
             #
@@ -256,41 +226,26 @@ class StageReleaseCopyPlugin(
                     max_timestamp_unit=max_timestamp_unit,
                 )
 
-            self.outputs[
-                "files_copied"
-            ] = len(
+            self.outputs["files_copied"] = len(
                 copied_files,
             )
 
-            self.outputs[
-                "copied_files"
-            ] = [
-                str(path)
-                for path in copied_files
-            ]
+            self.outputs["copied_files"] = [str(path) for path in copied_files]
 
             if backup_root is not None:
 
-                self.outputs[
-                    "backup_path"
-                ] = str(
+                self.outputs["backup_path"] = str(
                     backup_root,
                 )
 
-            self.artifacts[
-                "staged_release"
-            ] = destination_path
+            self.artifacts["staged_release"] = destination_path
 
             if backup_root is not None:
 
-                self.artifacts[
-                    "backup"
-                ] = backup_root
+                self.artifacts["backup"] = backup_root
 
             self.message.success(
-                f"Copied {len(copied_files)} "
-                "release artifact(s) into "
-                f"{destination_path}"
+                f"Copied {len(copied_files)} " "release artifact(s) into " f"{destination_path}"
             )
 
         finally:
@@ -322,26 +277,17 @@ class StageReleaseCopyPlugin(
             release,
         ):
 
-            raise FileNotFoundError(
-                "Release archive not found: "
-                f"{release}"
-            )
+            raise FileNotFoundError("Release archive not found: " f"{release}")
 
         if not self.filesystem.is_file(
             release,
         ):
 
-            raise ValueError(
-                "Release path is not a file: "
-                f"{release}"
-            )
+            raise ValueError("Release path is not a file: " f"{release}")
 
         if release.suffix.lower() != ".zip":
 
-            raise ValueError(
-                "Release path must point to "
-                f"a ZIP archive: {release}"
-            )
+            raise ValueError("Release path must point to " f"a ZIP archive: {release}")
 
         return release
 
@@ -409,10 +355,7 @@ class StageReleaseCopyPlugin(
         Extract the release into the workflow workspace.
         """
 
-        staging_root = (
-            self.workspace
-            / "stage_release_copy"
-        )
+        staging_root = self.workspace / "stage_release_copy"
 
         if self.filesystem.exists(
             staging_root,
@@ -439,28 +382,17 @@ class StageReleaseCopyPlugin(
             extracted,
         ):
 
-            raise RuntimeError(
-                "Release extraction failed: "
-                f"{extracted}"
-            )
+            raise RuntimeError("Release extraction failed: " f"{extracted}")
 
         if not self.filesystem.is_directory(
             extracted,
         ):
 
-            raise RuntimeError(
-                "Release extraction did not "
-                "produce a directory: "
-                f"{extracted}"
-            )
+            raise RuntimeError("Release extraction did not " "produce a directory: " f"{extracted}")
 
-        extracted = (
-            extracted.resolve()
-        )
+        extracted = extracted.resolve()
 
-        self.message.info(
-            f"Release extracted to: {extracted}"
-        )
+        self.message.info(f"Release extracted to: {extracted}")
 
         return extracted
 
@@ -522,35 +454,26 @@ class StageReleaseCopyPlugin(
         DBScripts and all SQL artifacts are ignored.
         """
 
-        app_root = (
-            extracted_release
-            / "App"
-        )
+        app_root = extracted_release / "App"
 
         if not self.filesystem.exists(
             app_root,
         ):
             raise FileNotFoundError(
-                "Release does not contain the "
-                f"required App directory: {app_root}"
+                "Release does not contain the " f"required App directory: {app_root}"
             )
 
         if not self.filesystem.is_directory(
             app_root,
         ):
-            raise ValueError(
-                f"Release App path is not a directory: "
-                f"{app_root}"
-            )
+            raise ValueError(f"Release App path is not a directory: " f"{app_root}")
 
         artifacts: list[Path] = []
 
-        application_directories = (
-            self.filesystem.find(
-                app_root,
-                pattern="*",
-                recursive=False,
-            )
+        application_directories = self.filesystem.find(
+            app_root,
+            pattern="*",
+            recursive=False,
         )
 
         for application in application_directories:
@@ -594,34 +517,23 @@ class StageReleaseCopyPlugin(
         Create a timestamped backup directory.
         """
 
-        backup_directory = (
-            destination_path
-            / self.BACKUP_DIRECTORY
-        )
+        backup_directory = destination_path / self.BACKUP_DIRECTORY
 
         self.filesystem.mkdir(
             backup_directory,
         )
 
-        timestamp = (
-            datetime.now()
-            .strftime(
-                "%Y%m%d_%H%M%S_%f",
-            )
+        timestamp = datetime.now().strftime(
+            "%Y%m%d_%H%M%S_%f",
         )
 
-        backup_root = (
-            backup_directory
-            / timestamp
-        )
+        backup_root = backup_directory / timestamp
 
         self.filesystem.mkdir(
             backup_root,
         )
 
-        self.message.info(
-            f"Backup created at: {backup_root}"
-        )
+        self.message.info(f"Backup created at: {backup_root}")
 
         return backup_root
 
@@ -641,10 +553,7 @@ class StageReleaseCopyPlugin(
             destination_root,
         )
 
-        backup_file = (
-            backup_root
-            / relative
-        )
+        backup_file = backup_root / relative
 
         self.filesystem.mkdir(
             backup_file.parent,
@@ -655,11 +564,7 @@ class StageReleaseCopyPlugin(
             backup_file,
         )
 
-        self.log.info(
-            f"Backed up existing file "
-            f"'{destination}' to "
-            f"'{backup_file}'"
-        )
+        self.log.info(f"Backed up existing file " f"'{destination}' to " f"'{backup_file}'")
 
     # ------------------------------------------------------------------
     # Stage
@@ -681,10 +586,7 @@ class StageReleaseCopyPlugin(
         from the destination path.
         """
 
-        app_root = (
-            extracted_release
-            / "App"
-        )
+        app_root = extracted_release / "App"
 
         copied_files: list[Path] = []
 
@@ -694,14 +596,9 @@ class StageReleaseCopyPlugin(
                 app_root,
             )
 
-            destination = (
-                destination_path
-                / relative
-            )
+            destination = destination_path / relative
 
-            destination_parent = (
-                destination.parent
-            )
+            destination_parent = destination.parent
 
             with self.activity(
                 f"Copy {relative}",
@@ -725,10 +622,7 @@ class StageReleaseCopyPlugin(
 
                     if backup_root is None:
 
-                        raise RuntimeError(
-                            "Backup root is unavailable "
-                            "while backup is enabled."
-                        )
+                        raise RuntimeError("Backup root is unavailable " "while backup is enabled.")
 
                     self._backup_existing_file(
                         destination=destination,
@@ -764,10 +658,7 @@ class StageReleaseCopyPlugin(
         Rotate completed backup directories.
         """
 
-        backup_directory = (
-            destination_path
-            / self.BACKUP_DIRECTORY
-        )
+        backup_directory = destination_path / self.BACKUP_DIRECTORY
 
         if not self.filesystem.exists(
             backup_directory,
@@ -779,10 +670,7 @@ class StageReleaseCopyPlugin(
             backup_directory,
         ):
 
-            raise ValueError(
-                "Backup path is not a directory: "
-                f"{backup_directory}"
-            )
+            raise ValueError("Backup path is not a directory: " f"{backup_directory}")
 
         backups = [
             path
@@ -801,9 +689,7 @@ class StageReleaseCopyPlugin(
             reverse=True,
         )
 
-        if rotate_backup_type == (
-            self.ROTATE_MAX_FILES
-        ):
+        if rotate_backup_type == (self.ROTATE_MAX_FILES):
 
             self._rotate_max_files(
                 backups,
@@ -828,9 +714,7 @@ class StageReleaseCopyPlugin(
         of backup directories.
         """
 
-        stale = backups[
-            max_files:
-        ]
+        stale = backups[max_files:]
 
         for backup in stale:
 
@@ -842,10 +726,7 @@ class StageReleaseCopyPlugin(
                     backup,
                 )
 
-            self.log.info(
-                f"Removed rotated backup: "
-                f"{backup}"
-            )
+            self.log.info(f"Removed rotated backup: " f"{backup}")
 
     def _rotate_max_timestamp(
         self,
@@ -860,40 +741,28 @@ class StageReleaseCopyPlugin(
 
         now = datetime.now()
 
-        if max_timestamp_unit == (
-            self.TIMESTAMP_HOURS
-        ):
+        if max_timestamp_unit == (self.TIMESTAMP_HOURS):
 
-            cutoff = (
-                now
-                - timedelta(
-                    hours=max_timestamp,
-                )
+            cutoff = now - timedelta(
+                hours=max_timestamp,
             )
 
         else:
 
-            cutoff = (
-                now
-                - timedelta(
-                    days=max_timestamp,
-                )
+            cutoff = now - timedelta(
+                days=max_timestamp,
             )
 
         for backup in backups:
 
-            created_at = (
-                self._backup_timestamp(
-                    backup,
-                )
+            created_at = self._backup_timestamp(
+                backup,
             )
 
             if created_at is None:
 
                 self.message.warning(
-                    "Unable to determine timestamp "
-                    "for backup; retaining: "
-                    f"{backup}"
+                    "Unable to determine timestamp " "for backup; retaining: " f"{backup}"
                 )
 
                 continue
@@ -903,18 +772,14 @@ class StageReleaseCopyPlugin(
                 continue
 
             with self.activity(
-                f"Remove expired backup "
-                f"{backup.name}",
+                f"Remove expired backup " f"{backup.name}",
             ):
 
                 self.filesystem.remove(
                     backup,
                 )
 
-            self.log.info(
-                f"Removed expired backup: "
-                f"{backup}"
-            )
+            self.log.info(f"Removed expired backup: " f"{backup}")
 
     @staticmethod
     def _backup_timestamp(

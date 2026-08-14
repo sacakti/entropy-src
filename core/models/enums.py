@@ -35,7 +35,7 @@ class EventType(str, Enum):
     STAGE_STARTED = "stage.started"
     STAGE_COMPLETED = "stage.completed"
     STAGE_FAILED = "stage.failed"
-    STAGE_CANCELLED ="stage.cancelled"
+    STAGE_CANCELLED = "stage.cancelled"
 
     # ---------------------------------------------------------
     # Activity
@@ -44,4 +44,4 @@ class EventType(str, Enum):
     ACTIVITY_STARTED = "activity.started"
     ACTIVITY_COMPLETED = "activity.completed"
     ACTIVITY_FAILED = "activity.failed"
-    ACTIVITY_CANCELLED ="activity.cancelled"
+    ACTIVITY_CANCELLED = "activity.cancelled"

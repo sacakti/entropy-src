@@ -10,6 +10,7 @@ from pathlib import Path
 from lib.executor import LinuxExecutor
 from lib.vault.exceptions import VaultKeyError
 
+
 class VaultKeyProvider:
     """
     Provides the Vault master encryption key.
@@ -67,9 +68,7 @@ class VaultKeyProvider:
 
         except Exception as exc:
 
-            raise VaultKeyError(
-                "Unable to read Vault master key."
-            ) from exc
+            raise VaultKeyError("Unable to read Vault master key.") from exc
 
         if len(key) != self.KEY_SIZE:
 
@@ -110,8 +109,6 @@ class VaultKeyProvider:
 
         except Exception as exc:
 
-            raise VaultKeyError(
-                "Unable to create Vault master key."
-            ) from exc
+            raise VaultKeyError("Unable to create Vault master key.") from exc
 
         return key

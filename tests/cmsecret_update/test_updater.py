@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from cm_secret_update.engine import ConfigMapSecretUpdateEngine
 from cm_secret_update.model import (
     ConfigMapSecretUpdate,
@@ -190,10 +188,7 @@ def test_creates_missing_resource() -> None:
     assert result.kind == "ConfigMap"
     assert result.name == "application-config"
 
-    expected_path = (
-        Path("/target")
-        / "configmap-application-config.yaml"
-    )
+    expected_path = Path("/target") / "configmap-application-config.yaml"
 
     assert result.path == expected_path
     assert expected_path in filesystem.files

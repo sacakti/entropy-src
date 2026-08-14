@@ -23,7 +23,7 @@ The `builtin.hello` plugin allows workflows to print hello on the system where E
             "name": "Execute HelloPlugin",
             "plugin": "custom.hello",
             "enabled": true,
-            "continue_on_error": false,
+            "on_failure": false,
             "tags": [
                 "hello"
             ],

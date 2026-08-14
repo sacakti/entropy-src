@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from cm_secret_update.exceptions import (
     UpdateDefinitionError,
 )
