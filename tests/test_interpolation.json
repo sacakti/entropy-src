@@ -1,0 +1,38 @@
+{
+    "name": "ReleaseContextInterpolationTest",
+    "version": "1.0.0",
+    "description": "Test release context output interpolation.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "BuildReleaseContext",
+            "plugin": "release.context_builder",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "release",
+                "context_builder"
+            ],
+            "arguments": {
+                "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
+                "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
+                "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls",
+                "image_tag": "1.1.7"
+            }
+        },
+        {
+            "name": "PrintReleaseContext",
+            "plugin": "shell.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "test"
+            ],
+            "arguments": {
+                "command": "echo '=== IMAGES ==='; echo '${entv:images}'; echo '=== DEPLOYMENT ==='; echo '${entv:deployment}'; echo '=== COMMON PATHS ==='; echo '${entv:common_paths}'; echo '=== DATABASE ==='; echo '${entv:database}'"
+            }
+        }
+    ]
+}

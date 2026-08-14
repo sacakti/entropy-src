@@ -1003,11 +1003,31 @@ class ReleaseAnalyzer:
         self,
         path: Path,
     ) -> Any:
+        """
+        Load a YAML or JSON execution plan.
+        """
 
-        return self._filesystem.parse_yaml(
-            self._filesystem.read_text(
-                path,
-            ),
+        content = self._filesystem.read_text(
+            path,
+        )
+
+        suffix = path.suffix.casefold()
+
+        if suffix == ".json":
+            return self._filesystem.parse_json(
+                content,
+            )
+
+        if suffix in {
+            ".yaml",
+            ".yml",
+        }:
+            return self._filesystem.parse_yaml(
+                content,
+            )
+
+        raise ValueError(
+            f"Unsupported plan format: {path}",
         )
 
     # ------------------------------------------------------------------
