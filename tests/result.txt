@@ -1,140 +1,447 @@
-core/runtime/context.py:230: error: Cannot instantiate abstract class "Stage"
-with abstract attribute "cancelled_event"  [abstract]
-            return Stage(
-                   ^~~~~~
-core/runtime/context.py:246: error: Cannot instantiate abstract class
-"Activity" with abstract attribute "cancelled_event"  [abstract]
-            return Activity(
-                   ^~~~~~~~~
-lib/workflow/runner.py:112: error: Argument 1 to "start" of
-"WorkflowJobManager" has incompatible type "Optional[int]"; expected "int" 
-[arg-type]
-                job.id,
-                ^~~~~~
-lib/workflow/runner.py:116: error: Argument 1 to "running" of
-"WorkflowJobManager" has incompatible type "Optional[int]"; expected "int" 
-[arg-type]
-                job.id,
-                ^~~~~~
-lib/workflow/runner.py:175: error: Argument 1 to "complete" of
-"WorkflowJobManager" has incompatible type "Optional[int]"; expected "int" 
-[arg-type]
-                    job.id,
-                    ^~~~~~
-lib/workflow/runner.py:187: error: Argument 1 to "cancel" of
-"WorkflowJobManager" has incompatible type "Optional[int]"; expected "int" 
-[arg-type]
-                    job.id,
-                    ^~~~~~
-lib/workflow/runner.py:202: error: Argument 1 to "fail" of "WorkflowJobManager"
-has incompatible type "Optional[int]"; expected "int"  [arg-type]
-                    job.id,
-                    ^~~~~~
-lib/plugins/installer.py:197: error: Argument 1 to "install" of
-"ExtensionManager" has incompatible type "ExtensionRequirement"; expected
-"ExtensionManifest"  [arg-type]
-                    requirement,
-                    ^~~~~~~~~~~
-lib/plugins/installer.py:220: error: "MigrationManager" has no attribute "run" 
-[attr-defined]
-                self._migrations.run(
-                ^~~~~~~~~~~~~~~~~~~~
-lib/plugins/installer.py:391: error: "RuntimePathManager" has no attribute
-"home"  [attr-defined]
-            assert self._paths.home != self._paths.staging
-                   ^~~~~~~~~~~~~~~~
-lib/plugins/installer.py:391: error: "RuntimePathManager" has no attribute
-"staging"  [attr-defined]
-            assert self._paths.home != self._paths.staging
-                                       ^~~~~~~~~~~~~~~~~~~
-lib/plugins/installer.py:393: error: "RuntimePathManager" has no attribute
-"staging"  [attr-defined]
-            staging = self._paths.staging
-                      ^~~~~~~~~~~~~~~~~~~
-lib/plugins/installer.py:394: error: "RuntimePathManager" has no attribute
-"home"  [attr-defined]
-            final = self._paths.home
-                    ^~~~~~~~~~~~~~~~
-lib/workflow/manager.py:197: error: Argument "job_id" to "WorkflowProcess" has
-incompatible type "Optional[int]"; expected "int"  [arg-type]
-                job_id=job.id,
-                       ^~~~~~
-lib/workflow/manager.py:199: error: "ApplicationPaths" has no attribute
-"worker"  [attr-defined]
-                worker=self._context.bootstrap.application.worker,
-                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lib/workflow/manager.py:212: error: Argument 1 to "get" of "WorkflowJobManager"
-has incompatible type "Optional[int]"; expected "int"  [arg-type]
-                job.id,
-                ^~~~~~
-lib/workflow/jobs/sink.py:117: error: Argument "level" to "event" of
-"WorkflowJobManager" has incompatible type "int"; expected "Optional[str]" 
-[arg-type]
-                level=event.level.value,
-                      ^~~~~~~~~~~~~~~~~
-core/observability/logging/sink.py:64: error: Argument 1 to "_logger" of
-"LoggingSink" has incompatible type "MessageEvent"; expected "LifecycleEvent" 
-[arg-type]
-                    event,
-                    ^~~~~
-core/generators/plugin.py:39: error: Signature of "generate" incompatible with
-supertype "core.generators.base.BaseGenerator"  [override]
-        def generate(
-        ^~~~~~~~~~~~~
-core/generators/plugin.py:39: note:      Superclass:
-core/generators/plugin.py:39: note:          def generate(self, args: Any, context: Optional[EntropyContext] = ...) -> None
-core/generators/plugin.py:39: note:      Subclass:
-core/generators/plugin.py:39: note:          def generate(self, args: Any, context: Any) -> Path
-core/generators/plugin.py:62: error: Item "None" of
-"Optional[BootstrapPathManager]" has no attribute "resources"  [union-attr]
-            root = self._context.bootstrap.resources.plugins
-                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-core/generators/plugin.py:93: error: Item "None" of "Optional[LinuxExecutor]"
-has no attribute "mkdir"  [union-attr]
-            self._context.executor.mkdir(
-            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
-core/generators/plugin.py:120: error: Item "None" of "Optional[LinuxExecutor]"
-has no attribute "move"  [union-attr]
-                self._context.executor.move(
-                ^~~~~~~~~~~~~~~~~~~~~~~~~~~
-core/generators/plugin.py:153: error: Item "None" of "Optional[LinuxExecutor]"
-has no attribute "remove"  [union-attr]
-                self._context.executor.remove(
-                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-core/generators/plugin.py:167: error: Item "None" of "Optional[TemplateEngine]"
-has no attribute "render"  [union-attr]
-                self._context.template.render(
-                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-core/generators/plugin.py:180: error: Item "None" of "Optional[LinuxExecutor]"
-has no attribute "mkdir"  [union-attr]
-                self._context.executor.mkdir(
-                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
-core/context_factory.py:112: error: Argument "configuration" to
-"RuntimePathManager" has incompatible type "Configuration"; expected
-"ConfigurationModel"  [arg-type]
-                configuration=self._context.configuration.configuration,
-                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-core/context_factory.py:212: error: "ConsoleSink" has no attribute "banner" 
-[attr-defined]
-                console.banner(
-                ^~~~~~~~~~~~~~
-lib/install/installer.py:307: error: Item "None" of
-"Optional[InstallerPathManager]" has no attribute "workspace"  [union-attr]
-            assert self._paths.workspace is not None
-                   ^~~~~~~~~~~~~~~~~~~~~
-lib/install/installer.py:309: error: Item "None" of
-"Optional[InstallerPathManager]" has no attribute "default_config"  [union-attr]
-            with self._paths.default_config.open(
-                 ^~~~~~~~~~~~~~~~~~~~~~~~~~
-lib/install/installer.py:319: error: Item "None" of
-"Optional[InstallerPathManager]" has no attribute "workspace"  [union-attr]
-                self._paths.workspace,
-                ^~~~~~~~~~~~~~~~~~~~~
-lib/install/installer.py:322: error: Item "None" of
-"Optional[InstallerPathManager]" has no attribute "config_file"  [union-attr]
-            self._paths.config_file.write_text(
-            ^~~~~~~~~~~~~~~~~~~~~~~
-scripts/install.py:13: error: Missing return statement  [return]
-    def main() -> int:
-    ^~~~~~~~~~~~~~~~~~
-Found 32 errors in 10 files (checked 217 source files)
+ℹ Executing workflow file 'tests/test_interpolation.json'.
+ℹ Execution started : ReleaseContextInterpolationTest
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Step 1/5 : BuildReleaseContext
+ℹ Starting release context analysis.
+
+✔ Extract release (15 ms)
+ℹ   Docker build required for 'app-1'.
+ℹ   Images requiring build: 1
+ℹ   Deployment changes: 3
+ℹ   Database scripts discovered: 1
+ℹ   Rsync operations: 3
+✔ release-context-builder (60 ms)
+✔ Release context analysis completed successfully.
+ℹ Result: BuildReleaseContext
+{
+    'success': True,
+    'changed': True,
+    'outputs': {
+        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
+        'images': {
+            'app-1': {
+                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
+                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
+                'image_name': 'app-1',
+                'image_tag': '1.1.7'
+            }
+        },
+        'deployment': {
+            'required': True,
+            'resources': {
+                'deployments': [
+                    {
+                        'name': 'app-1',
+                        'file': 'deployments/app-1.yaml',
+                        'container': 'app-1',
+                        'current_image': 'quay.io/project1/app-1:1.1.6',
+                        'target_image': 'quay.io/project1/app-1:1.1.7'
+                    }
+                ],
+                'configmaps': [
+                    {
+                        'name': 'application-config',
+                        'kind': 'ConfigMap',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
+                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
+'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
+{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
+                    }
+                ],
+                'secrets': [
+                    {
+                        'name': 'application-secret',
+                        'kind': 'Secret',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
+                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
+{'action': 'delete', 'key': 'old_password'}]
+                    }
+                ],
+                'services': [],
+                'routes': []
+            }
+        },
+        'common_paths': [
+            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
+        ],
+        'database': {
+            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
+            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
+        }
+    },
+    'changes': [],
+    'errors': [],
+    'warnings': [],
+    'metadata': {'artifacts': {}}
+}
+✔ Step 1/5 : BuildReleaseContext (82 ms)
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Step 2/5 : PrintImages
+ℹ Starting plugin execution.
+
+ℹ   {"app-1": {"dockerfile": "/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile", "context": "/Users/aravinthselvaraj/Desktop/repo/app-1", "image_name": 
+"app-1", "image_tag": "1.1.7"}}
+
+✔ shell (25 ms)
+✔ Plugin completed successfully.
+ℹ Result: PrintImages
+{
+    'success': True,
+    'changed': True,
+    'outputs': {
+        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
+        'images': {
+            'app-1': {
+                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
+                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
+                'image_name': 'app-1',
+                'image_tag': '1.1.7'
+            }
+        },
+        'deployment': {
+            'required': True,
+            'resources': {
+                'deployments': [
+                    {
+                        'name': 'app-1',
+                        'file': 'deployments/app-1.yaml',
+                        'container': 'app-1',
+                        'current_image': 'quay.io/project1/app-1:1.1.6',
+                        'target_image': 'quay.io/project1/app-1:1.1.7'
+                    }
+                ],
+                'configmaps': [
+                    {
+                        'name': 'application-config',
+                        'kind': 'ConfigMap',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
+                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
+'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
+{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
+                    }
+                ],
+                'secrets': [
+                    {
+                        'name': 'application-secret',
+                        'kind': 'Secret',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
+                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
+{'action': 'delete', 'key': 'old_password'}]
+                    }
+                ],
+                'services': [],
+                'routes': []
+            }
+        },
+        'common_paths': [
+            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
+        ],
+        'database': {
+            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
+            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
+        },
+        'exit_code': 0,
+        'success': True,
+        'stdout': '{"app-1": {"dockerfile": "/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile", "context": "/Users/aravinthselvaraj/Desktop/repo/app-1", 
+"image_name": "app-1", "image_tag": "1.1.7"}}',
+        'stderr': '',
+        'duration': 0.021828999999999987
+    },
+    'changes': [],
+    'errors': [],
+    'warnings': [],
+    'metadata': {'artifacts': {}}
+}
+✔ Step 2/5 : PrintImages (40 ms)
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Step 3/5 : PrintDeployment
+ℹ Starting plugin execution.
+
+ℹ   Deployments: {"required": true, "resources": {"deployments": [{"name": "app-1", "file": "deployments/app-1.yaml", "container": "app-1", "current_image": 
+"quay.io/project1/app-1:1.1.6", "target_image": "quay.io/project1/app-1:1.1.7"}], "configmaps": [{"name": "application-config", "kind": "ConfigMap", "action": 
+"UPDATE", "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml", "repository": 
+"/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml", "operations": [{"action": "update", "key": "environment", "value": "uat"}, {"action": 
+"update", "key": "application.properties", "format": "properties", "entries": {"application.name": "entropy", "application.port": "8081"}}, {"action": "update", 
+"key": "redis.yaml", "format": "yaml", "entries": {"nettyThreads": 64, "singleServerConfig": {"timeout": 1500}}}, {"action": "add", "key": "new.setting", "value": 
+"enabled"}]}], "secrets": [{"name": "application-secret", "kind": "Secret", "action": "UPDATE", "source": 
+"/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml", "repository": 
+"/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml", "operations": [{"action": "update", "key": "username", "value": "admin3"}, {"action": "add",
+"key": "api_token", "value": "test3-token"}, {"action": "delete", "key": "old_password"}]}], "services": [], "routes": []}}
+
+✔ shell (20 ms)
+✔ Plugin completed successfully.
+ℹ Result: PrintDeployment
+{
+    'success': True,
+    'changed': True,
+    'outputs': {
+        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
+        'images': {
+            'app-1': {
+                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
+                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
+                'image_name': 'app-1',
+                'image_tag': '1.1.7'
+            }
+        },
+        'deployment': {
+            'required': True,
+            'resources': {
+                'deployments': [
+                    {
+                        'name': 'app-1',
+                        'file': 'deployments/app-1.yaml',
+                        'container': 'app-1',
+                        'current_image': 'quay.io/project1/app-1:1.1.6',
+                        'target_image': 'quay.io/project1/app-1:1.1.7'
+                    }
+                ],
+                'configmaps': [
+                    {
+                        'name': 'application-config',
+                        'kind': 'ConfigMap',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
+                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
+'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
+{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
+                    }
+                ],
+                'secrets': [
+                    {
+                        'name': 'application-secret',
+                        'kind': 'Secret',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
+                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
+{'action': 'delete', 'key': 'old_password'}]
+                    }
+                ],
+                'services': [],
+                'routes': []
+            }
+        },
+        'common_paths': [
+            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
+        ],
+        'database': {
+            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
+            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
+        },
+        'exit_code': 0,
+        'success': True,
+        'stdout': 'Deployments: {"required": true, "resources": {"deployments": [{"name": "app-1", "file": "deployments/app-1.yaml", "container": "app-1", 
+"current_image": "quay.io/project1/app-1:1.1.6", "target_image": "quay.io/project1/app-1:1.1.7"}], "configmaps": [{"name": "application-config", "kind": "ConfigMap",
+"action": "UPDATE", "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml", "repository": 
+"/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml", "operations": [{"action": "update", "key": "environment", "value": "uat"}, {"action": 
+"update", "key": "application.properties", "format": "properties", "entries": {"application.name": "entropy", "application.port": "8081"}}, {"action": "update", 
+"key": "redis.yaml", "format": "yaml", "entries": {"nettyThreads": 64, "singleServerConfig": {"timeout": 1500}}}, {"action": "add", "key": "new.setting", "value": 
+"enabled"}]}], "secrets": [{"name": "application-secret", "kind": "Secret", "action": "UPDATE", "source": 
+"/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml", "repository": 
+"/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml", "operations": [{"action": "update", "key": "username", "value": "admin3"}, {"action": "add",
+"key": "api_token", "value": "test3-token"}, {"action": "delete", "key": "old_password"}]}], "services": [], "routes": []}}',
+        'stderr': '',
+        'duration': 0.013844749999999961
+    },
+    'changes': [],
+    'errors': [],
+    'warnings': [],
+    'metadata': {'artifacts': {}}
+}
+✔ Step 3/5 : PrintDeployment (36 ms)
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Step 4/5 : PrintCommonPaths
+ℹ Starting plugin execution.
+
+ℹ   Common Paths: [{"deployment": "app-1", "target": "/opt/app/reports", "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml"}, 
+{"deployment": "app-2", "target": "/opt/app/reports", "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml"}, {"deployment": 
+"app-3", "target": "/opt/app/templates", "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates"}]
+
+✔ shell (19 ms)
+✔ Plugin completed successfully.
+ℹ Result: PrintCommonPaths
+{
+    'success': True,
+    'changed': True,
+    'outputs': {
+        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
+        'images': {
+            'app-1': {
+                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
+                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
+                'image_name': 'app-1',
+                'image_tag': '1.1.7'
+            }
+        },
+        'deployment': {
+            'required': True,
+            'resources': {
+                'deployments': [
+                    {
+                        'name': 'app-1',
+                        'file': 'deployments/app-1.yaml',
+                        'container': 'app-1',
+                        'current_image': 'quay.io/project1/app-1:1.1.6',
+                        'target_image': 'quay.io/project1/app-1:1.1.7'
+                    }
+                ],
+                'configmaps': [
+                    {
+                        'name': 'application-config',
+                        'kind': 'ConfigMap',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
+                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
+'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
+{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
+                    }
+                ],
+                'secrets': [
+                    {
+                        'name': 'application-secret',
+                        'kind': 'Secret',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
+                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
+{'action': 'delete', 'key': 'old_password'}]
+                    }
+                ],
+                'services': [],
+                'routes': []
+            }
+        },
+        'common_paths': [
+            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
+        ],
+        'database': {
+            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
+            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
+        },
+        'exit_code': 0,
+        'success': True,
+        'stdout': 'Common Paths: [{"deployment": "app-1", "target": "/opt/app/reports", "source": 
+"/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml"}, {"deployment": "app-2", "target": "/opt/app/reports", "source": 
+"/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml"}, {"deployment": "app-3", "target": "/opt/app/templates", "source": 
+"/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates"}]',
+        'stderr': '',
+        'duration': 0.011598082999999981
+    },
+    'changes': [],
+    'errors': [],
+    'warnings': [],
+    'metadata': {'artifacts': {}}
+}
+✔ Step 4/5 : PrintCommonPaths (34 ms)
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Step 5/5 : PrintDatabase
+ℹ Starting plugin execution.
+
+ℹ   Database: {"scripts": [{"application": "App1", "script": "/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql"}], 
+"execution_plan": {"applications": {"App1": {"schema": "APP1", "calling_script": "App1_calling_script.sql"}}}}
+
+✔ shell (16 ms)
+✔ Plugin completed successfully.
+ℹ Result: PrintDatabase
+{
+    'success': True,
+    'changed': True,
+    'outputs': {
+        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
+        'images': {
+            'app-1': {
+                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
+                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
+                'image_name': 'app-1',
+                'image_tag': '1.1.7'
+            }
+        },
+        'deployment': {
+            'required': True,
+            'resources': {
+                'deployments': [
+                    {
+                        'name': 'app-1',
+                        'file': 'deployments/app-1.yaml',
+                        'container': 'app-1',
+                        'current_image': 'quay.io/project1/app-1:1.1.6',
+                        'target_image': 'quay.io/project1/app-1:1.1.7'
+                    }
+                ],
+                'configmaps': [
+                    {
+                        'name': 'application-config',
+                        'kind': 'ConfigMap',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
+                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
+'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
+{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
+                    }
+                ],
+                'secrets': [
+                    {
+                        'name': 'application-secret',
+                        'kind': 'Secret',
+                        'action': 'UPDATE',
+                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
+                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
+                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
+{'action': 'delete', 'key': 'old_password'}]
+                    }
+                ],
+                'services': [],
+                'routes': []
+            }
+        },
+        'common_paths': [
+            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
+            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
+        ],
+        'database': {
+            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
+            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
+        },
+        'exit_code': 0,
+        'success': True,
+        'stdout': 'Database: {"scripts": [{"application": "App1", "script": "/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql"}],
+"execution_plan": {"applications": {"App1": {"schema": "APP1", "calling_script": "App1_calling_script.sql"}}}}',
+        'stderr': '',
+        'duration': 0.012023584000000032
+    },
+    'changes': [],
+    'errors': [],
+    'warnings': [],
+    'metadata': {'artifacts': {}}
+}
+✔ Step 5/5 : PrintDatabase (35 ms)
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+✔ Execution completed : ReleaseContextInterpolationTest (240 ms)
+ℹ Workflow file 'tests/test_interpolation.json' completed.

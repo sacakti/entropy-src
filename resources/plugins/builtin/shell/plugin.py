@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import shutil
 
+import json
+
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 
@@ -71,9 +73,15 @@ class ShellPlugin(
         Execute the configured shell command or script.
         """
 
-        command = self.arguments.string(
+        command = self.arguments.get(
             "command",
         )
+
+        if command is not None:
+
+            command = self._stringify(
+                command,
+            )
 
         script = self.arguments.string(
             "script",
@@ -83,10 +91,17 @@ class ShellPlugin(
             "shell",
         )
 
-        args = self.arguments.list(
+        args = self.arguments.get(
             "args",
             [],
         )
+
+        args = [
+            self._stringify(
+                value,
+            )
+            for value in args
+        ]
 
         cwd = self.arguments.string(
             "cwd",
@@ -224,6 +239,10 @@ class ShellPlugin(
             *args,
         ]
 
+        self.log.info(
+            f"Process arguments: {process_arguments!r}",
+        )
+
         return self.shell.run(
             process_arguments,
             cwd=cwd,
@@ -318,3 +337,24 @@ class ShellPlugin(
                 self.DEFAULT_SHELLS,
             ),
         )
+
+    @staticmethod
+    def _stringify(
+        value,
+    ) -> str:
+        """
+        Convert a workflow value into a shell-safe string.
+        """
+
+        if isinstance(value, str):
+            return value
+
+        if isinstance(
+            value,
+            (dict, list),
+        ):
+            return json.dumps(
+                value,
+            )
+
+        return str(value)

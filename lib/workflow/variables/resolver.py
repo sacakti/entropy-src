@@ -264,6 +264,10 @@ class WorkflowVariableResolver:
                 1,
             )
 
+            if reference.startswith("steps."):
+
+                return value
+
             return self._resolve_reference(
                 reference,
                 variables,
@@ -277,11 +281,11 @@ class WorkflowVariableResolver:
 
             return value
 
-        def replace(match) -> str:
+        def replace(match):
+            reference = match.group(1)
 
-            reference = match.group(
-                1,
-            )
+            if reference.startswith("steps."):
+                return match.group(0)
 
             resolved_value = self._resolve_reference(
                 reference,
@@ -290,9 +294,7 @@ class WorkflowVariableResolver:
                 resolving,
             )
 
-            return self._stringify(
-                resolved_value,
-            )
+            return str(resolved_value)
 
         return self._REFERENCE.sub(
             replace,

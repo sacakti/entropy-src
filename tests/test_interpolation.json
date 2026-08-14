@@ -1,7 +1,7 @@
 {
     "name": "ReleaseContextInterpolationTest",
     "version": "1.0.0",
-    "description": "Test release context output interpolation.",
+    "description": "Test step output interpolation.",
 
     "variables": {},
 
@@ -23,15 +23,67 @@
             }
         },
         {
-            "name": "PrintReleaseContext",
-            "plugin": "shell.generic",
+            "name": "PrintImages",
+            "plugin": "builtin.shell",
+            "enabled": true,
+            "on_failure": "abort",
+            "suppress_result": false,
+            "tags": [
+                "test"
+            ],
+            "arguments": {
+                "command": "echo $1",
+                "args": [
+                    "${steps.BuildReleaseContext.outputs.images}"
+                ]
+            }
+        },
+        {
+            "name": "PrintDeployment",
+            "plugin": "builtin.shell",
+            "suppress_result": false,
             "enabled": true,
             "on_failure": "abort",
             "tags": [
                 "test"
             ],
             "arguments": {
-                "command": "echo '=== IMAGES ==='; echo '${entv:images}'; echo '=== DEPLOYMENT ==='; echo '${entv:deployment}'; echo '=== COMMON PATHS ==='; echo '${entv:common_paths}'; echo '=== DATABASE ==='; echo '${entv:database}'"
+                "command": "echo Deployments: $1",
+                "args": [
+                    "${steps.BuildReleaseContext.outputs.deployment}"
+                ]
+            }
+        },
+        {
+            "name": "PrintCommonPaths",
+            "plugin": "builtin.shell",
+            "suppress_result": false,
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "test"
+            ],
+            "arguments": {
+                "command": "echo Common Paths: $1",
+                "args": [
+                    "${steps.BuildReleaseContext.outputs.common_paths}"
+                ]
+            }
+        },
+        {
+            "name": "PrintDatabase",
+            "plugin": "builtin.shell",
+            "suppress_result": false,
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "test"
+            ],
+            "arguments": {
+                "command": "echo Database: $1",
+                "args":[
+                    "${steps.BuildReleaseContext.outputs.database}"
+                ]
             }
         }
     ]

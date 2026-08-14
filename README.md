@@ -734,3 +734,12 @@ Deployment Complete
 - Plugin marketplace
 - YAML schema validation
 - Kubernetes native deployment mode
+
+# Install plugins
+- ent pl install ./resources/plugins/builtin/hello
+- ent pl install ./resources/plugins/builtin/shell
+- ent pl install ./resources/plugins/docker/build
+- ent pl install ./resources/plugins/docker/clean
+- ent pl install ./resources/plugins/docker/generic
+- ent pl install ./resources/plugins/oc/cm_secret_update
+- ent pl install ./resources/plugins/release/context_builder
