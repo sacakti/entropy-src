@@ -192,7 +192,7 @@ class PluginLoader:
     def _find_plugin_class(
         self,
         module: ModuleType,
-        plugin: Plugin,
+        identifier: str,
     ) -> type[BasePlugin]:
         """
         Locate the plugin implementation.
@@ -221,7 +221,7 @@ class PluginLoader:
         ):
 
             raise PluginClassNotFoundError(
-                plugin.qualified_name,
+                identifier,
             )
 
         return classes[0]
@@ -353,7 +353,10 @@ class PluginLoader:
         module_file: Path,
     ) -> ModuleType:
         """
-        Import a local plugin module.
+        Import a local plugin as a package.
+
+        The local plugin directory becomes a temporary package so
+        that plugin.py can use relative imports of sibling modules.
         """
 
         directory = module_file.parent
@@ -364,15 +367,48 @@ class PluginLoader:
             ),
         ).hexdigest()[:16]
 
-        module_name = (
+        package_name = (
             f"entropy_local_{identifier}"
+        )
+
+        module_name = (
+            f"{package_name}.plugin"
         )
 
         try:
 
+            #
+            # Create the temporary package namespace.
+            #
+
+            package = sys.modules.get(
+                package_name,
+            )
+
+            if package is None:
+
+                package = ModuleType(
+                    package_name,
+                )
+
+                package.__path__ = [
+                    str(directory),
+                ]
+
+                package.__package__ = package_name
+
+                sys.modules[
+                    package_name
+                ] = package
+
+            #
+            # Import plugin.py as package.plugin.
+            #
+
             spec = importlib.util.spec_from_file_location(
                 module_name,
                 module_file,
+                submodule_search_locations=None,
             )
 
             if spec is None or spec.loader is None:
@@ -386,7 +422,11 @@ class PluginLoader:
                 spec,
             )
 
-            sys.modules[module_name] = module
+            module.__package__ = package_name
+
+            sys.modules[
+                module_name
+            ] = module
 
             spec.loader.exec_module(
                 module,
