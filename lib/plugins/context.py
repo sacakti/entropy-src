@@ -111,6 +111,9 @@ class PluginContext:
 
         self._mode = mode
 
+        self._outputs: dict[str, Any] = {}
+        self._artifacts: dict[str, Path] = {}
+
         self._emitter: Emitter = context.emitter(
             "plugin",
         )
@@ -157,20 +160,21 @@ class PluginContext:
         self,
     ) -> dict[str, Any]:
         """
-        Workflow outputs.
+        Outputs produced by the current plugin.
         """
 
-        return self._runtime.outputs
+        return self._outputs
+
 
     @property
     def artifacts(
         self,
     ) -> dict[str, Path]:
         """
-        Workflow artifacts.
+        Artifacts produced by the current plugin.
         """
 
-        return self._runtime.artifacts
+        return self._artifacts
 
     @property
     def workspace(

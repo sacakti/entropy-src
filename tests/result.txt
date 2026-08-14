@@ -5,13 +5,13 @@
 ▶ Step 1/5 : BuildReleaseContext
 ℹ Starting release context analysis.
 
-✔ Extract release (15 ms)
+✔ Extract release (16 ms)
 ℹ   Docker build required for 'app-1'.
 ℹ   Images requiring build: 1
 ℹ   Deployment changes: 3
 ℹ   Database scripts discovered: 1
 ℹ   Rsync operations: 3
-✔ release-context-builder (60 ms)
+✔ release-context-builder (62 ms)
 ✔ Release context analysis completed successfully.
 ℹ Result: BuildReleaseContext
 {
@@ -81,7 +81,7 @@
     'warnings': [],
     'metadata': {'artifacts': {}}
 }
-✔ Step 1/5 : BuildReleaseContext (82 ms)
+✔ Step 1/5 : BuildReleaseContext (83 ms)
 
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ▶ Step 2/5 : PrintImages
@@ -90,83 +90,26 @@
 ℹ   {"app-1": {"dockerfile": "/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile", "context": "/Users/aravinthselvaraj/Desktop/repo/app-1", "image_name": 
 "app-1", "image_tag": "1.1.7"}}
 
-✔ shell (25 ms)
+✔ shell (22 ms)
 ✔ Plugin completed successfully.
 ℹ Result: PrintImages
 {
     'success': True,
     'changed': True,
     'outputs': {
-        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
-        'images': {
-            'app-1': {
-                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
-                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
-                'image_name': 'app-1',
-                'image_tag': '1.1.7'
-            }
-        },
-        'deployment': {
-            'required': True,
-            'resources': {
-                'deployments': [
-                    {
-                        'name': 'app-1',
-                        'file': 'deployments/app-1.yaml',
-                        'container': 'app-1',
-                        'current_image': 'quay.io/project1/app-1:1.1.6',
-                        'target_image': 'quay.io/project1/app-1:1.1.7'
-                    }
-                ],
-                'configmaps': [
-                    {
-                        'name': 'application-config',
-                        'kind': 'ConfigMap',
-                        'action': 'UPDATE',
-                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
-                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
-                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
-'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
-{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
-                    }
-                ],
-                'secrets': [
-                    {
-                        'name': 'application-secret',
-                        'kind': 'Secret',
-                        'action': 'UPDATE',
-                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
-                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
-                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
-{'action': 'delete', 'key': 'old_password'}]
-                    }
-                ],
-                'services': [],
-                'routes': []
-            }
-        },
-        'common_paths': [
-            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
-            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
-            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
-        ],
-        'database': {
-            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
-            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
-        },
         'exit_code': 0,
         'success': True,
         'stdout': '{"app-1": {"dockerfile": "/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile", "context": "/Users/aravinthselvaraj/Desktop/repo/app-1", 
 "image_name": "app-1", "image_tag": "1.1.7"}}',
         'stderr': '',
-        'duration': 0.021828999999999987
+        'duration': 0.01757062499999995
     },
     'changes': [],
     'errors': [],
     'warnings': [],
     'metadata': {'artifacts': {}}
 }
-✔ Step 2/5 : PrintImages (40 ms)
+✔ Step 2/5 : PrintImages (31 ms)
 
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ▶ Step 3/5 : PrintDeployment
@@ -183,70 +126,13 @@
 "/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml", "operations": [{"action": "update", "key": "username", "value": "admin3"}, {"action": "add",
 "key": "api_token", "value": "test3-token"}, {"action": "delete", "key": "old_password"}]}], "services": [], "routes": []}}
 
-✔ shell (20 ms)
+✔ shell (19 ms)
 ✔ Plugin completed successfully.
 ℹ Result: PrintDeployment
 {
     'success': True,
     'changed': True,
     'outputs': {
-        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
-        'images': {
-            'app-1': {
-                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
-                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
-                'image_name': 'app-1',
-                'image_tag': '1.1.7'
-            }
-        },
-        'deployment': {
-            'required': True,
-            'resources': {
-                'deployments': [
-                    {
-                        'name': 'app-1',
-                        'file': 'deployments/app-1.yaml',
-                        'container': 'app-1',
-                        'current_image': 'quay.io/project1/app-1:1.1.6',
-                        'target_image': 'quay.io/project1/app-1:1.1.7'
-                    }
-                ],
-                'configmaps': [
-                    {
-                        'name': 'application-config',
-                        'kind': 'ConfigMap',
-                        'action': 'UPDATE',
-                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
-                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
-                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
-'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
-{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
-                    }
-                ],
-                'secrets': [
-                    {
-                        'name': 'application-secret',
-                        'kind': 'Secret',
-                        'action': 'UPDATE',
-                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
-                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
-                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
-{'action': 'delete', 'key': 'old_password'}]
-                    }
-                ],
-                'services': [],
-                'routes': []
-            }
-        },
-        'common_paths': [
-            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
-            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
-            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
-        ],
-        'database': {
-            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
-            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
-        },
         'exit_code': 0,
         'success': True,
         'stdout': 'Deployments: {"required": true, "resources": {"deployments": [{"name": "app-1", "file": "deployments/app-1.yaml", "container": "app-1", 
@@ -260,14 +146,14 @@
 "/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml", "operations": [{"action": "update", "key": "username", "value": "admin3"}, {"action": "add",
 "key": "api_token", "value": "test3-token"}, {"action": "delete", "key": "old_password"}]}], "services": [], "routes": []}}',
         'stderr': '',
-        'duration': 0.013844749999999961
+        'duration': 0.013055666999999938
     },
     'changes': [],
     'errors': [],
     'warnings': [],
     'metadata': {'artifacts': {}}
 }
-✔ Step 3/5 : PrintDeployment (36 ms)
+✔ Step 3/5 : PrintDeployment (26 ms)
 
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ▶ Step 4/5 : PrintCommonPaths
@@ -277,70 +163,13 @@
 {"deployment": "app-2", "target": "/opt/app/reports", "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml"}, {"deployment": 
 "app-3", "target": "/opt/app/templates", "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates"}]
 
-✔ shell (19 ms)
+✔ shell (15 ms)
 ✔ Plugin completed successfully.
 ℹ Result: PrintCommonPaths
 {
     'success': True,
     'changed': True,
     'outputs': {
-        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
-        'images': {
-            'app-1': {
-                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
-                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
-                'image_name': 'app-1',
-                'image_tag': '1.1.7'
-            }
-        },
-        'deployment': {
-            'required': True,
-            'resources': {
-                'deployments': [
-                    {
-                        'name': 'app-1',
-                        'file': 'deployments/app-1.yaml',
-                        'container': 'app-1',
-                        'current_image': 'quay.io/project1/app-1:1.1.6',
-                        'target_image': 'quay.io/project1/app-1:1.1.7'
-                    }
-                ],
-                'configmaps': [
-                    {
-                        'name': 'application-config',
-                        'kind': 'ConfigMap',
-                        'action': 'UPDATE',
-                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
-                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
-                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
-'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
-{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
-                    }
-                ],
-                'secrets': [
-                    {
-                        'name': 'application-secret',
-                        'kind': 'Secret',
-                        'action': 'UPDATE',
-                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
-                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
-                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
-{'action': 'delete', 'key': 'old_password'}]
-                    }
-                ],
-                'services': [],
-                'routes': []
-            }
-        },
-        'common_paths': [
-            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
-            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
-            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
-        ],
-        'database': {
-            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
-            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
-        },
         'exit_code': 0,
         'success': True,
         'stdout': 'Common Paths: [{"deployment": "app-1", "target": "/opt/app/reports", "source": 
@@ -348,14 +177,14 @@
 "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml"}, {"deployment": "app-3", "target": "/opt/app/templates", "source": 
 "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates"}]',
         'stderr': '',
-        'duration': 0.011598082999999981
+        'duration': 0.011035000000000017
     },
     'changes': [],
     'errors': [],
     'warnings': [],
     'metadata': {'artifacts': {}}
 }
-✔ Step 4/5 : PrintCommonPaths (34 ms)
+✔ Step 4/5 : PrintCommonPaths (22 ms)
 
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ▶ Step 5/5 : PrintDatabase
@@ -364,84 +193,27 @@
 ℹ   Database: {"scripts": [{"application": "App1", "script": "/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql"}], 
 "execution_plan": {"applications": {"App1": {"schema": "APP1", "calling_script": "App1_calling_script.sql"}}}}
 
-✔ shell (16 ms)
+✔ shell (12 ms)
 ✔ Plugin completed successfully.
 ℹ Result: PrintDatabase
 {
     'success': True,
     'changed': True,
     'outputs': {
-        'release': {'package': '/Users/aravinthselvaraj/Desktop/releases/H004.zip', 'root': '/Users/aravinthselvaraj/Desktop/releases/H004'},
-        'images': {
-            'app-1': {
-                'dockerfile': '/Users/aravinthselvaraj/Desktop/repo/app-1/image/Dockerfile',
-                'context': '/Users/aravinthselvaraj/Desktop/repo/app-1',
-                'image_name': 'app-1',
-                'image_tag': '1.1.7'
-            }
-        },
-        'deployment': {
-            'required': True,
-            'resources': {
-                'deployments': [
-                    {
-                        'name': 'app-1',
-                        'file': 'deployments/app-1.yaml',
-                        'container': 'app-1',
-                        'current_image': 'quay.io/project1/app-1:1.1.6',
-                        'target_image': 'quay.io/project1/app-1:1.1.7'
-                    }
-                ],
-                'configmaps': [
-                    {
-                        'name': 'application-config',
-                        'kind': 'ConfigMap',
-                        'action': 'UPDATE',
-                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
-                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/configmaps/application-config.yaml',
-                        'operations': [{'action': 'update', 'key': 'environment', 'value': 'uat'}, {'action': 'update', 'key': 'application.properties', 'format': 
-'properties', 'entries': {'application.name': 'entropy', 'application.port': '8081'}}, {'action': 'update', 'key': 'redis.yaml', 'format': 'yaml', 'entries': 
-{'nettyThreads': 64, 'singleServerConfig': {'timeout': 1500}}}, {'action': 'add', 'key': 'new.setting', 'value': 'enabled'}]
-                    }
-                ],
-                'secrets': [
-                    {
-                        'name': 'application-secret',
-                        'kind': 'Secret',
-                        'action': 'UPDATE',
-                        'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml',
-                        'repository': '/Users/aravinthselvaraj/Desktop/yamls/secrets/application-secret.yaml',
-                        'operations': [{'action': 'update', 'key': 'username', 'value': 'admin3'}, {'action': 'add', 'key': 'api_token', 'value': 'test3-token'}, 
-{'action': 'delete', 'key': 'old_password'}]
-                    }
-                ],
-                'services': [],
-                'routes': []
-            }
-        },
-        'common_paths': [
-            {'deployment': 'app-1', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
-            {'deployment': 'app-2', 'target': '/opt/app/reports', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/jrxml'},
-            {'deployment': 'app-3', 'target': '/opt/app/templates', 'source': '/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/common_path/templates'}
-        ],
-        'database': {
-            'scripts': [{'application': 'App1', 'script': '/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql'}],
-            'execution_plan': {'applications': {'App1': {'schema': 'APP1', 'calling_script': 'App1_calling_script.sql'}}}
-        },
         'exit_code': 0,
         'success': True,
         'stdout': 'Database: {"scripts": [{"application": "App1", "script": "/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql"}],
 "execution_plan": {"applications": {"App1": {"schema": "APP1", "calling_script": "App1_calling_script.sql"}}}}',
         'stderr': '',
-        'duration': 0.012023584000000032
+        'duration': 0.009273083999999931
     },
     'changes': [],
     'errors': [],
     'warnings': [],
     'metadata': {'artifacts': {}}
 }
-✔ Step 5/5 : PrintDatabase (35 ms)
+✔ Step 5/5 : PrintDatabase (19 ms)
 
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-✔ Execution completed : ReleaseContextInterpolationTest (240 ms)
+✔ Execution completed : ReleaseContextInterpolationTest (190 ms)
 ℹ Workflow file 'tests/test_interpolation.json' completed.
