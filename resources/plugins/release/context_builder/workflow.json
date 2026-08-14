@@ -1,0 +1,32 @@
+{
+    "name": "Release Context Builder",
+    "version": "1.0.0",
+    "description": "Analyse a release package and generate deployment execution context.",
+
+    "variables": {
+        "release_package": "${release_path}${release_package}",
+        "docker_repository": "${docker_repo_path}",
+        "yaml_repository": "${yamls_repo_path}",
+        "image_tag": "1.1.7"
+    },
+
+    "steps": [
+        {
+            "name": "Build Release Context",
+            "plugin": "release.context_builder",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "release",
+                "context"
+            ],
+            "arguments": {
+                "release": "${release_package}",
+                "docker_repository": "${docker_repository}",
+                "yaml_repository": "${yaml_repository}",
+                "image_tag": "${image_tag}",
+                "structure": "./structure.yaml"
+            }
+        }
+    ]
+}

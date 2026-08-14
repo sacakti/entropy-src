@@ -1,0 +1,12 @@
+{
+    "name": "clean",
+    "namespace": "docker",
+    "version": "1.0.0",
+    "display_name": "Docker Clean",
+    "description": "Clean Docker storage using controlled cleanup policies.",
+    "tags": [
+        "docker",
+        "storage",
+        "cleanup"
+    ]
+}

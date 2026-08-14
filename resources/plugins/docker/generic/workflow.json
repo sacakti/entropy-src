@@ -1,0 +1,43 @@
+{
+    "name": "Docker Generic Operations",
+    "version": "1.0.0",
+    "description": "Demonstrates generic Docker operations using the Entropy Docker plugin.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "Docker Login",
+            "plugin": "docker.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "docker",
+                "generic",
+                "login"
+            ],
+            "arguments": {
+                "operation": "login",
+                "registry": "quay.io"
+            }
+        },
+        {
+            "name": "Pull Docker Images",
+            "plugin": "docker.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "docker",
+                "generic",
+                "pull"
+            ],
+            "arguments": {
+                "operation": "pull",
+                "images": [
+                    "quay.io/entropy/service-1:1.1.2",
+                    "quay.io/entropy/service-2:1.1.2"
+                ]
+            }
+        }
+    ]
+}

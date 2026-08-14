@@ -1,0 +1,23 @@
+{
+    "name": "docker-clean",
+    "version": "1.0.0",
+    "description": "Example workflow for docker.clean.",
+    "variables": {},
+    "steps": [
+        {
+            "name": "DockerCleanPlugin",
+            "plugin": "docker.clean",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "docker",
+                "clean"
+            ],
+            "arguments": {
+                "cleanup": "tag",
+                "minimum_storage": 10,
+                "tag_pattern": ":25.01.01."
+            }
+        }
+    ]
+}

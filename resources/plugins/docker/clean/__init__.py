@@ -1,0 +1,1 @@
+"""Docker clean plugin package."""

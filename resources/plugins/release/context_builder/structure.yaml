@@ -1,0 +1,60 @@
+name: default
+
+structure:
+
+  children:
+    - docker
+    - openshift
+    - database
+
+  docker:
+    path: App/services
+    type: directory
+
+    children:
+
+      service:
+        type: directory
+
+        children:
+
+          image:
+            path: image
+            type: directory
+
+            dockerfile:
+              name: Dockerfile
+
+  openshift:
+    path: App/openshift
+    type: directory
+
+    children:
+
+      yamls:
+        path: yamls
+        type: directory
+
+      common_path:
+        path: common_path
+        type: directory
+
+        rsync_plan:
+          names:
+            - rsync_plan.yaml
+            - rsync_plan.yml
+            - rsync_plan.json
+
+  database:
+    path: DBScripts
+    type: directory
+
+    scripts:
+      extensions:
+        - .sql
+
+    execution_plan:
+      names:
+        - execution_plan.yaml
+        - execution_plan.yml
+        - execution_plan.json

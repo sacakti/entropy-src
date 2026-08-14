@@ -7,6 +7,7 @@ from lib.models.vault import (
     VaultEntry,
     VaultValueType,
 )
+from lib.vault.key import VaultKeyProvider
 
 from .exceptions import (
     VaultEntryExistsError,
@@ -31,4 +32,5 @@ __all__ = [
     "VaultSerializationError",
     "VaultSerializer",
     "VaultValueType",
+    "VaultKeyProvider",
 ]

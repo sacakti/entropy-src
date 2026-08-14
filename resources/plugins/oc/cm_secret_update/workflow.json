@@ -1,0 +1,23 @@
+{
+    "name": "CmSecretUpdatePlugin",
+    "version": "1.0.0",
+    "description": "Example workflow for oc.cm_secret_update.",
+    "variables": {},
+    "steps": [
+        {
+            "name": "CmSecretUpdatePlugin",
+            "plugin": "oc.cm_secret_update",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "cm_secret_update",
+                "openshift"
+            ],
+            "arguments": {
+                "source": "/Users/aravinthselvaraj/Documents/entropy/tests/cmsecret_update/source",
+                "target": "/Users/aravinthselvaraj/Documents/entropy/tests/cmsecret_update/destination",
+                "replace": true
+            }
+        }
+    ]
+}

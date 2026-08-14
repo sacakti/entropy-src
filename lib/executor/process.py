@@ -29,6 +29,7 @@ class ProcessMixin:
         env: Environment | None = None,
         shell: bool = False,
         check: bool = False,
+        input: str | None = None,
     ) -> ExecutionResult:
         """
         Execute a command.
@@ -77,6 +78,7 @@ class ProcessMixin:
             check=check,
             capture_output=True,
             text=True,
+            input=input,
         )
 
         duration = time.perf_counter() - start
