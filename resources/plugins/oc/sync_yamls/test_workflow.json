@@ -1,0 +1,38 @@
+{
+    "name": "SyncYamlsPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Example workflow for oc.sync_yamls.",
+    "variables": {
+        "environment": "uat",
+        "env": {
+        "sit": {
+            "api_url": "${entv:sit_ocp_api_url}",
+            "namespace": "${entv:sit_ocp_namespace}"
+        },
+        "uat": {
+            "api_url": "${entv:uat_ocp_api_url}",
+            "namespace": "${entv:uat_ocp_namespace}"
+        }
+        }
+    },
+
+    "steps": [
+        {
+            "name": "Execute SyncYamlsPlugin",
+            "plugin": "builtin.shell",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "sync_yamls"
+            ],
+            "arguments": {
+                "command" : "echo API URL: $1 NAMESPACE: $2",
+
+                "args": [
+                    "${env[${environment}].api_url}",
+                    "${env[${environment}].namespace}"
+                ]
+            }
+        }
+    ]
+}

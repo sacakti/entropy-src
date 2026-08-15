@@ -5,6 +5,7 @@ Base plugin.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from lib.models.plugin import PluginResult
@@ -273,6 +274,14 @@ class BasePlugin(ABC):
         """
 
         return self._context.user
+
+    @property
+    def session_directory(self) -> Path:
+        """
+        Entropy session directory.
+        """
+
+        return self._context.session_directory
 
     # ------------------------------------------------------------------
     # Workflow

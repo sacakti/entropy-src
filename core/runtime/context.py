@@ -458,3 +458,11 @@ class ExecutionContext:
             node.fail()
 
         self.leave()
+
+    @property
+    def session_directory(self) -> Path:
+        """
+        Return the Entropy session directory.
+        """
+
+        return self._entropy.paths.session.directory

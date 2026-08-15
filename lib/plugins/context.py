@@ -390,3 +390,11 @@ class PluginContext:
         """
 
         return self._mode is PluginMode.WORKFLOW
+
+    @property
+    def session_directory(self) -> Path:
+        """
+        Entropy session directory.
+        """
+
+        return self._runtime.session_directory

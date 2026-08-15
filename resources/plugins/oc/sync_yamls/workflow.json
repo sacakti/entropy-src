@@ -1,0 +1,60 @@
+{
+    "name": "SyncYamlsPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Synchronize OpenShift resources into the YAML repository.",
+
+    "variables": {
+        "env": {
+            "sit": {
+                "api_url": "${entv:sit_ocp_api_url}",
+                "namespace": "${entv:sit_ocp_namespace}",
+                "username": "${entv:sit_ocp_username}",
+                "password": "${entv:sit_ocp_password}"
+            },
+            "uat": {
+                "api_url": "${entv:uat_ocp_api_url}",
+                "namespace": "${entv:uat_ocp_namespace}",
+                "username": "${entv:uat_ocp_username}",
+                "password": "${entv:uat_ocp_password}"
+            }
+        },
+
+        "environment": "sit",
+        "yaml_repository": "/Users/aravinthselvaraj/Desktop/repo"
+    },
+
+    "steps": [
+        {
+            "name": "SyncYamls",
+            "plugin": "oc.sync_yamls",
+            "enabled": true,
+            "on_failure": "abort",
+
+            "tags": [
+                "openshift",
+                "sync_yamls"
+            ],
+
+            "arguments": {
+                "api_url": "${env[${environment}].api_url}",
+                "namespace": "${env[${environment}].namespace}",
+                "username": "${env[${environment}].username}",
+                "password": "${env[${environment}].password}",
+                "yaml_repository": "${yaml_repository}",
+
+                "ignore_resources": {
+                    "configmaps": {
+                        "names": [],
+                        "keys": [
+                            "kube.crt"
+                        ]
+                    },
+                    "secrets": {
+                        "names": [],
+                        "keys": []
+                    }
+                }
+            }
+        }
+    ]
+}
