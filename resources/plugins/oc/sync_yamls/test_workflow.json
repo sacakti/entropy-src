@@ -7,13 +7,16 @@
         "env": {
         "sit": {
             "api_url": "${entv:sit_ocp_api_url}",
-            "namespace": "${entv:sit_ocp_namespace}"
+            "namespace": "${entv:sit_ocp_namespace}",
+            "repo_name": "SIT"
         },
         "uat": {
             "api_url": "${entv:uat_ocp_api_url}",
-            "namespace": "${entv:uat_ocp_namespace}"
+            "namespace": "${entv:uat_ocp_namespace}",
+            "repo_name": "UAT"
         }
-        }
+        },
+        "repository_path" : "/Users/aravinthselvaraj/Desktop/yamls"
     },
 
     "steps": [
@@ -26,11 +29,12 @@
                 "sync_yamls"
             ],
             "arguments": {
-                "command" : "echo API URL: $1 NAMESPACE: $2",
+                "command" : "echo API URL: $1 NAMESPACE: $2 REPO: $3",
 
                 "args": [
                     "${env[${environment}].api_url}",
-                    "${env[${environment}].namespace}"
+                    "${env[${environment}].namespace}",
+                    "${repository_path}/${env[${environment}].repo_name}"
                 ]
             }
         }

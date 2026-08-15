@@ -5,10 +5,9 @@ Workflow variable resolver.
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Dict, Set
 
-from .exceptions import (
+from lib.workflow.exceptions import (
     VariableCircularReferenceError,
     VariableNotFoundError,
 )
@@ -29,14 +28,14 @@ class WorkflowVariableResolver:
     Examples:
 
         ${environment}
+        ${env.sit.api_url}
         ${env[sit].api_url}
         ${env[${environment}].api_url}
         ${entv:sitdb}
-    """
 
-    _REFERENCE = re.compile(
-        r"\$\{([^{}]+)\}",
-    )
+    Nested references are supported both as complete values and
+    inside larger strings.
+    """
 
     def __init__(
         self,
@@ -106,6 +105,7 @@ class WorkflowVariableResolver:
         """
 
         if name in resolved:
+
             return resolved[name]
 
         if name in resolving:
@@ -124,7 +124,9 @@ class WorkflowVariableResolver:
                 f"Workflow variable '{name}' does not exist.",
             )
 
-        resolving.add(name)
+        resolving.add(
+            name,
+        )
 
         try:
 
@@ -141,7 +143,9 @@ class WorkflowVariableResolver:
 
         finally:
 
-            resolving.remove(name)
+            resolving.remove(
+                name,
+            )
 
     # ------------------------------------------------------------------
     # Recursive Value
@@ -215,11 +219,27 @@ class WorkflowVariableResolver:
     ) -> Any:
         """
         Resolve references inside a string.
+
+        Supports both:
+
+            ${env[${environment}].repo_name}
+
+        and:
+
+            /repo/${env[${environment}].repo_name}
         """
 
+        value = value.strip()
+
         reference = self._extract_reference(
-            value.strip(),
+            value,
         )
+
+        #
+        # Entire value is a reference.
+        #
+        # Preserve the original Python type.
+        #
 
         if reference is not None:
 
@@ -234,72 +254,189 @@ class WorkflowVariableResolver:
                 resolving,
             )
 
-        if not self._REFERENCE.search(value):
+        #
+        # String contains one or more embedded references.
+        #
+
+        if "${" not in value:
 
             return value
 
-        def replace(match):
-
-            reference = match.group(1)
-
-            if reference.startswith("steps."):
-
-                return match.group(0)
-
-            resolved_value = self._resolve_reference(
-                reference,
-                variables,
-                resolved,
-                resolving,
-            )
-
-            return self._stringify(
-                resolved_value,
-            )
-
-        return self._REFERENCE.sub(
-            replace,
+        return self._resolve_embedded_string(
             value,
+            variables,
+            resolved,
+            resolving,
         )
 
     # ------------------------------------------------------------------
-    # Reference extraction
+    # Embedded References
     # ------------------------------------------------------------------
 
+    def _resolve_embedded_string(
+        self,
+        value: str,
+        variables: Dict[str, Any],
+        resolved: Dict[str, Any],
+        resolving: Set[str],
+    ) -> str:
+        """
+        Resolve references embedded inside a larger string.
+
+        Unlike a regular expression, this scanner understands nested
+        ${...} expressions.
+        """
+
+        result: list[str] = []
+
+        index = 0
+
+        while index < len(value):
+
+            start = value.find(
+                "${",
+                index,
+            )
+
+            if start == -1:
+
+                result.append(
+                    value[index:],
+                )
+
+                break
+
+            result.append(
+                value[index:start],
+            )
+
+            end = self._find_reference_end(
+                value,
+                start,
+            )
+
+            if end is None:
+
+                raise VariableNotFoundError(
+                    f"Invalid workflow variable reference "
+                    f"'{value[start:]}'.",
+                )
+
+            reference = value[
+                start + 2 : end
+            ]
+
+            #
+            # Step output references are intentionally left for
+            # WorkflowArgumentResolver.
+            #
+
+            if reference.startswith("steps."):
+
+                result.append(
+                    value[start : end + 1],
+                )
+
+            else:
+
+                resolved_value = self._resolve_reference(
+                    reference,
+                    variables,
+                    resolved,
+                    resolving,
+                )
+
+                result.append(
+                    self._stringify(
+                        resolved_value,
+                    ),
+                )
+
+            index = end + 1
+
+        return "".join(
+            result,
+        )
+
     @staticmethod
+    def _find_reference_end(
+        value: str,
+        start: int,
+    ) -> int | None:
+        """
+        Find the closing brace for a ${...} expression.
+
+        Nested ${...} expressions are supported.
+        """
+
+        if not value.startswith(
+            "${",
+            start,
+        ):
+
+            return None
+
+        depth = 0
+        index = start
+
+        while index < len(value):
+
+            if value.startswith(
+                "${",
+                index,
+            ):
+
+                depth += 1
+                index += 2
+                continue
+
+            if value[index] == "}":
+
+                depth -= 1
+
+                if depth == 0:
+
+                    return index
+
+            index += 1
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Reference Extraction
+    # ------------------------------------------------------------------
+
+    @classmethod
     def _extract_reference(
+        cls,
         value: str,
     ) -> str | None:
         """
-        Extract a complete reference while supporting nested
-        ${...} expressions inside bracket selectors.
+        Extract a complete ${...} reference.
+
+        Nested references are supported.
         """
 
         if not value.startswith("${"):
 
             return None
 
-        depth = 0
+        end = cls._find_reference_end(
+            value,
+            0,
+        )
 
-        for index, char in enumerate(value):
+        if end is None:
 
-            if char == "{":
+            return None
 
-                depth += 1
+        if end != len(value) - 1:
 
-            elif char == "}":
+            return None
 
-                depth -= 1
-
-                if depth == 0:
-
-                    if index == len(value) - 1:
-
-                        return value[2:-1]
-
-                    return None
-
-        return None
+        return value[
+            2:end
+        ]
 
     # ------------------------------------------------------------------
     # Reference
@@ -395,9 +532,7 @@ class WorkflowVariableResolver:
         Examples:
 
             env.sit.api_url
-
             env[sit].api_url
-
             env[${environment}].api_url
         """
 
@@ -463,7 +598,9 @@ class WorkflowVariableResolver:
                 index = end + 1
                 continue
 
-            current.append(char)
+            current.append(
+                char,
+            )
 
             index += 1
 
@@ -504,6 +641,23 @@ class WorkflowVariableResolver:
 
         if reference is None:
 
+            #
+            # Also support a selector containing embedded
+            # references, although a selector should normally
+            # be a single reference.
+            #
+
+            if "${" in selector:
+
+                resolved_selector = self._resolve_embedded_string(
+                    selector,
+                    variables,
+                    resolved,
+                    resolving,
+                )
+
+                return resolved_selector
+
             return selector
 
         value = self._resolve_reference(
@@ -523,7 +677,9 @@ class WorkflowVariableResolver:
                 "must resolve to a scalar value.",
             )
 
-        return str(value)
+        return str(
+            value,
+        )
 
     @staticmethod
     def _find_bracket(
@@ -532,18 +688,36 @@ class WorkflowVariableResolver:
     ) -> int | None:
         """
         Find the matching closing bracket.
+
+        Nested brackets and nested ${...} expressions are supported.
         """
 
         depth = 0
+        index = start
 
-        for index in range(
-            start,
-            len(value),
-        ):
+        while index < len(value):
+
+            if value.startswith(
+                "${",
+                index,
+            ):
+
+                end = WorkflowVariableResolver._find_reference_end(
+                    value,
+                    index,
+                )
+
+                if end is None:
+
+                    return None
+
+                index = end + 1
+                continue
 
             char = value[index]
 
             if char == "[":
+
                 depth += 1
 
             elif char == "]":
@@ -551,7 +725,10 @@ class WorkflowVariableResolver:
                 depth -= 1
 
                 if depth == 0:
+
                     return index
+
+            index += 1
 
         return None
 
@@ -582,7 +759,9 @@ class WorkflowVariableResolver:
 
             try:
 
-                return value[int(key)]
+                return value[
+                    int(key)
+                ]
 
             except (
                 ValueError,
@@ -609,21 +788,25 @@ class WorkflowVariableResolver:
         """
 
         if isinstance(value, str):
+
             return value
 
         if isinstance(value, bool):
+
             return str(value).lower()
 
         if isinstance(
             value,
             (int, float),
         ):
+
             return str(value)
 
         if isinstance(
             value,
             (dict, list),
         ):
+
             return json.dumps(
                 value,
                 ensure_ascii=False,
@@ -633,7 +816,9 @@ class WorkflowVariableResolver:
                 ),
             )
 
-        return str(value)
+        return str(
+            value,
+        )
 
     # ------------------------------------------------------------------
     # Validation

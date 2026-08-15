@@ -396,3 +396,26 @@ class WorkflowStepRangeError(
 
 class WorkflowArgumentError(EntropyException):
     """Raised when workflow argument resolution fails."""
+
+class VariableResolutionError(
+    WorkflowError,
+):
+    """
+    Base exception for workflow variable resolution failures.
+    """
+
+
+class VariableNotFoundError(
+    VariableResolutionError,
+):
+    """
+    Raised when a workflow variable cannot be resolved.
+    """
+
+
+class VariableCircularReferenceError(
+    VariableResolutionError,
+):
+    """
+    Raised when workflow variables contain a circular reference.
+    """
