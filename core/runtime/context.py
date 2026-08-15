@@ -466,3 +466,13 @@ class ExecutionContext:
         """
 
         return self._entropy.paths.session.directory
+
+    @property
+    def formatter(self):
+        """
+        Document formatting service.
+        """
+
+        assert self._entropy.formatter is not None
+
+        return self._entropy.formatter

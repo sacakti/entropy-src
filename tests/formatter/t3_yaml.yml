@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: application-config
+  namespace: entropy-uat
+data:
+  environment: uat
+  application.properties: "application.name=entropy\napplication.port=8081\napplication.timeout=30000\nspring.datasource.url=jdbc:postgresql://database:5432/app\nspring.datasource.username=appuser"
+  redis.yaml: "nettyThreads: 64\nsingleServerConfig:\n  timeout: 1500\n  connectionMinimumIdleSize: 8"
+  simple.txt: "hello\nworld\nthis is a test"

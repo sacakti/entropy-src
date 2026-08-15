@@ -9,18 +9,20 @@
                 "api_url": "${entv:sit_ocp_api_url}",
                 "namespace": "${entv:sit_ocp_namespace}",
                 "username": "${entv:sit_ocp_username}",
-                "password": "${entv:sit_ocp_password}"
+                "password": "${entv:sit_ocp_password}",
+                "repo_name": "SITRepo"
             },
             "uat": {
                 "api_url": "${entv:uat_ocp_api_url}",
                 "namespace": "${entv:uat_ocp_namespace}",
                 "username": "${entv:uat_ocp_username}",
-                "password": "${entv:uat_ocp_password}"
+                "password": "${entv:uat_ocp_password}",
+                "repo_name": "UATRepo"
             }
         },
 
         "environment": "sit",
-        "yaml_repository": "/Users/aravinthselvaraj/Desktop/repo"
+        "yaml_repository": "/Users/aravinthselvaraj/Desktop/repo/${env[${environment}].repo_name}"
     },
 
     "steps": [

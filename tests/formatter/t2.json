@@ -1,0 +1,1 @@
+{"deployment":{"name":"app-1","containers":[{"name":"app-1","image":"quay.io/project1/app-1:1.1.7","resources":{"requests":{"cpu":"100m","memory":"256Mi"},"limits":{"cpu":"500m","memory":"512Mi"}}}],"environment":{"JAVA_OPTS":"-Xms256m -Xmx512m","SPRING_PROFILES_ACTIVE":"uat"}},"replicas":2}

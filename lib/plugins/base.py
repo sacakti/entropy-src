@@ -283,6 +283,14 @@ class BasePlugin(ABC):
 
         return self._context.session_directory
 
+    @property
+    def formatter(self):
+        """
+        Document formatting service.
+        """
+
+        return self._context.formatter
+
     # ------------------------------------------------------------------
     # Workflow
     # ------------------------------------------------------------------

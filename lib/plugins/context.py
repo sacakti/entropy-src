@@ -398,3 +398,11 @@ class PluginContext:
         """
 
         return self._runtime.session_directory
+
+    @property
+    def formatter(self):
+        """
+        Document formatting service.
+        """
+
+        return self._runtime.formatter

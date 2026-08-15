@@ -566,13 +566,13 @@ class SyncYamlsPlugin(
 
         try:
 
-            content = self.filesystem.dump_yaml(
-                resource,
-            )
+            # content = self.filesystem.dump_yaml(
+            #     resource,
+            # )
 
-            self.filesystem.write_text(
+            self.filesystem.write_yaml(
                 path,
-                content,
+                resource,
             )
 
         except (OSError, ValueError) as exc:

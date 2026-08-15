@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from lib.workflow.jobs.manager import WorkflowJobManager
     from lib.workflow.manager import WorkflowManager
     from lib.workflow.runner import WorkflowRunner
-
+    from lib.formatter import FormatterManager
 
 class EntropyContext:
     """
@@ -116,3 +116,5 @@ class EntropyContext:
         self.session_manager: SessionManager | None = None
 
         self.vault_manager: VaultManager | None = None
+
+        formatter: FormatterManager | None = None

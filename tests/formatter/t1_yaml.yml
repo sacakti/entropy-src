@@ -1,0 +1,20 @@
+name: entropy
+version: 1.0.0
+enabled: true
+services:
+  - name: app-1
+    image: quay.io/project1/app-1:1.1.7
+    ports:
+      - 8080
+      - 8443
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+      SPRING_PROFILES_ACTIVE: uat
+  - name: app-2
+    image: quay.io/project1/app-2:1.1.7
+    ports:
+      - 8081
+database:
+  host: localhost
+  port: 5432
+  ssl: false

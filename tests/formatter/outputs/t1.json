@@ -1,0 +1,34 @@
+{
+    "name": "entropy",
+    "version": "1.0.0",
+    "enabled": true,
+    "services": [
+        {
+            "name": "app-1",
+            "port": 8080,
+            "tags": [
+                "web",
+                "production"
+            ]
+        },
+        {
+            "name": "app-2",
+            "port": 8081,
+            "tags": [
+                "api",
+                "backend"
+            ]
+        }
+    ],
+    "config": {
+        "database": {
+            "host": "localhost",
+            "port": 5432,
+            "ssl": false
+        },
+        "features": {
+            "logging": true,
+            "metrics": false
+        }
+    }
+}

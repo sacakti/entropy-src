@@ -33,6 +33,7 @@ from lib.database.manager import DatabaseManager
 from lib.database.repositories.users import UserRepository
 from lib.executor import LinuxExecutor
 from lib.extensions.manager import ExtensionManager
+from lib.formatter.manager import FormatterManager
 from lib.migrations.manager import MigrationManager
 from lib.plugins.manager import PluginManager
 from lib.users.manager import UserManager
@@ -127,6 +128,8 @@ class ContextFactory:
         ).prepare(
             self._context.paths,
         )
+
+        self._context.formatter = FormatterManager()
 
     # ------------------------------------------------------------------
     # Observability
