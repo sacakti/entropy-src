@@ -4,48 +4,109 @@ JSON formatter.
 
 from __future__ import annotations
 
-import json
+from typing import TYPE_CHECKING, Any
 
 from lib.formatter.base import BaseFormatter
 from lib.formatter.exceptions import FormatterFormatError
+
+if TYPE_CHECKING:
+
+    from lib.executor import LinuxExecutor
 
 
 class JsonFormatter(
     BaseFormatter,
 ):
     """
-    Format JSON documents.
+    Format JSON documents using Entropy's executor APIs.
     """
+
+    def __init__(
+        self,
+        executor: LinuxExecutor,
+    ) -> None:
+
+        self._executor = executor
 
     @property
     def name(
         self,
     ) -> str:
+
         return "json"
+
+    # ------------------------------------------------------------------
+    # Parse
+    # ------------------------------------------------------------------
+
+    def parse(
+        self,
+        content: str,
+    ) -> Any:
+        """
+        Parse JSON content.
+        """
+
+        if not content.strip():
+
+            raise FormatterFormatError(
+                "Invalid JSON: document is empty.",
+            )
+
+        try:
+
+            return self._executor.parse_json(
+                content,
+            )
+
+        except Exception as exc:
+
+            raise FormatterFormatError(
+                f"Invalid JSON: {exc}",
+            ) from exc
+
+    # ------------------------------------------------------------------
+    # Serialize
+    # ------------------------------------------------------------------
+
+    def serialize(
+        self,
+        value: Any,
+    ) -> str:
+        """
+        Serialize a Python value as JSON.
+        """
+
+        try:
+
+            formatted = self._executor.serialize_json(
+                value,
+                indent=4,
+                sort_keys=False,
+            )
+
+        except Exception as exc:
+
+            raise FormatterFormatError(
+                f"Unable to serialize JSON: {exc}",
+            ) from exc
+
+        return formatted.rstrip() + "\n"
+
+    # ------------------------------------------------------------------
+    # Format
+    # ------------------------------------------------------------------
 
     def format(
         self,
         content: str,
     ) -> str:
         """
-        Parse and format JSON.
+        Parse and serialize JSON.
         """
 
-        try:
-
-            document = json.loads(
+        return self.serialize(
+            self.parse(
                 content,
-            )
-
-        except json.JSONDecodeError as exc:
-
-            raise FormatterFormatError(
-                f"Invalid JSON: {exc.msg} "
-                f"at line {exc.lineno}, column {exc.colno}.",
-            ) from exc
-
-        return json.dumps(
-            document,
-            indent=4,
-            ensure_ascii=False,
-        ) + "\n"
+            ),
+        )

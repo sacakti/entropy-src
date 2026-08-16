@@ -4,79 +4,56 @@ YAML formatter.
 
 from __future__ import annotations
 
-from typing import Any
-
-import yaml
+from typing import TYPE_CHECKING, Any
 
 from lib.formatter.base import BaseFormatter
 from lib.formatter.exceptions import FormatterFormatError
 
+if TYPE_CHECKING:
 
-class _EntropyYamlDumper(
-    yaml.SafeDumper,
-):
-    """
-    YAML dumper with Entropy formatting rules.
-    """
-
-
-def _represent_multiline_string(
-    dumper: _EntropyYamlDumper,
-    value: str,
-):
-    """
-    Represent multiline strings using YAML block style.
-    """
-
-    if "\n" not in value:
-
-        return dumper.represent_scalar(
-            "tag:yaml.org,2002:str",
-            value,
-        )
-
-    value = value.rstrip("\n")
-
-    return dumper.represent_scalar(
-        "tag:yaml.org,2002:str",
-        value,
-        style="|",
-    )
-
-
-_EntropyYamlDumper.add_representer(
-    str,
-    _represent_multiline_string,
-)
+    from lib.executor import LinuxExecutor
 
 
 class YamlFormatter(
     BaseFormatter,
 ):
     """
-    Format YAML documents.
+    Format YAML documents using Entropy's executor YAML APIs.
     """
+
+    def __init__(
+        self,
+        executor: LinuxExecutor,
+    ) -> None:
+
+        self._executor = executor
 
     @property
     def name(
         self,
     ) -> str:
+
         return "yaml"
 
     @property
     def aliases(
         self,
     ) -> tuple[str, ...]:
+
         return (
             "yml",
         )
 
-    def format(
+    # ------------------------------------------------------------------
+    # Parse
+    # ------------------------------------------------------------------
+
+    def parse(
         self,
         content: str,
-    ) -> str:
+    ) -> Any:
         """
-        Parse and format YAML.
+        Parse YAML content.
         """
 
         if not content.strip():
@@ -87,11 +64,11 @@ class YamlFormatter(
 
         try:
 
-            document: Any = yaml.safe_load(
+            document = self._executor.parse_yaml(
                 content,
             )
 
-        except yaml.YAMLError as exc:
+        except Exception as exc:
 
             raise FormatterFormatError(
                 f"Invalid YAML: {exc}",
@@ -104,29 +81,57 @@ class YamlFormatter(
                 "a YAML value.",
             )
 
+        return document
+
+    # ------------------------------------------------------------------
+    # Serialize
+    # ------------------------------------------------------------------
+
+    def serialize(
+        self,
+        value: Any,
+    ) -> str:
+        """
+        Serialize a Python value as YAML.
+        """
+
         try:
 
-            formatted = yaml.dump(
-                document,
-                Dumper=_EntropyYamlDumper,
-                default_flow_style=False,
-                sort_keys=False,
-                allow_unicode=True,
-                indent=2,
-                width=120,
+            formatted = self._executor.serialize_yaml(
+                value,
             )
 
-        except yaml.YAMLError as exc:
+        except Exception as exc:
 
             raise FormatterFormatError(
-                f"Unable to format YAML: {exc}",
+                f"Unable to serialize YAML: {exc}",
             ) from exc
 
         if not formatted.strip():
 
             raise FormatterFormatError(
-                "Unable to format YAML: formatter produced "
+                "Unable to serialize YAML: formatter produced "
                 "an empty document.",
             )
 
         return formatted
+
+    # ------------------------------------------------------------------
+    # Format
+    # ------------------------------------------------------------------
+
+    def format(
+        self,
+        content: str,
+    ) -> str:
+        """
+        Parse and serialize YAML.
+        """
+
+        document = self.parse(
+            content,
+        )
+
+        return self.serialize(
+            document,
+        )

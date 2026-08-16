@@ -35,7 +35,7 @@ class ResourcePaths:
     workflows: Path
     plugins: Path
     reports: Path
-
+    structures: Path
 
 @dataclass(frozen=True)
 class VendorPaths:

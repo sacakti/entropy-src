@@ -476,3 +476,15 @@ class ExecutionContext:
         assert self._entropy.formatter is not None
 
         return self._entropy.formatter
+
+    @property
+    def structures(self):
+
+        return self._entropy.bootstrap.resources.structures
+
+    @property
+    def normalizer(self):
+
+        assert self._entropy.normalizer is not None
+
+        return self._entropy.normalizer

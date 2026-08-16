@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lib.normalizer.manager import NormalizerManager
+
 if TYPE_CHECKING:
     from core.commands.manager import CommandManager
     from core.configuration.manager import ConfigurationManager
@@ -117,4 +119,6 @@ class EntropyContext:
 
         self.vault_manager: VaultManager | None = None
 
-        formatter: FormatterManager | None = None
+        self.formatter: FormatterManager | None = None
+
+        self.normalizer: NormalizerManager | None = None

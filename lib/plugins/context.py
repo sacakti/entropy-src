@@ -406,3 +406,19 @@ class PluginContext:
         """
 
         return self._runtime.formatter
+
+    @property
+    def structures(self):
+        """
+        Entropy application resources.
+        """
+
+        return self._runtime.structures
+
+    @property
+    def normalizer(self):
+        """
+        Entropy application resources.
+        """
+
+        return self._runtime.normalizer

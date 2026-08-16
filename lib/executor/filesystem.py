@@ -18,13 +18,116 @@ from ruamel.yaml import YAML
 
 from lib.executor.types import PathLike
 
+import re
+
+
+_YAML_AMBIGUOUS_STRING = re.compile(
+    r"""
+    ^
+    (?:
+        [-+]?(?:0|[1-9][0-9]*)
+        |
+        [-+]?(?:[0-9]+\.[0-9]*|\.[0-9]+)
+        |
+        [-+]?(?:[0-9]+e[-+]?[0-9]+)
+        |
+        [0-9]{4}-[0-9]{2}-[0-9]{2}
+        |
+        [0-9]{1,2}:[0-9]{2}
+        (?::[0-9]{2})?
+    )
+    $
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_YAML_AMBIGUOUS_VALUES = {
+    "y",
+    "Y",
+    "n",
+    "N",
+    "yes",
+    "Yes",
+    "YES",
+    "no",
+    "No",
+    "NO",
+    "true",
+    "True",
+    "TRUE",
+    "false",
+    "False",
+    "FALSE",
+    "null",
+    "Null",
+    "NULL",
+    "~",
+}
+
+def _yaml_string_representer(
+    representer,
+    value: str,
+):
+    """
+    Represent strings safely in YAML.
+
+    Strings which may be interpreted by YAML as another scalar
+    type are explicitly quoted.
+
+    Multiline strings are represented using literal block style.
+    """
+
+    if "\n" in value:
+
+        return representer.represent_scalar(
+            "tag:yaml.org,2002:str",
+            value.rstrip("\n"),
+            style="|",
+        )
+
+    if (
+        value == ""
+        or value in _YAML_AMBIGUOUS_VALUES
+        or _YAML_AMBIGUOUS_STRING.match(value)
+    ):
+
+        return representer.represent_scalar(
+            "tag:yaml.org,2002:str",
+            value,
+            style='"',
+        )
+
+    return representer.represent_scalar(
+        "tag:yaml.org,2002:str",
+        value,
+    )
 
 class FileSystemMixin:
     """
     Provides filesystem operations.
     """
 
-    _yaml = YAML()
+    def __init__(
+        self,
+    ) -> None:
+
+        self._yaml = YAML()
+
+        self._yaml.default_flow_style = False
+        self._yaml.allow_unicode = True
+        self._yaml.width = 4096
+        self._yaml.preserve_quotes = True
+
+        # self._yaml.indent(
+        #     mapping=2,
+        #     sequence=4,
+        #     offset=2,
+        # )
+
+        self._yaml.representer.add_representer(
+            str,
+            _yaml_string_representer,
+        )
 
     # ------------------------------------------------------------------
     # Path

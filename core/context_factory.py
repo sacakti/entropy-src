@@ -35,6 +35,7 @@ from lib.executor import LinuxExecutor
 from lib.extensions.manager import ExtensionManager
 from lib.formatter.manager import FormatterManager
 from lib.migrations.manager import MigrationManager
+from lib.normalizer.manager import NormalizerManager
 from lib.plugins.manager import PluginManager
 from lib.users.manager import UserManager
 from lib.users.password import PasswordService
@@ -130,6 +131,8 @@ class ContextFactory:
         )
 
         self._context.formatter = FormatterManager()
+
+        self._context.normalizer = NormalizerManager()
 
     # ------------------------------------------------------------------
     # Observability

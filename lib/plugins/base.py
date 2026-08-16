@@ -291,6 +291,15 @@ class BasePlugin(ABC):
 
         return self._context.formatter
 
+    @property
+    def normalizer(self):
+        return self._context.normalizer
+
+
+    @property
+    def structures(self):
+        return self._context.structures
+
     # ------------------------------------------------------------------
     # Workflow
     # ------------------------------------------------------------------

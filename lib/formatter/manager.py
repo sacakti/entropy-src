@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from lib.formatter.base import BaseFormatter
 from lib.formatter.exceptions import (
@@ -456,3 +457,20 @@ class FormatterManager:
         return self._formatters[
             normalized
         ]
+
+    def to_text(
+        self,
+        value: Any,
+        format: str,
+    ) -> str:
+        """
+        Serialize a Python value using a registered formatter.
+        """
+
+        formatter = self._get_formatter(
+            format,
+        )
+
+        return formatter.serialize(
+            value,
+        )
