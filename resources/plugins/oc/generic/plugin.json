@@ -1,0 +1,14 @@
+{
+    "name": "generic",
+    "namespace": "oc",
+    "version": "1.0.0",
+    "description": "",
+    "author": "",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "tags": [],
+
+    "license": ""
+}

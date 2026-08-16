@@ -1,0 +1,99 @@
+{
+    "name": "OcGenericPlugin",
+    "version": "1.0.0",
+    "description": "Handles generic OpenShift operations.",
+
+    "variables": {
+        "env": {
+            "sit": {
+                "api_url": "${entv:sit_ocp_api_url}",
+                "namespace": "${entv:sit_ocp_namespace}",
+                "username": "${entv:sit_ocp_username}",
+                "password": "${entv:sit_ocp_password}"
+            },
+            "uat": {
+                "api_url": "${entv:uat_ocp_api_url}",
+                "namespace": "${entv:uat_ocp_namespace}",
+                "username": "${entv:uat_ocp_username}",
+                "password": "${entv:uat_ocp_password}"
+            }
+        },
+
+        "environment": "sit"
+    },
+
+    "steps": [
+        {
+            "name": "Login",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+
+            "tags": [
+                "openshift",
+                "generic",
+                "login"
+            ],
+
+            "arguments": {
+                "operation": "login",
+                "environment": "${environment}",
+                "api_url": "${env[${environment}].api_url}",
+                "username": "${env[${environment}].username}",
+                "password": "${env[${environment}].password}"
+            }
+        },
+        {
+            "name": "Project",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+
+            "tags": [
+                "openshift",
+                "generic",
+                "project"
+            ],
+
+            "arguments": {
+                "operation": "project",
+                "environment": "${environment}",
+                "namespace": "${env[${environment}].namespace}"
+            }
+        },
+        {
+            "name": "WhoAmI",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+
+            "tags": [
+                "openshift",
+                "generic",
+                "identity"
+            ],
+
+            "arguments": {
+                "operation": "whoami",
+                "environment": "${environment}"
+            }
+        },
+        {
+            "name": "Logout",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "continue",
+
+            "tags": [
+                "openshift",
+                "generic",
+                "logout"
+            ],
+
+            "arguments": {
+                "operation": "logout",
+                "environment": "${environment}"
+            }
+        }
+    ]
+}

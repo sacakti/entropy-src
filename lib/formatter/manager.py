@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from lib.formatter.base import BaseFormatter
 from lib.formatter.exceptions import (
@@ -18,6 +18,8 @@ from lib.formatter.formats.json import JsonFormatter
 from lib.formatter.formats.sql import SqlFormatter
 from lib.formatter.formats.yaml import YamlFormatter
 
+if TYPE_CHECKING:
+    from lib.executor.linux import LinuxExecutor
 
 class FormatterManager:
     """
@@ -39,20 +41,27 @@ class FormatterManager:
 
     def __init__(
         self,
+        executor: LinuxExecutor,
     ) -> None:
 
         self._formatters: dict[str, BaseFormatter] = {}
 
         self.register(
-            JsonFormatter(),
+            JsonFormatter(
+                executor,
+            ),
         )
 
         self.register(
-            YamlFormatter(),
+            YamlFormatter(
+                executor,
+            ),
         )
 
         self.register(
-            SqlFormatter(),
+            SqlFormatter(
+                executor,
+            ),
         )
 
     # ------------------------------------------------------------------

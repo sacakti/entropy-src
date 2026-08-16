@@ -1,0 +1,78 @@
+{
+    "name": "SyncOpenShiftYamls",
+    "version": "1.0.0",
+    "description": "Login to an OpenShift environment, synchronize its resources, and logout.",
+
+    "variables": {
+        "env": {
+            "sit": {
+                "api_url": "${entv:sit_ocp_api_url}",
+                "namespace": "${entv:sit_ocp_namespace}",
+                "username": "${entv:sit_ocp_username}",
+                "password": "${entv:sit_ocp_password}"
+            },
+            "uat": {
+                "api_url": "${entv:uat_ocp_api_url}",
+                "namespace": "${entv:uat_ocp_namespace}",
+                "username": "${entv:uat_ocp_username}",
+                "password": "${entv:uat_ocp_password}"
+            }
+        },
+
+        "environment": "sit"
+    },
+
+    "steps": [
+        {
+            "name": "Login",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+
+            "tags": [
+                "openshift",
+                "authentication"
+            ],
+
+            "arguments": {
+                "operation": "login",
+                "environment": "${environment}",
+                "api_url": "${env[${environment}].api_url}",
+                "username": "${env[${environment}].username}",
+                "password": "${env[${environment}].password}"
+            }
+        },
+        {
+            "name": "SyncYamls",
+            "plugin": "oc.sync_yamls",
+            "enabled": true,
+            "on_failure": "abort",
+
+            "tags": [
+                "openshift",
+                "sync"
+            ],
+
+            "arguments": {
+                "namespace": "${env[${environment}].namespace}",
+                "yaml_repository": "${yaml_repository}"
+            }
+        },
+        {
+            "name": "Logout",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "continue",
+
+            "tags": [
+                "openshift",
+                "authentication"
+            ],
+
+            "arguments": {
+                "operation": "logout",
+                "environment": "${environment}"
+            }
+        }
+    ]
+}

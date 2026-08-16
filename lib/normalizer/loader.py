@@ -5,26 +5,30 @@ Normalization structure loader.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
-
-from ruamel.yaml import YAML
+from typing import TYPE_CHECKING, Any
 
 from lib.formatter.exceptions import (
     FormatterFileError,
     FormatterFormatError,
 )
 
+if TYPE_CHECKING:
+
+    from lib.executor import LinuxExecutor
+
 
 class StructureLoader:
     """
-    Load YAML normalization structures.
+    Load YAML normalization structures using Entropy's
+    executor APIs.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        executor: LinuxExecutor,
+    ) -> None:
 
-        self._yaml = YAML(
-            typ="safe",
-        )
+        self._executor = executor
 
     def load(
         self,
@@ -62,9 +66,13 @@ class StructureLoader:
                 f"Unable to read structure file '{path}': {exc}",
             ) from exc
 
+        if not content.strip():
+
+            return {}
+
         try:
 
-            structure = self._yaml.load(
+            structure = self._executor.parse_yaml(
                 content,
             )
 

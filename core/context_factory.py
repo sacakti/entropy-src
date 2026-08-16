@@ -130,9 +130,13 @@ class ContextFactory:
             self._context.paths,
         )
 
-        self._context.formatter = FormatterManager()
+        self._context.formatter = FormatterManager(
+            self._context.executor,
+        )
 
-        self._context.normalizer = NormalizerManager()
+        self._context.normalizer = NormalizerManager(
+            self._context.executor,
+        )
 
     # ------------------------------------------------------------------
     # Observability

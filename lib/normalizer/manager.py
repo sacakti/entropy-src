@@ -5,11 +5,15 @@ Document normalization manager.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from lib.normalizer.base import BaseNormalizer
-from lib.normalizer.structure import StructureNormalizer
 from lib.normalizer.loader import StructureLoader
+from lib.normalizer.structure import StructureNormalizer
+
+if TYPE_CHECKING:
+
+    from lib.executor import LinuxExecutor
 
 
 class NormalizerManager:
@@ -19,11 +23,14 @@ class NormalizerManager:
 
     def __init__(
         self,
+        executor: LinuxExecutor,
     ) -> None:
 
         self._normalizers: dict[str, BaseNormalizer] = {}
 
-        self._structure_loader = StructureLoader()
+        self._structure_loader = StructureLoader(
+            executor,
+        )
 
         self.register(
             "structure",
