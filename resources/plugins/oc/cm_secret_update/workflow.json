@@ -14,8 +14,73 @@
                 "openshift"
             ],
             "arguments": {
-                "source": "/Users/aravinthselvaraj/Documents/entropy/tests/cmsecret_update/source",
-                "target": "/Users/aravinthselvaraj/Documents/entropy/tests/cmsecret_update/destination",
+                "mode": "deployments",
+                "configmaps": [
+                    {
+                        "name": "application-config",
+                        "kind": "ConfigMap",
+                        "action": "UPDATE",
+                        "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml",
+                        "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT/configmaps/app-1-config.yaml",
+                        "operations": [
+                            {
+                                "action": "update",
+                                "key": "environment",
+                                "value": "uat"
+                            },
+                            {
+                                "action": "update",
+                                "key": "application.properties",
+                                "format": "properties",
+                                "entries": {
+                                    "application.name": "entropy",
+                                    "application.port": "8081"
+                                }
+                            },
+                            {
+                                "action": "update",
+                                "key": "redis.yaml",
+                                "format": "yaml",
+                                "entries": {
+                                    "nettyThreads": 64,
+                                    "singleServerConfig": {
+                                        "timeout": 1500
+                                    }
+                                }
+                            },
+                            {
+                                "action": "add",
+                                "key": "new.setting",
+                                "value": "enabled"
+                            }
+                        ]
+                    }
+                ],
+                "secrets": [
+                    {
+                        "name": "application-secret",
+                        "kind": "Secret",
+                        "action": "UPDATE",
+                        "source": "/Users/aravinthselvaraj/Desktop/releases/H004/App/openshift/yamls/source.yaml",
+                        "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT/secrets/app-1.yaml",
+                        "operations": [
+                            {
+                                "action": "update",
+                                "key": "username",
+                                "value": "admin3"
+                            },
+                            {
+                                "action": "add",
+                                "key": "api_token",
+                                "value": "test3-token"
+                            },
+                            {
+                                "action": "delete",
+                                "key": "old_password"
+                            }
+                        ]
+                    }
+                ],
                 "replace": true
             }
         }

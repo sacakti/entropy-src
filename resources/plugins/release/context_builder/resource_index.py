@@ -1,24 +1,24 @@
 """
-Deployment index reader.
+OpenShift resource index reader.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
-import json
 
 from .exceptions import ContextBuilderPluginException
 
 
-class DeploymentIndex:
+class ResourceIndex:
     """
-    Read the cached deployment index.
+    Read the cached OpenShift resource index.
     """
 
     INDEX_PATH = (
         ".entropy"
-        "/deployment_index.json"
+        "/resource_index.json"
     )
 
     def __init__(
@@ -30,12 +30,16 @@ class DeploymentIndex:
         self._filesystem = filesystem
         self._log = log
 
+    # ------------------------------------------------------------------
+    # Load
+    # ------------------------------------------------------------------
+
     def load(
         self,
         repository: Path,
     ) -> dict[str, Any]:
         """
-        Load the deployment index.
+        Load the resource index.
         """
 
         path = (
@@ -43,20 +47,16 @@ class DeploymentIndex:
             / self.INDEX_PATH
         )
 
-        if not self._filesystem.exists(
-            path,
-        ):
+        if not self._filesystem.exists(path):
 
             raise ContextBuilderPluginException(
-                f"Deployment index not found: {path}",
+                f"Resource index not found: {path}",
             )
 
-        if not self._filesystem.is_file(
-            path,
-        ):
+        if not self._filesystem.is_file(path):
 
             raise ContextBuilderPluginException(
-                f"Deployment index is not a file: {path}",
+                f"Resource index is not a file: {path}",
             )
 
         try:
@@ -75,21 +75,22 @@ class DeploymentIndex:
         ) as exc:
 
             raise ContextBuilderPluginException(
-                f"Unable to read deployment index: {path}",
+                f"Unable to read resource index: {path}",
             ) from exc
 
-        if not isinstance(
-            index,
-            dict,
-        ):
+        if not isinstance(index, dict):
 
             raise ContextBuilderPluginException(
-                "Deployment index must contain a JSON object.",
+                "Resource index must contain a JSON object.",
             )
 
         return index
 
-    def find(
+    # ------------------------------------------------------------------
+    # Deployment
+    # ------------------------------------------------------------------
+
+    def find_deployment(
         self,
         index: dict[str, Any],
         image_name: str,
@@ -98,13 +99,23 @@ class DeploymentIndex:
         Find the deployment containing an image.
         """
 
-        for filename, deployment in index.items():
+        deployments = index.get(
+            "deployments",
+            {},
+        )
+
+        if not isinstance(
+            deployments,
+            dict,
+        ):
+            return None
+
+        for filename, deployment in deployments.items():
 
             if not isinstance(
                 deployment,
                 dict,
             ):
-
                 continue
 
             containers = deployment.get(
@@ -116,7 +127,6 @@ class DeploymentIndex:
                 containers,
                 dict,
             ):
-
                 continue
 
             for container_name, container in containers.items():
@@ -125,7 +135,6 @@ class DeploymentIndex:
                     container,
                     dict,
                 ):
-
                     continue
 
                 image = container.get(
@@ -136,7 +145,6 @@ class DeploymentIndex:
                     image,
                     str,
                 ):
-
                     continue
 
                 current_name = image.rsplit(
@@ -144,9 +152,12 @@ class DeploymentIndex:
                     1,
                 )[0]
 
-                if current_name.endswith(
-                    f"/{image_name}",
-                ) or current_name == image_name:
+                if (
+                    current_name.endswith(
+                        f"/{image_name}",
+                    )
+                    or current_name == image_name
+                ):
 
                     return {
                         "file": filename,
@@ -158,3 +169,58 @@ class DeploymentIndex:
                     }
 
         return None
+
+    # ------------------------------------------------------------------
+    # Resource
+    # ------------------------------------------------------------------
+
+    def find_resource(
+        self,
+        index: dict[str, Any],
+        *,
+        kind: str,
+        name: str,
+    ) -> dict[str, Any] | None:
+        """
+        Find an OpenShift resource by kind and name.
+        """
+
+        resources = index.get(
+            "resources",
+            {},
+        )
+
+        if not isinstance(
+            resources,
+            dict,
+        ):
+            return None
+
+        kind_resources = resources.get(
+            kind,
+            {},
+        )
+
+        if not isinstance(
+            kind_resources,
+            dict,
+        ):
+            return None
+
+        resource = kind_resources.get(
+            name,
+        )
+
+        if not isinstance(
+            resource,
+            dict,
+        ):
+            return None
+
+        return {
+            "file": resource.get(
+                "file",
+            ),
+            "kind": kind,
+            "name": name,
+        }

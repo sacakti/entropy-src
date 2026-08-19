@@ -7,11 +7,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .deployment_index import DeploymentIndex
+from .resource_index import ResourceIndex
 from .detector import ReleaseChangeDetector
-from .structure import ReleaseStructure
 from .structure import ReleaseStructureResolver
-
 
 class ReleaseAnalyzer:
     """
@@ -53,7 +51,7 @@ class ReleaseAnalyzer:
             filesystem,
         )
 
-        self._deployment_index = DeploymentIndex(
+        self._resource_index = ResourceIndex(
             filesystem=filesystem,
             log=log,
         )
@@ -74,7 +72,9 @@ class ReleaseAnalyzer:
 
         release = release.expanduser().resolve()
         structure = structure.expanduser().resolve()
-
+        resource_index = self._resource_index.load(
+            yaml_repository,
+        )
         self._validate_release(
             release,
         )
@@ -87,9 +87,34 @@ class ReleaseAnalyzer:
             structure,
         )
 
+        docker_definition = definition.component(
+            "docker",
+        )
+
+        if docker_definition is not None:
+
+            docker_source_release = self._structures.path(
+                release_root,
+                docker_definition,
+            )
+
+        else:
+
+            docker_source_release = None
+
         context = self._empty_context(
             release,
             release_root,
+        )
+
+        context["release"]["docker_source_release"] = (
+            str(docker_source_release)
+            if docker_source_release is not None
+            else None
+        )
+
+        context["release"]["docker_dest_repo"] = str(
+            docker_repository,
         )
 
         for component_name in definition.children:
@@ -130,6 +155,7 @@ class ReleaseAnalyzer:
                     root=release_root,
                     definition=component,
                     repository=yaml_repository,
+                    resource_index=resource_index
                 )
 
                 self._merge_deployment_context(
@@ -176,6 +202,8 @@ class ReleaseAnalyzer:
             "release": {
                 "package": str(release),
                 "root": str(release_root),
+                "docker_source_release": None,
+                "docker_dest_repo": "",
             },
             "images": {},
             "deployment": {
@@ -340,7 +368,7 @@ class ReleaseAnalyzer:
                     f"not found for '{service.name}'.",
                 )
 
-                continue
+                pass
 
             repository_service = (
                 repository
@@ -396,13 +424,13 @@ class ReleaseAnalyzer:
         if not images:
             return result
 
-        index = self._deployment_index.load(
+        index = self._resource_index.load(
             yaml_repository,
         )
 
         for image_name, image in images.items():
 
-            match = self._deployment_index.find(
+            match = self._resource_index.find_deployment(
                 index,
                 image_name,
             )
@@ -492,6 +520,7 @@ class ReleaseAnalyzer:
         root: Path,
         definition: dict[str, Any],
         repository: Path,
+        resource_index
     ) -> dict[str, Any]:
 
         yamls_root = self._structures.resolve(
@@ -544,6 +573,7 @@ class ReleaseAnalyzer:
                         source=source,
                         repository=repository,
                         resources=resources,
+                        resource_index=resource_index
                     )
 
                 else:
@@ -573,6 +603,7 @@ class ReleaseAnalyzer:
         source: Path,
         repository: Path,
         resources: dict[str, list],
+        resource_index: dict[str, Any],
     ) -> None:
 
         target = document.get(
@@ -580,48 +611,39 @@ class ReleaseAnalyzer:
             {},
         )
 
-        if not isinstance(
-            target,
-            dict,
-        ):
+        if not isinstance(target, dict):
             return
 
-        kind = target.get(
-            "kind",
-        )
+        kind = target.get("kind")
+        name = target.get("name")
 
-        name = target.get(
-            "name",
-        )
-
-        if not isinstance(
-            kind,
-            str,
-        ) or not isinstance(
-            name,
-            str,
-        ):
+        if not isinstance(kind, str) or not isinstance(name, str):
             return
 
         category = {
             "configmap": "configmaps",
             "secret": "secrets",
-        }.get(
-            kind.casefold(),
-        )
+        }.get(kind.casefold())
 
         if category is None:
             return
 
-        operations = document.get(
-            "operations",
-            [],
+        indexed_resource = self._resource_index.find_resource(
+            resource_index,
+            kind=kind,
+            name=name,
         )
 
-        if not isinstance(
-            operations,
-            list,
-        ):
+        if indexed_resource is None:
+            self._log.warning(
+                f"No repository resource found for "
+                f"{kind}/{name}.",
+            )
+            return
+
+        operations = document.get("operations", [])
+
+        if not isinstance(operations, list):
             operations = []
 
         resources[category].append(
@@ -631,9 +653,7 @@ class ReleaseAnalyzer:
                 "action": "UPDATE",
                 "source": str(source),
                 "repository": str(
-                    repository
-                    / category
-                    / f"{name}.yaml",
+                    repository / indexed_resource["file"],
                 ),
                 "operations": operations,
             },
@@ -1127,3 +1147,103 @@ class ReleaseAnalyzer:
             or path.name.startswith("._")
             or path.name.startswith(".gitignore")
         )
+
+    def _resolve_deployment_target(
+        self,
+        *,
+        repository: Path,
+        kind: str,
+        name: str,
+    ) -> Path | None:
+        """
+        Resolve a ConfigMap/Secret target through deployment
+        references.
+        """
+
+        deployments_root = repository / "deployments"
+
+        if not self._filesystem.exists(deployments_root):
+            return None
+
+        for deployment_file in self._yaml_files(
+            deployments_root,
+        ):
+            try:
+                documents = self._filesystem.load_yaml_documents(
+                    self._filesystem.read_text(
+                        deployment_file,
+                    ),
+                )
+            except Exception:
+                continue
+
+            for document in documents:
+
+                if not isinstance(document, dict):
+                    continue
+
+                spec = document.get("spec")
+
+                if not isinstance(spec, dict):
+                    continue
+
+                template = spec.get("template")
+
+                if not isinstance(template, dict):
+                    continue
+
+                pod_spec = template.get("spec")
+
+                if not isinstance(pod_spec, dict):
+                    continue
+
+                if not self._deployment_references_resource(
+                    pod_spec,
+                    kind=kind,
+                    name=name,
+                ):
+                    continue
+
+                target = (
+                    repository
+                    / (
+                        "configmaps"
+                        if kind.casefold() == "configmap"
+                        else "secrets"
+                    )
+                    / self._resource_filename(
+                        repository=repository,
+                        kind=kind,
+                        name=name,
+                    )
+                )
+
+                if self._filesystem.exists(target):
+                    return target
+
+        return None
+
+    def find_resource(
+        self,
+        index: dict[str, Any],
+        *,
+        kind: str,
+        name: str,
+    ) -> dict[str, Any] | None:
+
+        resources = index.get("resources", {})
+
+        if not isinstance(resources, dict):
+            return None
+
+        kind_resources = resources.get(kind)
+
+        if not isinstance(kind_resources, dict):
+            return None
+
+        resource = kind_resources.get(name)
+
+        if not isinstance(resource, dict):
+            return None
+
+        return resource

@@ -46,7 +46,7 @@ class SyncYamlsPlugin(BasePlugin):
 
     INDEX_DIRECTORY = ".entropy"
 
-    INDEX_FILENAME = "deployment_index.json"
+    INDEX_FILENAME = "resource_index.json"
 
     STRUCTURE_FILENAME = "openshift.yaml"
 
@@ -88,7 +88,10 @@ class SyncYamlsPlugin(BasePlugin):
         Synchronize OpenShift resources and build the deployment index.
         """
 
-        deployment_index: dict[str, Any] = {}
+        resource_index: dict[str, Any] = {
+            "resources": {},
+            "deployments": {},
+        }
 
         arguments = self._arguments()
 
@@ -112,13 +115,13 @@ class SyncYamlsPlugin(BasePlugin):
             namespace=arguments["namespace"],
             structure=structure,
             ignore_resources=arguments["ignore_resources"],
-            deployment_index=deployment_index,
+            resource_index=resource_index,
             kubeconfig=arguments["kubeconfig"],
         )
 
-        index_path = self._create_deployment_index(
+        index_path = self._create_resource_index(
             repository=repository,
-            deployment_index=deployment_index,
+            resource_index=resource_index,
         )
 
         self.outputs.update(
@@ -495,7 +498,7 @@ class SyncYamlsPlugin(BasePlugin):
         namespace: str,
         structure: dict[str, Any],
         ignore_resources: dict[str, dict[str, list[str]]],
-        deployment_index: dict[str, Any],
+        resource_index: dict[str, Any],
         kubeconfig: Path,
     ) -> dict[str, list[str]]:
         """
@@ -511,7 +514,7 @@ class SyncYamlsPlugin(BasePlugin):
                 namespace=namespace,
                 structure=structure,
                 ignore_resources=ignore_resources,
-                deployment_index=deployment_index,
+                resource_index=resource_index,
                 kubeconfig=kubeconfig,
             )
 
@@ -525,7 +528,7 @@ class SyncYamlsPlugin(BasePlugin):
         namespace: str,
         structure: dict[str, Any],
         ignore_resources: dict[str, dict[str, list[str]]],
-        deployment_index: dict[str, Any],
+        resource_index: dict[str, Any],
         kubeconfig: Path,
     ) -> list[str]:
         """
@@ -661,12 +664,18 @@ class SyncYamlsPlugin(BasePlugin):
                     path,
                 )
 
-                if resource_type == "deployments":
-                    deployment_index[relative] = (
-                        self._deployment_index_entry(
-                            resource,
-                        )
-                    )
+                relative = self._relative_path(
+                    repository,
+                    path,
+                )
+
+                self._resource_index_entry(
+                    resource_index=resource_index,
+                    resource_type=resource_type,
+                    name=name,
+                    relative=relative,
+                    resource=resource,
+                )
 
                 files.append(relative)
                 self.artifacts[relative] = path
@@ -843,30 +852,39 @@ class SyncYamlsPlugin(BasePlugin):
     # Deployment index
     # ------------------------------------------------------------------
 
-    def _create_deployment_index(
+    def _create_resource_index(
         self,
         *,
         repository: Path,
-        deployment_index: dict[str, Any],
+        resource_index: dict[str, Any],
     ) -> Path:
         """
-        Create deployment_index.json.
+        Create the common OpenShift resource index.
         """
 
         directory = repository / self.INDEX_DIRECTORY
 
-        self._prepare_repository(directory)
+        self._prepare_repository(
+            directory,
+        )
 
         path = directory / self.INDEX_FILENAME
 
         try:
+
             self.filesystem.write_json(
                 path,
-                deployment_index,
+                resource_index,
             )
-        except (OSError, ValueError, TypeError) as exc:
+
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+        ) as exc:
+
             raise SyncYamlsPluginException(
-                f"Unable to write deployment index "
+                f"Unable to write resource index "
                 f"'{path}': {exc}",
             ) from exc
 
@@ -906,6 +924,21 @@ class SyncYamlsPlugin(BasePlugin):
             path.relative_to(repository),
         )
 
+    @staticmethod
+    def _resource_kind(
+        resource_type: str,
+    ) -> str:
+        """
+        Convert repository resource type to Kubernetes kind.
+        """
+
+        return {
+            "deployments": "Deployment",
+            "configmaps": "ConfigMap",
+            "secrets": "Secret",
+            "services": "Service",
+            "routes": "Route",
+        }[resource_type]
     # ------------------------------------------------------------------
     # Result
     # ------------------------------------------------------------------
@@ -936,85 +969,130 @@ class SyncYamlsPlugin(BasePlugin):
             },
         )
 
-    def _deployment_index_entry(
+    # def _deployment_index_entry(
+    #     self,
+    #     deployment: dict[str, Any],
+    # ) -> dict[str, Any]:
+    #     """
+    #     Build a deployment index entry.
+    #     """
+
+    #     metadata = deployment.get(
+    #         "metadata",
+    #         {},
+    #     )
+
+    #     spec = deployment.get(
+    #         "spec",
+    #         {},
+    #     )
+
+    #     template = (
+    #         spec.get(
+    #             "template",
+    #             {},
+    #         )
+    #         if isinstance(spec, dict)
+    #         else {}
+    #     )
+
+    #     pod_spec = (
+    #         template.get(
+    #             "spec",
+    #             {},
+    #         )
+    #         if isinstance(template, dict)
+    #         else {}
+    #     )
+
+    #     containers = (
+    #         pod_spec.get(
+    #             "containers",
+    #             [],
+    #         )
+    #         if isinstance(pod_spec, dict)
+    #         else []
+    #     )
+
+    #     deployment_name = (
+    #         metadata.get(
+    #             "name",
+    #         )
+    #         if isinstance(metadata, dict)
+    #         else None
+    #     )
+
+    #     if not isinstance(deployment_name, str):
+    #         deployment_name = ""
+
+    #     result: dict[str, Any] = {
+    #         "deployment": deployment_name,
+    #         "containers": {},
+    #     }
+
+    #     if not isinstance(containers, list):
+    #         return result
+
+    #     for container in containers:
+    #         if not isinstance(container, dict):
+    #             continue
+
+    #         name = container.get("name")
+    #         image = container.get("image")
+
+    #         if not isinstance(name, str) or not name.strip():
+    #             continue
+
+    #         if not isinstance(image, str) or not image.strip():
+    #             continue
+
+    #         result["containers"][name] = {
+    #             "image": image,
+    #         }
+
+    #     return result
+
+    def _resource_index_entry(
         self,
-        deployment: dict[str, Any],
-    ) -> dict[str, Any]:
+        *,
+        resource_index: dict[str, Any],
+        resource_type: str,
+        name: str,
+        relative: str,
+        resource: dict[str, Any],
+    ) -> None:
         """
-        Build a deployment index entry.
+        Add a synchronized resource to the common resource index.
         """
 
-        metadata = deployment.get(
-            "metadata",
+        resources = resource_index.setdefault(
+            "resources",
             {},
         )
 
-        spec = deployment.get(
-            "spec",
+        kind = self._resource_kind(
+            resource_type,
+        )
+
+        kind_resources = resources.setdefault(
+            kind,
             {},
         )
 
-        template = (
-            spec.get(
-                "template",
-                {},
-            )
-            if isinstance(spec, dict)
-            else {}
-        )
-
-        pod_spec = (
-            template.get(
-                "spec",
-                {},
-            )
-            if isinstance(template, dict)
-            else {}
-        )
-
-        containers = (
-            pod_spec.get(
-                "containers",
-                [],
-            )
-            if isinstance(pod_spec, dict)
-            else []
-        )
-
-        deployment_name = (
-            metadata.get(
-                "name",
-            )
-            if isinstance(metadata, dict)
-            else None
-        )
-
-        if not isinstance(deployment_name, str):
-            deployment_name = ""
-
-        result: dict[str, Any] = {
-            "deployment": deployment_name,
-            "containers": {},
+        kind_resources[name] = {
+            "file": relative,
         }
 
-        if not isinstance(containers, list):
-            return result
+        if resource_type == "deployments":
 
-        for container in containers:
-            if not isinstance(container, dict):
-                continue
+            deployments = resource_index.setdefault(
+                "deployments",
+                {},
+            )
 
-            name = container.get("name")
-            image = container.get("image")
+            deployments[relative] = (
+                self._deployment_index_entry(
+                    resource,
+                )
+            )
 
-            if not isinstance(name, str) or not name.strip():
-                continue
-
-            if not isinstance(image, str) or not image.strip():
-                continue
-
-            result["containers"][name] = {
-                "image": image,
-            }
-
-        return result

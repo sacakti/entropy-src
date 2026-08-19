@@ -268,8 +268,7 @@ class DockerCleanPlugin(
         self.outputs["items_removed"] = 0
 
         self.log.info(
-            "Tag cleanup matched %d image(s).",
-            len(matches),
+            f"Tag cleanup matched {len(matches)} image(s).",
         )
 
         if not matches:
@@ -302,8 +301,7 @@ class DockerCleanPlugin(
         for reference in matches:
 
             self.log.info(
-                "Removing Docker image '%s'.",
-                reference,
+                f"Removing Docker image '{reference}'.",
             )
 
             remove = self._docker(
@@ -524,15 +522,13 @@ class DockerCleanPlugin(
         if result.stdout:
 
             self.log.info(
-                "Docker stdout:\n%s",
-                result.stdout.rstrip(),
+                f"Docker stdout:\n{result.stdout.rstrip()}"
             )
 
         if result.stderr:
 
             self.log.warning(
-                "Docker stderr:\n%s",
-                result.stderr.rstrip(),
+                f"Docker stderr:\n{result.stderr.rstrip()}"
             )
 
         self.outputs["exit_code"] = result.exit_code

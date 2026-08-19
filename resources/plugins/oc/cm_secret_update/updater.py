@@ -322,6 +322,75 @@ class ConfigMapSecretUpdater:
             grouped,
         )
 
+    def update_resource(
+        self,
+        definition: ConfigMapSecretUpdate,
+        resource: TargetResource,
+        *,
+        replace: bool = False,
+    ) -> list[dict[str, Any]]:
+        """
+        Apply one update definition to one existing target resource.
+        """
+
+        working_document = deepcopy(
+            resource.document,
+        )
+
+        effective_definition = definition
+        replaced_add_keys: set[str] = set()
+
+        if replace:
+            working_resource = TargetResource(
+                kind=resource.kind,
+                name=resource.name,
+                document=working_document,
+                target_file=resource.target_file,
+                document_index=resource.document_index,
+            )
+
+            (
+                effective_definition,
+                replaced_add_keys,
+            ) = self._normalize_for_replace(
+                working_resource,
+                definition,
+            )
+
+        changes = self._engine.apply(
+            working_document,
+            effective_definition,
+            replace=replace,
+        )
+
+        if replace:
+            managed_keys = {
+                operation.key
+                for operation in definition.operations
+            }
+
+            changes.extend(
+                self._engine.prune(
+                    working_document,
+                    managed_keys,
+                ),
+            )
+
+        for change in changes:
+
+            if (
+                change.get("action") == "update"
+                and change.get("key") in replaced_add_keys
+            ):
+                change["status"] = "replaced_add"
+
+        resource.document.clear()
+        resource.document.update(
+            working_document,
+        )
+
+        return changes
+
     def _update_group(
         self,
         resource: TargetResource,

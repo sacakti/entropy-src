@@ -276,12 +276,10 @@ class GenericPlugin(
         Execute an operation against one or more images.
         """
 
-        images = self.arguments.get(
-            "images",
-        )
-
-        self._validate_images(
-            images,
+        images = self._resolve_images(
+            self.arguments.get(
+                "images",
+            ),
         )
 
         successful: list[str] = []
@@ -362,6 +360,77 @@ class GenericPlugin(
 
         return self._success(
             changed=changed,
+        )
+
+    def _resolve_images(
+        self,
+        value: Any,
+    ) -> list[str]:
+        """
+        Resolve Docker image references from a list or
+        docker.build output.
+        """
+
+        if isinstance(
+            value,
+            list,
+        ):
+
+            self._validate_images(
+                value,
+            )
+
+            return value
+
+        if isinstance(
+            value,
+            dict,
+        ):
+
+            images: list[str] = []
+
+            for name, specification in value.items():
+
+                if not isinstance(
+                    specification,
+                    dict,
+                ):
+
+                    raise GenericPluginException(
+                        f"Image specification '{name}' "
+                        "must be a dictionary.",
+                    )
+
+                image = specification.get(
+                    "image",
+                )
+
+                if not isinstance(
+                    image,
+                    str,
+                ) or not image.strip():
+
+                    raise GenericPluginException(
+                        f"Image specification '{name}' "
+                        "does not contain a valid 'image'.",
+                    )
+
+                images.append(
+                    image,
+                )
+
+            if not images:
+
+                raise GenericPluginException(
+                    "Argument 'images' must contain at least "
+                    "one Docker image.",
+                )
+
+            return images
+
+        raise GenericPluginException(
+            "Argument 'images' must be either a list of "
+            "image references or a Docker build image mapping.",
         )
 
     # ------------------------------------------------------------------

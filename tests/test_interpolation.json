@@ -18,14 +18,14 @@
             "arguments": {
                 "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
                 "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
-                "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls",
-                "image_tag": "1.1.7"
+                "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
+                "image_tag": "1.1.10"
             }
         },
         {
             "name": "PrintImages",
             "plugin": "builtin.shell",
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "suppress_result": false,
             "tags": [
@@ -42,7 +42,7 @@
             "name": "PrintDeployment",
             "plugin": "builtin.shell",
             "suppress_result": false,
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "tags": [
                 "test"
@@ -58,7 +58,7 @@
             "name": "PrintCommonPaths",
             "plugin": "builtin.shell",
             "suppress_result": false,
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "tags": [
                 "test"
@@ -74,7 +74,7 @@
             "name": "PrintDatabase",
             "plugin": "builtin.shell",
             "suppress_result": false,
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "tags": [
                 "test"
@@ -84,6 +84,37 @@
                 "args":[
                     "${steps.BuildReleaseContext.outputs.database}"
                 ]
+            }
+        },
+        {
+            "name": "StageRelease",
+            "plugin": "custom.stage_release_copy",
+            "enabled": false,
+            "on_failure": "abort",
+            "tags": [
+                "release",
+                "stage"
+            ],
+            "arguments": {
+                "source": "${steps.BuildReleaseContext.outputs.release.docker_source_release}",
+                "destination": "${steps.BuildReleaseContext.outputs.release.docker_dest_repo}",
+                "backup": true,
+                "rotate_backup_type": "max_files",
+                "max_files": 5,
+                "max_timestamp": 5,
+                "max_timestamp_unit": "days"
+            }
+        },
+        {
+            "name": "CmSecretUpdate",
+            "plugin": "oc.cm_secret_update",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "mode": "deployments",
+                "configmaps": "${steps.BuildReleaseContext.outputs.deployment.resources.configmaps}",
+                "secrets": "${steps.BuildReleaseContext.outputs.deployment.resources.secrets}",
+                "replace": true
             }
         }
     ]
