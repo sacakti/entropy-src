@@ -7,7 +7,7 @@ from cm_secret_update.adapter import (
     ConfigMapSecretTarget,
 )
 from cm_secret_update.exceptions import (
-    UpdateTargetError,
+    DeploymentUpdateTargetError,
 )
 
 
@@ -161,7 +161,7 @@ def test_invalid_kind_is_rejected() -> None:
     }
 
     with pytest.raises(
-        UpdateTargetError,
+        DeploymentUpdateTargetError,
         match="Unsupported target kind",
     ):
         ConfigMapSecretTarget(
@@ -181,7 +181,7 @@ def test_kind_mismatch_is_rejected() -> None:
     }
 
     with pytest.raises(
-        UpdateTargetError,
+        DeploymentUpdateTargetError,
         match="does not match expected",
     ):
         ConfigMapSecretTarget(

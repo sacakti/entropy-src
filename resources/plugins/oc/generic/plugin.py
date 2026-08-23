@@ -26,6 +26,7 @@ class GenericPlugin(BasePlugin):
     - whoami
     - get
     - apply
+    - replace
     - delete
     - raw
     """
@@ -37,6 +38,7 @@ class GenericPlugin(BasePlugin):
         "whoami",
         "get",
         "apply",
+        "replace",
         "delete",
         "raw",
     )
@@ -152,6 +154,11 @@ class GenericPlugin(BasePlugin):
 
             return self._resource_operation(
                 "apply",
+            )
+
+        if operation == "replace":
+            return self._resource_operation(
+                "replace",
             )
 
         if operation == "delete":
@@ -717,6 +724,7 @@ class GenericPlugin(BasePlugin):
         return self._success(
             changed=operation in {
                 "apply",
+                "replace",
                 "delete",
             },
         )

@@ -3,7 +3,17 @@
     "version": "1.0.0",
     "description": "Test step output interpolation.",
 
-    "variables": {},
+    "variables": {
+        "SIT" : {
+            "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT"
+        },
+        "environment" : "SIT",
+        "handoff" : "H004",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/${handoff}.zip",
+        "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
+        "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/$",
+        "image_tag": "1.1.10"
+    },
 
     "steps": [
         {
@@ -16,9 +26,9 @@
                 "context_builder"
             ],
             "arguments": {
-                "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
-                "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
-                "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
+                "release": "${release}",
+                "docker_repository": "${docker_repository}",
+                "yaml_repository": "${}",
                 "image_tag": "1.1.10"
             }
         },
@@ -110,11 +120,48 @@
             "plugin": "oc.cm_secret_update",
             "enabled": true,
             "on_failure": "abort",
+            "tags": [
+                "openshift",
+                "deployment"
+            ],
             "arguments": {
                 "mode": "deployments",
                 "configmaps": "${steps.BuildReleaseContext.outputs.deployment.resources.configmaps}",
                 "secrets": "${steps.BuildReleaseContext.outputs.deployment.resources.secrets}",
                 "replace": true
+            }
+        },
+        {
+            "name": "DeploymentYAMLUpdate",
+            "plugin": "oc.deployment",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "mode" : "deployments",
+                "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
+                "deployments": "${steps.BuildReleaseContext.outputs.deployment.resources.deployments}"
+            }
+        },
+        {
+            "name": "ApplyDeployments",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "apply",
+                "environment": "SIT",
+                "files": "${steps.BuildReleaseContext.outputs.deployment.operations.apply}"
+            }
+        },
+        {
+            "name": "ReplaceConfigMapsSecrets",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "replace",
+                "environment": "SIT",
+                "files": "${steps.BuildReleaseContext.outputs.deployment.operations.replace}"
             }
         }
     ]

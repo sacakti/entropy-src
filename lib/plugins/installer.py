@@ -89,7 +89,7 @@ class PluginInstaller:
                 raise PluginAlreadyInstalledError(
                     f"Plugin '{manifest.qualified_name}' already exists."
                     "To replace use 'ent plugin install"
-                    " --reinstall /plugin/path'",
+                    f" --reinstall {directory}'",
                 )
 
             plugin = self._repository.get_by_name(

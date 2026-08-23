@@ -1,0 +1,19 @@
+{
+    "name": "DeploymentUpdateTest",
+    "version": "1.0.0",
+    "description": "Test Deployment image update.",
+    "variables": {},
+    "steps": [
+        {
+            "name": "DeploymentYAMLUpdate",
+            "plugin": "oc.deployment",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "mode": "deployments",
+                "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
+                "deployments": []
+            }
+        }
+    ]
+}

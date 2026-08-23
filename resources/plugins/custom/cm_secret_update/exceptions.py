@@ -21,7 +21,7 @@ class UpdateDefinitionError(
     """
 
 
-class UpdateTargetError(
+class DeploymentUpdateTargetError(
     ConfigMapSecretUpdateError,
 ):
     """

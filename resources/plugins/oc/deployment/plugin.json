@@ -1,0 +1,11 @@
+{
+    "name": "deployment",
+    "namespace": "oc",
+    "version": "1.0.0",
+    "description": "Update OpenShift Deployment YAML resources.",
+    "author": "",
+    "entropy": ">=1.0.0",
+    "dependencies": [],
+    "tags": [],
+    "license": ""
+}

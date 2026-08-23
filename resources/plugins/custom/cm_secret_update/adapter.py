@@ -7,7 +7,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from .exceptions import UpdateTargetError
+from .exceptions import DeploymentUpdateTargetError
 
 
 class ConfigMapSecretTarget:
@@ -106,7 +106,7 @@ class ConfigMapSecretTarget:
             "Secret",
         }:
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 f"Unsupported target kind '{self._kind}'.",
             )
 
@@ -116,7 +116,7 @@ class ConfigMapSecretTarget:
 
         if document_kind != self._kind:
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 f"Target document kind '{document_kind}' "
                 f"does not match expected '{self._kind}'.",
             )
@@ -136,7 +136,7 @@ class ConfigMapSecretTarget:
             dict,
         ):
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 "Target 'data' must be an object.",
             )
 
@@ -161,7 +161,7 @@ class ConfigMapSecretTarget:
             str,
         ):
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 f"Secret value for key '{key}' must be " "a base64 string.",
             )
 
@@ -179,7 +179,7 @@ class ConfigMapSecretTarget:
             UnicodeDecodeError,
         ) as exc:
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 f"Secret value for key '{key}' " "contains invalid base64 data.",
             ) from exc
 
@@ -194,7 +194,7 @@ class ConfigMapSecretTarget:
             str,
         ):
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 f"Secret value for key '{key}' must be a string.",
             )
 

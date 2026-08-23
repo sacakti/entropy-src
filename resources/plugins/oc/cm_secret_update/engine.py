@@ -11,7 +11,7 @@ from .exceptions import (
     UnsupportedUpdateFormatError,
     UpdateKeyAlreadyExistsError,
     UpdateKeyNotFoundError,
-    UpdateTargetError,
+    DeploymentUpdateTargetError,
 )
 from .model import (
     ConfigMapSecretUpdate,
@@ -272,7 +272,7 @@ class ConfigMapSecretUpdateEngine:
             str,
         ):
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 f"Embedded YAML value for key " f"'{operation.key}' must be a string.",
             )
 
@@ -285,7 +285,7 @@ class ConfigMapSecretUpdateEngine:
             dict,
         ):
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 f"Embedded YAML value for key " f"'{operation.key}' must contain an object.",
             )
 
@@ -339,7 +339,7 @@ class ConfigMapSecretUpdateEngine:
             str,
         ):
 
-            raise UpdateTargetError(
+            raise DeploymentUpdateTargetError(
                 f"Embedded properties value for key " f"'{operation.key}' must be a string.",
             )
 

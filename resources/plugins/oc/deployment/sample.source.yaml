@@ -1,0 +1,12 @@
+apiVersion: entropy/v1
+kind: DeploymentUpdate
+
+target:
+  kind: Deployment
+  name: app-1
+
+operations:
+  - action: update
+    field: image
+    container: app-1
+    value: quay.io/project1/app-1:1.1.7

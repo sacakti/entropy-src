@@ -17,7 +17,7 @@ class UpdateDefinitionError(ConfigMapSecretUpdateException):
     """Invalid update definition."""
 
 
-class UpdateTargetError(ConfigMapSecretUpdateException):
+class DeploymentUpdateTargetError(ConfigMapSecretUpdateException):
     """Invalid target YAML."""
 
 
