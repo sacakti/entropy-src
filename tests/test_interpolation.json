@@ -4,14 +4,9 @@
     "description": "Test step output interpolation.",
 
     "variables": {
-        "SIT" : {
-            "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT"
-        },
-        "environment" : "SIT",
-        "handoff" : "H004",
-        "release": "/Users/aravinthselvaraj/Desktop/releases/${handoff}.zip",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
-        "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/$",
+        "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
         "image_tag": "1.1.10"
     },
 
@@ -28,8 +23,8 @@
             "arguments": {
                 "release": "${release}",
                 "docker_repository": "${docker_repository}",
-                "yaml_repository": "${}",
-                "image_tag": "1.1.10"
+                "yaml_repository": "${yaml_repository}",
+                "image_tag": "${image_tag}"
             }
         },
         {
@@ -150,7 +145,7 @@
             "arguments": {
                 "operation": "apply",
                 "environment": "SIT",
-                "files": "${steps.BuildReleaseContext.outputs.deployment.operations.apply}"
+                "resource": "${steps.BuildReleaseContext.outputs.deployment.operations.apply}"
             }
         },
         {
@@ -161,7 +156,7 @@
             "arguments": {
                 "operation": "replace",
                 "environment": "SIT",
-                "files": "${steps.BuildReleaseContext.outputs.deployment.operations.replace}"
+                "resource": "${steps.BuildReleaseContext.outputs.deployment.operations.replace}"
             }
         }
     ]

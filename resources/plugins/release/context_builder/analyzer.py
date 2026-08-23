@@ -141,6 +141,7 @@ class ReleaseAnalyzer:
                     self._build_deployment_context(
                         images=images,
                         yaml_repository=yaml_repository,
+                        index=resource_index
                     )
                 )
 
@@ -209,6 +210,10 @@ class ReleaseAnalyzer:
             "deployment": {
                 "required": False,
                 "resources": self._empty_resources(),
+                "operations": {
+                    "apply": [],
+                    "replace": [],
+                },
             },
             "common_paths": [],
             "database": {
@@ -414,19 +419,20 @@ class ReleaseAnalyzer:
         *,
         images: dict[str, dict[str, Any]],
         yaml_repository: Path,
+        index: dict[str, Any],
     ) -> dict[str, Any]:
 
         result = {
             "required": False,
             "resources": self._empty_resources(),
+            "operations": {
+                "apply": [],
+                "replace": [],
+            },
         }
 
         if not images:
             return result
-
-        index = self._resource_index.load(
-            yaml_repository,
-        )
 
         for image_name, image in images.items():
 
@@ -476,6 +482,17 @@ class ReleaseAnalyzer:
                 },
             )
 
+            deployment_path = str(
+                yaml_repository
+                / match["file"]
+            )
+
+            if deployment_path not in result["operations"]["apply"]:
+
+                result["operations"]["apply"].append(
+                    deployment_path,
+                )
+
         result["required"] = bool(
             result["resources"]["deployments"],
         )
@@ -488,9 +505,7 @@ class ReleaseAnalyzer:
         source: dict[str, Any],
     ) -> None:
 
-        target_resources = target[
-            "resources"
-        ]
+        target_resources = target["resources"]
 
         source_resources = source.get(
             "resources",
@@ -506,6 +521,35 @@ class ReleaseAnalyzer:
                 ),
             )
 
+        target_operations = target.setdefault(
+            "operations",
+            {
+                "apply": [],
+                "replace": [],
+            },
+        )
+
+        source_operations = source.get(
+            "operations",
+            {},
+        )
+
+        for operation in (
+            "apply",
+            "replace",
+        ):
+
+            for path in source_operations.get(
+                operation,
+                [],
+            ):
+
+                if path not in target_operations[operation]:
+
+                    target_operations[operation].append(
+                        path,
+                    )
+
         target["required"] = any(
             target_resources.values(),
         )
@@ -520,7 +564,7 @@ class ReleaseAnalyzer:
         root: Path,
         definition: dict[str, Any],
         repository: Path,
-        resource_index
+        resource_index: dict[str, Any],
     ) -> dict[str, Any]:
 
         yamls_root = self._structures.resolve(
@@ -534,9 +578,18 @@ class ReleaseAnalyzer:
             return {
                 "required": False,
                 "resources": self._empty_resources(),
+                "operations": {
+                    "apply": [],
+                    "replace": [],
+                },
             }
 
         resources = self._empty_resources()
+
+        operations = {
+            "apply": [],
+            "replace": [],
+        }
 
         for source in self._yaml_files(
             yamls_root,
@@ -573,7 +626,8 @@ class ReleaseAnalyzer:
                         source=source,
                         repository=repository,
                         resources=resources,
-                        resource_index=resource_index
+                        operations=operations,
+                        resource_index=resource_index,
                     )
 
                 else:
@@ -590,6 +644,7 @@ class ReleaseAnalyzer:
                 resources.values(),
             ),
             "resources": resources,
+            "operations": operations,
         }
 
     # ------------------------------------------------------------------
@@ -602,6 +657,7 @@ class ReleaseAnalyzer:
         document: dict[str, Any],
         source: Path,
         repository: Path,
+        operations: dict[str, list[str]],
         resources: dict[str, list],
         resource_index: dict[str, Any],
     ) -> None:
@@ -635,16 +691,29 @@ class ReleaseAnalyzer:
         )
 
         if indexed_resource is None:
+
             self._log.warning(
                 f"No repository resource found for "
                 f"{kind}/{name}.",
             )
+
             return
 
-        operations = document.get("operations", [])
+        source_operations = document.get(
+            "operations",
+            [],
+        )
 
-        if not isinstance(operations, list):
-            operations = []
+        if not isinstance(
+            source_operations,
+            list,
+        ):
+            source_operations = []
+
+        repository_path = (
+            repository
+            / indexed_resource["file"]
+        )
 
         resources[category].append(
             {
@@ -652,11 +721,13 @@ class ReleaseAnalyzer:
                 "kind": kind,
                 "action": "UPDATE",
                 "source": str(source),
-                "repository": str(
-                    repository / indexed_resource["file"],
-                ),
-                "operations": operations,
+                "repository": str(repository_path),
+                "operations": source_operations,
             },
+        )
+
+        operations["replace"].append(
+            str(repository_path),
         )
 
     # ------------------------------------------------------------------

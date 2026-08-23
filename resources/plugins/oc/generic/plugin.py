@@ -157,6 +157,7 @@ class GenericPlugin(BasePlugin):
             )
 
         if operation == "replace":
+
             return self._resource_operation(
                 "replace",
             )
@@ -417,8 +418,6 @@ class GenericPlugin(BasePlugin):
 
         if result.failed:
 
-            # Do not retain a partially-created authentication
-            # configuration after a failed login.
             try:
 
                 self._remove_kubeconfig(
@@ -657,6 +656,11 @@ class GenericPlugin(BasePlugin):
     ) -> PluginResult:
         """
         Execute a generic OpenShift resource operation.
+
+        ``resource`` may be either a single resource path or
+        a list of resource paths.
+
+        Each resource is executed independently.
         """
 
         environment = self._environment()
@@ -670,7 +674,7 @@ class GenericPlugin(BasePlugin):
             [],
         )
 
-        self._validate_resource(
+        resources = self._normalize_resources(
             resource,
         )
 
@@ -678,55 +682,150 @@ class GenericPlugin(BasePlugin):
             arguments,
         )
 
-        assert isinstance(
-            resource,
-            str,
-        )
-
         kubeconfig = self._kubeconfig(
             environment,
         )
 
-        command = [
-            operation,
-            resource,
-            *arguments,
-        ]
+        results: list[dict[str, Any]] = []
+        failed_resources: list[str] = []
 
-        result = self._oc(
-            command,
-            kubeconfig=kubeconfig,
-        )
+        changed = False
 
-        self.outputs.update(
-            {
-                "operation": operation,
-                "environment": environment,
-                "resource": resource,
-                "arguments": list(arguments),
+        for resource_path in resources:
+
+            command = [
+                operation,
+                resource_path,
+                *arguments,
+            ]
+
+            result = self._oc(
+                command,
+                kubeconfig=kubeconfig,
+            )
+
+            resource_result = {
+                "resource": resource_path,
                 "exit_code": result.exit_code,
                 "success": result.success,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
                 "duration": result.duration,
+            }
+
+            results.append(
+                resource_result,
+            )
+
+            if result.success:
+
+                if operation in {
+                    "apply",
+                    "replace",
+                    "delete",
+                }:
+
+                    changed = True
+
+            else:
+
+                failed_resources.append(
+                    resource_path,
+                )
+
+        self.outputs.update(
+            {
+                "operation": operation,
+                "environment": environment,
+                "resources": list(resources),
+                "results": results,
+                "success": not failed_resources,
             },
         )
 
-        if result.failed:
+        if failed_resources:
+
+            details = "; ".join(
+                failed_resources,
+            )
 
             return self._failure(
-                result.stderr
-                or (
-                    f"OpenShift {operation} failed."
-                ),
+                f"OpenShift {operation} failed for "
+                f"resource(s): {details}.",
             )
 
         return self._success(
-            changed=operation in {
-                "apply",
-                "replace",
-                "delete",
-            },
+            changed=changed,
+        )
+
+    # ------------------------------------------------------------------
+    # Resource normalization
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_resources(
+        resource: Any,
+    ) -> list[str]:
+        """
+        Normalize a resource argument into a list.
+
+        Supports both the original single-resource form and
+        the context-generated list form.
+        """
+
+        if isinstance(
+            resource,
+            str,
+        ):
+
+            if not resource.strip():
+
+                raise GenericPluginException(
+                    "Argument 'resource' must be a "
+                    "non-empty string.",
+                )
+
+            return [
+                resource.strip(),
+            ]
+
+        if isinstance(
+            resource,
+            list,
+        ):
+
+            if not resource:
+
+                raise GenericPluginException(
+                    "Argument 'resource' must not be empty.",
+                )
+
+            resources: list[str] = []
+
+            for item in resource:
+
+                if (
+                    not isinstance(
+                        item,
+                        str,
+                    )
+                    or not item.strip()
+                ):
+
+                    raise GenericPluginException(
+                        "All values in 'resource' must be "
+                        "non-empty strings.",
+                    )
+
+                resources.append(
+                    item.strip(),
+                )
+
+            return resources
+
+        raise GenericPluginException(
+            "Argument 'resource' must be a string "
+            "or a list of strings.",
         )
 
     # ------------------------------------------------------------------
@@ -806,64 +905,6 @@ class GenericPlugin(BasePlugin):
     # Validation
     # ------------------------------------------------------------------
 
-    # @staticmethod
-    # def _validate_login(
-    #     *,
-    #     api_url: Any,
-    #     username: Any,
-    #     password: Any,
-    # ) -> None:
-    #     """
-    #     Validate OpenShift login arguments.
-    #     """
-
-    #     if not isinstance(
-    #         api_url,
-    #         str,
-    #     ) or not api_url.strip():
-
-    #         raise GenericPluginException(
-    #             "Argument 'api_url' must be a "
-    #             "non-empty string.",
-    #         )
-
-    #     if not isinstance(
-    #         username,
-    #         str,
-    #     ) or not username.strip():
-
-    #         raise GenericPluginException(
-    #             "Argument 'username' must be a "
-    #             "non-empty string.",
-    #         )
-
-    #     if not isinstance(
-    #         password,
-    #         str,
-    #     ):
-
-    #         raise GenericPluginException(
-    #             "Argument 'password' must be a string.",
-    #         )
-
-    @staticmethod
-    def _validate_resource(
-        resource: Any,
-    ) -> None:
-        """
-        Validate an OpenShift resource.
-        """
-
-        if not isinstance(
-            resource,
-            str,
-        ) or not resource.strip():
-
-            raise GenericPluginException(
-                "Argument 'resource' must be a "
-                "non-empty string.",
-            )
-
     @staticmethod
     def _validate_arguments(
         arguments: Any,
@@ -918,7 +959,8 @@ class GenericPlugin(BasePlugin):
             metadata={
                 "artifacts": {
                     name: str(path)
-                    for name, path in self.artifacts.items()
+                    for name, path
+                    in self.artifacts.items()
                 },
             },
         )
@@ -945,7 +987,8 @@ class GenericPlugin(BasePlugin):
             metadata={
                 "artifacts": {
                     name: str(path)
-                    for name, path in self.artifacts.items()
+                    for name, path
+                    in self.artifacts.items()
                 },
             },
         )
