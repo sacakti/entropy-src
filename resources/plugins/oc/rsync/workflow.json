@@ -1,0 +1,24 @@
+{
+    "name": "RsyncPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Example workflow for oc.rsync.",
+
+    "variables": {
+
+    },
+
+    "steps": [
+        {
+            "name": "Execute RsyncPlugin",
+            "plugin": "oc.rsync",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "rsync"
+            ],
+            "arguments": {
+
+            }
+        }
+    ]
+}

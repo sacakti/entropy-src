@@ -24,6 +24,7 @@ class FormatCommand(
     metadata = CommandMetadata(
         name="format",
         description="Format a JSON, YAML or SQL file.",
+        authentication_required=False,
     )
 
     def __init__(

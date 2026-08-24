@@ -25,6 +25,7 @@ import re
 import shlex
 from pathlib import Path
 
+from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 
 
@@ -55,12 +56,14 @@ class ImageTransferPlugin(BasePlugin):
 
     def execute(
         self,
-    ) -> None:
+    ) -> PluginResult:
         """
         Execute the image transfer workflow.
         """
 
-        self.message.info("Starting image transfer preparation.")
+        self.message.info(
+            "Starting image transfer preparation.",
+        )
 
         try:
 
@@ -70,15 +73,55 @@ class ImageTransferPlugin(BasePlugin):
 
                 self._execute()
 
-        except Exception:
+        except Exception as exc:
 
-            # self.message.error(
-            #     str(exc),
-            # )
+            self.log.error(
+                str(exc),
+            )
 
-            raise
+            self.message.error(
+                str(exc),
+            )
 
-        self.message.success("Image transfer preparation completed successfully.")
+            return PluginResult(
+                success=False,
+                changed=False,
+                outputs=dict(
+                    self.outputs,
+                ),
+                changes=[],
+                errors=[
+                    str(exc),
+                ],
+                warnings=[],
+                metadata={
+                    "artifacts": {
+                        name: str(path)
+                        for name, path in self.artifacts.items()
+                    },
+                },
+            )
+
+        self.message.success(
+            "Image transfer preparation completed successfully.",
+        )
+
+        return PluginResult(
+            success=True,
+            changed=True,
+            outputs=dict(
+                self.outputs,
+            ),
+            changes=[],
+            errors=[],
+            warnings=[],
+            metadata={
+                "artifacts": {
+                    name: str(path)
+                    for name, path in self.artifacts.items()
+                },
+            },
+        )
 
     # ------------------------------------------------------------------
     # Main workflow

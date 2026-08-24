@@ -4,7 +4,7 @@
     "description": "Test step output interpolation.",
 
     "variables": {
-        "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/H006.zip",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
         "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
         "image_tag": "1.1.10"
@@ -157,6 +157,16 @@
                 "operation": "replace",
                 "environment": "SIT",
                 "resource": "${steps.BuildReleaseContext.outputs.deployment.operations.replace}"
+            }
+        },
+        {
+            "name": "RsyncCommonPaths",
+            "plugin": "oc.rsync",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "environment": "SIT",
+                "rsync_plan": "${steps.BuildReleaseContext.outputs.common_paths}"
             }
         }
     ]
