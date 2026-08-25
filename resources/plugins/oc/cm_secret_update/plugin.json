@@ -1,7 +1,7 @@
 {
     "name": "cm_secret_update",
     "namespace": "oc",
-    "version": "1.0.0",
+    "version": "2.0.3",
     "description": "Update Kubernetes ConfigMap and Secret YAML resources.",
     "author": "",
     "entropy": ">=1.0.0",

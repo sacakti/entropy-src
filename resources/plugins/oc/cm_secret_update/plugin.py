@@ -5,16 +5,21 @@ ConfigMap/Secret update plugin.
 from __future__ import annotations
 
 from pathlib import Path
+import traceback
 from typing import Any
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 
 from .model import (
+    ConfigMapSecretResource,
+    ConfigMapSecretSource,
     ConfigMapSecretUpdate,
+    SourceType,
     UpdateOperation,
     UpdateTarget,
 )
+
 from .engine import ConfigMapSecretUpdateEngine
 from .exceptions import ConfigMapSecretUpdateException
 from .loader import ConfigMapSecretUpdateLoader
@@ -58,7 +63,6 @@ class CmSecretUpdatePlugin(BasePlugin):
             )
 
         if not result.success:
-
             return result
 
         self.message.success(
@@ -66,6 +70,10 @@ class CmSecretUpdatePlugin(BasePlugin):
         )
 
         return result
+
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
 
     def _execute(self) -> PluginResult:
         """
@@ -93,22 +101,38 @@ class CmSecretUpdatePlugin(BasePlugin):
             "Expected 'folder' or 'deployments'.",
         )
 
+    # ------------------------------------------------------------------
+    # Folder mode
+    # ------------------------------------------------------------------
+
     def _execute_folder(self) -> PluginResult:
         """
-        Execute ConfigMap/Secret updates.
+        Execute ConfigMap/Secret updates from source and target folders.
         """
 
         source = self._required_path("source")
         target = self._required_path("target")
-        replace = self.arguments.boolean("replace", False)
+        replace = self.arguments.boolean(
+            "replace",
+            False,
+        )
 
         if replace is None:
             replace = False
 
-        self._validate_directories(source, target)
+        self._validate_directories(
+            source,
+            target,
+        )
 
-        self.message.info(f"Source: {source}")
-        self.message.info(f"Target: {target}")
+        self.message.info(
+            f"Source: {source}",
+        )
+
+        self.message.info(
+            f"Target: {target}",
+        )
+
         self.message.info(
             f"Replace existing: {str(replace).lower()}",
         )
@@ -117,17 +141,21 @@ class CmSecretUpdatePlugin(BasePlugin):
             filesystem=self.filesystem,
         )
 
-        definitions = source_loader.load_directory(source)
+        sources = source_loader.load_directory(
+            source,
+        )
 
         self.message.info(
-            f"Loaded {len(definitions)} update definition(s).",
+            f"Loaded {len(sources)} ConfigMap/Secret source(s).",
         )
 
         target_loader = ConfigMapSecretTargetLoader(
             filesystem=self.filesystem,
         )
 
-        resources = target_loader.load_directory(target)
+        resources = target_loader.load_directory(
+            target,
+        )
 
         self.message.info(
             f"Loaded {len(resources)} target resource(s).",
@@ -144,13 +172,19 @@ class CmSecretUpdatePlugin(BasePlugin):
         )
 
         summary = updater.update(
-            definitions,
+            sources,
             resources,
             target_directory=target,
             replace=replace,
         )
 
-        self._report(summary)
+        self._report(
+            summary,
+        )
+
+        changes = self._changes(
+            summary,
+        )
 
         errors = [
             {
@@ -179,13 +213,28 @@ class CmSecretUpdatePlugin(BasePlugin):
             success=not summary.failed,
             changed=summary.changes_count > 0,
             outputs=dict(self.outputs),
+            changes=changes,
             errors=errors,
             metadata=self._metadata(),
         )
 
+    # ------------------------------------------------------------------
+    # Deployment mode
+    # ------------------------------------------------------------------
+
     def _execute_deployments(self) -> PluginResult:
         """
-        Apply ConfigMap/Secret updates from release context.
+        Apply ConfigMap/Secret sources from release context.
+
+        A deployment resource may represent either:
+
+        - an entropy ConfigMapSecretUpdate definition, identified by
+          the presence of ``operations``; or
+        - a native ConfigMap/Secret resource, identified by the
+          absence of ``operations``.
+
+        Native resources are merged into existing targets unless
+        ``replace`` is enabled.
         """
 
         configmaps = self.arguments.get(
@@ -198,12 +247,18 @@ class CmSecretUpdatePlugin(BasePlugin):
             [],
         )
 
-        if not isinstance(configmaps, list):
+        if not isinstance(
+            configmaps,
+            list,
+        ):
             raise ConfigMapSecretUpdateException(
                 "Argument 'configmaps' must be a list.",
             )
 
-        if not isinstance(secrets, list):
+        if not isinstance(
+            secrets,
+            list,
+        ):
             raise ConfigMapSecretUpdateException(
                 "Argument 'secrets' must be a list.",
             )
@@ -214,6 +269,7 @@ class CmSecretUpdatePlugin(BasePlugin):
         ]
 
         if not resources:
+
             self.message.info(
                 "No ConfigMap/Secret resources require updates.",
             )
@@ -235,25 +291,21 @@ class CmSecretUpdatePlugin(BasePlugin):
         replace = self.arguments.boolean(
             "replace",
             False,
-        ) or False
+        )
+
+        if replace is None:
+            replace = False
 
         engine = ConfigMapSecretUpdateEngine(
             yaml_loader=self._parse_yaml,
             yaml_dumper=self._serialize_yaml,
         )
 
-        target_loader = ConfigMapSecretTargetLoader(
-            filesystem=self.filesystem,
-        )
-
-        updater = ConfigMapSecretUpdater(
-            engine=engine,
-            filesystem=self.filesystem,
-        )
-
         processed = 0
         succeeded = 0
         changes = 0
+
+        detailed_changes: list[dict[str, Any]] = []
         errors: list[dict[str, Any]] = []
 
         for resource in resources:
@@ -261,6 +313,7 @@ class CmSecretUpdatePlugin(BasePlugin):
             processed += 1
 
             try:
+
                 self._validate_deployment_resource(
                     resource,
                 )
@@ -269,57 +322,151 @@ class CmSecretUpdatePlugin(BasePlugin):
                     resource["repository"],
                 )
 
-                target_resources = target_loader.load_file(
-                    target_path,
+                source_path = self.filesystem.path(
+                    resource["source"],
                 )
 
-                target_resource = next(
-                    (
-                        item
-                        for item in target_resources
-                        if (
-                            item.kind.casefold()
-                            == resource["kind"].casefold()
-                            and item.name.casefold()
-                            == resource["name"].casefold()
-                        )
-                    ),
-                    None,
-                )
+                target_resource = None
 
-                if target_resource is None:
-                    raise ConfigMapSecretUpdateException(
-                        f"Target resource "
-                        f"'{resource['kind']}/{resource['name']}' "
-                        f"not found in '{target_path}'.",
+                if self.filesystem.exists(target_path):
+
+                    target_loader = ConfigMapSecretTargetLoader(
+                        filesystem=self.filesystem,
                     )
 
-                definition = self._build_definition(
+                    target_resources = target_loader.load_file(
+                        target_path,
+                    )
+
+                    target_resource = next(
+                        (
+                            item
+                            for item in target_resources
+                            if (
+                                item.kind == resource["kind"]
+                                and item.name == resource["name"]
+                            )
+                        ),
+                        None,
+                    )
+
+                source_documents = self._load_source_documents(
+                    source_path,
+                )
+
+                source_document = self._find_source_document(
+                    source_documents,
+                    kind=resource["kind"],
+                    name=resource["name"],
+                )
+
+                if source_document is None:
+                    raise ConfigMapSecretUpdateException(
+                        f"Source resource "
+                        f"'{resource['kind']}/{resource['name']}' "
+                        f"not found in '{source_path}'.",
+                    )
+
+                source = self._build_source(
                     resource,
+                    source_document,
                 )
 
-                resource_changes = updater.update_resource(
-                    definition,
-                    target_resource,
-                    replace=replace,
+                # ------------------------------------------------------
+                # Existing target
+                # ------------------------------------------------------
+
+                if target_resource is not None:
+
+                    if source.source_type == SourceType.UPDATE:
+
+                        assert source.update is not None
+
+                        resource_changes = engine.apply(
+                            target_resource.document,
+                            source.update,
+                            replace=replace,
+                        )
+
+                    else:
+
+                        assert source.resource is not None
+
+                        resource_changes = self._apply_native_resource(
+                            target_resource.document,
+                            source.resource.document,
+                            replace=replace,
+                        )
+
+                    for change in resource_changes:
+
+                        detailed_changes.append(
+                            {
+                                "kind": resource["kind"],
+                                "name": resource["name"],
+                                "path": str(target_path),
+                                **change,
+                            },
+                        )
+
+                    self._write_target_file(
+                        target_resource.target_file,
+                    )
+
+                    changes += len(
+                        resource_changes,
+                    )
+
+                    succeeded += 1
+
+                    self.message.info(
+                        f"Updated "
+                        f"{resource['kind']}/"
+                        f"{resource['name']}.",
+                    )
+
+                    continue
+
+                # ------------------------------------------------------
+                # Missing target
+                # ------------------------------------------------------
+
+                created_document = self._create_source_document(
+                    source,
                 )
 
-                self._write_target_file(
-                    target_resource.target_file,
+                self._write_new_target(
+                    target_path,
+                    created_document,
                 )
 
-                changes += len(
-                    resource_changes,
+                change = {
+                    "action": "create",
+                    "key": "*",
+                    "status": "created",
+                }
+
+                detailed_changes.append(
+                    {
+                        "kind": resource["kind"],
+                        "name": resource["name"],
+                        "path": str(target_path),
+                        **change,
+                    },
                 )
 
+                changes += 1
                 succeeded += 1
 
                 self.message.info(
-                    f"Updated {resource['kind']}/"
+                    f"Created "
+                    f"{resource['kind']}/"
                     f"{resource['name']}.",
                 )
 
             except Exception as exc:
+
+                # traceback.print_exc()
 
                 errors.append(
                     {
@@ -353,24 +500,381 @@ class CmSecretUpdatePlugin(BasePlugin):
         return PluginResult(
             success=not errors,
             changed=changes > 0,
-            outputs=dict(self.outputs),
+            outputs=dict(
+                self.outputs,
+            ),
+            changes=detailed_changes,
             errors=errors,
             metadata=self._metadata(),
         )
 
-    def _required_path(self, name: str) -> Path:
+    # ------------------------------------------------------------------
+    # Deployment source handling
+    # ------------------------------------------------------------------
+
+    def _validate_deployment_resource(
+        self,
+        resource: Any,
+    ) -> None:
+        """
+        Validate one deployment resource mapping.
+
+        ``operations`` is optional because native ConfigMap/Secret
+        resources do not contain operations.
+        """
+
+        if not isinstance(
+            resource,
+            dict,
+        ):
+            raise ConfigMapSecretUpdateException(
+                "Deployment resource must be an object.",
+            )
+
+        for field in (
+            "kind",
+            "name",
+            "source",
+            "repository",
+        ):
+
+            value = resource.get(
+                field,
+            )
+
+            if value is None:
+                raise ConfigMapSecretUpdateException(
+                    f"Deployment resource requires '{field}'.",
+                )
+
+        if resource["kind"] not in {
+            "ConfigMap",
+            "Secret",
+        }:
+            raise ConfigMapSecretUpdateException(
+                f"Unsupported deployment resource kind "
+                f"'{resource['kind']}'.",
+            )
+
+        if "operations" in resource and not isinstance(
+            resource["operations"],
+            list,
+        ):
+            raise ConfigMapSecretUpdateException(
+                "Deployment resource 'operations' "
+                "must be a list.",
+            )
+
+    def _build_source(
+        self,
+        resource: dict[str, Any],
+        document: dict[str, Any],
+    ) -> ConfigMapSecretSource:
+        """
+        Build a typed source from a deployment resource.
+
+        Resources containing ``operations`` are treated as
+        entropy update definitions.
+
+        Resources without ``operations`` are treated as native
+        ConfigMap/Secret resources.
+        """
+
+        operations = resource.get(
+            "operations",
+        )
+
+        if operations is not None:
+
+            parsed_operations = [
+                UpdateOperation(
+                    action=operation["action"],
+                    key=operation["key"],
+                    value=operation.get("value"),
+                    format=operation.get("format"),
+                    entries=operation.get("entries"),
+                )
+                for operation in operations
+            ]
+
+            definition = ConfigMapSecretUpdate(
+                api_version="entropy/v1",
+                kind="ConfigMapSecretUpdate",
+                target=UpdateTarget(
+                    kind=resource["kind"],
+                    name=resource["name"],
+                ),
+                operations=parsed_operations,
+            )
+
+            return ConfigMapSecretSource(
+                source_type=SourceType.UPDATE,
+                path=self.filesystem.path(
+                    resource["source"],
+                ),
+                update=definition,
+            )
+
+        native_resource = ConfigMapSecretResource(
+            api_version=document.get(
+                "apiVersion",
+                "v1",
+            ),
+            kind=document["kind"],
+            name=document["metadata"]["name"],
+            document=document,
+        )
+
+        return ConfigMapSecretSource(
+            source_type=SourceType.RESOURCE,
+            path=self.filesystem.path(
+                resource["source"],
+            ),
+            resource=native_resource,
+        )
+
+    def _load_source_documents(
+        self,
+        path: Path,
+    ) -> list[Any]:
+        """
+        Load all YAML documents from a source file.
+        """
+
+        if not self.filesystem.exists(path):
+            raise ConfigMapSecretUpdateException(
+                f"Source YAML file '{path}' does not exist.",
+            )
+
+        if not self.filesystem.is_file(path):
+            raise ConfigMapSecretUpdateException(
+                f"Source YAML path '{path}' is not a file.",
+            )
+
+        try:
+
+            content = self.filesystem.read_text(
+                path,
+            )
+
+            documents = self.filesystem.load_yaml_documents(
+                content,
+            )
+
+        except Exception as exc:
+
+            raise ConfigMapSecretUpdateException(
+                f"Unable to read source YAML file "
+                f"'{path}': {exc}",
+            ) from exc
+
+        if documents is None:
+            return []
+
+        if not isinstance(
+            documents,
+            list,
+        ):
+            return [
+                documents,
+            ]
+
+        return documents
+
+    @staticmethod
+    def _find_source_document(
+        documents: list[Any],
+        *,
+        kind: str,
+        name: str,
+    ) -> dict[str, Any] | None:
+        """
+        Find a native resource in a multi-document YAML source.
+        """
+
+        for document in documents:
+
+            if not isinstance(
+                document,
+                dict,
+            ):
+                continue
+
+            if document.get("kind") != kind:
+                continue
+
+            metadata = document.get(
+                "metadata",
+            )
+
+            if not isinstance(
+                metadata,
+                dict,
+            ):
+                continue
+
+            if metadata.get("name") == name:
+                return document
+
+        return None
+
+    @staticmethod
+    def _apply_native_resource(
+        target: dict[str, Any],
+        source: dict[str, Any],
+        *,
+        replace: bool,
+    ) -> list[dict[str, Any]]:
+        """
+        Merge or replace a native ConfigMap/Secret resource.
+
+        With replace=False, only source fields are changed and
+        destination-only data keys are preserved.
+
+        With replace=True, the complete resource is replaced.
+        """
+
+        if replace:
+
+            target.clear()
+            target.update(
+                source,
+            )
+
+            return [
+                {
+                    "action": "replace",
+                    "key": "*",
+                    "status": "replaced_resource",
+                },
+            ]
+
+        source_data = source.get(
+            "data",
+            {},
+        )
+
+        if source_data is None:
+            source_data = {}
+
+        if not isinstance(
+            source_data,
+            dict,
+        ):
+            raise ConfigMapSecretUpdateException(
+                "Native ConfigMap/Secret 'data' must be an object.",
+            )
+
+        target_data = target.get(
+            "data",
+        )
+
+        if target_data is None:
+            target_data = {}
+            target["data"] = target_data
+
+        if not isinstance(
+            target_data,
+            dict,
+        ):
+            raise ConfigMapSecretUpdateException(
+                "Target ConfigMap/Secret 'data' must be an object.",
+            )
+
+        changes: list[dict[str, Any]] = []
+
+        for key, value in source_data.items():
+
+            if key in target_data:
+
+                target_data[key] = value
+
+                changes.append(
+                    {
+                        "action": "update",
+                        "key": key,
+                        "status": "updated_existing",
+                    },
+                )
+
+            else:
+
+                target_data[key] = value
+
+                changes.append(
+                    {
+                        "action": "add",
+                        "key": key,
+                        "status": "added_missing",
+                    },
+                )
+
+        return changes
+
+    @staticmethod
+    def _create_source_document(
+        source: ConfigMapSecretSource,
+    ) -> dict[str, Any]:
+        """
+        Return the complete native resource for creation.
+        """
+
+        if source.source_type == SourceType.RESOURCE:
+
+            assert source.resource is not None
+
+            return dict(
+                source.resource.document,
+            )
+
+        raise ConfigMapSecretUpdateException(
+            "Creating a missing ConfigMap/Secret from an "
+            "update definition requires the update source "
+            "to be resolved separately.",
+        )
+
+    def _write_new_target(
+        self,
+        path: Path,
+        document: dict[str, Any],
+    ) -> None:
+        """
+        Write a newly created native resource.
+        """
+
+        content = self._serialize_yaml(
+            document,
+        ).rstrip()
+
+        self.filesystem.write_text(
+            path,
+            content + "\n",
+        )
+
+    # ------------------------------------------------------------------
+    # General helpers
+    # ------------------------------------------------------------------
+
+    def _required_path(
+        self,
+        name: str,
+    ) -> Path:
         """
         Return a required plugin path argument.
         """
 
-        value = self.arguments.string(name)
+        value = self.arguments.string(
+            name,
+        )
 
         if value is None or not value.strip():
             raise ConfigMapSecretUpdateException(
                 f"Argument '{name}' must be a non-empty path.",
             )
 
-        return self.filesystem.path(value)
+        return self.filesystem.path(
+            value,
+        )
 
     def _validate_directories(
         self,
@@ -399,38 +903,73 @@ class CmSecretUpdatePlugin(BasePlugin):
                 f"Target path '{target}' is not a directory.",
             )
 
-    def _parse_yaml(self, content: str) -> Any:
+    def _parse_yaml(
+        self,
+        content: str,
+    ) -> Any:
         """Parse one YAML document."""
 
-        return self.filesystem.parse_yaml(content)
+        return self.filesystem.parse_yaml(
+            content,
+        )
 
-    def _serialize_yaml(self, value: Any) -> str:
+    def _serialize_yaml(
+        self,
+        value: Any,
+    ) -> str:
         """Serialize one YAML document."""
 
-        return self.filesystem.serialize_yaml(value)
+        return self.filesystem.serialize_yaml(
+            value,
+        )
 
-    def _report(self, summary) -> None:
+    # ------------------------------------------------------------------
+    # Reporting
+    # ------------------------------------------------------------------
+
+    def _report(
+        self,
+        summary,
+    ) -> None:
         """Report the complete update summary."""
 
-        self.message.info("ConfigMap/Secret Update Summary")
         self.message.info(
-            f"Resources processed: {summary.resources_processed}",
+            "ConfigMap/Secret Update Summary",
         )
+
         self.message.info(
-            f"Resources succeeded: {summary.resources_succeeded}",
+            f"Resources processed: "
+            f"{summary.resources_processed}",
         )
+
         self.message.info(
-            f"Resources failed: {summary.resources_failed}",
+            f"Resources succeeded: "
+            f"{summary.resources_succeeded}",
         )
+
         self.message.info(
-            f"Changes applied: {summary.changes_count}",
+            f"Resources failed: "
+            f"{summary.resources_failed}",
+        )
+
+        self.message.info(
+            f"Changes applied: "
+            f"{summary.changes_count}",
         )
 
         if summary.results:
-            self.message.info("Successful resources:")
+
+            self.message.info(
+                "Successful resources:",
+            )
 
             for result in summary.results:
-                action = "CREATE" if result.created else "UPDATE"
+
+                action = (
+                    "CREATE"
+                    if result.created
+                    else "UPDATE"
+                )
 
                 self.message.info(
                     f"  {action:<6} "
@@ -439,44 +978,64 @@ class CmSecretUpdatePlugin(BasePlugin):
                 )
 
                 for change in result.changes:
+
                     action = change["action"].upper()
                     key = change["key"]
-                    status = change.get("status")
+                    status = change.get(
+                        "status",
+                    )
 
                     if status == "replaced_add":
+
                         self.message.info(
                             f"    {action:<6} "
                             f"{key} (replaced add)",
                         )
 
                     elif status == "unchanged":
+
                         self.message.info(
                             f"    {action:<6} "
                             f"{key} (unchanged)",
                         )
 
                     else:
+
                         self.message.info(
-                            f"    {action:<6} {key}",
+                            f"    {action:<6} "
+                            f"{key}",
                         )
 
         if summary.errors:
-            self.message.error("Failed resources:")
+
+            self.message.error(
+                "Failed resources:",
+            )
 
             for error in summary.errors:
-                location = f"{error.kind}/{error.name}"
+
+                location = (
+                    f"{error.kind}/{error.name}"
+                )
 
                 if error.key:
+
                     self.message.error(
                         f"  {location} "
-                        f"[{error.key}]: {error.message}",
-                    )
-                else:
-                    self.message.error(
-                        f"  {location}: {error.message}",
+                        f"[{error.key}]: "
+                        f"{error.message}",
                     )
 
-    def _metadata(self) -> dict[str, Any]:
+                else:
+
+                    self.message.error(
+                        f"  {location}: "
+                        f"{error.message}",
+                    )
+
+    def _metadata(
+        self,
+    ) -> dict[str, Any]:
         """Build plugin result metadata."""
 
         return {
@@ -486,91 +1045,44 @@ class CmSecretUpdatePlugin(BasePlugin):
             },
         }
 
-    def _validate_deployment_resource(
+    def _changes(
         self,
-        resource: Any,
-    ) -> None:
+        summary,
+    ) -> list[dict[str, Any]]:
         """
-        Validate one deployment resource mapping.
+        Return detailed changes from all successful resources.
         """
 
-        if not isinstance(resource, dict):
-            raise ConfigMapSecretUpdateException(
-                "Deployment resource must be an object.",
-            )
+        changes: list[dict[str, Any]] = []
 
-        for field in (
-            "kind",
-            "name",
-            "source",
-            "repository",
-            "operations",
-        ):
+        for result in summary.results:
 
-            value = resource.get(field)
+            for change in result.changes:
 
-            if value is None:
-                raise ConfigMapSecretUpdateException(
-                    f"Deployment resource requires '{field}'.",
+                changes.append(
+                    {
+                        "kind": result.kind,
+                        "name": result.name,
+                        "path": str(result.path),
+                        **change,
+                    },
                 )
 
-        if not isinstance(
-            resource["operations"],
-            list,
-        ):
-
-            raise ConfigMapSecretUpdateException(
-                "Deployment resource 'operations' "
-                "must be a list.",
-            )
-
-    def _build_definition(
-        self,
-        resource: dict[str, Any],
-    ) -> ConfigMapSecretUpdate:
-
-        operations = [
-            UpdateOperation(
-                action=operation["action"],
-                key=operation["key"],
-                value=operation.get("value"),
-                format=operation.get("format"),
-                entries=operation.get("entries"),
-            )
-            for operation in resource["operations"]
-        ]
-
-        return ConfigMapSecretUpdate(
-            api_version="v1",
-            kind=resource["kind"],
-            target=UpdateTarget(
-                kind=resource["kind"],
-                name=resource["name"],
-            ),
-            operations=operations,
-        )
+        return changes
 
     def _write_target_file(
         self,
         target_file,
     ) -> None:
         """
-        Write all YAML documents back to the target file.
+        Write all YAML documents in an existing target file.
         """
 
-        documents = [
-            self._serialize_yaml(
-                document,
-            ).rstrip()
-            for document in target_file.documents
-            if document is not None
-        ]
-
-        content = "\n---\n".join(
-            documents,
+        content = self.filesystem.serialize_yaml_documents(
+            target_file.documents,
         )
 
         self.filesystem.write_text(
             target_file.path,
-            content + "\n",
+            content,
         )

@@ -9,14 +9,14 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from .adapter import ConfigMapSecretTarget
 from .engine import ConfigMapSecretUpdateEngine
 from .exceptions import UpdateFileError
 from .index import ConfigMapSecretTargetIndex
 from .model import (
+    ConfigMapSecretSource,
     ConfigMapSecretUpdate,
+    SourceType,
     UpdateError,
-    UpdateOperation,
     UpdateResult,
     UpdateSummary,
 )
@@ -25,17 +25,17 @@ from .target_loader import TargetFile, TargetResource
 
 class ConfigMapSecretUpdater:
     """
-    Orchestrates ConfigMap/Secret resource updates.
+    Orchestrate ConfigMap/Secret source definitions.
 
-    The updater coordinates:
+    Sources may be either:
 
-        source definitions
-            ↓
-        target lookup
-            ↓
-        update/create
-            ↓
-        target file persistence
+    - entropy/v1 ConfigMapSecretUpdate definitions
+    - native ConfigMap/Secret resources
+
+    Update definitions are always non-destructive.
+
+    Native resources are merged by default and completely replaced
+    only when replace=True.
     """
 
     def __init__(
@@ -53,35 +53,29 @@ class ConfigMapSecretUpdater:
 
     def update(
         self,
-        definitions: list[ConfigMapSecretUpdate],
+        sources: list[ConfigMapSecretSource],
         resources: list[TargetResource],
         *,
         target_directory: Path,
         replace: bool = False,
     ) -> UpdateSummary:
         """
-        Apply all update definitions.
-
-        Definitions targeting the same ConfigMap or Secret are
-        processed as one atomic transaction.
-
-        A failure in one resource does not prevent other resources
-        from being processed.
+        Apply all ConfigMap/Secret sources.
         """
 
         index = ConfigMapSecretTargetIndex(
             resources,
         )
 
-        groups = self._group_definitions(
-            definitions,
-        )
-
         results: list[UpdateResult] = []
         errors: list[UpdateError] = []
         changed_paths: set[Path] = set()
 
-        for identity, group in groups.items():
+        grouped = self._group_sources(
+            sources,
+        )
+
+        for identity, group in grouped.items():
 
             kind, name = identity
 
@@ -94,14 +88,17 @@ class ConfigMapSecretUpdater:
 
                 if resource is None:
 
-                    result = self._create_group(group, target_directory, replace)
+                    result = self._create_group(
+                        group,
+                        target_directory,
+                    )
 
                 else:
 
                     result = self._update_group(
                         resource,
                         group,
-                        replace,
+                        replace=replace,
                     )
 
                     changed_paths.add(
@@ -119,15 +116,15 @@ class ConfigMapSecretUpdater:
                         kind=kind,
                         name=name,
                         path=(
-                            resource.target_file.path if resource is not None else target_directory
+                            resource.target_file.path
+                            if resource is not None
+                            else target_directory
                         ),
                         key=self._error_key(
                             group,
                             exc,
                         ),
-                        message=str(
-                            exc,
-                        ),
+                        message=str(exc),
                     ),
                 )
 
@@ -153,8 +150,7 @@ class ConfigMapSecretUpdater:
         """
         Persist modified target files.
 
-        Each TargetFile contains all YAML documents from the
-        original file, so unrelated resources are preserved.
+        All documents in each TargetFile are preserved.
         """
 
         files: dict[Path, TargetFile] = {}
@@ -180,7 +176,7 @@ class ConfigMapSecretUpdater:
             )
 
     # ------------------------------------------------------------------
-    # Write
+    # New files
     # ------------------------------------------------------------------
 
     def _write_new_file(
@@ -201,204 +197,19 @@ class ConfigMapSecretUpdater:
             data,
         )
 
-    def _normalize_for_replace(
-        self,
-        resource: TargetResource,
-        definition: ConfigMapSecretUpdate,
-    ) -> tuple[
-        ConfigMapSecretUpdate,
-        set[str],
-    ]:
-        """
-        Normalize operations for replacement mode.
-
-        An add operation targeting an existing top-level key
-        becomes an update operation.
-
-        Returns the normalized definition together with the
-        keys whose add operations were replaced by updates.
-        """
-
-        adapter = ConfigMapSecretTarget(
-            resource.document,
-            definition.target.kind,
-        )
-
-        operations: list[UpdateOperation] = []
-
-        replaced_add_keys: set[str] = set()
-
-        for operation in definition.operations:
-
-            if operation.action == "add" and adapter.contains(
-                operation.key,
-            ):
-
-                replaced_add_keys.add(
-                    operation.key,
-                )
-
-                operations.append(
-                    UpdateOperation(
-                        action="update",
-                        key=operation.key,
-                        value=operation.value,
-                        format=operation.format,
-                        entries=operation.entries,
-                    ),
-                )
-
-            else:
-
-                operations.append(
-                    operation,
-                )
-
-        return (
-            ConfigMapSecretUpdate(
-                api_version=definition.api_version,
-                kind=definition.kind,
-                target=definition.target,
-                operations=operations,
-            ),
-            replaced_add_keys,
-        )
-
-    @staticmethod
-    def _error_key(
-        definitions: list[ConfigMapSecretUpdate],
-        error: Exception,
-    ) -> str | None:
-        """
-        Identify the operation key associated with an error.
-        """
-
-        message = str(
-            error,
-        )
-
-        for definition in definitions:
-
-            for operation in definition.operations:
-
-                if operation.key in message:
-
-                    return operation.key
-
-        return None
-
-    def _group_definitions(
-        self,
-        definitions: list[ConfigMapSecretUpdate],
-    ) -> dict[
-        tuple[str, str],
-        list[ConfigMapSecretUpdate],
-    ]:
-        """
-        Group update definitions by target identity.
-
-        Multiple source YAML documents may target the same
-        ConfigMap or Secret. They must be processed as one
-        transaction.
-        """
-
-        grouped: dict[
-            tuple[str, str],
-            list[ConfigMapSecretUpdate],
-        ] = defaultdict(list)
-
-        for definition in definitions:
-
-            identity = (
-                definition.target.kind,
-                definition.target.name,
-            )
-
-            grouped[identity].append(
-                definition,
-            )
-
-        return dict(
-            grouped,
-        )
-
-    def update_resource(
-        self,
-        definition: ConfigMapSecretUpdate,
-        resource: TargetResource,
-        *,
-        replace: bool = False,
-    ) -> list[dict[str, Any]]:
-        """
-        Apply one update definition to one existing target resource.
-        """
-
-        working_document = deepcopy(
-            resource.document,
-        )
-
-        effective_definition = definition
-        replaced_add_keys: set[str] = set()
-
-        if replace:
-            working_resource = TargetResource(
-                kind=resource.kind,
-                name=resource.name,
-                document=working_document,
-                target_file=resource.target_file,
-                document_index=resource.document_index,
-            )
-
-            (
-                effective_definition,
-                replaced_add_keys,
-            ) = self._normalize_for_replace(
-                working_resource,
-                definition,
-            )
-
-        changes = self._engine.apply(
-            working_document,
-            effective_definition,
-            replace=replace,
-        )
-
-        if replace:
-            managed_keys = {
-                operation.key
-                for operation in definition.operations
-            }
-
-            changes.extend(
-                self._engine.prune(
-                    working_document,
-                    managed_keys,
-                ),
-            )
-
-        for change in changes:
-
-            if (
-                change.get("action") == "update"
-                and change.get("key") in replaced_add_keys
-            ):
-                change["status"] = "replaced_add"
-
-        resource.document.clear()
-        resource.document.update(
-            working_document,
-        )
-
-        return changes
+    # ------------------------------------------------------------------
+    # Existing group
+    # ------------------------------------------------------------------
 
     def _update_group(
         self,
         resource: TargetResource,
-        definitions: list[ConfigMapSecretUpdate],
+        sources: list[ConfigMapSecretSource],
+        *,
         replace: bool,
     ) -> UpdateResult:
         """
-        Apply all definitions targeting one resource atomically.
+        Apply all sources targeting one resource atomically.
         """
 
         working_document = deepcopy(
@@ -407,64 +218,31 @@ class ConfigMapSecretUpdater:
 
         changes: list[dict[str, Any]] = []
 
-        replaced_add_keys: set[str] = set()
+        for source in sources:
 
-        for definition in definitions:
+            if source.source_type == SourceType.UPDATE:
 
-            effective_definition = definition
+                assert source.update is not None
 
-            if replace:
-
-                working_resource = TargetResource(
-                    kind=resource.kind,
-                    name=resource.name,
-                    document=working_document,
-                    target_file=resource.target_file,
-                    document_index=resource.document_index,
+                changes.extend(
+                    self._engine.apply(
+                        working_document,
+                        source.update,
+                    ),
                 )
 
-                (
-                    effective_definition,
-                    definition_replaced_add_keys,
-                ) = self._normalize_for_replace(
-                    working_resource,
-                    definition,
-                )
+                continue
 
-                replaced_add_keys.update(
-                    definition_replaced_add_keys,
-                )
+            assert source.resource is not None
 
             changes.extend(
-                self._engine.apply(
+                self._merge_native_resource(
                     working_document,
-                    effective_definition,
+                    source.resource.document,
                     replace=replace,
                 ),
             )
 
-        if replace:
-
-            managed_keys = {
-                operation.key for definition in definitions for operation in definition.operations
-            }
-
-            changes.extend(
-                self._engine.prune(
-                    working_document,
-                    managed_keys,
-                ),
-            )
-
-        # Annotate operations that were originally "add"
-        # but were converted to "update" in replace mode.
-        for change in changes:
-
-            if change.get("action") == "update" and change.get("key") in replaced_add_keys:
-
-                change["status"] = "replaced_add"
-
-        # Commit only after every operation succeeds.
         resource.document.clear()
 
         resource.document.update(
@@ -479,32 +257,64 @@ class ConfigMapSecretUpdater:
             changes=changes,
         )
 
+    # ------------------------------------------------------------------
+    # Create
+    # ------------------------------------------------------------------
+
     def _create_group(
-        self, definitions: list[ConfigMapSecretUpdate], target_directory: Path, replace
+        self,
+        sources: list[ConfigMapSecretSource],
+        target_directory: Path,
     ) -> UpdateResult:
         """
-        Create one resource from multiple definitions atomically.
+        Create one ConfigMap or Secret from one or more sources.
         """
 
-        first = definitions[0]
+        first = sources[0]
 
-        document: dict[str, Any] = {
-            "apiVersion": "v1",
-            "kind": first.target.kind,
-            "metadata": {
-                "name": first.target.name,
-            },
-        }
+        document = self._initial_document(
+            first,
+        )
 
         changes: list[dict[str, Any]] = []
 
-        for definition in definitions:
+        for source in sources:
 
-            changes.extend(
-                self._engine.apply(document, definition, replace=replace),
+            if source.source_type == SourceType.UPDATE:
+
+                assert source.update is not None
+
+                changes.extend(
+                    self._engine.apply(
+                        document,
+                        source.update,
+                    ),
+                )
+
+                continue
+
+            assert source.resource is not None
+
+            document = deepcopy(
+                source.resource.document,
             )
 
-        path = target_directory / (f"{first.target.kind.lower()}-" f"{first.target.name}.yaml")
+            changes.append(
+                {
+                    "action": "create",
+                    "key": None,
+                    "status": "created",
+                    "source": "native",
+                },
+            )
+
+        path = (
+            target_directory
+            / (
+                f"{first.kind.lower()}-"
+                f"{first.name}.yaml"
+            )
+        )
 
         if self._filesystem.exists(
             path,
@@ -512,8 +322,7 @@ class ConfigMapSecretUpdater:
 
             raise UpdateFileError(
                 f"Cannot create target resource "
-                f"'{first.target.kind}/"
-                f"{first.target.name}': "
+                f"'{first.kind}/{first.name}': "
                 f"file '{path}' already exists.",
             )
 
@@ -523,9 +332,203 @@ class ConfigMapSecretUpdater:
         )
 
         return UpdateResult(
-            kind=first.target.kind,
-            name=first.target.name,
+            kind=first.kind,
+            name=first.name,
             path=path,
             created=True,
             changes=changes,
         )
+
+    # ------------------------------------------------------------------
+    # Native resource
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _merge_native_resource(
+        target: dict[str, Any],
+        source: dict[str, Any],
+        *,
+        replace: bool,
+    ) -> list[dict[str, Any]]:
+        """
+        Merge or replace a native ConfigMap/Secret resource.
+
+        replace=False:
+            Merge explicitly supplied fields while preserving unrelated
+            target fields.
+
+        replace=True:
+            Replace the complete resource.
+        """
+
+        if replace:
+
+            target.clear()
+
+            target.update(
+                deepcopy(
+                    source,
+                ),
+            )
+
+            return [
+                {
+                    "action": "replace",
+                    "key": None,
+                    "status": "replaced",
+                    "source": "native",
+                },
+            ]
+
+        changes: list[dict[str, Any]] = []
+
+        source_data = source.get(
+            "data",
+            {},
+        )
+
+        if not isinstance(
+            source_data,
+            dict,
+        ):
+
+            raise UpdateFileError(
+                "Native ConfigMap/Secret 'data' must be an object.",
+            )
+
+        target_data = target.setdefault(
+            "data",
+            {},
+        )
+
+        if not isinstance(
+            target_data,
+            dict,
+        ):
+
+            raise UpdateFileError(
+                "Target ConfigMap/Secret 'data' must be an object.",
+            )
+
+        for key, value in source_data.items():
+
+            status = (
+                "updated"
+                if key in target_data
+                else "added"
+            )
+
+            target_data[key] = deepcopy(
+                value,
+            )
+
+            changes.append(
+                {
+                    "action": "update",
+                    "key": key,
+                    "status": status,
+                    "source": "native",
+                },
+            )
+
+        return changes
+
+    # ------------------------------------------------------------------
+    # Initial document
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _initial_document(
+        source: ConfigMapSecretSource,
+    ) -> dict[str, Any]:
+        """
+        Create the initial resource document for a new target.
+        """
+
+        if source.source_type == SourceType.RESOURCE:
+
+            assert source.resource is not None
+
+            return deepcopy(
+                source.resource.document,
+            )
+
+        assert source.update is not None
+
+        return {
+            "apiVersion": "v1",
+            "kind": source.update.target.kind,
+            "metadata": {
+                "name": source.update.target.name,
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # Grouping
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _group_sources(
+        sources: list[ConfigMapSecretSource],
+    ) -> dict[
+        tuple[str, str],
+        list[ConfigMapSecretSource],
+    ]:
+        """
+        Group sources by ConfigMap/Secret identity.
+
+        Multiple YAML documents may target the same resource.
+        """
+
+        grouped: dict[
+            tuple[str, str],
+            list[ConfigMapSecretSource],
+        ] = defaultdict(list)
+
+        for source in sources:
+
+            grouped[
+                (
+                    source.kind,
+                    source.name,
+                )
+            ].append(
+                source,
+            )
+
+        return dict(
+            grouped,
+        )
+
+    # ------------------------------------------------------------------
+    # Errors
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _error_key(
+        sources: list[ConfigMapSecretSource],
+        error: Exception,
+    ) -> str | None:
+        """
+        Identify the operation key associated with an error.
+        """
+
+        message = str(
+            error,
+        )
+
+        for source in sources:
+
+            if source.source_type != SourceType.UPDATE:
+
+                continue
+
+            assert source.update is not None
+
+            for operation in source.update.operations:
+
+                if operation.key in message:
+
+                    return operation.key
+
+        return None

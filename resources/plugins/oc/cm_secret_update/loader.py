@@ -1,24 +1,40 @@
 """
-ConfigMap/Secret update definition loader.
+ConfigMap/Secret source definition loader.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from .exceptions import UpdateFileError
-from .model import ConfigMapSecretUpdate
+from .model import (
+    ConfigMapSecretResource,
+    ConfigMapSecretSource,
+    SourceType,
+)
 from .validator import ConfigMapSecretUpdateValidator
 
 
 class ConfigMapSecretUpdateLoader:
     """
-    Load ConfigMap/Secret update definitions from YAML files.
+    Load ConfigMap/Secret source definitions from YAML files.
+
+    Supported source definitions:
+
+    - entropy/v1 ConfigMapSecretUpdate
+    - native ConfigMap
+    - native Secret
     """
 
     EXTENSIONS = {
         ".yaml",
         ".yml",
+    }
+
+    RESOURCE_KINDS = {
+        "ConfigMap",
+        "Secret",
     }
 
     def __init__(
@@ -35,48 +51,57 @@ class ConfigMapSecretUpdateLoader:
     def load_directory(
         self,
         directory: Path,
-    ) -> list[ConfigMapSecretUpdate]:
+    ) -> list[ConfigMapSecretSource]:
         """
-        Load all update definitions from a directory.
+        Load all source definitions from a directory.
         """
 
-        if not directory.exists():
+        if not self._filesystem.exists(
+            directory,
+        ):
 
             raise UpdateFileError(
                 f"Source directory '{directory}' does not exist.",
             )
 
-        if not directory.is_dir():
+        if not self._filesystem.is_directory(
+            directory,
+        ):
 
             raise UpdateFileError(
                 f"Source path '{directory}' is not a directory.",
             )
 
-        definitions: list[ConfigMapSecretUpdate] = []
+        sources: list[ConfigMapSecretSource] = []
 
         for path in sorted(
-            directory.iterdir(),
+            self._filesystem.listdir(
+                directory,
+            ),
         ):
 
-            if not path.is_file():
+            if not self._filesystem.is_file(
+                path,
+            ):
                 continue
 
             if path.suffix.lower() not in self.EXTENSIONS:
                 continue
 
-            definitions.extend(
+            sources.extend(
                 self.load_file(
                     path,
                 ),
             )
 
-        if not definitions:
+        if not sources:
 
             raise UpdateFileError(
-                f"No YAML update definitions found in " f"'{directory}'.",
+                f"No YAML source definitions found in "
+                f"'{directory}'.",
             )
 
-        return definitions
+        return sources
 
     # ------------------------------------------------------------------
     # Load file
@@ -85,18 +110,24 @@ class ConfigMapSecretUpdateLoader:
     def load_file(
         self,
         path: Path,
-    ) -> list[ConfigMapSecretUpdate]:
+    ) -> list[ConfigMapSecretSource]:
         """
-        Load all update definitions from one YAML file.
+        Load all source definitions from one YAML file.
+
+        A YAML file may contain multiple documents.
         """
 
-        if not path.exists():
+        if not self._filesystem.exists(
+            path,
+        ):
 
             raise UpdateFileError(
                 f"Source YAML file '{path}' does not exist.",
             )
 
-        if not path.is_file():
+        if not self._filesystem.is_file(
+            path,
+        ):
 
             raise UpdateFileError(
                 f"Source YAML path '{path}' is not a file.",
@@ -104,14 +135,15 @@ class ConfigMapSecretUpdateLoader:
 
         try:
 
-            content = path.read_text(
-                encoding="utf-8",
+            content = self._filesystem.read_text(
+                path,
             )
 
         except OSError as exc:
 
             raise UpdateFileError(
-                f"Unable to read source YAML file " f"'{path}': {exc}",
+                f"Unable to read source YAML file "
+                f"'{path}': {exc}",
             ) from exc
 
         try:
@@ -123,7 +155,8 @@ class ConfigMapSecretUpdateLoader:
         except Exception as exc:
 
             raise UpdateFileError(
-                f"Unable to parse source YAML file " f"'{path}': {exc}",
+                f"Unable to parse source YAML file "
+                f"'{path}': {exc}",
             ) from exc
 
         if documents is None:
@@ -139,7 +172,7 @@ class ConfigMapSecretUpdateLoader:
                 documents,
             ]
 
-        definitions: list[ConfigMapSecretUpdate] = []
+        sources: list[ConfigMapSecretSource] = []
 
         for index, document in enumerate(
             documents,
@@ -151,18 +184,163 @@ class ConfigMapSecretUpdateLoader:
 
             try:
 
-                definition = ConfigMapSecretUpdateValidator.parse(
+                source = self._parse_document(
                     document,
+                    path,
                 )
 
             except Exception as exc:
 
                 raise UpdateFileError(
-                    f"Invalid update definition in " f"'{path}' document {index}: {exc}",
+                    f"Invalid source definition in "
+                    f"'{path}' document {index}: {exc}",
                 ) from exc
 
-            definitions.append(
-                definition,
+            sources.append(
+                source,
             )
 
-        return definitions
+        return sources
+
+    # ------------------------------------------------------------------
+    # Document
+    # ------------------------------------------------------------------
+
+    def _parse_document(
+        self,
+        document: Any,
+        path: Path,
+    ) -> ConfigMapSecretSource:
+        """
+        Parse one source document.
+
+        Entropy update definitions and native Kubernetes resources
+        are intentionally handled separately.
+        """
+
+        if not isinstance(
+            document,
+            dict,
+        ):
+
+            raise UpdateFileError(
+                "Source document must be an object.",
+            )
+
+        kind = document.get(
+            "kind",
+        )
+
+        if kind in self.RESOURCE_KINDS:
+
+            return self._native_resource(
+                document,
+                path,
+            )
+
+        if (
+            document.get("apiVersion")
+            == ConfigMapSecretUpdateValidator.API_VERSION
+            and kind
+            == ConfigMapSecretUpdateValidator.KIND
+        ):
+
+            definition = ConfigMapSecretUpdateValidator.parse(
+                document,
+            )
+
+            return ConfigMapSecretSource(
+                source_type=SourceType.UPDATE,
+                path=path,
+                update=definition,
+            )
+
+        raise UpdateFileError(
+            f"Unsupported source kind '{kind}'. "
+            "Expected ConfigMapSecretUpdate, "
+            "ConfigMap, or Secret.",
+        )
+
+    # ------------------------------------------------------------------
+    # Native resource
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _native_resource(
+        document: dict[str, Any],
+        path: Path,
+    ) -> ConfigMapSecretSource:
+        """
+        Parse a native ConfigMap or Secret resource.
+        """
+
+        kind = document.get(
+            "kind",
+        )
+
+        if kind not in {
+            "ConfigMap",
+            "Secret",
+        }:
+
+            raise UpdateFileError(
+                f"Unsupported native resource kind '{kind}'.",
+            )
+
+        api_version = document.get(
+            "apiVersion",
+        )
+
+        if (
+            not isinstance(
+                api_version,
+                str,
+            )
+            or not api_version.strip()
+        ):
+
+            raise UpdateFileError(
+                f"Native {kind} '{path}' "
+                "must contain apiVersion.",
+            )
+
+        metadata = document.get(
+            "metadata",
+        )
+
+        if not isinstance(
+            metadata,
+            dict,
+        ):
+
+            raise UpdateFileError(
+                f"Native {kind} resource must contain metadata.",
+            )
+
+        name = metadata.get(
+            "name",
+        )
+
+        if (
+            not isinstance(
+                name,
+                str,
+            )
+            or not name.strip()
+        ):
+
+            raise UpdateFileError(
+                f"Native {kind} resource must contain "
+                "metadata.name.",
+            )
+
+        return ConfigMapSecretSource(
+            source_type=SourceType.RESOURCE,
+            path=path,
+            resource=ConfigMapSecretResource(
+                api_version=api_version,
+                kind=kind,
+                name=name.strip(),
+                document=document,
+            ),
+        )

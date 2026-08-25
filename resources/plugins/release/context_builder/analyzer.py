@@ -637,6 +637,7 @@ class ReleaseAnalyzer:
                         source=source,
                         repository=repository,
                         resources=resources,
+                        resource_index=resource_index,
                     )
 
         return {
@@ -741,6 +742,7 @@ class ReleaseAnalyzer:
         source: Path,
         repository: Path,
         resources: dict[str, list],
+        resource_index: dict[str, Any],
     ) -> None:
 
         kind = document.get(
@@ -782,11 +784,26 @@ class ReleaseAnalyzer:
         if category is None:
             return
 
-        target = (
-            repository
-            / category
-            / source.name
+        indexed_resource = self._resource_index.find_resource(
+            resource_index,
+            kind=kind,
+            name=name,
         )
+
+        if indexed_resource is not None:
+
+            target = (
+                repository
+                / indexed_resource["file"]
+            )
+
+        else:
+
+            target = (
+                repository
+                / category
+                / f"{name}.yaml"
+            )
 
         action = self._resource_action(
             source,
