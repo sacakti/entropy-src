@@ -969,88 +969,115 @@ class SyncYamlsPlugin(BasePlugin):
             },
         )
 
-    # def _deployment_index_entry(
-    #     self,
-    #     deployment: dict[str, Any],
-    # ) -> dict[str, Any]:
-    #     """
-    #     Build a deployment index entry.
-    #     """
+    def _deployment_index_entry(
+        self,
+        deployment: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Build a deployment index entry.
+        """
 
-    #     metadata = deployment.get(
-    #         "metadata",
-    #         {},
-    #     )
+        metadata = deployment.get(
+            "metadata",
+            {},
+        )
 
-    #     spec = deployment.get(
-    #         "spec",
-    #         {},
-    #     )
+        spec = deployment.get(
+            "spec",
+            {},
+        )
 
-    #     template = (
-    #         spec.get(
-    #             "template",
-    #             {},
-    #         )
-    #         if isinstance(spec, dict)
-    #         else {}
-    #     )
+        template = (
+            spec.get(
+                "template",
+                {},
+            )
+            if isinstance(spec, dict)
+            else {}
+        )
 
-    #     pod_spec = (
-    #         template.get(
-    #             "spec",
-    #             {},
-    #         )
-    #         if isinstance(template, dict)
-    #         else {}
-    #     )
+        pod_spec = (
+            template.get(
+                "spec",
+                {},
+            )
+            if isinstance(template, dict)
+            else {}
+        )
 
-    #     containers = (
-    #         pod_spec.get(
-    #             "containers",
-    #             [],
-    #         )
-    #         if isinstance(pod_spec, dict)
-    #         else []
-    #     )
+        containers = (
+            pod_spec.get(
+                "containers",
+                [],
+            )
+            if isinstance(pod_spec, dict)
+            else []
+        )
 
-    #     deployment_name = (
-    #         metadata.get(
-    #             "name",
-    #         )
-    #         if isinstance(metadata, dict)
-    #         else None
-    #     )
+        deployment_name = (
+            metadata.get(
+                "name",
+            )
+            if isinstance(metadata, dict)
+            else None
+        )
 
-    #     if not isinstance(deployment_name, str):
-    #         deployment_name = ""
+        if not isinstance(
+            deployment_name,
+            str,
+        ):
+            deployment_name = ""
 
-    #     result: dict[str, Any] = {
-    #         "deployment": deployment_name,
-    #         "containers": {},
-    #     }
+        result: dict[str, Any] = {
+            "deployment": deployment_name,
+            "containers": {},
+        }
 
-    #     if not isinstance(containers, list):
-    #         return result
+        if not isinstance(
+            containers,
+            list,
+        ):
+            return result
 
-    #     for container in containers:
-    #         if not isinstance(container, dict):
-    #             continue
+        for container in containers:
 
-    #         name = container.get("name")
-    #         image = container.get("image")
+            if not isinstance(
+                container,
+                dict,
+            ):
+                continue
 
-    #         if not isinstance(name, str) or not name.strip():
-    #             continue
+            name = container.get(
+                "name",
+            )
 
-    #         if not isinstance(image, str) or not image.strip():
-    #             continue
+            image = container.get(
+                "image",
+            )
 
-    #         result["containers"][name] = {
-    #             "image": image,
-    #         }
+            if (
+                not isinstance(
+                    name,
+                    str,
+                )
+                or not name.strip()
+            ):
+                continue
 
-    #     return result
+            if (
+                not isinstance(
+                    image,
+                    str,
+                )
+                or not image.strip()
+            ):
+                continue
+
+            result["containers"][name] = {
+                "image": image,
+            }
+
+        return result
 
     def _resource_index_entry(
         self,

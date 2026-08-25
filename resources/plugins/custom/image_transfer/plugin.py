@@ -45,6 +45,14 @@ class ImageTransferPlugin(BasePlugin):
 
     OC_LOGIN_PATTERN = re.compile(r"^\s*oc\s+login\b")
 
+    SCRIPT_VARIABLE_PATTERN = re.compile(
+        r"^\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*\$[0-9]+\s*$",
+    )
+
+    CD_COMMAND_PATTERN = re.compile(
+        r"^\s*cd(?:\s+.*)?\s*$",
+    )
+
     YAML_SUFFIXES = {
         ".yaml",
         ".yml",
@@ -579,27 +587,102 @@ class ImageTransferPlugin(BasePlugin):
 
             if operation == "login":
 
-                command = [
-                    argument
-                    for argument in command
-                    if argument
-                    not in {
-                        "$1",
-                        "$2",
-                    }
-                ]
-
-                if len(command) < 3:
-
-                    raise ValueError(
-                        "Docker login command is missing " "the registry at line " f"{line_number}."
-                    )
+                command = self._remove_docker_login_credentials(
+                    command,
+                    line_number,
+                )
 
             commands.append(
                 command,
             )
 
         return commands
+
+    def _remove_docker_login_credentials(
+        self,
+        command: list[str],
+        line_number: int,
+    ) -> list[str]:
+        """
+        Remove username and password credentials from
+        a Docker login command.
+
+        Supported forms include:
+
+            docker login REGISTRY -u USER -p PASSWORD
+            docker login REGISTRY --username USER --password PASSWORD
+            docker login REGISTRY -u USER --password PASSWORD
+
+        The returned command contains only:
+
+            docker login REGISTRY
+        """
+
+        result = [
+            command[0],
+            command[1],
+        ]
+
+        index = 2
+
+        while index < len(command):
+
+            argument = command[index]
+
+            if argument in {
+                "-u",
+                "--username",
+                "-p",
+                "--password",
+            }:
+
+                if index + 1 >= len(command):
+
+                    raise ValueError(
+                        "Docker login option "
+                        f"'{argument}' is missing its value "
+                        f"at line {line_number}."
+                    )
+
+                index += 2
+
+                continue
+
+            #
+            # Handle --username=value and
+            # --password=value forms.
+            #
+
+            if argument.startswith(
+                "--username=",
+            ) or argument.startswith(
+                "--password=",
+            ):
+
+                index += 1
+
+                continue
+
+            #
+            # Keep the registry and any other
+            # legitimate Docker login arguments.
+            #
+
+            result.append(
+                argument,
+            )
+
+            index += 1
+
+        if len(result) < 3:
+
+            raise ValueError(
+                "Docker login command is missing "
+                "the registry at line "
+                f"{line_number}."
+            )
+
+        return result
 
     @staticmethod
     def _logical_lines(
@@ -1304,6 +1387,34 @@ class ImageTransferPlugin(BasePlugin):
             #
 
             if self._is_git_command(
+                stripped,
+            ):
+
+                continue
+
+            #
+            # Remove positional credential variable assignments.
+            #
+            # Example:
+            #
+            # a=$1
+            # b=$2
+            #
+            # These values are no longer required because
+            # authentication is handled by Entropy.
+            #
+
+            if self.SCRIPT_VARIABLE_PATTERN.match(
+                stripped,
+            ):
+
+                continue
+
+            #
+            # Remove the legacy working directory change.
+            #
+
+            if self.CD_COMMAND_PATTERN.match(
                 stripped,
             ):
 

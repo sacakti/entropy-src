@@ -291,9 +291,7 @@ class GenericPlugin(
         for image in images:
 
             self.log.debug(
-                "Executing Docker %s for image '%s'.",
-                operation,
-                image,
+                f"Executing Docker {operation} for image '{image}'.",
             )
 
             result = self.shell.run(
