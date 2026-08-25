@@ -4,10 +4,12 @@
     "description": "Test step output interpolation.",
 
     "variables": {
-        "release": "/Users/aravinthselvaraj/Desktop/releases/TC03.zip",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
         "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
-        "image_tag": "1.1.10"
+        "image_tag": "1.1.10",
+        "connection": "${entv:SIT_DB_CONNECTION}",
+        "schemas": "${entv:SIT_SCHEMAS_*}"
     },
 
     "steps": [
@@ -102,6 +104,23 @@
             }
         },
         {
+            "name": "PrintDatabaseCreds",
+            "plugin": "builtin.shell",
+            "suppress_result": false,
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "test"
+            ],
+            "arguments": {
+                "command": "echo \"Connection: $1 Schemas: $2\"",
+                "args":[
+                    "${connection}",
+                    "${schemas}"
+                ]
+            }
+        },
+        {
             "name": "StageRelease",
             "plugin": "custom.stage_release_copy",
             "enabled": false,
@@ -177,6 +196,23 @@
             "arguments": {
                 "environment": "SIT",
                 "rsync_plan": "${steps.BuildReleaseContext.outputs.common_paths}"
+            }
+        },
+        {
+            "name": "SQLPlus Plan",
+            "plugin": "sqlplus.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "sqlplus",
+                "plan"
+            ],
+            "arguments": {
+                "mode": "plan",
+                "on_error": "continue",
+                "connection": "${connection}",
+                "schemas": "${schemas}",
+                "execution" : "${steps.BuildReleaseContext.outputs.database}"
             }
         },
         {

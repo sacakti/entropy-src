@@ -1,6 +1,6 @@
 {
-    "name": "cm_secret_update",
-    "namespace": "custom",
+    "name": "generic",
+    "namespace": "sqlplus",
     "version": "1.0.0",
     "description": "",
     "author": "",
