@@ -28,6 +28,16 @@
             }
         },
         {
+            "name": "CommitRevision",
+            "plugin": "builtin.git",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "revision",
+                "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT"
+            }
+        },
+        {
             "name": "PrintImages",
             "plugin": "builtin.shell",
             "enabled": false,
@@ -167,6 +177,17 @@
             "arguments": {
                 "environment": "SIT",
                 "rsync_plan": "${steps.BuildReleaseContext.outputs.common_paths}"
+            }
+        },
+        {
+            "name": "CommitDeployment",
+            "plugin": "builtin.git",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "deployment",
+                "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
+                "tag": "1.1.10"
             }
         }
     ]

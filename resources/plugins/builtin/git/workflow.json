@@ -1,0 +1,43 @@
+{
+    "name": "GenericPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Example workflow for git.generic.",
+
+    "variables": {
+
+    },
+
+    "steps": [
+        {
+            "name": "CommitRevision",
+            "plugin": "git.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "revision",
+                "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT"
+            }
+        },
+        {
+            "name": "CommitDeployment",
+            "plugin": "git.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "deployment",
+                "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
+                "tag": "1.1.10"
+            }
+        },
+        {
+            "name": "PushDeployment",
+            "plugin": "git.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "push",
+                "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT"
+            }
+        }
+    ]
+}
