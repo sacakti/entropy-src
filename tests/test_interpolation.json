@@ -5,11 +5,12 @@
 
     "variables": {
         "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
+        "environment": "UAT",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
         "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
         "image_tag": "1.1.10",
-        "connection": "${entv:SIT_DB_CONNECTION}",
-        "schemas": "${entv:SIT_SCHEMAS_*}"
+        "connection": "${entv:${environment}/DB_CONNECTION}",
+        "schemas": "${entv:${environment}/SCHEMAS_*}"
     },
 
     "steps": [
@@ -110,7 +111,7 @@
             "enabled": true,
             "on_failure": "abort",
             "tags": [
-                "test"
+                "db_creds"
             ],
             "arguments": {
                 "command": "echo \"Connection: $1 Schemas: $2\"",

@@ -16,6 +16,10 @@ from lib.models.plugin import PluginResult
 from lib.plugins.mode import PluginMode
 from lib.workflow.assignments import WorkflowAssignments
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
 
 class PluginCommand(
     BaseCommand,
@@ -35,7 +39,7 @@ class PluginCommand(
 
     def __init__(
         self,
-        context,
+        context: EntropyContext,
     ) -> None:
 
         super().__init__(
@@ -44,10 +48,16 @@ class PluginCommand(
 
         assert context.plugin_manager is not None
         assert context.ui is not None
+        assert context.authorization is not None
+        assert context.session_manager is not None
 
         self._plugins = context.plugin_manager
 
         self._ui = context.ui
+
+        self._authorization = context.authorization
+
+        self._session = context.session_manager
 
     # ------------------------------------------------------------------
     # Configure
@@ -279,6 +289,10 @@ class PluginCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "plugins.install",
+        )
+
         directory = Path(
             args.directory,
         )
@@ -331,6 +345,10 @@ class PluginCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "plugins.uninstall",
+        )
+
         self._ui.rule(
             f"Uninstall Plugin : {args.plugin}",
         )
@@ -351,6 +369,10 @@ class PluginCommand(
         self,
         args: Namespace,
     ) -> None:
+
+        self._require(
+            "plugins.list",
+        )
 
         plugins = self._plugins.list()
 
@@ -393,6 +415,10 @@ class PluginCommand(
         self,
         args: Namespace,
     ) -> None:
+
+        self._require(
+            "plugins.run",
+        )
 
         if args.plugin is None and args.local is None:
 
@@ -445,6 +471,10 @@ class PluginCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "plugins.list",
+        )
+
         self._ui.rule(
             f"Verify Plugin : {args.plugin}",
         )
@@ -465,6 +495,10 @@ class PluginCommand(
         self,
         args: Namespace,
     ) -> None:
+
+        self._require(
+            "plugins.install",
+        )
 
         self._ui.rule(
             f"Repair Plugin : {args.plugin}",
@@ -489,6 +523,10 @@ class PluginCommand(
         self,
         args: Namespace,
     ) -> None:
+
+        self._require(
+            "plugins.install",
+        )
 
         if args.enable:
 
@@ -584,6 +622,10 @@ class PluginCommand(
         """
         Check and upgrade available plugins.
         """
+
+        self._require(
+            "plugins.upgrade",
+        )
 
         if args.show and args.confirm:
 
@@ -736,4 +778,16 @@ class PluginCommand(
 
         self._ui.info(
             f"{len(plan.changes)} plugin change(s) available.",
+        )
+
+    def _require(
+        self,
+        permission: str,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            permission,
         )

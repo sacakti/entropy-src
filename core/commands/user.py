@@ -47,12 +47,15 @@ class UserCommand(BaseCommand):
         assert context.ui is not None
         assert context.session_manager is not None
         assert context.observability is not None
+        assert context.authorization is not None
 
         self._users = context.user_manager
 
         self._session = context.session_manager
 
         self._ui = context.ui
+
+        self._authorization = context.authorization
 
         self._events = context.observability.emitter(
             "user",
@@ -193,6 +196,10 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "users.create",
+        )
+
         self._ui.rule(
             f"Create User : {args.username}",
         )
@@ -285,6 +292,10 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "users.delete",
+        )
+
         self._ui.rule(
             f"Delete User : {args.username}",
         )
@@ -300,10 +311,6 @@ class UserCommand(BaseCommand):
         user = self._users.get(
             args.username,
         )
-
-        if user.system:
-
-            raise SystemUserError()
 
         if not self._ui.confirm(
             f"Delete '{user.username}'?",
@@ -339,6 +346,10 @@ class UserCommand(BaseCommand):
         self,
         args: Namespace,
     ) -> None:
+
+        self._require(
+            "users.read",
+        )
 
         users = self._users.list()
 
@@ -450,6 +461,10 @@ class UserCommand(BaseCommand):
         # Change another user's password.
         #
 
+        self._require(
+            "users.modify",
+        )
+
         self._ui.rule(
             f"Change Password : {args.username}",
         )
@@ -461,10 +476,6 @@ class UserCommand(BaseCommand):
         user = self._users.get(
             args.username,
         )
-
-        if user.system:
-
-            raise UnauthorizedActionError()
 
         new_password = self._read_password()
 
@@ -490,6 +501,10 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "users.modify",
+        )
+
         if args.username is None:
 
             self._ui.warning("Username is required.")
@@ -511,10 +526,6 @@ class UserCommand(BaseCommand):
         user = self._users.get(
             args.username,
         )
-
-        if user.system:
-
-            raise UnauthorizedActionError()
 
         self._ui.info(
             "Generating temporary password...",
@@ -548,6 +559,10 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "users.enable",
+        )
+
         self._ui.rule(
             f"Enable User : {args.username}",
         )
@@ -563,10 +578,6 @@ class UserCommand(BaseCommand):
         user = self._users.get(
             args.username,
         )
-
-        if user.system:
-
-            raise SystemUserError()
 
         if user.is_active:
 
@@ -594,6 +605,10 @@ class UserCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "users.disable",
+        )
+
         self._ui.rule(
             f"Disable User : {args.username}",
         )
@@ -609,10 +624,6 @@ class UserCommand(BaseCommand):
         user = self._users.get(
             args.username,
         )
-
-        if user.system:
-
-            raise SystemUserError()
 
         if not user.is_active:
 
@@ -669,3 +680,15 @@ class UserCommand(BaseCommand):
             self._events.log.warning(
                 "Passwords do not match.",
             )
+
+    def _require(
+        self,
+        permission: str,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            permission,
+        )

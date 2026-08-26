@@ -266,6 +266,14 @@ class CommandManager:
 
             raise SystemExit(1) from exc
 
+        except ValueError as exc:
+
+                    self._events.log.error(
+                        str(exc),
+                    )
+
+                    raise SystemExit(1) from exc
+
         except Exception as exc:
 
             self._events.log.critical(

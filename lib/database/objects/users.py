@@ -29,10 +29,6 @@ class UsersTable(DatabaseObject):
 
                 email           TEXT,
 
-                group_id        INTEGER,
-
-                system          INTEGER NOT NULL DEFAULT 0,
-
                 is_active       INTEGER NOT NULL DEFAULT 1,
 
                 created_at      TEXT NOT NULL,

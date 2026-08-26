@@ -37,6 +37,8 @@ class VaultEntry:
 
     sensitive: bool
 
+    namespace_id: Optional[int] = None
+
     id: Optional[int] = None
 
     created_at: Optional[datetime] = None

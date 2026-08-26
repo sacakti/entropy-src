@@ -8,7 +8,7 @@ import getpass
 
 from core.context import EntropyContext
 from lib.users.exceptions import WeakPasswordError
-
+from lib.models.users import User
 
 class BootstrapInstaller:
     """
@@ -28,19 +28,20 @@ class BootstrapInstaller:
     # Public
     # ------------------------------------------------------------------
 
-    def install(self) -> None:
+    def install(self) -> User | None:
 
         if self._users.any():
-            return
+            return None
 
         print()
         print("Bootstrap Administrator")
         print("-----------------------")
 
-        username = input("Username [admin]: ").strip()
+        # username = input("Username [admin]: ").strip()
+        username = "admin"
 
-        if not username:
-            username = "admin"
+        # if not username:
+        #     username = "admin"
 
         while True:
 
@@ -56,11 +57,10 @@ class BootstrapInstaller:
 
             try:
 
-                self._users.create(
+                user = self._users.create(
                     username=username,
                     password=password,
                     full_name="Administrator",
-                    system=True,
                 )
 
                 break
@@ -73,3 +73,5 @@ class BootstrapInstaller:
 
         print()
         print("Administrator account created.")
+
+        return user

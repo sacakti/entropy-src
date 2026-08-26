@@ -7,9 +7,15 @@ from __future__ import annotations
 from typing import Any
 
 from lib.database.repositories.vault import VaultRepository
+from lib.models.users import User
 from lib.models.vault import VaultEntry, VaultValueType
 from lib.vault.cipher import VaultCipher
-from lib.vault.exceptions import VaultEntryExistsError, VaultEntryNotFoundError, VaultValueError
+from lib.vault.exceptions import (
+    VaultAccessDeniedError,
+    VaultEntryExistsError,
+    VaultEntryNotFoundError,
+    VaultValueError,
+)
 from lib.vault.key import VaultKeyProvider
 from lib.vault.serializer import VaultSerializer
 
@@ -33,6 +39,7 @@ class VaultManager:
         repository: VaultRepository,
         serializer: VaultSerializer,
         key_provider: VaultKeyProvider,
+        namespace_manager,
     ) -> None:
 
         self._repository = repository
@@ -41,19 +48,22 @@ class VaultManager:
 
         self._key_provider = key_provider
 
+        self._namespace_manager = namespace_manager
+
     # ------------------------------------------------------------------
     # Add
     # ------------------------------------------------------------------
 
     def add(
         self,
+        namespace_id: int,
         key: str,
         value: Any,
         value_type: VaultValueType,
         sensitive: bool = False,
     ) -> VaultEntry:
         """
-        Add a new Vault entry.
+        Add a new Vault entry to a namespace.
         """
 
         self._validate_key(
@@ -61,6 +71,7 @@ class VaultManager:
         )
 
         if self._repository.exists(
+            namespace_id,
             key,
         ):
 
@@ -79,6 +90,7 @@ class VaultManager:
         )
 
         entry = VaultEntry(
+            namespace_id=namespace_id,
             key=key,
             value=stored_value,
             type=value_type,
@@ -95,6 +107,7 @@ class VaultManager:
 
     def get(
         self,
+        namespace_id: int,
         key: str,
     ) -> Any:
         """
@@ -104,6 +117,7 @@ class VaultManager:
         """
 
         entry = self.get_entry(
+            namespace_id,
             key,
         )
 
@@ -117,22 +131,19 @@ class VaultManager:
             entry.type,
         )
 
+    # ------------------------------------------------------------------
+    # Get matching
+    # ------------------------------------------------------------------
+
     def get_matching(
         self,
+        namespace_id: int,
         pattern: str,
     ) -> dict[str, Any]:
         """
         Return Vault values matching a prefix pattern.
 
         Only trailing '*' is supported.
-
-        Example
-        -------
-        uat_*
-            {
-                "username": "...",
-                "password": "...",
-            }
         """
 
         if not isinstance(
@@ -167,6 +178,7 @@ class VaultManager:
             )
 
         entries = self._repository.get_by_prefix(
+            namespace_id,
             prefix,
         )
 
@@ -180,9 +192,10 @@ class VaultManager:
 
         for entry in entries:
 
-            key = entry.key[len(prefix) :]
+            key = entry.key[len(prefix):]
 
             if not key:
+
                 continue
 
             payload = self._unprotect(
@@ -197,12 +210,79 @@ class VaultManager:
 
         return matches
 
+    def resolve(
+        self,
+        namespace: str,
+        key: str,
+        user_id: int,
+    ) -> Any:
+        """
+        Resolve a Vault value for a user through namespace access.
+        """
+
+        namespace_entry = self._namespace_manager.get(
+            namespace,
+        )
+
+        access = self._namespace_manager.access_by_user_id(
+            namespace_entry,
+            user_id,
+        )
+
+        if access is None:
+
+            raise VaultAccessDeniedError(
+                f"Permission denied for Vault namespace "
+                f"'{namespace}'.",
+            )
+
+        assert namespace_entry.id is not None
+
+        return self.get(
+            namespace_entry.id,
+            key,
+        )
+
+    def resolve_matching(
+        self,
+        namespace: str,
+        pattern: str,
+        user_id: int,
+    ) -> dict[str, Any]:
+        """
+        Resolve Vault values matching a pattern for a user.
+        """
+
+        namespace_entry = self._namespace_manager.get(
+            namespace,
+        )
+
+        access = self._namespace_manager.access_by_user_id(
+            namespace_entry,
+            user_id,
+        )
+
+        if access is None:
+
+            raise VaultAccessDeniedError(
+                f"Permission denied for Vault namespace "
+                f"'{namespace}'.",
+            )
+
+        assert namespace_entry.id is not None
+
+        return self.get_matching(
+            namespace_entry.id,
+            pattern,
+        )
+
     # ------------------------------------------------------------------
     # Get Entry
     # ------------------------------------------------------------------
 
     def get_entry(
         self,
+        namespace_id: int,
         key: str,
     ) -> VaultEntry:
         """
@@ -213,6 +293,7 @@ class VaultManager:
         """
 
         entry = self._repository.get_by_key(
+            namespace_id,
             key,
         )
 
@@ -230,12 +311,17 @@ class VaultManager:
 
     def list(
         self,
+        namespace_id: int,
     ) -> list[VaultEntry]:
         """
-        Return Vault entries without decrypting values.
+        Return Vault entries belonging to a namespace.
+
+        Values are not decrypted.
         """
 
-        return self._repository.list()
+        return self._repository.list(
+            namespace_id,
+        )
 
     # ------------------------------------------------------------------
     # Exists
@@ -243,13 +329,15 @@ class VaultManager:
 
     def exists(
         self,
+        namespace_id: int,
         key: str,
     ) -> bool:
         """
-        Return True if a Vault key exists.
+        Return True if a Vault key exists in a namespace.
         """
 
         return self._repository.exists(
+            namespace_id,
             key,
         )
 
@@ -259,6 +347,7 @@ class VaultManager:
 
     def update(
         self,
+        namespace_id: int,
         key: str,
         value: Any,
         value_type: VaultValueType,
@@ -272,13 +361,10 @@ class VaultManager:
             key,
         )
 
-        if not self._repository.exists(
+        existing = self.get_entry(
+            namespace_id,
             key,
-        ):
-
-            raise VaultEntryNotFoundError(
-                f"Vault entry '{key}' does not exist.",
-            )
+        )
 
         serialized = self._serializer.serialize(
             value,
@@ -291,10 +377,14 @@ class VaultManager:
         )
 
         entry = VaultEntry(
+            id=existing.id,
+            namespace_id=namespace_id,
             key=key,
             value=stored_value,
             type=value_type,
             sensitive=sensitive,
+            created_at=existing.created_at,
+            updated_at=existing.updated_at,
         )
 
         self._repository.update(
@@ -302,6 +392,7 @@ class VaultManager:
         )
 
         return self.get_entry(
+            namespace_id,
             key,
         )
 
@@ -311,6 +402,7 @@ class VaultManager:
 
     def delete(
         self,
+        namespace_id: int,
         key: str,
     ) -> None:
         """
@@ -318,6 +410,7 @@ class VaultManager:
         """
 
         if not self._repository.exists(
+            namespace_id,
             key,
         ):
 
@@ -326,6 +419,7 @@ class VaultManager:
             )
 
         self._repository.delete(
+            namespace_id,
             key,
         )
 
@@ -399,6 +493,7 @@ class VaultManager:
 
     def update_field(
         self,
+        namespace_id: int,
         key: str,
         field: str,
         value: Any,
@@ -408,10 +503,12 @@ class VaultManager:
         """
 
         entry = self.get_entry(
+            namespace_id,
             key,
         )
 
         current = self.get(
+            namespace_id,
             key,
         )
 
@@ -419,26 +516,35 @@ class VaultManager:
             current,
             dict,
         ):
+
             raise VaultValueError(
                 f"Vault entry '{key}' is not an object.",
             )
 
         if field not in current:
+
             raise VaultValueError(
-                f"Field '{field}' does not exist in " f"Vault entry '{key}'.",
+                f"Field '{field}' does not exist "
+                f"in Vault entry '{key}'.",
             )
 
         current[field] = value
 
         return self.update(
+            namespace_id=namespace_id,
             key=key,
             value=current,
             value_type=entry.type,
             sensitive=entry.sensitive,
         )
 
+    # ------------------------------------------------------------------
+    # Add Field
+    # ------------------------------------------------------------------
+
     def add_field(
         self,
+        namespace_id: int,
         key: str,
         field: str,
         value: Any,
@@ -448,10 +554,12 @@ class VaultManager:
         """
 
         entry = self.get_entry(
+            namespace_id,
             key,
         )
 
         current = self.get(
+            namespace_id,
             key,
         )
 
@@ -459,13 +567,16 @@ class VaultManager:
             current,
             dict,
         ):
+
             raise VaultValueError(
                 f"Vault entry '{key}' is not an object.",
             )
 
         if field in current:
+
             raise VaultValueError(
-                f"Field '{field}' already exists " f"in Vault entry '{key}'.",
+                f"Field '{field}' already exists "
+                f"in Vault entry '{key}'.",
             )
 
         self._validate_key(
@@ -475,14 +586,20 @@ class VaultManager:
         current[field] = value
 
         return self.update(
+            namespace_id=namespace_id,
             key=key,
             value=current,
             value_type=entry.type,
             sensitive=entry.sensitive,
         )
 
+    # ------------------------------------------------------------------
+    # Remove Field
+    # ------------------------------------------------------------------
+
     def remove_field(
         self,
+        namespace_id: int,
         key: str,
         field: str,
     ) -> VaultEntry:
@@ -491,10 +608,12 @@ class VaultManager:
         """
 
         entry = self.get_entry(
+            namespace_id,
             key,
         )
 
         current = self.get(
+            namespace_id,
             key,
         )
 
@@ -502,23 +621,28 @@ class VaultManager:
             current,
             dict,
         ):
+
             raise VaultValueError(
                 f"Vault entry '{key}' is not an object.",
             )
 
         if field not in current:
+
             raise VaultValueError(
-                f"Field '{field}' does not exist " f"in Vault entry '{key}'.",
+                f"Field '{field}' does not exist "
+                f"in Vault entry '{key}'.",
             )
 
         del current[field]
 
         if not current:
+
             raise VaultValueError(
                 "Vault object cannot be empty.",
             )
 
         return self.update(
+            namespace_id=namespace_id,
             key=key,
             value=current,
             value_type=entry.type,
@@ -561,8 +685,15 @@ class VaultManager:
 
         for character in key:
 
-            if not (character.isascii() and (character.isalnum() or character == "_")):
+            if not (
+                character.isascii()
+                and (
+                    character.isalnum()
+                    or character == "_"
+                )
+            ):
 
                 raise VaultValueError(
-                    "Vault key may contain only " "letters, numbers, and underscore (_).",
+                    "Vault key may contain only "
+                    "letters, numbers, and underscore (_).",
                 )

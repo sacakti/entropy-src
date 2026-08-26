@@ -1,5 +1,5 @@
 """
-Vault database table.
+Vault namespace access database table.
 """
 
 from __future__ import annotations
@@ -8,50 +8,52 @@ from lib.database.base import DatabaseObject
 from lib.database.connection import DatabaseConnection
 
 
-class VaultEntriesTable(DatabaseObject):
+class VaultNamespaceAccessTable(DatabaseObject):
     """
-    Stores Entropy Vault entries.
+    Stores user access to Vault namespaces.
     """
 
-    NAME = "vault_entries"
+    NAME = "vault_namespace_access"
 
     def create(
         self,
         connection: DatabaseConnection,
     ) -> None:
         """
-        Create the Vault entries table.
+        Create the Vault namespace access table.
         """
 
         connection.execute(
             """
-            CREATE TABLE IF NOT EXISTS vault_entries
+            CREATE TABLE IF NOT EXISTS vault_namespace_access
             (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
                 namespace_id INTEGER NOT NULL,
 
-                key TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
 
-                value TEXT NOT NULL,
-
-                type TEXT NOT NULL,
-
-                sensitive INTEGER NOT NULL DEFAULT 0,
+                access TEXT NOT NULL,
 
                 created_at TEXT NOT NULL,
 
-                updated_at TEXT NOT NULL,
-
                 UNIQUE (
                     namespace_id,
-                    key
+                    user_id
                 ),
 
                 FOREIGN KEY (
                     namespace_id
                 )
                 REFERENCES vault_namespaces (
+                    id
+                )
+                ON DELETE CASCADE,
+
+                FOREIGN KEY (
+                    user_id
+                )
+                REFERENCES users (
                     id
                 )
                 ON DELETE CASCADE

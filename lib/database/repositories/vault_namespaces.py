@@ -1,25 +1,23 @@
 """
-Vault repository.
+Vault namespace repository.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
+from lib.vault.exceptions import (
+    VaultNamespaceExistsError,
+    VaultNamespaceNotFoundError,
+)
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
-from lib.models.vault import VaultEntry, VaultValueType
-from lib.vault.exceptions import VaultValueError
+from lib.models.authorization import VaultNamespace, VaultVisibility
 
 
-class VaultRepository(Repository):
+class VaultNamespaceRepository(Repository):
     """
-    Repository for Vault entries.
-
-    The repository persists the database representation of a
-    Vault entry. Encryption and serialization are handled by the
-    Vault service layer.
+    Repository for Vault namespaces.
     """
 
     def __init__(
@@ -37,29 +35,29 @@ class VaultRepository(Repository):
 
     def create(
         self,
-        entry: VaultEntry,
-    ) -> VaultEntry:
+        namespace: VaultNamespace,
+    ) -> VaultNamespace:
         """
-        Create a Vault entry.
+        Create a Vault namespace.
         """
 
-        if entry.namespace_id is None:
+        if self.exists(
+            namespace.name,
+        ):
 
-            raise VaultValueError(
-                "Vault namespace is required.",
+            raise VaultNamespaceExistsError(
+                namespace.name,
             )
 
         with self.connection.transaction():
 
             cursor = self.execute(
                 """
-                INSERT INTO vault_entries
+                INSERT INTO vault_namespaces
                 (
-                    namespace_id,
-                    key,
-                    value,
-                    type,
-                    sensitive,
+                    name,
+                    owner_user_id,
+                    visibility,
                     created_at,
                     updated_at
                 )
@@ -68,27 +66,23 @@ class VaultRepository(Repository):
                     ?,
                     ?,
                     ?,
-                    ?,
-                    ?,
                     datetime('now'),
                     datetime('now')
                 )
                 """,
                 (
-                    entry.namespace_id,
-                    entry.key,
-                    entry.value,
-                    entry.type.value,
-                    int(entry.sensitive),
+                    namespace.name,
+                    namespace.owner_user_id,
+                    namespace.visibility.value,
                 ),
             )
 
-            entry.id = cursor.lastrowid
+            namespace.id = cursor.lastrowid
 
-        assert entry.id is not None
+        assert namespace.id is not None
 
         return self.get(
-            entry.id,
+            namespace.id,
         )
 
     # ------------------------------------------------------------------
@@ -97,103 +91,65 @@ class VaultRepository(Repository):
 
     def get(
         self,
-        entry_id: int,
-    ) -> Optional[VaultEntry]:
+        namespace_id: int,
+    ) -> VaultNamespace:
         """
-        Return a Vault entry by identifier.
+        Return a namespace by identifier.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM vault_entries
+            FROM vault_namespaces
             WHERE id = ?
             """,
             (
-                entry_id,
+                namespace_id,
             ),
         )
 
         if row is None:
 
-            return None
+            raise VaultNamespaceNotFoundError(
+                str(namespace_id),
+            )
 
         return self._from_row(
             row,
         )
 
     # ------------------------------------------------------------------
-    # Get by key
+    # Get by name
     # ------------------------------------------------------------------
 
-    def get_by_key(
+    def get_by_name(
         self,
-        namespace_id: int,
-        key: str,
-    ) -> Optional[VaultEntry]:
+        name: str,
+    ) -> VaultNamespace:
         """
-        Return a Vault entry by key within a namespace.
+        Return a namespace by name.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM vault_entries
-            WHERE namespace_id = ?
-              AND key = ?
+            FROM vault_namespaces
+            WHERE name = ?
             """,
             (
-                namespace_id,
-                key,
+                name,
             ),
         )
 
         if row is None:
 
-            return None
+            raise VaultNamespaceNotFoundError(
+                name,
+            )
 
         return self._from_row(
             row,
         )
-
-    # ------------------------------------------------------------------
-    # Get by prefix
-    # ------------------------------------------------------------------
-
-    def get_by_prefix(
-        self,
-        namespace_id: int,
-        prefix: str,
-    ) -> list[VaultEntry]:
-        """
-        Return Vault entries whose keys start with the given prefix
-        within a namespace.
-        """
-
-        upper_bound = prefix + "\U0010ffff"
-
-        rows = self.connection.fetchall(
-            """
-            SELECT *
-            FROM vault_entries
-            WHERE namespace_id = ?
-              AND key >= ?
-              AND key < ?
-            ORDER BY key
-            """,
-            (
-                namespace_id,
-                prefix,
-                upper_bound,
-            ),
-        )
-
-        return [
-            self._from_row(
-                row,
-            )
-            for row in rows
-        ]
 
     # ------------------------------------------------------------------
     # Exists
@@ -201,25 +157,22 @@ class VaultRepository(Repository):
 
     def exists(
         self,
-        namespace_id: int,
-        key: str,
+        name: str,
     ) -> bool:
         """
-        Return True if a Vault key exists in a namespace.
+        Return True when a namespace exists.
         """
 
         return (
             self.connection.fetchone(
                 """
                 SELECT 1
-                FROM vault_entries
-                WHERE namespace_id = ?
-                  AND key = ?
+                FROM vault_namespaces
+                WHERE name = ?
                 LIMIT 1
                 """,
                 (
-                    namespace_id,
-                    key,
+                    name,
                 ),
             )
             is not None
@@ -231,22 +184,17 @@ class VaultRepository(Repository):
 
     def list(
         self,
-        namespace_id: int,
-    ) -> list[VaultEntry]:
+    ) -> list[VaultNamespace]:
         """
-        Return all Vault entries in a namespace.
+        Return all Vault namespaces.
         """
 
         rows = self.connection.fetchall(
             """
             SELECT *
-            FROM vault_entries
-            WHERE namespace_id = ?
-            ORDER BY key
-            """,
-            (
-                namespace_id,
-            ),
+            FROM vault_namespaces
+            ORDER BY name
+            """
         )
 
         return [
@@ -262,37 +210,33 @@ class VaultRepository(Repository):
 
     def update(
         self,
-        entry: VaultEntry,
+        namespace: VaultNamespace,
     ) -> None:
         """
-        Update an existing Vault entry.
+        Update a Vault namespace.
         """
 
-        if entry.namespace_id is None:
+        if namespace.id is None:
 
-            raise VaultValueError(
-                "Vault namespace is required.",
+            raise ValueError(
+                "Vault namespace identifier is required.",
             )
 
         with self.connection.transaction():
 
             self.execute(
                 """
-                UPDATE vault_entries
+                UPDATE vault_namespaces
                 SET
-                    value = ?,
-                    type = ?,
-                    sensitive = ?,
+                    name = ?,
+                    visibility = ?,
                     updated_at = datetime('now')
-                WHERE namespace_id = ?
-                  AND key = ?
+                WHERE id = ?
                 """,
                 (
-                    entry.value,
-                    entry.type.value,
-                    int(entry.sensitive),
-                    entry.namespace_id,
-                    entry.key,
+                    namespace.name,
+                    namespace.visibility.value,
+                    namespace.id,
                 ),
             )
 
@@ -303,10 +247,9 @@ class VaultRepository(Repository):
     def delete(
         self,
         namespace_id: int,
-        key: str,
     ) -> None:
         """
-        Delete a Vault entry from a namespace.
+        Delete a Vault namespace.
         """
 
         with self.connection.transaction():
@@ -314,13 +257,11 @@ class VaultRepository(Repository):
             self.execute(
                 """
                 DELETE
-                FROM vault_entries
-                WHERE namespace_id = ?
-                  AND key = ?
+                FROM vault_namespaces
+                WHERE id = ?
                 """,
                 (
                     namespace_id,
-                    key,
                 ),
             )
 
@@ -331,25 +272,17 @@ class VaultRepository(Repository):
     @staticmethod
     def _from_row(
         row,
-    ) -> VaultEntry:
+    ) -> VaultNamespace:
         """
-        Convert a database row into a Vault entry.
+        Convert a database row into a Vault namespace.
         """
 
-        return VaultEntry(
-            id=int(
-                row["id"],
-            ),
-            namespace_id=int(
-                row["namespace_id"],
-            ),
-            key=row["key"],
-            value=row["value"],
-            type=VaultValueType(
-                row["type"],
-            ),
-            sensitive=bool(
-                row["sensitive"],
+        return VaultNamespace(
+            id=row["id"],
+            name=row["name"],
+            owner_user_id=row["owner_user_id"],
+            visibility=VaultVisibility(
+                row["visibility"],
             ),
             created_at=(
                 datetime.fromisoformat(

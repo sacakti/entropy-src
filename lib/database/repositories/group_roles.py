@@ -1,5 +1,5 @@
 """
-User repository.
+Group role repository.
 """
 
 from __future__ import annotations
@@ -8,13 +8,12 @@ from datetime import datetime
 
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
-from lib.models.users import User
-from lib.users.exceptions import UserNotFoundError
+from lib.models.authorization import GroupRole, Role
 
 
-class UserRepository(Repository):
+class GroupRoleRepository(Repository):
     """
-    User repository.
+    Repository for group-to-role assignments.
     """
 
     def __init__(
@@ -32,52 +31,41 @@ class UserRepository(Repository):
 
     def create(
         self,
-        user: User,
-    ) -> User:
+        assignment: GroupRole,
+    ) -> GroupRole:
         """
-        Create a user.
+        Assign a role to a group.
         """
 
         with self.connection.transaction():
 
             cursor = self.execute(
                 """
-                INSERT INTO users
+                INSERT INTO group_roles
                 (
-                    username,
-                    password_hash,
-                    full_name,
-                    email,
-                    is_active,
-                    created_at,
-                    updated_at
+                    group_id,
+                    role_id,
+                    created_at
                 )
                 VALUES
                 (
                     ?,
                     ?,
-                    ?,
-                    ?,
-                    ?,
-                    datetime('now'),
                     datetime('now')
                 )
                 """,
                 (
-                    user.username,
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
+                    assignment.group_id,
+                    assignment.role_id,
                 ),
             )
 
-            user.id = cursor.lastrowid
+            assignment.id = cursor.lastrowid
 
-        assert user.id is not None
+        assert assignment.id is not None
 
         return self.get(
-            user.id,
+            assignment.id,
         )
 
     # ------------------------------------------------------------------
@@ -86,56 +74,27 @@ class UserRepository(Repository):
 
     def get(
         self,
-        user_id: int,
-    ) -> User:
+        assignment_id: int,
+    ) -> GroupRole:
         """
-        Return a user by identifier.
+        Return a group-role assignment.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM users
+            FROM group_roles
             WHERE id = ?
             """,
-            (user_id,),
+            (
+                assignment_id,
+            ),
         )
 
         if row is None:
 
-            raise UserNotFoundError(
-                str(user_id),
-            )
-
-        return self._from_row(
-            row,
-        )
-
-    # ------------------------------------------------------------------
-    # Get by Username
-    # ------------------------------------------------------------------
-
-    def get_by_username(
-        self,
-        username: str,
-    ) -> User:
-        """
-        Return a user by username.
-        """
-
-        row = self.connection.fetchone(
-            """
-            SELECT *
-            FROM users
-            WHERE username = ?
-            """,
-            (username,),
-        )
-
-        if row is None:
-
-            raise UserNotFoundError(
-                username,
+            raise ValueError(
+                f"Group role '{assignment_id}' not found.",
             )
 
         return self._from_row(
@@ -148,21 +107,26 @@ class UserRepository(Repository):
 
     def exists(
         self,
-        username: str,
+        group_id: int,
+        role_id: int,
     ) -> bool:
         """
-        Return True if the user exists.
+        Return True when a role is already assigned to a group.
         """
 
         return (
             self.connection.fetchone(
                 """
                 SELECT 1
-                FROM users
-                WHERE username = ?
+                FROM group_roles
+                WHERE group_id = ?
+                  AND role_id = ?
                 LIMIT 1
                 """,
-                (username,),
+                (
+                    group_id,
+                    role_id,
+                ),
             )
             is not None
         )
@@ -173,16 +137,17 @@ class UserRepository(Repository):
 
     def list(
         self,
-    ) -> list[User]:
+    ) -> list[GroupRole]:
         """
-        Return all users.
+        Return all group-role assignments.
         """
 
         rows = self.connection.fetchall(
             """
             SELECT *
-            FROM users
-            ORDER BY username
+            FROM group_roles
+            ORDER BY group_id,
+                     role_id
             """
         )
 
@@ -194,84 +159,85 @@ class UserRepository(Repository):
         ]
 
     # ------------------------------------------------------------------
-    # Any
+    # List by group
     # ------------------------------------------------------------------
 
-    def any(
+    def list_by_group(
         self,
-    ) -> bool:
+        group_id: int,
+    ) -> list[GroupRole]:
         """
-        Return True if any users exist.
+        Return roles assigned to a group.
         """
 
-        return (
-            self.connection.fetchone(
-                """
-                SELECT 1
-                FROM users
-                LIMIT 1
-                """
+        rows = self.connection.fetchall(
+            """
+            SELECT *
+            FROM group_roles
+            WHERE group_id = ?
+            ORDER BY role_id
+            """,
+            (
+                group_id,
+            ),
+        )
+
+        return [
+            self._from_row(
+                row,
             )
-            is not None
-        )
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
-    # Count
+    # List roles
     # ------------------------------------------------------------------
 
-    def count(
+    def list_roles(
         self,
-    ) -> int:
+        group_id: int,
+    ) -> list[Role]:
         """
-        Return the number of users.
+        Return role definitions assigned to a group.
         """
 
-        row = self.connection.fetchone(
+        rows = self.connection.fetchall(
             """
-            SELECT COUNT(*)
-            FROM users
-            """
+            SELECT
+                roles.*
+            FROM group_roles
+            INNER JOIN roles
+                ON roles.id = group_roles.role_id
+            WHERE group_roles.group_id = ?
+            ORDER BY roles.name
+            """,
+            (
+                group_id,
+            ),
         )
 
-        assert row is not None
-
-        return int(
-            row[0],
-        )
-
-    # ------------------------------------------------------------------
-    # Update
-    # ------------------------------------------------------------------
-
-    def update(
-        self,
-        user: User,
-    ) -> None:
-        """
-        Update a user.
-        """
-
-        with self.connection.transaction():
-
-            self.execute(
-                """
-                UPDATE users
-                SET
-                    password_hash = ?,
-                    full_name = ?,
-                    email = ?,
-                    is_active = ?,
-                    updated_at = datetime('now')
-                WHERE id = ?
-                """,
-                (
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
-                    user.id,
+        return [
+            Role(
+                id=row["id"],
+                name=row["name"],
+                description=row["description"],
+                created_at=(
+                    datetime.fromisoformat(
+                        row["created_at"],
+                    )
+                    if row["created_at"]
+                    else None
+                ),
+                updated_at=(
+                    datetime.fromisoformat(
+                        row["updated_at"],
+                    )
+                    if row["updated_at"]
+                    else None
                 ),
             )
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
     # Delete
@@ -279,10 +245,10 @@ class UserRepository(Repository):
 
     def delete(
         self,
-        user_id: int,
+        assignment_id: int,
     ) -> None:
         """
-        Delete a user.
+        Remove a role from a group.
         """
 
         with self.connection.transaction():
@@ -290,10 +256,42 @@ class UserRepository(Repository):
             self.execute(
                 """
                 DELETE
-                FROM users
+                FROM group_roles
                 WHERE id = ?
                 """,
-                (user_id,),
+                (
+                    assignment_id,
+                ),
+            )
+
+    # ------------------------------------------------------------------
+    # Delete by role
+    # ------------------------------------------------------------------
+
+    def delete_by_role(
+        self,
+        group_id: int,
+        role_id: int,
+    ) -> None:
+        """
+        Remove a specific role from a group.
+
+        Removing a missing membership is harmless.
+        """
+
+        with self.connection.transaction():
+
+            self.execute(
+                """
+                DELETE
+                FROM group_roles
+                WHERE group_id = ?
+                AND role_id = ?
+                """,
+                (
+                    group_id,
+                    role_id,
+                ),
             )
 
     # ------------------------------------------------------------------
@@ -303,32 +301,20 @@ class UserRepository(Repository):
     @staticmethod
     def _from_row(
         row,
-    ) -> User:
+    ) -> GroupRole:
         """
-        Convert a database row into a User.
+        Convert a database row into a GroupRole.
         """
 
-        return User(
+        return GroupRole(
             id=row["id"],
-            username=row["username"],
-            password_hash=row["password_hash"],
-            full_name=row["full_name"],
-            email=row["email"],
-            is_active=bool(
-                row["is_active"],
-            ),
+            group_id=row["group_id"],
+            role_id=row["role_id"],
             created_at=(
                 datetime.fromisoformat(
                     row["created_at"],
                 )
                 if row["created_at"]
-                else None
-            ),
-            updated_at=(
-                datetime.fromisoformat(
-                    row["updated_at"],
-                )
-                if row["updated_at"]
                 else None
             ),
         )

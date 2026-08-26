@@ -1,20 +1,20 @@
 """
-User repository.
+Group repository.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 
+from lib.authorization.exceptions import GroupNotFoundError
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
-from lib.models.users import User
-from lib.users.exceptions import UserNotFoundError
+from lib.models.authorization import Group
 
 
-class UserRepository(Repository):
+class GroupRepository(Repository):
     """
-    User repository.
+    Repository for authorization groups.
     """
 
     def __init__(
@@ -32,23 +32,20 @@ class UserRepository(Repository):
 
     def create(
         self,
-        user: User,
-    ) -> User:
+        group: Group,
+    ) -> Group:
         """
-        Create a user.
+        Create a group.
         """
 
         with self.connection.transaction():
 
             cursor = self.execute(
                 """
-                INSERT INTO users
+                INSERT INTO groups
                 (
-                    username,
-                    password_hash,
-                    full_name,
-                    email,
-                    is_active,
+                    name,
+                    description,
                     created_at,
                     updated_at
                 )
@@ -56,28 +53,22 @@ class UserRepository(Repository):
                 (
                     ?,
                     ?,
-                    ?,
-                    ?,
-                    ?,
                     datetime('now'),
                     datetime('now')
                 )
                 """,
                 (
-                    user.username,
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
+                    group.name,
+                    group.description,
                 ),
             )
 
-            user.id = cursor.lastrowid
+            group.id = cursor.lastrowid
 
-        assert user.id is not None
+        assert group.id is not None
 
         return self.get(
-            user.id,
+            group.id,
         )
 
     # ------------------------------------------------------------------
@@ -86,25 +77,27 @@ class UserRepository(Repository):
 
     def get(
         self,
-        user_id: int,
-    ) -> User:
+        group_id: int,
+    ) -> Group:
         """
-        Return a user by identifier.
+        Return a group by identifier.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM users
+            FROM groups
             WHERE id = ?
             """,
-            (user_id,),
+            (
+                group_id,
+            ),
         )
 
         if row is None:
 
-            raise UserNotFoundError(
-                str(user_id),
+            raise GroupNotFoundError(
+                group_id,
             )
 
         return self._from_row(
@@ -112,30 +105,32 @@ class UserRepository(Repository):
         )
 
     # ------------------------------------------------------------------
-    # Get by Username
+    # Get by name
     # ------------------------------------------------------------------
 
-    def get_by_username(
+    def get_by_name(
         self,
-        username: str,
-    ) -> User:
+        name: str,
+    ) -> Group:
         """
-        Return a user by username.
+        Return a group by name.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM users
-            WHERE username = ?
+            FROM groups
+            WHERE name = ?
             """,
-            (username,),
+            (
+                name,
+            ),
         )
 
         if row is None:
 
-            raise UserNotFoundError(
-                username,
+            raise GroupNotFoundError(
+                name,
             )
 
         return self._from_row(
@@ -148,21 +143,23 @@ class UserRepository(Repository):
 
     def exists(
         self,
-        username: str,
+        name: str,
     ) -> bool:
         """
-        Return True if the user exists.
+        Return True when a group exists.
         """
 
         return (
             self.connection.fetchone(
                 """
                 SELECT 1
-                FROM users
-                WHERE username = ?
+                FROM groups
+                WHERE name = ?
                 LIMIT 1
                 """,
-                (username,),
+                (
+                    name,
+                ),
             )
             is not None
         )
@@ -173,16 +170,16 @@ class UserRepository(Repository):
 
     def list(
         self,
-    ) -> list[User]:
+    ) -> list[Group]:
         """
-        Return all users.
+        Return all groups.
         """
 
         rows = self.connection.fetchall(
             """
             SELECT *
-            FROM users
-            ORDER BY username
+            FROM groups
+            ORDER BY name
             """
         )
 
@@ -194,82 +191,32 @@ class UserRepository(Repository):
         ]
 
     # ------------------------------------------------------------------
-    # Any
-    # ------------------------------------------------------------------
-
-    def any(
-        self,
-    ) -> bool:
-        """
-        Return True if any users exist.
-        """
-
-        return (
-            self.connection.fetchone(
-                """
-                SELECT 1
-                FROM users
-                LIMIT 1
-                """
-            )
-            is not None
-        )
-
-    # ------------------------------------------------------------------
-    # Count
-    # ------------------------------------------------------------------
-
-    def count(
-        self,
-    ) -> int:
-        """
-        Return the number of users.
-        """
-
-        row = self.connection.fetchone(
-            """
-            SELECT COUNT(*)
-            FROM users
-            """
-        )
-
-        assert row is not None
-
-        return int(
-            row[0],
-        )
-
-    # ------------------------------------------------------------------
     # Update
     # ------------------------------------------------------------------
 
     def update(
         self,
-        user: User,
+        group: Group,
     ) -> None:
         """
-        Update a user.
+        Update a group.
         """
 
         with self.connection.transaction():
 
             self.execute(
                 """
-                UPDATE users
+                UPDATE groups
                 SET
-                    password_hash = ?,
-                    full_name = ?,
-                    email = ?,
-                    is_active = ?,
+                    name = ?,
+                    description = ?,
                     updated_at = datetime('now')
                 WHERE id = ?
                 """,
                 (
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
-                    user.id,
+                    group.name,
+                    group.description,
+                    group.id,
                 ),
             )
 
@@ -279,10 +226,10 @@ class UserRepository(Repository):
 
     def delete(
         self,
-        user_id: int,
+        group_id: int,
     ) -> None:
         """
-        Delete a user.
+        Delete a group.
         """
 
         with self.connection.transaction():
@@ -290,10 +237,12 @@ class UserRepository(Repository):
             self.execute(
                 """
                 DELETE
-                FROM users
+                FROM groups
                 WHERE id = ?
                 """,
-                (user_id,),
+                (
+                    group_id,
+                ),
             )
 
     # ------------------------------------------------------------------
@@ -303,20 +252,15 @@ class UserRepository(Repository):
     @staticmethod
     def _from_row(
         row,
-    ) -> User:
+    ) -> Group:
         """
-        Convert a database row into a User.
+        Convert a database row into a Group.
         """
 
-        return User(
+        return Group(
             id=row["id"],
-            username=row["username"],
-            password_hash=row["password_hash"],
-            full_name=row["full_name"],
-            email=row["email"],
-            is_active=bool(
-                row["is_active"],
-            ),
+            name=row["name"],
+            description=row["description"],
             created_at=(
                 datetime.fromisoformat(
                     row["created_at"],

@@ -14,6 +14,7 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+from lib.models.authorization import VaultAccess, VaultVisibility
 from lib.vault import (
     VaultValueType,
 )
@@ -45,15 +46,20 @@ class VaultCommand(BaseCommand):
         )
 
         assert context.vault_manager is not None
+        assert context.vault_namespace_manager is not None
         assert context.ui is not None
         assert context.session_manager is not None
         assert context.observability is not None
 
         self._vault = context.vault_manager
 
+        self._namespaces = context.vault_namespace_manager
+
         self._ui = context.ui
 
         self._session = context.session_manager
+
+        self._authorization = context.authorization
 
         self._events = context.observability.emitter(
             "vault",
@@ -77,9 +83,16 @@ class VaultCommand(BaseCommand):
         # list
         #
 
-        subparsers.add_parser(
+        list_parser = subparsers.add_parser(
             "list",
             help="List Vault entries.",
+        )
+
+        list_parser.add_argument(
+            "-n",
+            "--namespace",
+            required=True,
+            help="Vault namespace.",
         )
 
         #
@@ -116,6 +129,13 @@ class VaultCommand(BaseCommand):
             help="Encrypt the value before storing it.",
         )
 
+        add.add_argument(
+            "-n",
+            "--namespace",
+            required=True,
+            help="Vault namespace.",
+        )
+
         #
         # inspect
         #
@@ -134,6 +154,13 @@ class VaultCommand(BaseCommand):
             "--reveal",
             action="store_true",
             help="Reveal sensitive values.",
+        )
+
+        inspect_parser.add_argument(
+            "-n",
+            "--namespace",
+            required=True,
+            help="Vault namespace.",
         )
 
         #
@@ -175,6 +202,13 @@ class VaultCommand(BaseCommand):
             help="Store the replacement value without encryption.",
         )
 
+        update.add_argument(
+            "-n",
+            "--namespace",
+            required=True,
+            help="Vault namespace.",
+        )
+
         #
         # delete
         #
@@ -189,6 +223,167 @@ class VaultCommand(BaseCommand):
             help="Vault key.",
         )
 
+        delete.add_argument(
+            "-n",
+            "--namespace",
+            required=True,
+            help="Vault namespace.",
+        )
+
+        #
+        # namespace
+        #
+
+        namespace = subparsers.add_parser(
+            "namespace",
+            help="Manage Vault namespaces.",
+        )
+
+        namespace_subparsers = namespace.add_subparsers(
+            dest="namespace_action",
+            required=True,
+        )
+
+        #
+        # namespace create
+        #
+
+        create_namespace = namespace_subparsers.add_parser(
+            "create",
+            help="Create a Vault namespace.",
+        )
+
+        create_namespace.add_argument(
+            "name",
+            help="Namespace name.",
+        )
+
+        create_namespace.add_argument(
+            "--shared",
+            action="store_true",
+            help="Create a shared namespace.",
+        )
+
+        #
+        # namespace list
+        #
+
+        namespace_subparsers.add_parser(
+            "list",
+            help="List Vault namespaces.",
+        )
+
+        #
+        # namespace read
+        #
+
+        read_namespace = namespace_subparsers.add_parser(
+            "read",
+            help="Read a Vault namespace.",
+        )
+
+        read_namespace.add_argument(
+            "name",
+            help="Namespace name.",
+        )
+
+        #
+        # namespace modify
+        #
+
+        modify_namespace = namespace_subparsers.add_parser(
+            "modify",
+            help="Modify a Vault namespace.",
+        )
+
+        modify_namespace.add_argument(
+            "name",
+            help="Namespace name.",
+        )
+
+        modify_namespace.add_argument(
+            "--new-name",
+            dest="new_name",
+            help="New namespace name.",
+        )
+
+        visibility = modify_namespace.add_mutually_exclusive_group()
+
+        visibility.add_argument(
+            "--shared",
+            action="store_true",
+            help="Make the namespace shared.",
+        )
+
+        visibility.add_argument(
+            "--private",
+            action="store_true",
+            help="Make the namespace private.",
+        )
+
+        #
+        # namespace delete
+        #
+
+        delete_namespace = namespace_subparsers.add_parser(
+            "delete",
+            help="Delete a Vault namespace.",
+        )
+
+        delete_namespace.add_argument(
+            "name",
+            help="Namespace name.",
+        )
+
+        #
+        # namespace users
+        #
+
+        users_namespace = namespace_subparsers.add_parser(
+            "users",
+            help="Manage namespace users.",
+        )
+
+        users_namespace.add_argument(
+            "name",
+            help="Namespace name.",
+        )
+
+        user_subparsers = users_namespace.add_subparsers(
+            dest="user_action",
+        )
+
+        grant_user = user_subparsers.add_parser(
+            "grant",
+            help="Grant namespace access to a user.",
+        )
+
+        grant_user.add_argument(
+            "username",
+            help="Username.",
+        )
+
+        grant_user.add_argument(
+            "--access",
+            choices=[
+                "read",
+                "write",
+                "admin",
+            ],
+            required=True,
+            help="Access level.",
+        )
+
+        revoke_user = user_subparsers.add_parser(
+            "revoke",
+            help="Revoke namespace access from a user.",
+        )
+
+        revoke_user.add_argument(
+            "username",
+            help="Username.",
+        )
+
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -198,7 +393,41 @@ class VaultCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        self._require_authentication()
+        #
+        # Namespace commands perform their own authorization
+        # because each namespace operation requires a different
+        # permission.
+        #
+
+        if args.action == "namespace":
+
+            self._namespace(
+                args,
+            )
+
+            return
+
+        permissions = {
+            "list": "vault.read",
+            "add": "vault.add",
+            "inspect": "vault.read",
+            "update": "vault.modify",
+            "delete": "vault.delete",
+        }
+
+        permission = permissions.get(
+            args.action,
+        )
+
+        if permission is None:
+
+            raise VaultValueError(
+                f"Unsupported Vault action: {args.action}",
+            )
+
+        self._require_permission(
+            permission,
+        )
 
         actions = {
             "list": self._list,
@@ -223,19 +452,6 @@ class VaultCommand(BaseCommand):
         )
 
     # ------------------------------------------------------------------
-    # Authentication
-    # ------------------------------------------------------------------
-
-    def _require_authentication(
-        self,
-    ) -> None:
-        """
-        Require an authenticated Entropy session.
-        """
-
-        self._session.require()
-
-    # ------------------------------------------------------------------
     # List
     # ------------------------------------------------------------------
 
@@ -247,7 +463,13 @@ class VaultCommand(BaseCommand):
         List Vault metadata without exposing values.
         """
 
-        entries = self._vault.list()
+        namespace_id = self._namespace_id(
+            args.namespace,
+        )
+
+        entries = self._vault.list(
+            namespace_id,
+        )
 
         if not entries:
 
@@ -258,7 +480,7 @@ class VaultCommand(BaseCommand):
             return
 
         self._ui.table(
-            title="Vault Entries",
+            title=f"Vault Entries : {args.namespace}",
             columns=[
                 "Key",
                 "Type",
@@ -291,6 +513,10 @@ class VaultCommand(BaseCommand):
         """
         Add a Vault entry.
         """
+
+        namespace_id = self._namespace_id(
+            args.namespace,
+        )
 
         value_type = self._value_type(
             args.type,
@@ -347,6 +573,7 @@ class VaultCommand(BaseCommand):
         )
 
         self._vault.add(
+            namespace_id=namespace_id,
             key=key,
             value=value,
             value_type=value_type,
@@ -356,10 +583,6 @@ class VaultCommand(BaseCommand):
         self._events.log.info(
             f"Vault entry '{key}' created.",
         )
-
-        # self._ui.info(
-        #     f"Vault entry '{key}' created successfully.",
-        # )
 
     # ------------------------------------------------------------------
     # Inspect
@@ -375,7 +598,12 @@ class VaultCommand(BaseCommand):
         Sensitive values are masked unless --reveal is supplied.
         """
 
+        namespace_id = self._namespace_id(
+            args.namespace,
+        )
+
         entry = self._vault.get_entry(
+            namespace_id,
             args.key,
         )
 
@@ -411,6 +639,7 @@ class VaultCommand(BaseCommand):
 
             self._display_masked_value(
                 self._vault.get(
+                    namespace_id,
                     entry.key,
                 ),
             )
@@ -422,6 +651,7 @@ class VaultCommand(BaseCommand):
             return
 
         value = self._vault.get(
+            namespace_id,
             entry.key,
         )
 
@@ -460,7 +690,12 @@ class VaultCommand(BaseCommand):
         Primitive values are replaced normally.
         """
 
+        namespace_id = self._namespace_id(
+            args.namespace,
+        )
+
         entry = self._vault.get_entry(
+            namespace_id,
             args.key,
         )
 
@@ -471,6 +706,7 @@ class VaultCommand(BaseCommand):
             )
 
         current = self._vault.get(
+            namespace_id,
             entry.key,
         )
 
@@ -484,6 +720,7 @@ class VaultCommand(BaseCommand):
         ):
 
             self._update_object(
+                namespace_id=namespace_id,
                 entry=entry,
                 current=current,
             )
@@ -495,6 +732,7 @@ class VaultCommand(BaseCommand):
         #
 
         self._update_primitive(
+            namespace_id=namespace_id,
             entry=entry,
             args=args,
         )
@@ -505,6 +743,7 @@ class VaultCommand(BaseCommand):
 
     def _update_primitive(
         self,
+        namespace_id: int,
         entry,
         args: Namespace,
     ) -> None:
@@ -563,6 +802,7 @@ class VaultCommand(BaseCommand):
             sensitive = entry.sensitive
 
         self._vault.update(
+            namespace_id=namespace_id,
             key=entry.key,
             value=value,
             value_type=value_type,
@@ -583,6 +823,7 @@ class VaultCommand(BaseCommand):
 
     def _update_object(
         self,
+        namespace_id: int,
         entry,
         current: dict[str, Any],
     ) -> None:
@@ -684,6 +925,7 @@ class VaultCommand(BaseCommand):
                     continue
 
                 self._vault.update(
+                    namespace_id=namespace_id,
                     key=entry.key,
                     value=working,
                     value_type=entry.type,
@@ -1135,7 +1377,12 @@ class VaultCommand(BaseCommand):
         Delete a Vault entry after confirmation.
         """
 
+        namespace_id = self._namespace_id(
+            args.namespace,
+        )
+
         entry = self._vault.get_entry(
+            namespace_id,
             args.key,
         )
 
@@ -1179,6 +1426,7 @@ class VaultCommand(BaseCommand):
             return
 
         self._vault.delete(
+            namespace_id,
             entry.key,
         )
 
@@ -1189,6 +1437,337 @@ class VaultCommand(BaseCommand):
         # self._ui.info(
         #     f"Vault entry '{entry.key}' deleted successfully.",
         # )
+
+    # ------------------------------------------------------------------
+    # Namespace
+    # ------------------------------------------------------------------
+
+    def _namespace(
+        self,
+        args: Namespace,
+    ) -> None:
+        """
+        Manage Vault namespaces.
+        """
+
+        actions = {
+            "create": self._namespace_create,
+            "list": self._namespace_list,
+            "read": self._namespace_read,
+            "modify": self._namespace_modify,
+            "delete": self._namespace_delete,
+            "users": self._namespace_users,
+        }
+
+        action = actions.get(
+            args.namespace_action,
+        )
+
+        if action is None:
+
+            raise VaultValueError(
+                f"Unsupported namespace action: "
+                f"{args.namespace_action}",
+            )
+
+        action(
+            args,
+        )
+
+    def _namespace_create(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            "vault.namespace.create",
+        )
+
+        visibility = (
+            VaultVisibility.SHARED
+            if args.shared
+            else VaultVisibility.PRIVATE
+        )
+
+        namespace = self._namespaces.create(
+            name=args.name,
+            owner_user_id=session.user_id,
+            visibility=visibility,
+        )
+
+        self._ui.success(
+            f"Vault namespace '{namespace.name}' "
+            "created successfully.",
+        )
+
+    def _namespace_list(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            "vault.namespace.read",
+        )
+
+        namespaces = self._namespaces.list()
+
+        if not namespaces:
+
+            self._ui.info(
+                "No Vault namespaces found.",
+            )
+
+            return
+
+        self._ui.table(
+            title="Vault Namespaces",
+            columns=[
+                "Name",
+                "Visibility",
+                "Owner",
+            ],
+            rows=[
+                [
+                    namespace.name,
+                    namespace.visibility.value,
+                    str(namespace.owner_user_id),
+                ]
+                for namespace in namespaces
+            ],
+        )
+
+    def _namespace_read(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            "vault.namespace.read",
+        )
+
+        namespace = self._namespaces.get(
+            args.name,
+        )
+
+        self._ui.table(
+            title=f"Vault Namespace : {namespace.name}",
+            columns=[
+                "Property",
+                "Value",
+            ],
+            rows=[
+                [
+                    "Name",
+                    namespace.name,
+                ],
+                [
+                    "Visibility",
+                    namespace.visibility.value,
+                ],
+                [
+                    "Owner",
+                    str(namespace.owner_user_id),
+                ],
+            ],
+        )
+
+    def _namespace_modify(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            "vault.namespace.modify",
+        )
+
+        namespace = self._namespaces.get(
+            args.name,
+        )
+
+        visibility = None
+
+        if args.shared:
+
+            visibility = VaultVisibility.SHARED
+
+        elif args.private:
+
+            visibility = VaultVisibility.PRIVATE
+
+        namespace = self._namespaces.modify(
+            namespace,
+            name=args.new_name,
+            visibility=visibility,
+        )
+
+        self._ui.success(
+            f"Vault namespace '{namespace.name}' "
+            "modified successfully.",
+        )
+
+    def _namespace_delete(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            "vault.namespace.delete",
+        )
+
+        namespace = self._namespaces.get(
+            args.name,
+        )
+
+        self._ui.rule(
+            f"Delete Vault Namespace : {namespace.name}",
+        )
+
+        self._ui.table(
+            title="Namespace",
+            columns=[
+                "Property",
+                "Value",
+            ],
+            rows=[
+                [
+                    "Name",
+                    namespace.name,
+                ],
+                [
+                    "Visibility",
+                    namespace.visibility.value,
+                ],
+                [
+                    "Owner",
+                    str(namespace.owner_user_id),
+                ],
+            ],
+        )
+
+        if not questionary.confirm(
+            f"Delete Vault namespace '{namespace.name}'?",
+            default=False,
+        ).ask():
+
+            self._ui.info(
+                "Deletion cancelled.",
+            )
+
+            return
+
+        self._namespaces.delete(
+            namespace,
+        )
+
+        self._ui.success(
+            f"Vault namespace '{namespace.name}' "
+            "deleted successfully.",
+        )
+
+    def _namespace_users(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            "vault.namespace.users",
+        )
+
+        namespace = self._namespaces.get(
+            args.name,
+        )
+
+        if args.user_action == "grant":
+
+            self._namespaces.grant_access(
+                namespace=namespace,
+                username=args.username,
+                access=VaultAccess(
+                    args.access,
+                ),
+            )
+
+            self._ui.success(
+                f"User '{args.username}' granted "
+                f"{args.access} access to "
+                f"namespace '{namespace.name}'.",
+            )
+
+            return
+
+        if args.user_action == "revoke":
+
+            self._namespaces.revoke_access(
+                namespace=namespace,
+                username=args.username,
+            )
+
+            self._ui.success(
+                f"User '{args.username}' revoked from "
+                f"namespace '{namespace.name}'.",
+            )
+
+            return
+
+        users = self._namespaces.users(
+            namespace,
+        )
+
+        if not users:
+
+            self._ui.info(
+                f"No users have explicit access to "
+                f"namespace '{namespace.name}'.",
+            )
+
+            return
+
+        assignments = self._namespaces.access_assignments(
+            namespace,
+        )
+
+        access_by_user = {
+            assignment.user_id: assignment.access.value
+            for assignment in assignments
+        }
+
+        self._ui.table(
+            title=f"Namespace Users : {namespace.name}",
+            columns=[
+                "Username",
+                "Full Name",
+                "Access",
+            ],
+            rows=[
+                [
+                    user.username,
+                    user.full_name or "",
+                    access_by_user.get(
+                        user.id,
+                        "",
+                    ),
+                ]
+                for user in users
+            ],
+        )
 
     # ------------------------------------------------------------------
     # JSON Input
@@ -1640,6 +2219,26 @@ class VaultCommand(BaseCommand):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _namespace_id(
+        self,
+        name: str,
+    ) -> int:
+        """
+        Resolve a Vault namespace name to its database identifier.
+        """
+
+        namespace = self._namespaces.get(
+            name,
+        )
+
+        if namespace.id is None:
+
+            raise VaultValueError(
+                f"Vault namespace '{name}' has no database identifier.",
+            )
+
+        return namespace.id
 
     @staticmethod
     def _value_type(

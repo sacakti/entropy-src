@@ -1,16 +1,15 @@
-"""
-Database migration command.
-"""
+from __future__ import annotations
 
-from argparse import (
-    ArgumentParser,
-    Namespace,
-)
+from argparse import ArgumentParser, Namespace
+from typing import TYPE_CHECKING
 
 from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
 
 
 class MigrateCommand(BaseCommand):
@@ -21,9 +20,27 @@ class MigrateCommand(BaseCommand):
     metadata = CommandMetadata(
         name="migrate",
         description="Apply pending database migrations.",
-        authentication_required=False,
         aliases=("mig",),
     )
+
+    def __init__(
+        self,
+        context: EntropyContext,
+    ) -> None:
+
+        super().__init__(
+            context,
+        )
+
+        assert context.migration_manager is not None
+        assert context.authorization is not None
+        assert context.session_manager is not None
+
+        self._migration = context.migration_manager
+
+        self._authorization = context.authorization
+
+        self._session = context.session_manager
 
     # ------------------------------------------------------------------
     # Configure
@@ -33,9 +50,6 @@ class MigrateCommand(BaseCommand):
         self,
         parser: ArgumentParser,
     ) -> None:
-        """
-        Configure command-line arguments.
-        """
 
         pass
 
@@ -47,10 +61,12 @@ class MigrateCommand(BaseCommand):
         self,
         args: Namespace,
     ) -> None:
-        """
-        Apply pending database migrations.
-        """
 
-        assert self.context.migration_manager is not None
+        session = self._session.require()
 
-        self.context.migration_manager.migrate()
+        self._authorization.require(
+            session,
+            "migrate.database",
+        )
+
+        self._migration.migrate()

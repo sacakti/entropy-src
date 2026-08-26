@@ -29,8 +29,19 @@ from core.ui.rich_renderer import RichRenderer
 from core.version import APP_NAME, VERSION
 from lib.auth.manager import SessionManager
 from lib.auth.service import AuthenticationService
+from lib.authorization.group_manager import GroupManager
+from lib.database.repositories.group_roles import GroupRoleRepository
+from lib.database.repositories.groups import GroupRepository
+from lib.database.repositories.permissions import PermissionRepository
+from lib.database.repositories.role_permissions import RolePermissionRepository
+from lib.database.repositories.roles import RoleRepository
+from lib.authorization.role_manager import RoleManager
+from lib.authorization.service import AuthorizationService
 from lib.database.manager import DatabaseManager
+from lib.database.repositories.user_groups import UserGroupRepository
 from lib.database.repositories.users import UserRepository
+from lib.database.repositories.vault_namespace_access import VaultNamespaceAccessRepository
+from lib.database.repositories.vault_namespaces import VaultNamespaceRepository
 from lib.executor import LinuxExecutor
 from lib.extensions.manager import ExtensionManager
 from lib.formatter.manager import FormatterManager
@@ -45,6 +56,7 @@ from lib.vault import (
     VaultRepository,
     VaultSerializer,
 )
+from lib.vault.namespace_manager import VaultNamespaceManager
 from lib.workflow.codec.json import JsonWorkflowCodec
 from lib.workflow.codec.registry import WorkflowCodecRegistry
 from lib.workflow.codec.yaml import YamlWorkflowCodec
@@ -337,6 +349,64 @@ class ContextFactory:
             self._context.database_manager.connection,
         )
 
+        connection = self._context.database_manager.connection
+
+        self._context.authorization = AuthorizationService(
+            connection,
+        )
+
+        self._context.role_repository = RoleRepository(
+            connection,
+        )
+
+        self._context.permission_repository = PermissionRepository(
+            connection,
+        )
+
+        self._context.role_permission_repository = RolePermissionRepository(
+            connection,
+        )
+
+        self._context.group_repository = GroupRepository(
+            connection,
+        )
+
+        self._context.user_group_repository = UserGroupRepository(
+            connection,
+        )
+
+        self._context.group_role_repository = GroupRoleRepository(
+            connection,
+        )
+
+        self._context.vault_namespace_repository = VaultNamespaceRepository(
+            connection,
+        )
+
+        self._context.vault_namespace_access_repository = VaultNamespaceAccessRepository(
+            connection,
+        )
+
+        self._context.role_manager = RoleManager(
+            roles=self._context.role_repository,
+            permissions=self._context.permission_repository,
+            role_permissions=self._context.role_permission_repository,
+        )
+
+        self._context.group_manager = GroupManager(
+            groups=self._context.group_repository,
+            users=self._context.user_repository,
+            roles=self._context.role_repository,
+            user_groups=self._context.user_group_repository,
+            group_roles=self._context.group_role_repository,
+        )
+
+        self._context.vault_namespace_manager = VaultNamespaceManager(
+            namespaces=self._context.vault_namespace_repository,
+            access=self._context.vault_namespace_access_repository,
+            users=self._context.user_repository,
+        )
+
         self._context.user_manager = UserManager(
             self._context,
         )
@@ -368,6 +438,7 @@ class ContextFactory:
             repository=vault_repository,
             serializer=vault_serializer,
             key_provider=vault_key_provider,
+            namespace_manager=self._context.vault_namespace_manager,
         )
 
     # ------------------------------------------------------------------

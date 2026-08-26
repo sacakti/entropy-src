@@ -1,20 +1,18 @@
 """
-User repository.
+Permission repository.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
-
+from lib.authorization.exceptions import PermissionNotFoundError
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
-from lib.models.users import User
-from lib.users.exceptions import UserNotFoundError
+from lib.models.authorization import Permission, PermissionType
 
 
-class UserRepository(Repository):
+class PermissionRepository(Repository):
     """
-    User repository.
+    Repository for authorization permissions.
     """
 
     def __init__(
@@ -32,52 +30,51 @@ class UserRepository(Repository):
 
     def create(
         self,
-        user: User,
-    ) -> User:
+        permission: Permission,
+    ) -> Permission:
         """
-        Create a user.
+        Create an authorization permission.
         """
+
+        if permission.module_id is None:
+
+            raise ValueError(
+                "Permission module identifier is required.",
+            )
 
         with self.connection.transaction():
 
             cursor = self.execute(
                 """
-                INSERT INTO users
+                INSERT INTO permissions
                 (
-                    username,
-                    password_hash,
-                    full_name,
-                    email,
-                    is_active,
-                    created_at,
-                    updated_at
+                    module_id,
+                    name,
+                    description,
+                    permission_type
                 )
                 VALUES
                 (
                     ?,
                     ?,
                     ?,
-                    ?,
-                    ?,
-                    datetime('now'),
-                    datetime('now')
+                    ?
                 )
                 """,
                 (
-                    user.username,
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
+                    permission.module_id,
+                    permission.name,
+                    permission.description,
+                    permission.permission_type.value,
                 ),
             )
 
-            user.id = cursor.lastrowid
+            permission.id = cursor.lastrowid
 
-        assert user.id is not None
+        assert permission.id is not None
 
         return self.get(
-            user.id,
+            permission.id,
         )
 
     # ------------------------------------------------------------------
@@ -86,25 +83,27 @@ class UserRepository(Repository):
 
     def get(
         self,
-        user_id: int,
-    ) -> User:
+        permission_id: int,
+    ) -> Permission:
         """
-        Return a user by identifier.
+        Return a permission by identifier.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM users
+            FROM permissions
             WHERE id = ?
             """,
-            (user_id,),
+            (
+                permission_id,
+            ),
         )
 
         if row is None:
 
-            raise UserNotFoundError(
-                str(user_id),
+            raise PermissionNotFoundError(
+                permission_id,
             )
 
         return self._from_row(
@@ -112,30 +111,32 @@ class UserRepository(Repository):
         )
 
     # ------------------------------------------------------------------
-    # Get by Username
+    # Get by name
     # ------------------------------------------------------------------
 
-    def get_by_username(
+    def get_by_name(
         self,
-        username: str,
-    ) -> User:
+        name: str,
+    ) -> Permission:
         """
-        Return a user by username.
+        Return a permission by name.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM users
-            WHERE username = ?
+            FROM permissions
+            WHERE name = ?
             """,
-            (username,),
+            (
+                name,
+            ),
         )
 
         if row is None:
 
-            raise UserNotFoundError(
-                username,
+            raise PermissionNotFoundError(
+                name,
             )
 
         return self._from_row(
@@ -143,29 +144,35 @@ class UserRepository(Repository):
         )
 
     # ------------------------------------------------------------------
-    # Exists
+    # Get by module
     # ------------------------------------------------------------------
 
-    def exists(
+    def list_by_module(
         self,
-        username: str,
-    ) -> bool:
+        module_id: int,
+    ) -> list[Permission]:
         """
-        Return True if the user exists.
+        Return permissions belonging to a module.
         """
 
-        return (
-            self.connection.fetchone(
-                """
-                SELECT 1
-                FROM users
-                WHERE username = ?
-                LIMIT 1
-                """,
-                (username,),
-            )
-            is not None
+        rows = self.connection.fetchall(
+            """
+            SELECT *
+            FROM permissions
+            WHERE module_id = ?
+            ORDER BY name
+            """,
+            (
+                module_id,
+            ),
         )
+
+        return [
+            self._from_row(
+                row,
+            )
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
     # List
@@ -173,16 +180,16 @@ class UserRepository(Repository):
 
     def list(
         self,
-    ) -> list[User]:
+    ) -> list[Permission]:
         """
-        Return all users.
+        Return all authorization permissions.
         """
 
         rows = self.connection.fetchall(
             """
             SELECT *
-            FROM users
-            ORDER BY username
+            FROM permissions
+            ORDER BY name
             """
         )
 
@@ -194,49 +201,30 @@ class UserRepository(Repository):
         ]
 
     # ------------------------------------------------------------------
-    # Any
+    # Exists
     # ------------------------------------------------------------------
 
-    def any(
+    def exists(
         self,
+        name: str,
     ) -> bool:
         """
-        Return True if any users exist.
+        Return True if a permission exists.
         """
 
         return (
             self.connection.fetchone(
                 """
                 SELECT 1
-                FROM users
+                FROM permissions
+                WHERE name = ?
                 LIMIT 1
-                """
+                """,
+                (
+                    name,
+                ),
             )
             is not None
-        )
-
-    # ------------------------------------------------------------------
-    # Count
-    # ------------------------------------------------------------------
-
-    def count(
-        self,
-    ) -> int:
-        """
-        Return the number of users.
-        """
-
-        row = self.connection.fetchone(
-            """
-            SELECT COUNT(*)
-            FROM users
-            """
-        )
-
-        assert row is not None
-
-        return int(
-            row[0],
         )
 
     # ------------------------------------------------------------------
@@ -245,31 +233,36 @@ class UserRepository(Repository):
 
     def update(
         self,
-        user: User,
+        permission: Permission,
     ) -> None:
         """
-        Update a user.
+        Update an authorization permission.
         """
+
+        if permission.module_id is None:
+
+            raise ValueError(
+                "Permission module identifier is required.",
+            )
 
         with self.connection.transaction():
 
             self.execute(
                 """
-                UPDATE users
+                UPDATE permissions
                 SET
-                    password_hash = ?,
-                    full_name = ?,
-                    email = ?,
-                    is_active = ?,
-                    updated_at = datetime('now')
+                    module_id = ?,
+                    name = ?,
+                    description = ?,
+                    permission_type = ?
                 WHERE id = ?
                 """,
                 (
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
-                    user.id,
+                    permission.module_id,
+                    permission.name,
+                    permission.description,
+                    permission.permission_type.value,
+                    permission.id,
                 ),
             )
 
@@ -279,10 +272,10 @@ class UserRepository(Repository):
 
     def delete(
         self,
-        user_id: int,
+        permission_id: int,
     ) -> None:
         """
-        Delete a user.
+        Delete an authorization permission.
         """
 
         with self.connection.transaction():
@@ -290,10 +283,12 @@ class UserRepository(Repository):
             self.execute(
                 """
                 DELETE
-                FROM users
+                FROM permissions
                 WHERE id = ?
                 """,
-                (user_id,),
+                (
+                    permission_id,
+                ),
             )
 
     # ------------------------------------------------------------------
@@ -303,32 +298,17 @@ class UserRepository(Repository):
     @staticmethod
     def _from_row(
         row,
-    ) -> User:
+    ) -> Permission:
         """
-        Convert a database row into a User.
+        Convert a database row into a Permission.
         """
 
-        return User(
+        return Permission(
             id=row["id"],
-            username=row["username"],
-            password_hash=row["password_hash"],
-            full_name=row["full_name"],
-            email=row["email"],
-            is_active=bool(
-                row["is_active"],
-            ),
-            created_at=(
-                datetime.fromisoformat(
-                    row["created_at"],
-                )
-                if row["created_at"]
-                else None
-            ),
-            updated_at=(
-                datetime.fromisoformat(
-                    row["updated_at"],
-                )
-                if row["updated_at"]
-                else None
+            module_id=row["module_id"],
+            name=row["name"],
+            description=row["description"],
+            permission_type=PermissionType(
+                row["permission_type"],
             ),
         )

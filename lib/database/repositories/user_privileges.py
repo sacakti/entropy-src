@@ -1,5 +1,5 @@
 """
-User repository.
+User privilege repository.
 """
 
 from __future__ import annotations
@@ -8,13 +8,16 @@ from datetime import datetime
 
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
-from lib.models.users import User
-from lib.users.exceptions import UserNotFoundError
+from lib.models.authorization import (
+    Permission,
+    PermissionType,
+    UserPrivilege,
+)
 
 
-class UserRepository(Repository):
+class UserPrivilegeRepository(Repository):
     """
-    User repository.
+    Repository for direct user permission assignments.
     """
 
     def __init__(
@@ -32,52 +35,41 @@ class UserRepository(Repository):
 
     def create(
         self,
-        user: User,
-    ) -> User:
+        privilege: UserPrivilege,
+    ) -> UserPrivilege:
         """
-        Create a user.
+        Grant a permission directly to a user.
         """
 
         with self.connection.transaction():
 
             cursor = self.execute(
                 """
-                INSERT INTO users
+                INSERT INTO user_privileges
                 (
-                    username,
-                    password_hash,
-                    full_name,
-                    email,
-                    is_active,
-                    created_at,
-                    updated_at
+                    user_id,
+                    permission_id,
+                    created_at
                 )
                 VALUES
                 (
                     ?,
                     ?,
-                    ?,
-                    ?,
-                    ?,
-                    datetime('now'),
                     datetime('now')
                 )
                 """,
                 (
-                    user.username,
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
+                    privilege.user_id,
+                    privilege.permission_id,
                 ),
             )
 
-            user.id = cursor.lastrowid
+            privilege.id = cursor.lastrowid
 
-        assert user.id is not None
+        assert privilege.id is not None
 
         return self.get(
-            user.id,
+            privilege.id,
         )
 
     # ------------------------------------------------------------------
@@ -86,56 +78,27 @@ class UserRepository(Repository):
 
     def get(
         self,
-        user_id: int,
-    ) -> User:
+        privilege_id: int,
+    ) -> UserPrivilege:
         """
-        Return a user by identifier.
+        Return a user privilege.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM users
+            FROM user_privileges
             WHERE id = ?
             """,
-            (user_id,),
+            (
+                privilege_id,
+            ),
         )
 
         if row is None:
 
-            raise UserNotFoundError(
-                str(user_id),
-            )
-
-        return self._from_row(
-            row,
-        )
-
-    # ------------------------------------------------------------------
-    # Get by Username
-    # ------------------------------------------------------------------
-
-    def get_by_username(
-        self,
-        username: str,
-    ) -> User:
-        """
-        Return a user by username.
-        """
-
-        row = self.connection.fetchone(
-            """
-            SELECT *
-            FROM users
-            WHERE username = ?
-            """,
-            (username,),
-        )
-
-        if row is None:
-
-            raise UserNotFoundError(
-                username,
+            raise ValueError(
+                f"User privilege '{privilege_id}' not found.",
             )
 
         return self._from_row(
@@ -148,21 +111,26 @@ class UserRepository(Repository):
 
     def exists(
         self,
-        username: str,
+        user_id: int,
+        permission_id: int,
     ) -> bool:
         """
-        Return True if the user exists.
+        Return True when the user already has the permission.
         """
 
         return (
             self.connection.fetchone(
                 """
                 SELECT 1
-                FROM users
-                WHERE username = ?
+                FROM user_privileges
+                WHERE user_id = ?
+                  AND permission_id = ?
                 LIMIT 1
                 """,
-                (username,),
+                (
+                    user_id,
+                    permission_id,
+                ),
             )
             is not None
         )
@@ -173,16 +141,17 @@ class UserRepository(Repository):
 
     def list(
         self,
-    ) -> list[User]:
+    ) -> list[UserPrivilege]:
         """
-        Return all users.
+        Return all user privileges.
         """
 
         rows = self.connection.fetchall(
             """
             SELECT *
-            FROM users
-            ORDER BY username
+            FROM user_privileges
+            ORDER BY user_id,
+                     permission_id
             """
         )
 
@@ -194,84 +163,75 @@ class UserRepository(Repository):
         ]
 
     # ------------------------------------------------------------------
-    # Any
+    # List by user
     # ------------------------------------------------------------------
 
-    def any(
+    def list_by_user(
         self,
-    ) -> bool:
+        user_id: int,
+    ) -> list[UserPrivilege]:
         """
-        Return True if any users exist.
+        Return direct privileges assigned to a user.
         """
 
-        return (
-            self.connection.fetchone(
-                """
-                SELECT 1
-                FROM users
-                LIMIT 1
-                """
+        rows = self.connection.fetchall(
+            """
+            SELECT *
+            FROM user_privileges
+            WHERE user_id = ?
+            ORDER BY permission_id
+            """,
+            (
+                user_id,
+            ),
+        )
+
+        return [
+            self._from_row(
+                row,
             )
-            is not None
-        )
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
-    # Count
+    # List permissions
     # ------------------------------------------------------------------
 
-    def count(
+    def list_permissions(
         self,
-    ) -> int:
+        user_id: int,
+    ) -> list[Permission]:
         """
-        Return the number of users.
+        Return permission definitions granted directly to a user.
         """
 
-        row = self.connection.fetchone(
+        rows = self.connection.fetchall(
             """
-            SELECT COUNT(*)
-            FROM users
-            """
+            SELECT
+                permissions.*
+            FROM user_privileges
+            INNER JOIN permissions
+                ON permissions.id = user_privileges.permission_id
+            WHERE user_privileges.user_id = ?
+            ORDER BY permissions.name
+            """,
+            (
+                user_id,
+            ),
         )
 
-        assert row is not None
-
-        return int(
-            row[0],
-        )
-
-    # ------------------------------------------------------------------
-    # Update
-    # ------------------------------------------------------------------
-
-    def update(
-        self,
-        user: User,
-    ) -> None:
-        """
-        Update a user.
-        """
-
-        with self.connection.transaction():
-
-            self.execute(
-                """
-                UPDATE users
-                SET
-                    password_hash = ?,
-                    full_name = ?,
-                    email = ?,
-                    is_active = ?,
-                    updated_at = datetime('now')
-                WHERE id = ?
-                """,
-                (
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
-                    user.id,
+        return [
+            Permission(
+                id=row["id"],
+                module_id=row["module_id"],
+                name=row["name"],
+                description=row["description"],
+                permission_type=PermissionType(
+                    row["permission_type"],
                 ),
             )
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
     # Delete
@@ -279,10 +239,10 @@ class UserRepository(Repository):
 
     def delete(
         self,
-        user_id: int,
+        privilege_id: int,
     ) -> None:
         """
-        Delete a user.
+        Remove a direct user privilege.
         """
 
         with self.connection.transaction():
@@ -290,10 +250,40 @@ class UserRepository(Repository):
             self.execute(
                 """
                 DELETE
-                FROM users
+                FROM user_privileges
                 WHERE id = ?
                 """,
-                (user_id,),
+                (
+                    privilege_id,
+                ),
+            )
+
+    # ------------------------------------------------------------------
+    # Delete by permission
+    # ------------------------------------------------------------------
+
+    def delete_permission(
+        self,
+        user_id: int,
+        permission_id: int,
+    ) -> None:
+        """
+        Remove a specific direct permission from a user.
+        """
+
+        with self.connection.transaction():
+
+            self.execute(
+                """
+                DELETE
+                FROM user_privileges
+                WHERE user_id = ?
+                  AND permission_id = ?
+                """,
+                (
+                    user_id,
+                    permission_id,
+                ),
             )
 
     # ------------------------------------------------------------------
@@ -303,32 +293,20 @@ class UserRepository(Repository):
     @staticmethod
     def _from_row(
         row,
-    ) -> User:
+    ) -> UserPrivilege:
         """
-        Convert a database row into a User.
+        Convert a database row into a UserPrivilege.
         """
 
-        return User(
+        return UserPrivilege(
             id=row["id"],
-            username=row["username"],
-            password_hash=row["password_hash"],
-            full_name=row["full_name"],
-            email=row["email"],
-            is_active=bool(
-                row["is_active"],
-            ),
+            user_id=row["user_id"],
+            permission_id=row["permission_id"],
             created_at=(
                 datetime.fromisoformat(
                     row["created_at"],
                 )
                 if row["created_at"]
-                else None
-            ),
-            updated_at=(
-                datetime.fromisoformat(
-                    row["updated_at"],
-                )
-                if row["updated_at"]
                 else None
             ),
         )

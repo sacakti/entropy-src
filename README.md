@@ -743,3 +743,44 @@ Deployment Complete
 - ent pl install ./resources/plugins/docker/generic
 - ent pl install ./resources/plugins/oc/cm_secret_update
 - ent pl install ./resources/plugins/release/context_builder
+
+# Vault namespace
+# Namespace
+python3 entropy.py vault namespace create deployer
+python3 entropy.py vault namespace list
+python3 entropy.py vault namespace read deployer
+
+# Entries
+python3 entropy.py vault add DB_HOST db.example.com -n deployer
+python3 entropy.py vault add DB_PORT 5432 --type number -n deployer
+python3 entropy.py vault add DEBUG true --type boolean -n deployer
+python3 entropy.py vault add DB_PASSWORD --enc -n deployer
+
+python3 entropy.py vault list -n deployer
+
+python3 entropy.py vault inspect DB_HOST -n deployer
+python3 entropy.py vault inspect DB_PASSWORD -n deployer
+python3 entropy.py vault inspect DB_PASSWORD --reveal -n deployer
+
+# Update
+python3 entropy.py vault update DB_HOST db-new.example.com -n deployer
+python3 entropy.py vault inspect DB_HOST -n deployer
+
+# Namespace access
+python3 entropy.py vault namespace users deployer
+python3 entropy.py vault namespace users deployer grant aravinth --access read
+python3 entropy.py vault namespace users deployer
+python3 entropy.py vault namespace users deployer grant aravinth --access write
+python3 entropy.py vault namespace users deployer
+python3 entropy.py vault namespace users deployer revoke aravinth
+python3 entropy.py vault namespace users deployer
+
+# Namespace modification
+python3 entropy.py vault namespace modify deployer --new-name production
+python3 entropy.py vault namespace read production
+
+# Delete entry
+python3 entropy.py vault delete DB_PORT -n production
+
+# Delete namespace
+python3 entropy.py vault namespace delete production

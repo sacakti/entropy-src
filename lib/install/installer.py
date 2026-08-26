@@ -17,6 +17,7 @@ from lib.install.directory import DirectoryInstaller
 from lib.install.paths import InstallerPathManager
 from lib.install.plugins import DefaultPluginInstaller
 from lib.install.workflow import DefaultWorkflowInstaller
+from lib.authorization import AuthorizationInitializer
 
 from .launcher import Launcher
 from .platform import PlatformDetector
@@ -152,11 +153,29 @@ class Installer:
 
             factory.services()
 
-            BootstrapInstaller(
+            admin_user = BootstrapInstaller(
                 factory.context,
             ).install()
 
             console.success("Bootstrap administrator created.")
+
+            #
+            # Initialize authorization.
+            #
+
+            if admin_user is not None:
+
+                console.step("Initializing authorization...")
+
+                assert factory.context.database_manager is not None
+
+                AuthorizationInitializer(
+                    factory.context.database_manager.connection,
+                ).initialize(
+                    admin_user,
+                )
+
+                console.success("Authorization initialized.")
 
             #
             # Default plugins.

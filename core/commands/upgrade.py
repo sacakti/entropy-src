@@ -6,11 +6,15 @@ from __future__ import annotations
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
 
 
 class UpgradeCommand(
@@ -24,12 +28,11 @@ class UpgradeCommand(
         name="upgrade",
         description="Upgrade Entropy.",
         aliases=("up",),
-        authentication_required=False,
     )
 
     def __init__(
         self,
-        context,
+        context: EntropyContext,
     ) -> None:
 
         super().__init__(
@@ -37,9 +40,16 @@ class UpgradeCommand(
         )
 
         assert context.ui is not None
+        assert context.authorization is not None
+        assert context.session_manager is not None
 
         self._context = context
+
         self._ui = context.ui
+
+        self._authorization = context.authorization
+
+        self._session = context.session_manager
 
     # ------------------------------------------------------------------
     # Configure
@@ -65,6 +75,13 @@ class UpgradeCommand(
         self,
         args: Namespace,
     ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            "upgrade.entropy",
+        )
 
         #
         # Import lazily so the upgrade subsystem isn't loaded

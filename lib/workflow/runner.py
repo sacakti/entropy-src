@@ -77,8 +77,14 @@ class WorkflowRunner:
 
         assert self._context.vault_manager is not None
 
+        assert self._context.vault_manager is not None
+        assert self._context.session_manager is not None
+
+        session = self._context.session_manager.require()
+
         resolver = WorkflowVariableResolver(
             self._context.vault_manager,
+            session.user_id,
         )
 
         selection = self._selector.select(

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from core.context import EntropyContext
 from lib.database.repositories.users import UserRepository
-from lib.models.users import User
+from lib.models.users import SYSTEM_USERNAME, User
 from lib.users.exceptions import (
     CurrentPasswordMismatchError,
     InvalidUsernameError,
@@ -49,11 +49,13 @@ class UserManager:
 
     def initialize(self) -> None:
         """
-        Create the bootstrap administrator when no users exist.
+        Initialize the user subsystem.
+
+        Bootstrap administrator creation is handled by
+        BootstrapInstaller.
         """
 
-        if self._repository.any():
-            return
+        return
 
     # ------------------------------------------------------------------
     # Create
@@ -65,36 +67,43 @@ class UserManager:
         password: str,
         full_name: str | None = None,
         email: str | None = None,
-        group_id: int | None = None,
-        system: bool = False,
     ) -> User:
+        """
+        Create a user.
+        """
 
         username = username.strip()
         full_name = full_name.strip() if full_name else None
         email = email.strip() if email else None
 
         if not username:
+
             raise InvalidUsernameError()
 
-        if self._repository.exists(username):
-            raise UserAlreadyExistsError(username)
+        if self._repository.exists(
+            username,
+        ):
 
-        self._validate_password(password)
+            raise UserAlreadyExistsError(
+                username,
+            )
+
+        self._validate_password(
+            password,
+        )
 
         user = User(
             username=username,
-            password_hash=self._password.hash(password),
+            password_hash=self._password.hash(
+                password,
+            ),
             full_name=full_name,
             email=email,
-            group_id=group_id,
-            system=system,
         )
 
-        user = self._repository.create(
+        return self._repository.create(
             user,
         )
-
-        return user
 
     # ------------------------------------------------------------------
     # Password
@@ -184,6 +193,8 @@ class UserManager:
     ) -> tuple[User, str]:
         """
         Generate and assign a temporary password.
+
+        Authorization is handled by the caller.
         """
 
         while True:
@@ -237,14 +248,19 @@ class UserManager:
         self,
         user: User,
     ) -> None:
+        """
+        Delete a user.
+
+        Authorization is handled by the caller.
+        """
 
         user = self.get(
             user.username,
         )
 
-        if user.system:
-
-            raise SystemUserError()
+        self._ensure_not_system_user(
+            user,
+        )
 
         assert user.id is not None
 
@@ -284,14 +300,19 @@ class UserManager:
         username: str,
         active: bool,
     ) -> User:
+        """
+        Enable or disable a user.
+
+        Authorization is handled by the caller.
+        """
 
         user = self.get(
             username,
         )
 
-        if user.system and not active:
-
-            raise SystemUserError()
+        self._ensure_not_system_user(
+            user,
+        )
 
         user.is_active = active
 
@@ -310,7 +331,9 @@ class UserManager:
         username: str,
     ) -> User:
 
-        raise NotImplementedError("Account locking is not implemented.")
+        raise NotImplementedError(
+            "Account locking is not implemented.",
+        )
 
     # ------------------------------------------------------------------
     # Validation
@@ -324,3 +347,12 @@ class UserManager:
         self._password.validate(
             password,
         )
+
+    @staticmethod
+    def _ensure_not_system_user(
+        user: User,
+    ) -> None:
+
+        if user.username == SYSTEM_USERNAME:
+
+            raise SystemUserError()

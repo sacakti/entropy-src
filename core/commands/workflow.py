@@ -9,6 +9,7 @@ from argparse import (
     Namespace,
 )
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from core.commands.base import (
     BaseCommand,
@@ -22,6 +23,9 @@ from lib.workflow.exceptions import (
     WorkflowTooManyFilesError,
 )
 
+
+if TYPE_CHECKING:
+    from core.context import EntropyContext
 
 class WorkflowCommand(
     BaseCommand,
@@ -41,7 +45,7 @@ class WorkflowCommand(
 
     def __init__(
         self,
-        context,
+        context: EntropyContext,
     ) -> None:
 
         super().__init__(
@@ -52,6 +56,8 @@ class WorkflowCommand(
 
         assert context.workflow_manager is not None
         assert context.observability is not None
+        assert context.authorization is not None
+        assert context.session_manager is not None
 
         self._workflows = context.workflow_manager
 
@@ -60,6 +66,10 @@ class WorkflowCommand(
         self._events = context.observability.emitter(
             "workflow",
         )
+
+        self._authorization = context.authorization
+
+        self._session = context.session_manager
 
     # ------------------------------------------------------------------
     # Configure
@@ -443,6 +453,10 @@ class WorkflowCommand(
         Execute a registered workflow or workflow file.
         """
 
+        self._require(
+            "workflows.run",
+        )
+
         workflow_name, workflow_file = self._workflow_source(
             args,
         )
@@ -507,6 +521,10 @@ class WorkflowCommand(
         Start a registered workflow or workflow file in the background.
         """
 
+        self._require(
+            "workflows.start",
+        )
+
         workflow_name, workflow_file = self._workflow_source(
             args,
         )
@@ -569,6 +587,10 @@ class WorkflowCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "workflows.list",
+        )
+
         jobs = self._workflows.jobs()
 
         self._context.ui.table(
@@ -601,6 +623,10 @@ class WorkflowCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "workflows.list",
+        )
+
         self._workflows.follow(
             args.pid,
         )
@@ -616,6 +642,10 @@ class WorkflowCommand(
         """
         Stop workflow processes.
         """
+
+        self._require(
+            "workflows.start",
+        )
 
         if args.pid is not None:
 
@@ -694,6 +724,10 @@ class WorkflowCommand(
         Register a workflow definition.
         """
 
+        self._require(
+            "workflows.add",
+        )
+
         workflow = self._workflows.add(
             args.file,
         )
@@ -710,6 +744,10 @@ class WorkflowCommand(
         Remove a registered workflow.
         """
 
+        self._require(
+            "workflows.edit",
+        )
+
         self._workflows.remove(
             args.name,
         )
@@ -725,6 +763,10 @@ class WorkflowCommand(
         """
         List registered workflows.
         """
+
+        self._require(
+            "workflows.list",
+        )
 
         workflows = self._workflows.list()
 
@@ -764,6 +806,10 @@ class WorkflowCommand(
         """
         Show a registered workflow.
         """
+
+        self._require(
+            "workflows.list",
+        )
 
         workflow = self._workflows.get(
             args.name,
@@ -862,6 +908,10 @@ class WorkflowCommand(
         Replace a registered workflow from a file.
         """
 
+        self._require(
+            "workflows.edit",
+        )
+
         workflow = self._workflows.replace(
             args.name,
             args.from_file,
@@ -878,6 +928,10 @@ class WorkflowCommand(
         """
         Edit a registered workflow.
         """
+
+        self._require(
+            "workflows.edit",
+        )
 
         result = self._workflows.edit(
             args.name,
@@ -1013,4 +1067,16 @@ class WorkflowCommand(
         return (
             variables,
             step_overrides,
+        )
+
+    def _require(
+        self,
+        permission: str,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            permission,
         )

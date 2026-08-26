@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Set
 
+from lib.vault.exceptions import VaultEntryNotFoundError
 from lib.workflow.exceptions import (
     VariableCircularReferenceError,
     VariableNotFoundError,
@@ -40,9 +41,12 @@ class WorkflowVariableResolver:
     def __init__(
         self,
         vault,
+        user_id: int,
     ) -> None:
 
         self._vault = vault
+
+        self._user_id = user_id
 
     # ------------------------------------------------------------------
     # Variables
@@ -457,31 +461,85 @@ class WorkflowVariableResolver:
 
         if reference.startswith("entv:"):
 
-            key = reference[5:].strip()
+            target = reference[5:].strip()
 
-            if not key:
+            if not target:
 
                 raise VariableNotFoundError(
                     "Entropy Vault reference cannot be empty.",
+                )
+
+            #
+            # Resolve nested workflow variables first.
+            #
+            # Example:
+            #
+            #   ${entv:${environment}/DB_CONNECTION}
+            #
+            # becomes:
+            #
+            #   ${entv:UAT/DB_CONNECTION}
+            #
+            target = self._resolve_string(
+                target,
+                variables,
+                resolved,
+                resolving,
+            )
+
+            if not isinstance(
+                target,
+                str,
+            ):
+
+                raise VariableNotFoundError(
+                    "Entropy Vault reference must resolve "
+                    "to a string.",
+                )
+
+            if "/" not in target:
+
+                raise VariableNotFoundError(
+                    "Entropy Vault reference must use "
+                    "'namespace/key' format.",
+                )
+
+            namespace, key = target.split(
+                "/",
+                1,
+            )
+
+            namespace = namespace.strip()
+            key = key.strip()
+
+            if not namespace or not key:
+
+                raise VariableNotFoundError(
+                    "Entropy Vault reference must contain "
+                    "both namespace and key.",
                 )
 
             try:
 
                 if key.endswith("*"):
 
-                    return self._vault.get_matching(
+                    return self._vault.resolve_matching(
+                        namespace,
                         key,
+                        self._user_id,
                     )
 
-                return self._vault.get(
+                return self._vault.resolve(
+                    namespace,
                     key,
+                    self._user_id,
                 )
 
-            except Exception as exc:
+            except VaultEntryNotFoundError as exc:
 
                 raise VariableNotFoundError(
                     f"Entropy Vault entry "
-                    f"'{key}' could not be resolved.",
+                    f"'{namespace}/{key}' could not be resolved.",
                 ) from exc
 
         path = self._parse_path(

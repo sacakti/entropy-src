@@ -1,5 +1,5 @@
 """
-User repository.
+User role repository.
 """
 
 from __future__ import annotations
@@ -8,13 +8,12 @@ from datetime import datetime
 
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
-from lib.models.users import User
-from lib.users.exceptions import UserNotFoundError
+from lib.models.authorization import Role, UserRole
 
 
-class UserRepository(Repository):
+class UserRoleRepository(Repository):
     """
-    User repository.
+    Repository for user-to-role assignments.
     """
 
     def __init__(
@@ -32,52 +31,41 @@ class UserRepository(Repository):
 
     def create(
         self,
-        user: User,
-    ) -> User:
+        assignment: UserRole,
+    ) -> UserRole:
         """
-        Create a user.
+        Assign a role to a user.
         """
 
         with self.connection.transaction():
 
             cursor = self.execute(
                 """
-                INSERT INTO users
+                INSERT INTO user_roles
                 (
-                    username,
-                    password_hash,
-                    full_name,
-                    email,
-                    is_active,
-                    created_at,
-                    updated_at
+                    user_id,
+                    role_id,
+                    created_at
                 )
                 VALUES
                 (
                     ?,
                     ?,
-                    ?,
-                    ?,
-                    ?,
-                    datetime('now'),
                     datetime('now')
                 )
                 """,
                 (
-                    user.username,
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
+                    assignment.user_id,
+                    assignment.role_id,
                 ),
             )
 
-            user.id = cursor.lastrowid
+            assignment.id = cursor.lastrowid
 
-        assert user.id is not None
+        assert assignment.id is not None
 
         return self.get(
-            user.id,
+            assignment.id,
         )
 
     # ------------------------------------------------------------------
@@ -86,56 +74,27 @@ class UserRepository(Repository):
 
     def get(
         self,
-        user_id: int,
-    ) -> User:
+        assignment_id: int,
+    ) -> UserRole:
         """
-        Return a user by identifier.
+        Return a user-role assignment.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
-            FROM users
+            FROM user_roles
             WHERE id = ?
             """,
-            (user_id,),
+            (
+                assignment_id,
+            ),
         )
 
         if row is None:
 
-            raise UserNotFoundError(
-                str(user_id),
-            )
-
-        return self._from_row(
-            row,
-        )
-
-    # ------------------------------------------------------------------
-    # Get by Username
-    # ------------------------------------------------------------------
-
-    def get_by_username(
-        self,
-        username: str,
-    ) -> User:
-        """
-        Return a user by username.
-        """
-
-        row = self.connection.fetchone(
-            """
-            SELECT *
-            FROM users
-            WHERE username = ?
-            """,
-            (username,),
-        )
-
-        if row is None:
-
-            raise UserNotFoundError(
-                username,
+            raise ValueError(
+                f"User role '{assignment_id}' not found.",
             )
 
         return self._from_row(
@@ -148,21 +107,26 @@ class UserRepository(Repository):
 
     def exists(
         self,
-        username: str,
+        user_id: int,
+        role_id: int,
     ) -> bool:
         """
-        Return True if the user exists.
+        Return True when the user already has the role.
         """
 
         return (
             self.connection.fetchone(
                 """
                 SELECT 1
-                FROM users
-                WHERE username = ?
+                FROM user_roles
+                WHERE user_id = ?
+                  AND role_id = ?
                 LIMIT 1
                 """,
-                (username,),
+                (
+                    user_id,
+                    role_id,
+                ),
             )
             is not None
         )
@@ -173,16 +137,17 @@ class UserRepository(Repository):
 
     def list(
         self,
-    ) -> list[User]:
+    ) -> list[UserRole]:
         """
-        Return all users.
+        Return all user-role assignments.
         """
 
         rows = self.connection.fetchall(
             """
             SELECT *
-            FROM users
-            ORDER BY username
+            FROM user_roles
+            ORDER BY user_id,
+                     role_id
             """
         )
 
@@ -194,84 +159,85 @@ class UserRepository(Repository):
         ]
 
     # ------------------------------------------------------------------
-    # Any
+    # List by user
     # ------------------------------------------------------------------
 
-    def any(
+    def list_by_user(
         self,
-    ) -> bool:
+        user_id: int,
+    ) -> list[UserRole]:
         """
-        Return True if any users exist.
+        Return roles assigned to a user.
         """
 
-        return (
-            self.connection.fetchone(
-                """
-                SELECT 1
-                FROM users
-                LIMIT 1
-                """
+        rows = self.connection.fetchall(
+            """
+            SELECT *
+            FROM user_roles
+            WHERE user_id = ?
+            ORDER BY role_id
+            """,
+            (
+                user_id,
+            ),
+        )
+
+        return [
+            self._from_row(
+                row,
             )
-            is not None
-        )
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
-    # Count
+    # List roles
     # ------------------------------------------------------------------
 
-    def count(
+    def list_roles(
         self,
-    ) -> int:
+        user_id: int,
+    ) -> list[Role]:
         """
-        Return the number of users.
+        Return role definitions assigned to a user.
         """
 
-        row = self.connection.fetchone(
+        rows = self.connection.fetchall(
             """
-            SELECT COUNT(*)
-            FROM users
-            """
+            SELECT
+                roles.*
+            FROM user_roles
+            INNER JOIN roles
+                ON roles.id = user_roles.role_id
+            WHERE user_roles.user_id = ?
+            ORDER BY roles.name
+            """,
+            (
+                user_id,
+            ),
         )
 
-        assert row is not None
-
-        return int(
-            row[0],
-        )
-
-    # ------------------------------------------------------------------
-    # Update
-    # ------------------------------------------------------------------
-
-    def update(
-        self,
-        user: User,
-    ) -> None:
-        """
-        Update a user.
-        """
-
-        with self.connection.transaction():
-
-            self.execute(
-                """
-                UPDATE users
-                SET
-                    password_hash = ?,
-                    full_name = ?,
-                    email = ?,
-                    is_active = ?,
-                    updated_at = datetime('now')
-                WHERE id = ?
-                """,
-                (
-                    user.password_hash,
-                    user.full_name,
-                    user.email,
-                    int(user.is_active),
-                    user.id,
+        return [
+            Role(
+                id=row["id"],
+                name=row["name"],
+                description=row["description"],
+                created_at=(
+                    datetime.fromisoformat(
+                        row["created_at"],
+                    )
+                    if row["created_at"]
+                    else None
+                ),
+                updated_at=(
+                    datetime.fromisoformat(
+                        row["updated_at"],
+                    )
+                    if row["updated_at"]
+                    else None
                 ),
             )
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
     # Delete
@@ -279,10 +245,10 @@ class UserRepository(Repository):
 
     def delete(
         self,
-        user_id: int,
+        assignment_id: int,
     ) -> None:
         """
-        Delete a user.
+        Remove a role from a user.
         """
 
         with self.connection.transaction():
@@ -290,10 +256,40 @@ class UserRepository(Repository):
             self.execute(
                 """
                 DELETE
-                FROM users
+                FROM user_roles
                 WHERE id = ?
                 """,
-                (user_id,),
+                (
+                    assignment_id,
+                ),
+            )
+
+    # ------------------------------------------------------------------
+    # Delete by role
+    # ------------------------------------------------------------------
+
+    def delete_role(
+        self,
+        user_id: int,
+        role_id: int,
+    ) -> None:
+        """
+        Remove a specific role from a user.
+        """
+
+        with self.connection.transaction():
+
+            self.execute(
+                """
+                DELETE
+                FROM user_roles
+                WHERE user_id = ?
+                  AND role_id = ?
+                """,
+                (
+                    user_id,
+                    role_id,
+                ),
             )
 
     # ------------------------------------------------------------------
@@ -303,32 +299,20 @@ class UserRepository(Repository):
     @staticmethod
     def _from_row(
         row,
-    ) -> User:
+    ) -> UserRole:
         """
-        Convert a database row into a User.
+        Convert a database row into a UserRole.
         """
 
-        return User(
+        return UserRole(
             id=row["id"],
-            username=row["username"],
-            password_hash=row["password_hash"],
-            full_name=row["full_name"],
-            email=row["email"],
-            is_active=bool(
-                row["is_active"],
-            ),
+            user_id=row["user_id"],
+            role_id=row["role_id"],
             created_at=(
                 datetime.fromisoformat(
                     row["created_at"],
                 )
                 if row["created_at"]
-                else None
-            ),
-            updated_at=(
-                datetime.fromisoformat(
-                    row["updated_at"],
-                )
-                if row["updated_at"]
                 else None
             ),
         )

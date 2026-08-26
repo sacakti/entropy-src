@@ -1,5 +1,5 @@
 """
-Vault database table.
+User roles database table.
 """
 
 from __future__ import annotations
@@ -8,50 +8,50 @@ from lib.database.base import DatabaseObject
 from lib.database.connection import DatabaseConnection
 
 
-class VaultEntriesTable(DatabaseObject):
+class UserRolesTable(DatabaseObject):
     """
-    Stores Entropy Vault entries.
+    Associates users directly with roles.
     """
 
-    NAME = "vault_entries"
+    NAME = "user_roles"
 
     def create(
         self,
         connection: DatabaseConnection,
     ) -> None:
         """
-        Create the Vault entries table.
+        Create the user_roles table.
         """
 
         connection.execute(
             """
-            CREATE TABLE IF NOT EXISTS vault_entries
+            CREATE TABLE IF NOT EXISTS user_roles
             (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                namespace_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
 
-                key TEXT NOT NULL,
-
-                value TEXT NOT NULL,
-
-                type TEXT NOT NULL,
-
-                sensitive INTEGER NOT NULL DEFAULT 0,
+                role_id INTEGER NOT NULL,
 
                 created_at TEXT NOT NULL,
 
-                updated_at TEXT NOT NULL,
-
                 UNIQUE (
-                    namespace_id,
-                    key
+                    user_id,
+                    role_id
                 ),
 
                 FOREIGN KEY (
-                    namespace_id
+                    user_id
                 )
-                REFERENCES vault_namespaces (
+                REFERENCES users (
+                    id
+                )
+                ON DELETE CASCADE,
+
+                FOREIGN KEY (
+                    role_id
+                )
+                REFERENCES roles (
                     id
                 )
                 ON DELETE CASCADE

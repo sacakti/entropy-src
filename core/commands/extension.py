@@ -38,6 +38,12 @@ class ExtensionCommand(
         assert context.extension_manager is not None
         assert context.ui is not None
         assert context.observability is not None
+        assert context.authorization is not None
+        assert context.session_manager is not None
+
+        self._authorization = context.authorization
+
+        self._session = context.session_manager
 
         self._extensions = context.extension_manager
 
@@ -188,6 +194,10 @@ class ExtensionCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "extensions.install",
+        )
+
         manifest = self._loader.from_name(
             name=args.name,
             version=args.version,
@@ -240,6 +250,10 @@ class ExtensionCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "extensions.install",
+        )
+
         self._ui.rule(
             f"Uninstall Extension : {args.name}",
         )
@@ -260,6 +274,10 @@ class ExtensionCommand(
         self,
         args: Namespace,
     ) -> None:
+
+        self._require(
+            "extensions.list",
+        )
 
         extensions = self._extensions.list()
 
@@ -301,6 +319,10 @@ class ExtensionCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "extensions.list",
+        )
+
         self._ui.rule(
             "Available Extension Wheels",
         )
@@ -337,6 +359,10 @@ class ExtensionCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "extensions.list",
+        )
+
         self._ui.rule(
             f"Verify Extension : {args.name}",
         )
@@ -357,6 +383,10 @@ class ExtensionCommand(
         self,
         args: Namespace,
     ) -> None:
+
+        self._require(
+            "extensions.install",
+        )
 
         self._ui.rule(
             f"Repair Extension : {args.name}",
@@ -379,6 +409,10 @@ class ExtensionCommand(
         args: Namespace,
     ) -> None:
 
+        self._require(
+            "extensions.download",
+        )
+
         manifest = self._loader.from_name(
             name=args.name,
             version=args.version,
@@ -394,4 +428,16 @@ class ExtensionCommand(
 
         self._extensions.download(
             manifest,
+        )
+
+    def _require(
+        self,
+        permission: str,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            permission,
         )
