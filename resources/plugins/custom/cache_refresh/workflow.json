@@ -1,0 +1,52 @@
+{
+    "name": "Cache Refresh Validation",
+    "version": "1.0.0",
+    "description": "Validate cache refresh configuration and OpenShift access.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "CacheRefresh",
+            "plugin": "custom.cache_refresh",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "openshift",
+                "cache"
+            ],
+            "arguments": {
+                "kubeconfig": "/path/to/kubeconfig",
+                "namespace": "SIT",
+
+                "rebuild": true,
+                "stop_all_before_cache_rebuild": true,
+                "mode": "force",
+
+                "services": [
+                    "app-1",
+                    "app-2",
+                    "app-3"
+                ],
+
+                "cache": {
+                    "deployment": "app-1",
+                    "environment": {
+                        "name": "CACHE_REFRESH",
+                        "value": "true"
+                    }
+                },
+
+                "startup": {
+                    "messages": [
+                        "Catalina server startup completed"
+                    ],
+                    "timeout": 300,
+                    "poll_interval": 5
+                },
+
+                "parallel": true
+            }
+        }
+    ]
+}
