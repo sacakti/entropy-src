@@ -75,6 +75,8 @@ class Application:
 
         self._factory.discover()
 
+        self._check_plugin_updates()
+
     # ------------------------------------------------------------------
     # Runtime
     # ------------------------------------------------------------------
@@ -133,3 +135,49 @@ class Application:
         transaction.recover()
 
         print("Entropy upgrade recovery completed.")
+
+    def _check_plugin_updates(
+        self,
+    ) -> None:
+        """
+        Check for available plugin updates.
+
+        Plugin changes are only reported here. No plugin is
+        installed, upgraded, or removed automatically.
+        """
+
+        assert self.context.plugin_manager is not None
+        assert self.context.bootstrap is not None
+        assert self.context.ui is not None
+
+        source = (
+            self.context.bootstrap.application.directory
+            / "resources"
+            / "plugins"
+        )
+
+        if not source.is_dir():
+
+            return
+
+        changes = self.context.plugin_manager.check_updates(
+            source,
+        )
+
+        changes = [
+            change
+            for change in changes
+            if change.change_type.value in {
+                "new",
+                "upgrade",
+            }
+        ]
+
+        if not changes:
+
+            return
+
+        self.context.ui.info(
+            f"{len(changes)} plugin update(s) available. "
+            "Run 'ent plugin upgrade' to review and upgrade.",
+        )

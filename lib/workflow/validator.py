@@ -3,12 +3,15 @@ Workflow validator.
 """
 
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 from lib.models.workflow import (
     Workflow,
     WorkflowStep,
 )
-from lib.plugins.manager import PluginManager
+
+if TYPE_CHECKING:
+    from lib.plugins.manager import PluginManager
 
 from .exceptions import (
     InvalidWorkflowError,

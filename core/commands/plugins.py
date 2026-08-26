@@ -170,6 +170,39 @@ class PluginCommand(
             help="Plugin source directory.",
         )
 
+                #
+        # upgrade
+        #
+
+        upgrade = subparsers.add_parser(
+            "upgrade",
+            help="Check and upgrade plugins.",
+        )
+
+        upgrade.add_argument(
+            "--path",
+            type=Path,
+            help="Plugin source directory.",
+        )
+
+        upgrade.add_argument(
+            "--show",
+            action="store_true",
+            help="Show available plugin changes without upgrading.",
+        )
+
+        upgrade.add_argument(
+            "--confirm",
+            action="store_true",
+            help="Upgrade without confirmation.",
+        )
+
+        upgrade.add_argument(
+            "--force",
+            action="store_true",
+            help="Allow plugin downgrades.",
+        )
+
         #
         # enable / disable
         #
@@ -230,6 +263,7 @@ class PluginCommand(
             "run": self._run,
             "verify": self._verify,
             "repair": self._repair,
+            "upgrade": self._upgrade,
             "set": self._set,
             "man": self._man,
         }[args.action](
@@ -537,4 +571,169 @@ class PluginCommand(
 
         self._ui.print(
             result.to_dict(),
+        )
+
+    # ------------------------------------------------------------------
+    # Upgrade
+    # ------------------------------------------------------------------
+
+    def _upgrade(
+        self,
+        args: Namespace,
+    ) -> None:
+        """
+        Check and upgrade available plugins.
+        """
+
+        if args.show and args.confirm:
+
+            raise ValueError(
+                "'--show' cannot be used with '--confirm'.",
+            )
+
+        source = (
+            args.path.expanduser().resolve()
+            if args.path is not None
+            else self._default_plugin_source()
+        )
+
+        if not source.exists():
+
+            raise ValueError(
+                f"Plugin source directory does not exist: {source}",
+            )
+
+        if not source.is_dir():
+
+            raise ValueError(
+                f"Plugin source is not a directory: {source}",
+            )
+
+        self._ui.rule(
+            "Plugin Upgrade",
+        )
+
+        self._ui.info(
+            f"Scanning plugin source: {source}",
+        )
+
+        plan = self._plugins.plan_upgrade(
+            source,
+            force=args.force,
+        )
+
+        if not plan.changes:
+
+            self._ui.success(
+                "All installed plugins are up to date.",
+            )
+
+            return
+
+        self._render_upgrade_plan(
+            plan,
+        )
+
+        if args.show:
+
+            return
+
+        if not args.confirm:
+
+            if not self._ui.confirm(
+                "Proceed with plugin upgrade?",
+            ):
+
+                self._ui.info(
+                    "Plugin upgrade cancelled.",
+                )
+
+                return
+
+        result = self._plugins.upgrade(
+            source,
+            force=args.force,
+        )
+
+        if result.success:
+
+            self._ui.success(
+                f"Successfully upgraded {len(result.upgraded)} plugin(s).",
+            )
+
+            return
+
+        self._ui.error(
+            "Plugin upgrade completed with errors.",
+        )
+
+        if result.upgraded:
+
+            self._ui.success(
+                f"Successfully upgraded "
+                f"{len(result.upgraded)} plugin(s).",
+            )
+
+        if result.failed:
+
+            self._ui.error(
+                f"Failed to upgrade "
+                f"{len(result.failed)} plugin(s).",
+            )
+
+    def _default_plugin_source(
+        self,
+    ) -> Path:
+        """
+        Return the default plugin source directory.
+        """
+
+        assert self.context.bootstrap is not None
+
+        return (
+            self.context.bootstrap.application.directory
+            / "resources"
+            / "plugins"
+        ).resolve()
+
+    def _render_upgrade_plan(
+        self,
+        plan,
+    ) -> None:
+        """
+        Render available plugin changes.
+        """
+
+        rows = []
+
+        for change in plan.changes:
+
+            installed = (
+                change.installed.version
+                if change.installed is not None
+                else "-"
+            )
+
+            rows.append(
+                [
+                    change.manifest.qualified_name,
+                    installed,
+                    change.manifest.version,
+                    change.change_type.value,
+                ],
+            )
+
+        self._ui.table(
+            title="Plugin Updates Available",
+            columns=[
+                "Plugin",
+                "Installed",
+                "Available",
+                "Change",
+            ],
+            rows=rows,
+        )
+
+        self._ui.info(
+            f"{len(plan.changes)} plugin change(s) available.",
         )

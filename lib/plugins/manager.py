@@ -10,6 +10,7 @@ from core.context import EntropyContext
 from lib.database.repositories.plugin_registry import PluginRepository
 from lib.models.plugin import Plugin, PluginResult
 from lib.plugins.mode import PluginMode
+from lib.plugins.updater.source import PluginSourceDiscovery
 
 from .discovery import PluginDiscovery
 from .installer import PluginInstaller
@@ -17,6 +18,14 @@ from .loader import PluginLoader
 from .manifest import ManifestReader
 from .registry import PluginRegistry
 from .runner import PluginRunner
+from .updater import (
+    PluginChange,
+    PluginChangeDetector,
+    PluginUpgradeExecutor,
+    PluginUpgradePlan,
+    PluginUpgradePlanner,
+    PluginUpgradeResult,
+)
 from .validator import ManifestValidator
 
 
@@ -84,6 +93,26 @@ class PluginManager:
             validator=self._validator,
             extensions=context.extension_manager,
             migrations=context.migration_manager,
+        )
+
+        #
+        # Plugin upgrade
+        #
+
+        source_discovery = PluginSourceDiscovery(
+            reader=self._reader,
+            validator=self._validator,
+        )
+
+        self._change_detector = PluginChangeDetector(
+            repository=self._repository,
+            source_discovery=source_discovery,
+        )
+
+        self._upgrade_planner = PluginUpgradePlanner()
+
+        self._upgrade_executor = PluginUpgradeExecutor(
+            installer=self._installer,
         )
 
         #
@@ -480,4 +509,59 @@ class PluginManager:
             context=context,
             directory=directory,
             mode=mode,
+        )
+
+    # Plugin upgrade
+    def check_updates(
+        self,
+        source: Path,
+    ) -> list[PluginChange]:
+        """
+        Detect available plugin changes.
+
+        This operation is read-only.
+        """
+
+        return self._change_detector.detect(
+            source,
+        )
+
+    def plan_upgrade(
+        self,
+        source: Path,
+        *,
+        force: bool = False,
+    ) -> PluginUpgradePlan:
+        """
+        Create a plugin upgrade plan.
+
+        This operation is read-only.
+        """
+
+        changes = self.check_updates(
+            source,
+        )
+
+        return self._upgrade_planner.plan(
+            changes,
+            force=force,
+        )
+
+    def upgrade(
+        self,
+        source: Path,
+        *,
+        force: bool = False,
+    ) -> PluginUpgradeResult:
+        """
+        Detect, plan, and execute plugin upgrades.
+        """
+
+        plan = self.plan_upgrade(
+            source,
+            force=force,
+        )
+
+        return self._upgrade_executor.execute(
+            plan,
         )
