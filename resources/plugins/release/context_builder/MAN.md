@@ -1,60 +1,117 @@
-# context_builder
-
-
+# release.context_builder
 
 ------------------------------------------------------------------------
 
 ## Overview
 
-Describe what this plugin does.
+The `release.context_builder` plugin analyses an Entropy release package
+and produces a structured execution context for subsequent workflow
+steps.
 
-Explain:
+The plugin is responsible for resolving release-related information
+needed by deployment and operational plugins. The generated context is
+published as workflow outputs and may be consumed by later steps using
+workflow interpolation.
 
--   The purpose of the plugin.
--   The problem it solves.
--   When it should be used.
--   Important behavior users should understand.
+The plugin can analyse:
+
+- Release package content.
+- Docker services and images requiring builds.
+- OpenShift Deployment changes.
+- OpenShift ConfigMap and Secret resources.
+- OpenShift Service and Route resources when identified by the release
+  analysis.
+- Common-path/rsync operations.
+- Database scripts.
+- Database execution-plan information.
+
+The plugin does **not** itself build Docker images, modify Deployment
+YAML files, apply OpenShift resources, execute database scripts, or
+perform rsync operations. It produces the context required by other
+plugins to perform those operations.
 
 ------------------------------------------------------------------------
 
 ## Requirements
 
-Document the requirements for using this plugin.
+The plugin requires:
 
-Examples:
+- A valid Entropy release package.
+- A Docker repository containing the repository structure expected by
+  the release analysis.
+- A YAML repository containing the target OpenShift YAML files.
+- A valid image tag.
+- A valid release structure definition, either supplied explicitly or
+  available as the plugin's bundled `structure.yaml`.
+- Entropy workflow execution with the plugin installed and available.
 
--   Required operating system.
--   Required system commands.
--   Required permissions.
--   Required environment configuration.
--   Required files or directories.
--   Required Entropy services.
--   External dependencies.
+The plugin uses Entropy's filesystem and archive services through the
+plugin runtime.
+
+No direct OpenShift login is performed by this plugin.
+
+No direct Docker registry authentication is performed by this plugin.
+
+No direct database connection is established by this plugin.
 
 ------------------------------------------------------------------------
 
 ## Arguments
 
-Document all arguments accepted by the plugin.
-
-  Argument    Required   Type       Default   Description
-  ----------- ---------- ---------- --------- ------------------------
-  `example`   No         `string`   ---       Describe the argument.
+| Argument | Required | Type | Default | Description |
+|---|---|---|---|---|
+| `release` | Yes | `path` | --- | Release package to analyse. |
+| `docker_repository` | Yes | `path` | --- | Docker repository used during release analysis. |
+| `yaml_repository` | Yes | `path` | --- | YAML repository containing target OpenShift resources. |
+| `image_tag` | Yes | `string` | --- | Target image tag used when generating deployment context. |
+| `structure` | No | `path` | Plugin `structure.yaml` | Optional release structure definition. |
 
 ### Argument Details
 
-#### `example`
+#### `release`
 
-Describe the argument in detail.
+Path to the release package that must be analysed.
 
-Document:
+The value is resolved as an Entropy path argument and must identify a
+release that can be processed by the release analyzer.
 
--   Accepted values.
--   Expected format.
--   Validation rules.
--   Default behavior.
--   Special behavior.
--   Restrictions.
+The plugin does not itself extract or modify the release permanently;
+release processing is delegated to `ReleaseAnalyzer`.
+
+#### `docker_repository`
+
+Path to the Docker repository used by release analysis.
+
+The analyzer uses this repository to determine Docker-related release
+information, including services and image build requirements.
+
+#### `yaml_repository`
+
+Path to the repository containing the target OpenShift YAML resources.
+
+The analyzer uses this repository when determining deployment and other
+OpenShift resource changes.
+
+#### `image_tag`
+
+Target image tag associated with the release.
+
+The value is passed to the release analyzer and is used when producing
+deployment context, including target image information.
+
+#### `structure`
+
+Optional path to a release structure YAML file.
+
+When omitted, the plugin uses the bundled structure definition located
+beside the plugin:
+
+```text
+structure.yaml
+```
+
+The supplied structure file must conform to the release structure format
+expected by the release structure resolver.
 
 ------------------------------------------------------------------------
 
@@ -64,14 +121,22 @@ The plugin is executed through a workflow step.
 
 ### Basic Configuration
 
-``` json
+```json
 {
-    "name": "Execute context_builder",
-    "plugin": "",
+    "name": "Build Release Context",
+    "plugin": "release.context_builder",
     "enabled": true,
-    "continue_on_error": false,
-    "tags": [],
-    "arguments": {}
+    "on_failure": "abort",
+    "tags": [
+        "release",
+        "context_builder"
+    ],
+    "arguments": {
+        "release": "/path/to/release.zip",
+        "docker_repository": "/path/to/docker/repository",
+        "yaml_repository": "/path/to/yaml/repository",
+        "image_tag": "1.0.0"
+    }
 }
 ```
 
@@ -79,20 +144,33 @@ The plugin is executed through a workflow step.
 
 ## Complete Workflow Example
 
-``` json
+```json
 {
-    "name": "context_builder Workflow",
+    "name": "Release Context Workflow",
     "version": "1.0.0",
-    "description": "",
-    "variables": {},
+    "description": "Build release execution context.",
+    "variables": {
+        "release": "/path/to/release.zip",
+        "docker_repository": "/path/to/docker/repository",
+        "yaml_repository": "/path/to/yaml/repository",
+        "image_tag": "1.0.0"
+    },
     "steps": [
         {
-            "name": "Execute context_builder",
-            "plugin": "",
+            "name": "BuildReleaseContext",
+            "plugin": "release.context_builder",
             "enabled": true,
-            "continue_on_error": false,
-            "tags": [],
-            "arguments": {}
+            "on_failure": "abort",
+            "tags": [
+                "release",
+                "context_builder"
+            ],
+            "arguments": {
+                "release": "${release}",
+                "docker_repository": "${docker_repository}",
+                "yaml_repository": "${yaml_repository}",
+                "image_tag": "${image_tag}"
+            }
         }
     ]
 }
@@ -102,114 +180,261 @@ The plugin is executed through a workflow step.
 
 ## Workflow Variables
 
-Document workflow variables consumed by this plugin.
+The plugin does not define its own persistent workflow variables.
+
+Plugin arguments can receive values from workflow variables through
+Entropy workflow interpolation.
 
 ### Example
 
-``` json
+```json
 {
     "variables": {
-        "example": "value"
+        "release": "/path/to/release.zip",
+        "docker_repository": "/path/to/docker/repository",
+        "yaml_repository": "/path/to/yaml/repository",
+        "image_tag": "1.1.10"
     }
 }
 ```
 
-The variable can then be referenced by plugin arguments where supported.
+The variables can then be referenced by plugin arguments:
 
-### Example
-
-``` json
+```json
 {
     "arguments": {
-        "example": "${example}"
+        "release": "${release}",
+        "docker_repository": "${docker_repository}",
+        "yaml_repository": "${yaml_repository}",
+        "image_tag": "${image_tag}"
     }
 }
 ```
 
-Document any variable-specific requirements or restrictions here.
+The resolved values must satisfy the argument requirements described in
+the **Arguments** section.
 
 ------------------------------------------------------------------------
 
 ## Vault Variables
 
-Document any Vault values that may be consumed by this plugin.
+The plugin does not directly require Vault values.
 
-### Example
+Workflow variables may still be resolved from Entropy Vault by the
+workflow engine before the plugin receives its runtime arguments, if
+such values are used by the workflow.
 
-``` json
+Example:
+
+```json
 {
     "variables": {
-        "password": "${entv:database_password}"
+        "release": "${entv:RELEASE_PATH}"
     }
 }
 ```
 
-Vault values are resolved by the workflow engine before the plugin
-receives its runtime variables.
-
 Do not place actual passwords, tokens, credentials, private keys, or
-other sensitive values in this document.
+other sensitive values in workflow documentation.
 
 ------------------------------------------------------------------------
 
 ## Execution
 
-Describe how the plugin executes.
+The plugin executes in the following major stages:
 
-Document the major execution stages.
+1. Log the beginning of release context analysis.
+2. Resolve the required `release` path.
+3. Resolve the required `docker_repository` path.
+4. Resolve the required `yaml_repository` path.
+5. Resolve the required `image_tag`.
+6. Resolve the optional `structure` path.
+7. If `structure` is not supplied, use the plugin's bundled
+   `structure.yaml`.
+8. Create a `ReleaseAnalyzer`.
+9. Analyse the release.
+10. Store the generated context in plugin outputs.
+11. Report the number of images requiring builds.
+12. Report the number of planned deployment resource changes.
+13. Report the number of discovered database scripts.
+14. Report the number of rsync/common-path operations.
+15. Return the generated context as a successful `PluginResult`.
 
-For example:
-
-1.  Validate the supplied arguments.
-2.  Prepare required resources.
-3.  Execute the requested operation.
-4.  Publish workflow outputs.
-5.  Publish workflow artifacts.
-6.  Complete the plugin execution.
-
-Document any conditional execution paths.
+The plugin itself performs analysis. Actual deployment, OpenShift
+application, YAML replacement, Docker image transfer, rsync execution,
+and database execution are handled by other workflow plugins.
 
 ------------------------------------------------------------------------
 
 ## Outputs
 
-Document the outputs produced by the plugin.
+The plugin publishes the release analysis context into workflow
+outputs.
 
-  Output      Type       Description
-  ----------- ---------- ----------------------
-  `example`   `string`   Describe the output.
+The top-level output structure is:
 
-### Example
-
-``` text
-outputs:
-    example = "value"
+```text
+outputs
+├── release
+├── images
+├── deployment
+│   ├── required
+│   ├── resources
+│   │   ├── deployments
+│   │   ├── configmaps
+│   │   ├── secrets
+│   │   ├── services
+│   │   └── routes
+│   └── operations
+│       ├── apply
+│       └── replace
+├── common_paths
+└── database
+    ├── scripts
+    └── execution_plan
 ```
 
-Document whether each output is:
+The exact contents of these structures are produced by the
+`ReleaseAnalyzer`.
 
--   Always available.
--   Available only on success.
--   Available only under certain conditions.
--   Intended for consumption by later workflow steps.
+### `release`
+
+Contains release-related paths and information produced by analysis.
+
+A typical context may contain values such as:
+
+```json
+{
+    "package": "/path/to/release.zip",
+    "root": "/path/to/release",
+    "docker_source_release": "/path/to/release/App/services",
+    "docker_dest_repo": "/path/to/docker/repository"
+}
+```
+
+### `images`
+
+Contains Docker image build information identified during release
+analysis.
+
+A typical image entry contains:
+
+```json
+{
+    "app-1": {
+        "dockerfile": "/path/to/repository/app-1/image/Dockerfile",
+        "context": "/path/to/repository/app-1",
+        "image_name": "app-1",
+        "image_tag": "1.0.0"
+    }
+}
+```
+
+### `deployment`
+
+Contains the OpenShift deployment execution context.
+
+Example:
+
+```json
+{
+    "required": true,
+    "resources": {
+        "deployments": [
+            {
+                "name": "app-1",
+                "file": "deployments/app-1.yaml",
+                "container": "app-1",
+                "current_image": "quay.io/project/app-1:1.0.0",
+                "target_image": "quay.io/project/app-1:1.1.0"
+            }
+        ],
+        "configmaps": [],
+        "secrets": [],
+        "services": [],
+        "routes": []
+    },
+    "operations": {
+        "apply": [
+            "/path/to/yaml/repository/deployments/app-1.yaml"
+        ],
+        "replace": []
+    }
+}
+```
+
+The deployment output is intended to be consumed by subsequent
+deployment-related plugins.
+
+### `common_paths`
+
+Contains common-path/rsync operations identified from the release.
+
+Example:
+
+```json
+[
+    {
+        "deployment": "app-1",
+        "target": "/opt/app/jrxml",
+        "source": "/path/to/release/App/openshift/common_path/jrxml"
+    }
+]
+```
+
+### `database`
+
+Contains database scripts and execution-plan information discovered
+during analysis.
+
+Example:
+
+```json
+{
+    "scripts": [],
+    "execution_plan": null
+}
+```
+
+### Example Workflow Output Consumption
+
+A later workflow step can consume generated deployment context:
+
+```json
+{
+    "arguments": {
+        "deployments": "${steps.BuildReleaseContext.outputs.deployment.resources.deployments}"
+    }
+}
+```
+
+Likewise, OpenShift operations can consume the generated operation
+lists:
+
+```json
+{
+    "arguments": {
+        "resource": "${steps.BuildReleaseContext.outputs.deployment.operations.apply}"
+    }
+}
+```
 
 ------------------------------------------------------------------------
 
 ## Artifacts
 
-Document workflow artifacts produced by the plugin.
+The plugin does not explicitly create workflow artifacts in the supplied
+implementation.
 
-  Artifact    Description
-  ----------- ------------------------
-  `example`   Describe the artifact.
+Its result metadata exposes the standard Entropy artifact collection:
 
-For each artifact, document:
+```text
+metadata.artifacts
+```
 
--   What it represents.
--   Where it points.
--   When it is created.
--   Whether it is always available.
--   Whether it can be consumed by subsequent workflow steps.
+This collection is populated from artifacts registered by the plugin
+runtime. No plugin-specific artifact is created directly by the
+`ContextBuilderPlugin` implementation shown here.
 
 ------------------------------------------------------------------------
 
@@ -217,62 +442,89 @@ For each artifact, document:
 
 ### Example 1 --- Basic Usage
 
-Describe the most common usage scenario.
-
-``` json
+```json
 {
-    "arguments": {}
+    "arguments": {
+        "release": "/releases/TC01.zip",
+        "docker_repository": "/repos/docker",
+        "yaml_repository": "/repos/yamls/SIT",
+        "image_tag": "1.1.10"
+    }
 }
 ```
 
-### Example 2 --- Advanced Usage
+This uses the plugin's bundled release structure definition.
 
-Describe an advanced usage scenario.
+### Example 2 --- Custom Structure
 
-``` json
+```json
 {
-    "arguments": {}
+    "arguments": {
+        "release": "/releases/TC01.zip",
+        "docker_repository": "/repos/docker",
+        "yaml_repository": "/repos/yamls/SIT",
+        "image_tag": "1.1.10",
+        "structure": "/config/custom-structure.yaml"
+    }
 }
 ```
+
+The custom structure replaces the plugin's default `structure.yaml`.
 
 ### Example 3 --- Using Workflow Variables
 
-``` json
+```json
 {
     "variables": {
-        "example": "value"
+        "release": "/releases/TC01.zip",
+        "docker_repository": "/repos/docker",
+        "yaml_repository": "/repos/yamls/SIT",
+        "image_tag": "1.1.10"
     },
     "steps": [
         {
-            "name": "Execute context_builder",
-            "plugin": "",
+            "name": "BuildReleaseContext",
+            "plugin": "release.context_builder",
             "enabled": true,
-            "continue_on_error": false,
+            "on_failure": "abort",
             "tags": [],
             "arguments": {
-                "example": "${example}"
+                "release": "${release}",
+                "docker_repository": "${docker_repository}",
+                "yaml_repository": "${yaml_repository}",
+                "image_tag": "${image_tag}"
             }
         }
     ]
 }
 ```
 
-### Example 4 --- Using Vault Variables
+### Example 4 --- Passing Context to Later Steps
 
-``` json
+```json
 {
-    "variables": {
-        "secret": "${entv:example_secret}"
-    },
     "steps": [
         {
-            "name": "Execute context_builder",
-            "plugin": "",
+            "name": "BuildReleaseContext",
+            "plugin": "release.context_builder",
             "enabled": true,
-            "continue_on_error": false,
-            "tags": [],
+            "on_failure": "abort",
             "arguments": {
-                "secret": "${secret}"
+                "release": "${release}",
+                "docker_repository": "${docker_repository}",
+                "yaml_repository": "${yaml_repository}",
+                "image_tag": "${image_tag}"
+            }
+        },
+        {
+            "name": "DeploymentYAMLUpdate",
+            "plugin": "oc.deployment",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "mode": "deployments",
+                "repository": "${yaml_repository}",
+                "deployments": "${steps.BuildReleaseContext.outputs.deployment.resources.deployments}"
             }
         }
     ]
@@ -283,223 +535,342 @@ Describe an advanced usage scenario.
 
 ## Validation
 
-Document all validation performed by the plugin.
+The plugin performs the following argument validation through Entropy's
+typed argument interface:
 
-Examples:
+- `release` is required and resolved as a path.
+- `docker_repository` is required and resolved as a path.
+- `yaml_repository` is required and resolved as a path.
+- `image_tag` is required and resolved as a string.
+- `structure` is optional and resolved as a path.
+- A default structure file is selected when `structure` is omitted.
 
--   Required arguments.
--   Argument types.
--   Allowed values.
--   Mutually exclusive arguments.
--   File validation.
--   Directory validation.
--   Configuration validation.
--   Runtime prerequisites.
+Additional release-content validation is performed by
+`ReleaseAnalyzer` and the release structure resolver.
 
 ### Validation Errors
 
-Document the conditions under which plugin execution fails.
+Failures during argument resolution or release analysis are converted
+into an unsuccessful `PluginResult`.
 
-Example:
+The plugin records the exception message in the result's `errors`
+collection.
 
-``` text
-Argument 'example' is required.
-```
+The implementation does not expose a separate plugin-specific
+validation-error schema.
 
 ------------------------------------------------------------------------
 
 ## Error Handling
 
-Describe how errors are handled.
+The plugin catches `ContextBuilderPluginException` and returns:
 
-Document:
+```text
+success = false
+changed = false
+errors = [error message]
+```
 
--   Validation failures.
--   Runtime failures.
--   External command failures.
--   File operation failures.
--   Network failures.
--   Partial-operation behavior.
--   Cleanup behavior after failure.
--   Whether the plugin raises an error.
--   Whether `continue_on_error` can be used at the workflow level.
+Unexpected exceptions are also caught and returned as an unsuccessful
+plugin result.
+
+The plugin logs the exception and displays the error through the
+Entropy message interface.
+
+Because the plugin is normally executed as a workflow step, the
+workflow's failure policy (`on_failure`) determines whether subsequent
+workflow execution continues or aborts.
+
+The plugin does not perform destructive rollback operations because its
+primary responsibility is context generation.
 
 ------------------------------------------------------------------------
 
 ## Security
 
-Document security-related behavior.
+The plugin itself does not authenticate to OpenShift, Docker registries,
+databases, or other external services.
 
-Examples:
+Important considerations:
 
--   Sensitive values.
--   Credentials.
--   Authentication.
--   Authorization.
--   File permissions.
--   Temporary files.
--   External command execution.
--   Secret handling.
--   Data persistence.
+- Release paths may expose deployment or application information.
+- Generated context can contain repository paths and deployment
+  information.
+- Database execution-plan data may contain operational information.
+- Workflow outputs should be treated according to the sensitivity of the
+  underlying release data.
+- Do not place credentials directly into release context documentation.
+- Do not log or persist sensitive workflow variables unnecessarily.
 
-Never include real credentials, passwords, tokens, private keys, or
-other sensitive values in this document.
+Vault values, when used by a workflow, are resolved by the workflow
+engine rather than directly by this plugin.
 
 ------------------------------------------------------------------------
 
 ## Filesystem
 
-Document files and directories used by the plugin.
+| Path | Purpose |
+|---|---|
+| `release` | Release package supplied for analysis. |
+| `docker_repository` | Docker repository used during analysis. |
+| `yaml_repository` | Target OpenShift YAML repository. |
+| `structure` | Optional release structure definition. |
+| Plugin `structure.yaml` | Default structure definition used when no custom structure is supplied. |
 
-  Path              Purpose
-  ----------------- --------------------
-  `/path/example`   Describe the path.
+The exact files read from the release package and repositories are
+determined by `ReleaseAnalyzer` and the release structure definition.
 
-Document whether paths:
-
--   Must already exist.
--   Are created automatically.
--   Are modified.
--   Are deleted.
--   Are temporary.
--   Must be writable.
--   Must be readable.
+The plugin's supplied implementation does not explicitly delete the
+release, Docker repository, YAML repository, or structure file.
 
 ------------------------------------------------------------------------
 
 ## External Commands
 
-If the plugin executes operating-system commands, document them here.
+The `ContextBuilderPlugin` implementation does not directly execute
+operating-system commands.
 
-### Example
+No `docker`, `oc`, `kubectl`, `git`, `rsync`, or database CLI command is
+executed by this plugin itself.
 
-``` bash
-command --option value
-```
-
-Document:
-
--   Why the command is executed.
--   Required command availability.
--   Important arguments.
--   Expected behavior.
--   Failure conditions.
--   Required permissions.
+Those operations are represented in the generated context for
+subsequent workflow steps.
 
 ------------------------------------------------------------------------
 
 ## External Services
 
-Document external services accessed by the plugin.
+The plugin does not directly connect to an external service.
 
-Examples:
+It analyses local release and repository content and produces execution
+context.
 
--   Docker.
--   OpenShift.
--   Kubernetes.
--   Git.
--   HTTP/HTTPS services.
--   Cloud services.
--   Databases.
+The generated context may subsequently be consumed by plugins that
+interact with:
 
-For each service, document:
+- Docker registries.
+- OpenShift/Kubernetes.
+- Git repositories.
+- Remote filesystems.
+- Databases.
 
--   Purpose.
--   Required authentication.
--   Required configuration.
--   Expected connectivity.
--   Failure behavior.
+Authentication for those services is outside the direct responsibility
+of this plugin.
 
 ------------------------------------------------------------------------
 
 ## Side Effects
 
-Document operations that modify external state.
+The plugin's primary side effect is generation of workflow output.
 
-Examples:
+It:
 
--   Files created.
--   Files modified.
--   Files deleted.
--   Directories created.
--   Containers created.
--   Images pulled.
--   Images pushed.
--   Remote systems contacted.
--   Database changes.
--   External commands executed.
+- Reads the supplied release.
+- Reads the Docker repository.
+- Reads the YAML repository.
+- Reads the release structure.
+- Produces an in-memory execution context.
+- Publishes that context through plugin outputs.
+- Emits informational and error messages.
+
+The supplied `ContextBuilderPlugin` implementation does not directly
+modify Deployment YAML files or apply OpenShift resources.
 
 ------------------------------------------------------------------------
 
 ## Performance
 
-Document any relevant performance considerations.
+Performance depends primarily on:
 
-Examples:
+- Release package size.
+- Number of release files.
+- Number of Docker services.
+- Number of YAML resources.
+- Number of database scripts.
+- Number of common-path resources.
+- Filesystem performance.
 
--   Large file processing.
--   Network operations.
--   Docker image transfers.
--   Long-running commands.
--   Storage requirements.
--   Timeout behavior.
+The plugin performs release analysis synchronously during workflow
+execution.
+
+For large releases and repositories, analysis time may increase with
+the number of files that must be inspected.
 
 ------------------------------------------------------------------------
 
 ## Limitations
 
-Document known limitations.
+Known limitations from the supplied implementation include:
 
-Examples:
-
--   Unsupported operating systems.
--   Unsupported file formats.
--   Unsupported argument combinations.
--   Maximum supported values.
--   External tool limitations.
--   Known operational constraints.
+- The plugin only supports the release structure understood by
+  `ReleaseStructureResolver` and `ReleaseAnalyzer`.
+- A missing or invalid release structure can cause analysis failure.
+- Required paths and image tag must be supplied.
+- The plugin does not itself perform the operations represented in the
+  generated context.
+- The exact resource discovery behavior depends on the implementation
+  of `ReleaseAnalyzer`.
+- The exact output contents are determined by release analysis and can
+  vary between releases.
+- The plugin does not provide a separate execution-plan validation layer
+  beyond the validation performed by the underlying analysis components.
 
 ------------------------------------------------------------------------
 
 ## Troubleshooting
 
-Document common problems and their solutions.
-
 ### Problem
 
-Describe the problem.
-
-### Cause
-
-Describe the cause.
-
-### Solution
-
-Describe the solution.
-
-Example:
-
-``` text
-Command not found.
-```
+`release` argument is missing or invalid.
 
 **Cause**
 
-The required external command is not available.
+The workflow did not provide a valid release path.
 
 **Solution**
 
-Install the required command and ensure it is available in `PATH`.
+Provide the release package through the `release` argument.
+
+```json
+{
+    "arguments": {
+        "release": "/releases/TC01.zip"
+    }
+}
+```
+
+### Problem
+
+Docker-related output is empty or incomplete.
+
+**Cause**
+
+The Docker repository or release structure does not match the expected
+release layout.
+
+**Solution**
+
+Verify the `docker_repository` path and ensure the release follows the
+configured structure.
+
+### Problem
+
+Deployment resources are missing from the generated context.
+
+**Cause**
+
+The release analyzer did not identify matching Deployment resources in
+the supplied release/YAML repository.
+
+**Solution**
+
+Verify:
+
+- `yaml_repository` points to the correct repository.
+- The target YAML files exist.
+- The release contains the expected OpenShift information.
+- The release structure correctly identifies the OpenShift YAML path.
+
+### Problem
+
+The default structure file cannot be loaded.
+
+**Cause**
+
+The plugin's bundled `structure.yaml` is missing or invalid.
+
+**Solution**
+
+Verify that the plugin installation contains its `structure.yaml` beside
+the plugin implementation.
+
+Alternatively, supply an explicit `structure` argument.
+
+### Problem
+
+A later deployment plugin receives an empty resource list.
+
+**Cause**
+
+The context builder did not identify a corresponding resource, or the
+workflow is referencing the wrong output path.
+
+**Solution**
+
+Inspect:
+
+```text
+${steps.BuildReleaseContext.outputs.deployment.resources}
+```
+
+and verify the specific resource collection being consumed.
+
+For example:
+
+```text
+${steps.BuildReleaseContext.outputs.deployment.resources.deployments}
+```
+
+### Problem
+
+A later OpenShift operation receives no resources.
+
+**Cause**
+
+The generated operation list is empty.
+
+**Solution**
+
+Inspect:
+
+```text
+${steps.BuildReleaseContext.outputs.deployment.operations.apply}
+```
+
+or:
+
+```text
+${steps.BuildReleaseContext.outputs.deployment.operations.replace}
+```
+
+depending on the required operation.
 
 ------------------------------------------------------------------------
 
 ## Notes
 
-Document important operational considerations that users should know
-before using the plugin.
+The plugin is designed as a **planning/context-building step** in a
+larger Entropy release workflow.
 
-Include any warnings, recommendations, compatibility notes, or special
-usage instructions.
+A typical workflow uses it before operational plugins:
+
+```text
+Release Package
+      |
+      v
+release.context_builder
+      |
+      +--> Docker build context
+      |
+      +--> Deployment context
+      |
+      +--> ConfigMap/Secret context
+      |
+      +--> Apply/Replace operations
+      |
+      +--> Rsync context
+      |
+      +--> Database context
+      |
+      v
+Subsequent execution plugins
+```
+
+The generated context is therefore an interface between release
+analysis and execution plugins.
+
+When adding or changing release structure definitions, ensure that the
+resulting context remains compatible with the plugins consuming it.
 
 ------------------------------------------------------------------------
 
@@ -507,4 +878,14 @@ usage instructions.
 
 ### 1.0.0
 
--   Initial plugin release.
+- Initial plugin release.
+- Added release package analysis.
+- Added Docker image build context generation.
+- Added OpenShift deployment context generation.
+- Added ConfigMap and Secret resource context generation.
+- Added Service and Route resource context generation.
+- Added apply and replace operation context generation.
+- Added common-path/rsync context generation.
+- Added database script and execution-plan context generation.
+- Added configurable release structure support.
+- Added bundled default `structure.yaml`.

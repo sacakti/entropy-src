@@ -7,6 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .exceptions import GenericPluginError
+
 from .model import SqlPlusExecution
 
 
@@ -24,12 +26,12 @@ class SqlPlusResolver:
         """
 
         if not isinstance(executions, list):
-            raise ValueError(
+            raise GenericPluginError(
                 "'executions' must be a list.",
             )
 
         if not executions:
-            raise ValueError(
+            raise GenericPluginError(
                 "'executions' must not be empty.",
             )
 
@@ -38,7 +40,7 @@ class SqlPlusResolver:
         for index, execution in enumerate(executions):
 
             if not isinstance(execution, dict):
-                raise ValueError(
+                raise GenericPluginError(
                     f"Execution {index + 1} must be an object.",
                 )
 
@@ -92,7 +94,7 @@ class SqlPlusResolver:
             )
 
             if not isinstance(schema, str) or not schema.strip():
-                raise ValueError(
+                raise GenericPluginError(
                     f"Schema is missing for application "
                     f"'{application}'.",
                 )
@@ -103,7 +105,7 @@ class SqlPlusResolver:
                 calling_script,
                 str,
             ) or not calling_script.strip():
-                raise ValueError(
+                raise GenericPluginError(
                     f"Calling script is missing for application "
                     f"'{application}'.",
                 )
@@ -113,7 +115,7 @@ class SqlPlusResolver:
             )
 
             if not isinstance(credentials, dict):
-                raise ValueError(
+                raise GenericPluginError(
                     f"Schema credentials not found for "
                     f"schema '{schema}'.",
                 )
@@ -130,7 +132,7 @@ class SqlPlusResolver:
                 username,
                 str,
             ) or not username:
-                raise ValueError(
+                raise GenericPluginError(
                     f"Username is missing for schema "
                     f"'{schema}'.",
                 )
@@ -139,7 +141,7 @@ class SqlPlusResolver:
                 password,
                 str,
             ):
-                raise ValueError(
+                raise GenericPluginError(
                     f"Password is missing for schema "
                     f"'{schema}'.",
                 )
@@ -151,7 +153,7 @@ class SqlPlusResolver:
             )
 
             if script is None:
-                raise ValueError(
+                raise GenericPluginError(
                     f"Calling script '{calling_script}' for "
                     f"application '{application}' was not found.",
                 )
@@ -169,7 +171,7 @@ class SqlPlusResolver:
             )
 
         if not result:
-            raise ValueError(
+            raise GenericPluginError(
                 "Execution plan contains no applications.",
             )
 
@@ -185,7 +187,7 @@ class SqlPlusResolver:
     ) -> dict[str, Any]:
 
         if not isinstance(connection, dict):
-            raise ValueError(
+            raise GenericPluginError(
                 "'connection' must be an object.",
             )
 
@@ -194,22 +196,22 @@ class SqlPlusResolver:
         sid = connection.get("SID")
 
         if not isinstance(ip, str) or not ip.strip():
-            raise ValueError(
+            raise GenericPluginError(
                 "Connection 'IP' must be a non-empty string.",
             )
 
         if isinstance(port, bool) or not isinstance(port, int):
-            raise ValueError(
+            raise GenericPluginError(
                 "Connection 'PORT' must be an integer.",
             )
 
         if not 1 <= port <= 65535:
-            raise ValueError(
+            raise GenericPluginError(
                 "Connection 'PORT' must be between 1 and 65535.",
             )
 
         if not isinstance(sid, str) or not sid.strip():
-            raise ValueError(
+            raise GenericPluginError(
                 "Connection 'SID' must be a non-empty string.",
             )
 
@@ -225,12 +227,12 @@ class SqlPlusResolver:
     ) -> dict[str, Any]:
 
         if not isinstance(schemas, dict):
-            raise ValueError(
+            raise GenericPluginError(
                 "'schemas' must be an object.",
             )
 
         if not schemas:
-            raise ValueError(
+            raise GenericPluginError(
                 "'schemas' must not be empty.",
             )
 
@@ -242,7 +244,7 @@ class SqlPlusResolver:
     ) -> dict[str, Any]:
 
         if not isinstance(execution_plan, dict):
-            raise ValueError(
+            raise GenericPluginError(
                 "'execution_plan' must be an object.",
             )
 
@@ -251,25 +253,25 @@ class SqlPlusResolver:
         )
 
         if not isinstance(applications, dict):
-            raise ValueError(
+            raise GenericPluginError(
                 "'execution_plan.applications' must be an object.",
             )
 
         if not applications:
-            raise ValueError(
+            raise GenericPluginError(
                 "'execution_plan.applications' must not be empty.",
             )
 
         for application, definition in applications.items():
 
             if not isinstance(application, str) or not application:
-                raise ValueError(
+                raise GenericPluginError(
                     "Execution-plan application name must be "
                     "a non-empty string.",
                 )
 
             if not isinstance(definition, dict):
-                raise ValueError(
+                raise GenericPluginError(
                     f"Execution-plan entry for '{application}' "
                     "must be an object.",
                 )
@@ -282,19 +284,19 @@ class SqlPlusResolver:
     ) -> list[dict[str, Any]]:
 
         if not isinstance(scripts, list):
-            raise ValueError(
+            raise GenericPluginError(
                 "'scripts' must be a list.",
             )
 
         if not scripts:
-            raise ValueError(
+            raise GenericPluginError(
                 "'scripts' must not be empty.",
             )
 
         for index, script in enumerate(scripts):
 
             if not isinstance(script, dict):
-                raise ValueError(
+                raise GenericPluginError(
                     f"Script entry {index + 1} must be an object.",
                 )
 
@@ -310,7 +312,7 @@ class SqlPlusResolver:
                 application,
                 str,
             ) or not application.strip():
-                raise ValueError(
+                raise GenericPluginError(
                     f"Script entry {index + 1} has an invalid "
                     "'application'.",
                 )
@@ -319,7 +321,7 @@ class SqlPlusResolver:
                 path,
                 str,
             ) or not path.strip():
-                raise ValueError(
+                raise GenericPluginError(
                     f"Script entry {index + 1} has an invalid "
                     "'script'.",
                 )
@@ -383,49 +385,49 @@ class SqlPlusResolver:
         script = execution.get("script")
 
         if not isinstance(ip, str) or not ip.strip():
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: 'ip' must be a non-empty string.",
             )
 
         if isinstance(port, bool) or not isinstance(port, int):
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: 'port' must be an integer.",
             )
 
         if not 1 <= port <= 65535:
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: 'port' must be between 1 and 65535.",
             )
 
         if not isinstance(sid, str) or not sid.strip():
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: 'sid' must be a non-empty string.",
             )
 
         if not isinstance(schema, str) or not schema.strip():
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: 'schema' must be a non-empty string.",
             )
 
         if not isinstance(username, str) or not username:
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: 'username' must be a non-empty string.",
             )
 
         if not isinstance(password, str):
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: 'password' is required.",
             )
 
         if not isinstance(script, str) or not script.strip():
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: 'script' must be a non-empty path.",
             )
 
         script_path = Path(script).expanduser()
 
         if not script_path.is_file():
-            raise ValueError(
+            raise GenericPluginError(
                 f"{context}: SQL script does not exist: "
                 f"{script_path}",
             )
@@ -449,7 +451,7 @@ class SqlPlusResolver:
         """
 
         if not isinstance(on_error, str):
-            raise ValueError(
+            raise GenericPluginError(
                 "'on_error' must be either 'abort' or 'continue'.",
             )
 
@@ -459,7 +461,7 @@ class SqlPlusResolver:
             "abort",
             "continue",
         }:
-            raise ValueError(
+            raise GenericPluginError(
                 "'on_error' must be either 'abort' or 'continue'.",
             )
 

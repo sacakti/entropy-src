@@ -13,3 +13,7 @@ class GenericPluginException(
     """
     Base exception for the generic plugin.
     """
+class GenericPluginError(GenericPluginException):
+    """
+    Generic plugin error
+    """

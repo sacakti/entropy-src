@@ -12,6 +12,7 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+from core.commands.exceptions import CommandError
 from lib.models.plugin import PluginResult
 from lib.plugins.mode import PluginMode
 from lib.workflow.assignments import WorkflowAssignments
@@ -422,13 +423,13 @@ class PluginCommand(
 
         if args.plugin is None and args.local is None:
 
-            raise ValueError(
+            raise CommandError(
                 "Either a plugin name or --local path must be specified.",
             )
 
         if args.plugin is not None and args.local is not None:
 
-            raise ValueError(
+            raise CommandError(
                 "Plugin name and --local cannot be used together.",
             )
 
@@ -629,7 +630,7 @@ class PluginCommand(
 
         if args.show and args.confirm:
 
-            raise ValueError(
+            raise CommandError(
                 "'--show' cannot be used with '--confirm'.",
             )
 
@@ -641,13 +642,13 @@ class PluginCommand(
 
         if not source.exists():
 
-            raise ValueError(
+            raise CommandError(
                 f"Plugin source directory does not exist: {source}",
             )
 
         if not source.is_dir():
 
-            raise ValueError(
+            raise CommandError(
                 f"Plugin source is not a directory: {source}",
             )
 

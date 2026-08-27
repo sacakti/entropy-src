@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from lib.normalizer.base import BaseNormalizer
+from lib.normalizer.exceptions import NormalizerException
 from lib.normalizer.loader import StructureLoader
 from lib.normalizer.structure import StructureNormalizer
 
@@ -85,7 +86,7 @@ class NormalizerManager:
 
         if implementation is None:
 
-            raise ValueError(
+            raise NormalizerException(
                 f"Unknown normalizer '{normalizer}'.",
             )
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from lib.authorization.exceptions import PermissionNotFoundError
 from lib.database.connection import DatabaseConnection
+from lib.database.exceptions import DatabaseException
 from lib.database.repository import Repository
 from lib.models.authorization import Permission, PermissionType
 
@@ -38,7 +39,7 @@ class PermissionRepository(Repository):
 
         if permission.module_id is None:
 
-            raise ValueError(
+            raise DatabaseException(
                 "Permission module identifier is required.",
             )
 
@@ -241,7 +242,7 @@ class PermissionRepository(Repository):
 
         if permission.module_id is None:
 
-            raise ValueError(
+            raise DatabaseException(
                 "Permission module identifier is required.",
             )
 

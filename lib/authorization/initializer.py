@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 from lib.authorization.seeder import AuthorizationSeeder
 from lib.models.users import User
+from lib.authorization.exceptions import AuthGenericError
 
 from .constants import (
     ADMIN_ROLE,
@@ -49,7 +50,7 @@ class AuthorizationInitializer:
 
         if admin_user.id is None:
 
-            raise ValueError(
+            raise AuthGenericError(
                 "Bootstrap administrator must have a database identifier.",
             )
 

@@ -8,6 +8,7 @@ configuration has been loaded.
 from pathlib import Path
 from typing import Union
 
+from core.exceptions import EntropyException
 from core.models.paths import (
     DatabasePaths,
     ExtensionPaths,
@@ -23,6 +24,10 @@ from lib.models.configuration import ConfigurationModel
 
 from .bootstrap import BootstrapPathManager
 
+class RuntimePathError(EntropyException):
+    """
+    Base exception for runtime
+    """
 
 class RuntimePathManager:
     """
@@ -242,7 +247,7 @@ class RuntimePathManager:
 
         if path is None:
 
-            raise ValueError(
+            raise RuntimePathError(
                 "Configuration path is missing.",
             )
 
@@ -260,14 +265,14 @@ class RuntimePathManager:
     ) -> Path:
 
         if path is None:
-            raise ValueError(
+            raise RuntimePathError(
                 "Workspace root is missing.",
             )
 
         path = Path(path).expanduser()
 
         if not path.is_absolute():
-            raise ValueError(
+            raise RuntimePathError(
                 "Workspace root must be an absolute path.",
             )
 

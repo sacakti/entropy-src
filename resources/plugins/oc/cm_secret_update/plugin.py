@@ -568,7 +568,7 @@ class CmSecretUpdatePlugin(BasePlugin):
     def _build_source(
         self,
         resource: dict[str, Any],
-        document: dict[str, Any],
+        document: dict[str, Any] | None,
     ) -> ConfigMapSecretSource:
         """
         Build a typed source from a deployment resource.
@@ -580,11 +580,22 @@ class CmSecretUpdatePlugin(BasePlugin):
         ConfigMap/Secret resources.
         """
 
-        operations = resource.get(
-            "operations",
-        )
+        document_kind = document.get("kind")
 
-        if operations is not None:
+        if document_kind == "ConfigMapSecretUpdate":
+
+            operations = document.get(
+                "operations",
+                [],
+            )
+
+            if not isinstance(
+                operations,
+                list,
+            ):
+                raise ConfigMapSecretUpdateException(
+                    "ConfigMapSecretUpdate 'operations' must be a list.",
+                )
 
             parsed_operations = [
                 UpdateOperation(
@@ -613,6 +624,13 @@ class CmSecretUpdatePlugin(BasePlugin):
                     resource["source"],
                 ),
                 update=definition,
+            )
+
+        if document is None:
+
+            raise ConfigMapSecretUpdateException(
+                f"Native source document is required for "
+                f"'{resource['kind']}/{resource['name']}'.",
             )
 
         native_resource = ConfigMapSecretResource(
@@ -689,7 +707,13 @@ class CmSecretUpdatePlugin(BasePlugin):
         name: str,
     ) -> dict[str, Any] | None:
         """
-        Find a native resource in a multi-document YAML source.
+        Find a ConfigMap/Secret source definition.
+
+        Supports both:
+
+        - Native ConfigMap/Secret resources.
+        - Entropy ConfigMapSecretUpdate definitions targeting
+        a ConfigMap/Secret.
         """
 
         for document in documents:
@@ -700,21 +724,52 @@ class CmSecretUpdatePlugin(BasePlugin):
             ):
                 continue
 
-            if document.get("kind") != kind:
-                continue
-
-            metadata = document.get(
-                "metadata",
+            document_kind = document.get(
+                "kind",
             )
 
-            if not isinstance(
-                metadata,
-                dict,
-            ):
-                continue
+            #
+            # Native ConfigMap / Secret
+            #
 
-            if metadata.get("name") == name:
-                return document
+            if document_kind == kind:
+
+                metadata = document.get(
+                    "metadata",
+                )
+
+                if not isinstance(
+                    metadata,
+                    dict,
+                ):
+                    continue
+
+                if metadata.get("name") == name:
+
+                    return document
+
+            #
+            # Entropy ConfigMapSecretUpdate
+            #
+
+            if document_kind == "ConfigMapSecretUpdate":
+
+                target = document.get(
+                    "target",
+                )
+
+                if not isinstance(
+                    target,
+                    dict,
+                ):
+                    continue
+
+                if (
+                    target.get("kind") == kind
+                    and target.get("name") == name
+                ):
+
+                    return document
 
         return None
 

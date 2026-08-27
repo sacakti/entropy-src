@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .exceptions import ContextBuilderPluginException
 from .resource_index import ResourceIndex
 from .detector import ReleaseChangeDetector
 from .structure import ReleaseStructureResolver
@@ -245,12 +246,12 @@ class ReleaseAnalyzer:
         if not self._filesystem.exists(
             release,
         ):
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 f"Release archive not found: {release}",
             )
 
         if release.suffix.casefold() != ".zip":
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 f"Release must be a ZIP archive: {release}",
             )
 
@@ -327,7 +328,7 @@ class ReleaseAnalyzer:
             dockerfile_definition,
             dict,
         ):
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 "Docker image requires a "
                 "'dockerfile' definition.",
             )
@@ -341,7 +342,7 @@ class ReleaseAnalyzer:
             str,
         ) or not dockerfile_name.strip():
 
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 "Dockerfile name must be "
                 "a non-empty string.",
             )
@@ -1134,7 +1135,7 @@ class ReleaseAnalyzer:
                 content,
             )
 
-        raise ValueError(
+        raise ContextBuilderPluginException(
             f"Unsupported plan format: {path}",
         )
 

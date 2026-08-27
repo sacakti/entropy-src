@@ -9,6 +9,7 @@ from pathlib import Path
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
+from .exceptions import StageReleaseCopyError
 
 
 class StageReleaseCopyPlugin(
@@ -169,7 +170,7 @@ class StageReleaseCopyPlugin(
                 list,
             ) or not raw_mappings:
 
-                raise ValueError(
+                raise StageReleaseCopyError(
                     "Argument 'mappings' must contain "
                     "at least one mapping.",
                 )
@@ -184,7 +185,7 @@ class StageReleaseCopyPlugin(
                     dict,
                 ):
 
-                    raise ValueError(
+                    raise StageReleaseCopyError(
                         f"Mapping {index} must be an object.",
                     )
 
@@ -201,7 +202,7 @@ class StageReleaseCopyPlugin(
                     str,
                 ) or not source.strip():
 
-                    raise ValueError(
+                    raise StageReleaseCopyError(
                         f"Mapping {index} requires "
                         "a non-empty 'source'.",
                     )
@@ -211,7 +212,7 @@ class StageReleaseCopyPlugin(
                     str,
                 ) or not destination.strip():
 
-                    raise ValueError(
+                    raise StageReleaseCopyError(
                         f"Mapping {index} requires "
                         "a non-empty 'destination'.",
                     )
@@ -225,7 +226,7 @@ class StageReleaseCopyPlugin(
 
         else:
 
-            raise ValueError(
+            raise StageReleaseCopyError(
                 f"Unsupported copy_type '{copy_type}'. "
                 "Expected 'single' or 'multi'.",
             )
@@ -282,7 +283,7 @@ class StageReleaseCopyPlugin(
             source,
         ):
 
-            raise ValueError(
+            raise StageReleaseCopyError(
                 f"Source path is not a directory: {source}",
             )
 
@@ -306,7 +307,7 @@ class StageReleaseCopyPlugin(
             self.ROTATE_MAX_TIMESTAMP,
         }:
 
-            raise ValueError(
+            raise StageReleaseCopyError(
                 "Invalid rotate_backup_type: "
                 f"{rotate_backup_type}. "
                 "Expected 'max_files' or "
@@ -318,7 +319,7 @@ class StageReleaseCopyPlugin(
             self.TIMESTAMP_DAYS,
         }:
 
-            raise ValueError(
+            raise StageReleaseCopyError(
                 "Invalid max_timestamp_unit: "
                 f"{max_timestamp_unit}. "
                 "Expected 'hours' or 'days'.",
@@ -644,7 +645,7 @@ class StageReleaseCopyPlugin(
                 "%Y%m%d_%H%M%S_%f",
             )
 
-        except ValueError:
+        except StageReleaseCopyError:
 
             return None
 

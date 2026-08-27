@@ -3,7 +3,7 @@
     "namespace": "builtin",
     "version": "1.0.0",
     "description": "",
-    "author": "",
+    "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
 
     "dependencies": [],

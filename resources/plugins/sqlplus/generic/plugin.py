@@ -9,7 +9,7 @@ from typing import Any
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 
-from .exceptions import GenericPluginException
+from .exceptions import GenericPluginError
 from .executor import SqlPlusExecutor
 from .resolver import SqlPlusResolver
 
@@ -97,7 +97,7 @@ class GenericPlugin(
         )
 
         if not isinstance(mode, str):
-            raise GenericPluginException(
+            raise GenericPluginError(
                 "'mode' is required.",
             )
 
@@ -119,9 +119,37 @@ class GenericPlugin(
             )
 
             if not isinstance(execution, dict):
-                raise GenericPluginException(
+                raise GenericPluginError(
                     "'execution' must be an object in plan mode.",
                 )
+
+            execution_plan = execution.get(
+                "execution_plan",
+            )
+
+            scripts = execution.get(
+                "scripts",
+            )
+
+            if execution_plan is None:
+                self.message.info(
+                    "No SQL execution plan found. Skipping SQLPlus.",
+                )
+
+                self.outputs.update(
+                    {
+                        "success": True,
+                        "mode": mode,
+                        "on_error": on_error,
+                        "executions": 0,
+                        "succeeded": 0,
+                        "failed": 0,
+                        "skipped": 0,
+                        "results": [],
+                    },
+                )
+
+                return [], []
 
             executions = resolver.resolve_plan(
                 connection=self.arguments.get(
@@ -130,12 +158,8 @@ class GenericPlugin(
                 schemas=self.arguments.get(
                     "schemas",
                 ),
-                execution_plan=execution.get(
-                    "execution_plan",
-                ),
-                scripts=execution.get(
-                    "scripts",
-                ),
+                execution_plan=execution_plan,
+                scripts=scripts,
             )
 
         elif mode == "direct":
@@ -148,7 +172,7 @@ class GenericPlugin(
 
         else:
 
-            raise GenericPluginException(
+            raise GenericPluginError(
                 f"Unsupported SQLPlus mode: '{mode}'.",
             )
 

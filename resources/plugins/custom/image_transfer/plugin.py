@@ -27,6 +27,7 @@ from pathlib import Path
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
+from .exceptions import ImageTransferError
 
 
 class ImageTransferPlugin(BasePlugin):
@@ -188,7 +189,7 @@ class ImageTransferPlugin(BasePlugin):
         assert min_free_storage_gb is not None
 
         if min_free_storage_gb <= 0:
-            raise ValueError("Argument 'min_free_storage_gb' must be " "greater than zero.")
+            raise ImageTransferError("Argument 'min_free_storage_gb' must be " "greater than zero.")
 
         old_image_pattern = self.arguments.string(
             "old_image_pattern",
@@ -383,10 +384,10 @@ class ImageTransferPlugin(BasePlugin):
         if not self.filesystem.is_file(
             release,
         ):
-            raise ValueError("Release path is not a file: " f"{release}")
+            raise ImageTransferError("Release path is not a file: " f"{release}")
 
         if release.suffix.lower() != ".zip":
-            raise ValueError("Release path must be a ZIP archive: " f"{release}")
+            raise ImageTransferError("Release path must be a ZIP archive: " f"{release}")
 
         return release
 
@@ -478,7 +479,7 @@ class ImageTransferPlugin(BasePlugin):
             script,
         ):
 
-            raise ValueError(f"Release script is not a file: " f"{script}")
+            raise ImageTransferError(f"Release script is not a file: " f"{script}")
 
         return script
 
@@ -551,9 +552,9 @@ class ImageTransferPlugin(BasePlugin):
                     stripped,
                 )
 
-            except ValueError as exc:
+            except ImageTransferError as exc:
 
-                raise ValueError(
+                raise ImageTransferError(
                     "Invalid shell syntax in " "image_transfer.sh at line " f"{line_number}: {exc}"
                 ) from exc
 
@@ -638,7 +639,7 @@ class ImageTransferPlugin(BasePlugin):
 
                 if index + 1 >= len(command):
 
-                    raise ValueError(
+                    raise ImageTransferError(
                         "Docker login option "
                         f"'{argument}' is missing its value "
                         f"at line {line_number}."
@@ -676,7 +677,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if len(result) < 3:
 
-            raise ValueError(
+            raise ImageTransferError(
                 "Docker login command is missing "
                 "the registry at line "
                 f"{line_number}."
@@ -752,7 +753,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if not commands:
 
-            raise ValueError("No supported Docker commands were found " f"in {script}.")
+            raise ImageTransferError("No supported Docker commands were found " f"in {script}.")
 
         operations = [command[1] for command in commands]
 
@@ -767,7 +768,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if missing:
 
-            raise ValueError(
+            raise ImageTransferError(
                 f"{script} is missing required "
                 "Docker operation(s): "
                 f"{', '.join(sorted(missing))}."
@@ -786,7 +787,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if "login" not in (operations[:first_pull]):
 
-            raise ValueError("image_transfer.sh must contain " "a Docker login before Docker pull.")
+            raise ImageTransferError("image_transfer.sh must contain " "a Docker login before Docker pull.")
 
         #
         # Tag must happen after pull.
@@ -794,7 +795,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if first_tag <= first_pull:
 
-            raise ValueError("Docker tag must occur after " "Docker pull.")
+            raise ImageTransferError("Docker tag must occur after " "Docker pull.")
 
         #
         # Push must happen after tag.
@@ -802,7 +803,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if first_push <= first_tag:
 
-            raise ValueError("Docker push must occur after " "Docker tag.")
+            raise ImageTransferError("Docker push must occur after " "Docker tag.")
 
     # ------------------------------------------------------------------
     # Docker prerequisites
@@ -938,13 +939,13 @@ class ImageTransferPlugin(BasePlugin):
 
         if len(lines) < 2:
 
-            raise ValueError(f"Unexpected df output: {output!r}")
+            raise ImageTransferError(f"Unexpected df output: {output!r}")
 
         fields = lines[-1].split()
 
         if len(fields) < 4:
 
-            raise ValueError(f"Unexpected df output: {output!r}")
+            raise ImageTransferError(f"Unexpected df output: {output!r}")
 
         try:
 
@@ -952,9 +953,9 @@ class ImageTransferPlugin(BasePlugin):
                 fields[3],
             )
 
-        except ValueError as exc:
+        except ImageTransferError as exc:
 
-            raise ValueError(
+            raise ImageTransferError(
                 "Invalid available-space value " "in df output: " f"{fields[3]!r}"
             ) from exc
 
@@ -1304,7 +1305,7 @@ class ImageTransferPlugin(BasePlugin):
 
             if not yaml_paths:
 
-                raise ValueError("Could not find any " "'oc apply -f' command " f"in '{script}'.")
+                raise ImageTransferError("Could not find any " "'oc apply -f' command " f"in '{script}'.")
 
             #
             # Validate the transformed script
@@ -1437,9 +1438,9 @@ class ImageTransferPlugin(BasePlugin):
                         stripped,
                     )
 
-                except ValueError as exc:
+                except ImageTransferError as exc:
 
-                    raise ValueError("Invalid shell syntax in " "apply_yaml.sh: " f"{exc}") from exc
+                    raise ImageTransferError("Invalid shell syntax in " "apply_yaml.sh: " f"{exc}") from exc
 
                 tokens = [
                     token
@@ -1533,7 +1534,7 @@ class ImageTransferPlugin(BasePlugin):
         if normalized != base and not normalized.startswith(
             f"{base}/",
         ):
-            raise ValueError(
+            raise ImageTransferError(
                 "Unexpected oc apply path. "
                 "Expected it to start with "
                 f"'{base}': {original_path}"
@@ -1542,7 +1543,7 @@ class ImageTransferPlugin(BasePlugin):
         relative_part = normalized[len(base) :].lstrip("/")
 
         if not relative_part:
-            raise ValueError("oc apply path points directly to " f"'{base}', which is not valid.")
+            raise ImageTransferError("oc apply path points directly to " f"'{base}', which is not valid.")
 
         target = release_root / relative_part
 
@@ -1566,7 +1567,7 @@ class ImageTransferPlugin(BasePlugin):
                 line,
             )
 
-        except ValueError:
+        except ImageTransferError:
 
             return False
 
@@ -1588,7 +1589,7 @@ class ImageTransferPlugin(BasePlugin):
             content,
         ):
 
-            raise ValueError("Prepared apply_yaml.sh still " "contains a git command.")
+            raise ImageTransferError("Prepared apply_yaml.sh still " "contains a git command.")
 
         matches = list(
             self.OC_APPLY_PATTERN.finditer(
@@ -1598,7 +1599,7 @@ class ImageTransferPlugin(BasePlugin):
 
         if not matches:
 
-            raise ValueError("Prepared apply_yaml.sh does not " "contain an 'oc apply -f' command.")
+            raise ImageTransferError("Prepared apply_yaml.sh does not " "contain an 'oc apply -f' command.")
 
         root = str(
             release_root.resolve(),
@@ -1614,7 +1615,7 @@ class ImageTransferPlugin(BasePlugin):
                 f"{root}/",
             ):
 
-                raise ValueError(
+                raise ImageTransferError(
                     "Prepared apply_yaml.sh "
                     "contains a path outside "
                     "the extracted release: "
@@ -1665,7 +1666,7 @@ class ImageTransferPlugin(BasePlugin):
 
             if path.suffix.lower() not in self.YAML_SUFFIXES:
 
-                raise ValueError("Deployment YAML file has an " "unsupported extension: " f"{path}")
+                raise ImageTransferError("Deployment YAML file has an " "unsupported extension: " f"{path}")
 
             self.message.info(f"Validated YAML file: {path}")
 
@@ -1675,7 +1676,7 @@ class ImageTransferPlugin(BasePlugin):
             path,
         ):
 
-            raise ValueError("Deployment YAML path is neither " f"a file nor a directory: {path}")
+            raise ImageTransferError("Deployment YAML path is neither " f"a file nor a directory: {path}")
 
         yaml_files = [
             file

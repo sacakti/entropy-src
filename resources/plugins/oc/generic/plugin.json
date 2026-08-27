@@ -1,8 +1,8 @@
 {
     "name": "generic",
     "namespace": "oc",
-    "version": "1.0.0",
-    "description": "",
+    "version": "1.0.1",
+    "description": "Aravinthan Selvaraj",
     "author": "",
     "entropy": ">=1.0.0",
 

@@ -9,6 +9,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from .exceptions import ConfigMapSecretUpdateException
+
 
 class SourceType(
     Enum,
@@ -98,12 +100,12 @@ class ConfigMapSecretSource:
         if self.source_type == SourceType.UPDATE:
 
             if self.update is None:
-                raise ValueError(
+                raise ConfigMapSecretUpdateException(
                     "Update source requires an update definition.",
                 )
 
             if self.resource is not None:
-                raise ValueError(
+                raise ConfigMapSecretUpdateException(
                     "Update source cannot contain a native resource.",
                 )
 
@@ -112,18 +114,18 @@ class ConfigMapSecretSource:
         if self.source_type == SourceType.RESOURCE:
 
             if self.resource is None:
-                raise ValueError(
+                raise ConfigMapSecretUpdateException(
                     "Resource source requires a native resource.",
                 )
 
             if self.update is not None:
-                raise ValueError(
+                raise ConfigMapSecretUpdateException(
                     "Resource source cannot contain an update definition.",
                 )
 
             return
 
-        raise ValueError(
+        raise ConfigMapSecretUpdateException(
             f"Unsupported source type '{self.source_type}'.",
         )
 

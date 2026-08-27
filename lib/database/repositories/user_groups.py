@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from lib.database.connection import DatabaseConnection
+from lib.database.exceptions import DatabaseException
 from lib.database.repository import Repository
 from lib.models.authorization import Group, UserGroup
 from lib.models.users import User
@@ -94,7 +95,7 @@ class UserGroupRepository(Repository):
 
         if row is None:
 
-            raise ValueError(
+            raise DatabaseException(
                 f"User group '{assignment_id}' not found.",
             )
 

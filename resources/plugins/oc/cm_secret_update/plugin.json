@@ -1,9 +1,9 @@
 {
     "name": "cm_secret_update",
     "namespace": "oc",
-    "version": "2.0.3",
+    "version": "2.0.4",
     "description": "Update Kubernetes ConfigMap and Secret YAML resources.",
-    "author": "",
+    "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
     "dependencies": [],
     "tags": [],

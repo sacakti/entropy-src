@@ -16,6 +16,7 @@ from typing import IO, Any, cast
 
 from ruamel.yaml import YAML
 
+from lib.executor.exceptions import LinuxExceptions
 from lib.executor.types import PathLike
 
 import re
@@ -141,7 +142,7 @@ class FileSystemMixin:
         """
 
         if not item:
-            raise ValueError(
+            raise LinuxExceptions(
                 "Path cannot be empty.",
             )
 

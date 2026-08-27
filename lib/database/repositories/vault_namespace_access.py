@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from lib.database.connection import DatabaseConnection
+from lib.database.exceptions import DatabaseException
 from lib.database.repository import Repository
 from lib.models.authorization import (
     VaultAccess,
@@ -99,7 +100,7 @@ class VaultNamespaceAccessRepository(Repository):
 
         if row is None:
 
-            raise ValueError(
+            raise DatabaseException(
                 f"Vault namespace access '{assignment_id}' not found.",
             )
 

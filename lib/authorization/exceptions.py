@@ -100,3 +100,8 @@ class PermissionNotFoundError(AuthorizationException):
         super().__init__(
             f"Permission '{name}' not found.",
         )
+
+class AuthGenericError(AuthorizationException):
+    """
+    Raised when a generic authorization error occurs.
+    """

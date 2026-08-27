@@ -14,7 +14,7 @@ from lib.models.authorization import GroupRole
 from lib.models.authorization import Role
 from lib.models.authorization import UserGroup
 from lib.models.users import User
-
+from lib.authorization.exceptions import AuthGenericError
 
 class GroupManager:
     """
@@ -62,7 +62,7 @@ class GroupManager:
 
         if not name:
 
-            raise ValueError(
+            raise AuthGenericError(
                 "Group name cannot be empty.",
             )
 
@@ -70,7 +70,7 @@ class GroupManager:
             name,
         ):
 
-            raise ValueError(
+            raise AuthGenericError(
                 f"Group '{name}' already exists.",
             )
 
@@ -134,7 +134,7 @@ class GroupManager:
 
             if not name:
 
-                raise ValueError(
+                raise AuthGenericError(
                     "Group name cannot be empty.",
                 )
 
@@ -143,7 +143,7 @@ class GroupManager:
                 and self._groups.exists(name)
             ):
 
-                raise ValueError(
+                raise AuthGenericError(
                     f"Group '{name}' already exists.",
                 )
 

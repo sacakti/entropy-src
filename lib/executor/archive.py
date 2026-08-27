@@ -11,6 +11,7 @@ import zipfile
 from pathlib import Path
 
 from core.constants import SUPPORTED_ARCHIVES, TAR_MODES
+from lib.executor.exceptions import LinuxExceptions
 from lib.executor.types import PathLike
 
 
@@ -26,7 +27,7 @@ class ArchiveMixin:
             if name.endswith(suffix):
                 return archive_type
 
-        raise ValueError(f"Unsupported archive format: {archive}")
+        raise LinuxExceptions(f"Unsupported archive format: {archive}")
 
     def extract(
         self,

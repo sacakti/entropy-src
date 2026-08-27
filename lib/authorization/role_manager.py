@@ -10,7 +10,7 @@ from lib.database.repositories.role_permissions import (
 )
 from lib.database.repositories.roles import RoleRepository
 from lib.models.authorization import Permission, Role, RolePermission
-
+from lib.authorization.exceptions import AuthGenericError
 
 ADMIN_ROLE = "admin"
 
@@ -53,7 +53,7 @@ class RoleManager:
 
         if not name:
 
-            raise ValueError(
+            raise AuthGenericError(
                 "Role name cannot be empty.",
             )
 
@@ -61,7 +61,7 @@ class RoleManager:
             name,
         ):
 
-            raise ValueError(
+            raise AuthGenericError(
                 f"Role '{name}' already exists.",
             )
 
@@ -131,7 +131,7 @@ class RoleManager:
 
             if not name:
 
-                raise ValueError(
+                raise AuthGenericError(
                     "Role name cannot be empty.",
                 )
 
@@ -140,7 +140,7 @@ class RoleManager:
                 and self._roles.exists(name)
             ):
 
-                raise ValueError(
+                raise AuthGenericError(
                     f"Role '{name}' already exists.",
                 )
 
@@ -289,6 +289,6 @@ class RoleManager:
 
         if role.name == ADMIN_ROLE:
 
-            raise ValueError(
+            raise AuthGenericError(
                 "The built-in 'admin' role cannot be modified.",
             )

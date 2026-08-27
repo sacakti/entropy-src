@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from lib.database.connection import DatabaseConnection
+from lib.database.exceptions import DatabaseException
 from lib.database.repository import Repository
 from lib.models.authorization import (
     Permission,
@@ -97,7 +98,7 @@ class UserPrivilegeRepository(Repository):
 
         if row is None:
 
-            raise ValueError(
+            raise DatabaseException(
                 f"User privilege '{privilege_id}' not found.",
             )
 

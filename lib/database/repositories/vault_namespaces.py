@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from lib.database.exceptions import DatabaseException
 from lib.vault.exceptions import (
     VaultNamespaceExistsError,
     VaultNamespaceNotFoundError,
@@ -218,7 +219,7 @@ class VaultNamespaceRepository(Repository):
 
         if namespace.id is None:
 
-            raise ValueError(
+            raise DatabaseException(
                 "Vault namespace identifier is required.",
             )
 

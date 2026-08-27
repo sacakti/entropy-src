@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .exceptions import ContextBuilderPluginException
+
 
 @dataclass(frozen=True)
 class ReleaseStructure:
@@ -65,13 +67,13 @@ class ReleaseStructureResolver:
         """
 
         if not self._filesystem.exists(path):
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 f"Release structure file "
                 f"'{path}' does not exist.",
             )
 
         if not self._filesystem.is_file(path):
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 f"Release structure path "
                 f"'{path}' is not a file.",
             )
@@ -81,7 +83,7 @@ class ReleaseStructureResolver:
         )
 
         if not isinstance(document, dict):
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 "Release structure must contain "
                 "a YAML mapping.",
             )
@@ -89,7 +91,7 @@ class ReleaseStructureResolver:
         name = document.get("name")
 
         if not isinstance(name, str) or not name.strip():
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 "Release structure requires a "
                 "non-empty 'name'.",
             )
@@ -97,7 +99,7 @@ class ReleaseStructureResolver:
         structure = document.get("structure")
 
         if not isinstance(structure, dict):
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 "Release structure requires "
                 "a 'structure' mapping.",
             )
@@ -108,7 +110,7 @@ class ReleaseStructureResolver:
         )
 
         if not isinstance(children, list):
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 "Release structure 'children' "
                 "must be a list.",
             )
@@ -117,7 +119,7 @@ class ReleaseStructureResolver:
             isinstance(child, str) and child.strip()
             for child in children
         ):
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 "Release structure children "
                 "must contain non-empty strings.",
             )
@@ -131,7 +133,7 @@ class ReleaseStructureResolver:
         for child in children:
 
             if child not in components:
-                raise ValueError(
+                raise ContextBuilderPluginException(
                     f"Release structure component "
                     f"'{child}' is not defined.",
                 )
@@ -207,7 +209,7 @@ class ReleaseStructureResolver:
             str,
         ) or not value.strip():
 
-            raise ValueError(
+            raise ContextBuilderPluginException(
                 "Structure component 'path' "
                 "must be a non-empty string.",
             )

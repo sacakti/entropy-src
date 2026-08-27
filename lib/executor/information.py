@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from lib.executor.exceptions import LinuxExceptions
 from lib.executor.types import PathLike
 
 
@@ -66,7 +67,7 @@ class InformationMixin:
         try:
             digest = hashlib.new(algorithm)
         except ValueError as exc:
-            raise ValueError(f"Unsupported hash algorithm: {algorithm}") from exc
+            raise LinuxExceptions(f"Unsupported hash algorithm: {algorithm}") from exc
 
         with path.open("rb") as fp:
             while chunk := fp.read(chunk_size):

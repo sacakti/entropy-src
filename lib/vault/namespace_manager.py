@@ -18,6 +18,7 @@ from lib.models.authorization import (
 )
 
 from lib.vault.exceptions import (
+    VaultError,
     VaultNamespaceExistsError,
     VaultNamespaceNameError,
 )
@@ -131,7 +132,7 @@ class VaultNamespaceManager:
 
             if not name:
 
-                raise ValueError(
+                raise VaultError(
                     "Vault namespace name cannot be empty.",
                 )
 

@@ -124,6 +124,11 @@ class DeploymentPlugin(BasePlugin):
 
     def _execute_deployments(self) -> PluginResult:
         resources = self.arguments.get("deployments", [])
+
+        self.log.info(
+            f"Deployment resources received: {resources!r}",
+        )
+
         repository = self.arguments.string("repository")
 
         if not isinstance(resources, list):

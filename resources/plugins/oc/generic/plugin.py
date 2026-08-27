@@ -695,6 +695,7 @@ class GenericPlugin(BasePlugin):
 
             command = [
                 operation,
+                "-f",
                 resource_path,
                 *arguments,
             ]

@@ -5,6 +5,7 @@ Module repository.
 from __future__ import annotations
 
 from lib.database.connection import DatabaseConnection
+from lib.database.exceptions import DatabaseException
 from lib.database.repository import Repository
 from lib.models.authorization import Module
 
@@ -89,7 +90,7 @@ class ModuleRepository(Repository):
 
         if row is None:
 
-            raise ValueError(
+            raise DatabaseException(
                 f"Authorization module '{module_id}' not found.",
             )
 
@@ -122,7 +123,7 @@ class ModuleRepository(Repository):
 
         if row is None:
 
-            raise ValueError(
+            raise DatabaseException(
                 f"Authorization module '{name}' not found.",
             )
 
