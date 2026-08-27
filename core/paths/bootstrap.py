@@ -116,6 +116,7 @@ class BootstrapPathManager:
             plugins=resource_root / "plugins",
             reports=resource_root / "reports",
             structures=resource_root / "structures",
+            documentation=resource_root / "documentation",
         )
 
     def _build_vendor_paths(self) -> VendorPaths:

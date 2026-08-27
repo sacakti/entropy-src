@@ -36,6 +36,7 @@ class ResourcePaths:
     plugins: Path
     reports: Path
     structures: Path
+    documentation: Path
 
 @dataclass(frozen=True)
 class VendorPaths:

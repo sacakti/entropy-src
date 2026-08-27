@@ -1,0 +1,3 @@
+"""
+Entropy documentation utilities.
+"""

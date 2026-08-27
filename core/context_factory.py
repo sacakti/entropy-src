@@ -30,6 +30,7 @@ from core.version import APP_NAME, VERSION
 from lib.auth.manager import SessionManager
 from lib.auth.service import AuthenticationService
 from lib.authorization.group_manager import GroupManager
+from lib.authorization.user_role_manager import UserRoleManager
 from lib.database.repositories.group_roles import GroupRoleRepository
 from lib.database.repositories.groups import GroupRepository
 from lib.database.repositories.permissions import PermissionRepository
@@ -39,6 +40,7 @@ from lib.authorization.role_manager import RoleManager
 from lib.authorization.service import AuthorizationService
 from lib.database.manager import DatabaseManager
 from lib.database.repositories.user_groups import UserGroupRepository
+from lib.database.repositories.user_roles import UserRoleRepository
 from lib.database.repositories.users import UserRepository
 from lib.database.repositories.vault_namespace_access import VaultNamespaceAccessRepository
 from lib.database.repositories.vault_namespaces import VaultNamespaceRepository
@@ -359,6 +361,10 @@ class ContextFactory:
             connection,
         )
 
+        self._context.user_role_repository = UserRoleRepository(
+            connection,
+        )
+
         self._context.permission_repository = PermissionRepository(
             connection,
         )
@@ -409,6 +415,11 @@ class ContextFactory:
 
         self._context.user_manager = UserManager(
             self._context,
+        )
+
+        self._context.user_role_manager = UserRoleManager(
+            roles=self._context.role_repository,
+            user_roles=self._context.user_role_repository,
         )
 
         self._context.authentication = AuthenticationService(

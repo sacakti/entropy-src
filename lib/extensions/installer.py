@@ -9,6 +9,7 @@ import sys
 from configparser import ConfigParser
 from contextlib import suppress
 from pathlib import Path
+from email.parser import Parser
 
 from core.context import EntropyContext
 from lib.extensions.base import BaseInstaller
@@ -281,21 +282,85 @@ class OfflineInstaller(BaseInstaller):
     ) -> str:
         """
         Locate the installed dist-info directory.
+
+        The distribution name in a wheel filename and the actual
+        dist-info directory name may differ in normalization and case.
+        Therefore, inspect the installed METADATA instead of deriving
+        the directory name from the extension name.
         """
 
-        matches = list(
-            self._paths.site_packages.glob(
-                f"{extension.name.replace('-', '_')}-*.dist-info",
-            )
+        from packaging.utils import canonicalize_name
+
+        expected_name = canonicalize_name(
+            extension.name,
         )
 
-        if len(matches) != 1:
+        matches: list[Path] = []
 
-            raise ExtensionInstallationError(
-                f"Unable to determine dist-info for '{extension.name}'.",
+        for directory in self._paths.site_packages.glob(
+            "*.dist-info",
+        ):
+
+            metadata = directory / "METADATA"
+
+            if not metadata.is_file():
+                continue
+
+            try:
+
+                content = metadata.read_text(
+                    encoding="utf-8",
+                )
+
+                message = Parser().parsestr(
+                    content,
+                )
+
+            except (OSError, UnicodeDecodeError):
+
+                continue
+
+            name = message.get(
+                "Name",
             )
 
-        return matches[0].name
+            version = message.get(
+                "Version",
+            )
+
+            if name is None or version is None:
+                continue
+
+            if canonicalize_name(name) != expected_name:
+                continue
+
+            if version != extension.version:
+                continue
+
+            matches.append(
+                directory,
+            )
+
+        if len(matches) == 1:
+
+            return matches[0].name
+
+        if not matches:
+
+            raise ExtensionInstallationError(
+                f"Unable to determine dist-info for "
+                f"'{extension.name}=={extension.version}'.",
+            )
+
+        directories = ", ".join(
+            directory.name
+            for directory in matches
+        )
+
+        raise ExtensionInstallationError(
+            f"Multiple dist-info directories found for "
+            f"'{extension.name}=={extension.version}': {directories}",
+        )
 
     def _record_file(
         self,

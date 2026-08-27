@@ -169,6 +169,12 @@ PERMISSIONS = (
         "Disable users.",
     ),
     PermissionDefinition(
+        "users",
+        "users.roles",
+        "write",
+        "Manage roles assigned to users.",
+    ),
+    PermissionDefinition(
         "workflows",
         "workflows.add",
         "write",
@@ -352,3 +358,10 @@ PERMISSIONS = (
 
 
 ADMIN_ROLE = "admin"
+
+DEFAULT_ROLES = (
+    "read",
+    "write",
+    "execute",
+    "full",
+)

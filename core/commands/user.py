@@ -48,8 +48,11 @@ class UserCommand(BaseCommand):
         assert context.session_manager is not None
         assert context.observability is not None
         assert context.authorization is not None
+        assert context.user_role_manager is not None
 
         self._users = context.user_manager
+
+        self._user_roles = context.user_role_manager
 
         self._session = context.session_manager
 
@@ -167,6 +170,46 @@ class UserCommand(BaseCommand):
             "username",
         )
 
+        #
+        # roles
+        #
+
+        roles = subparsers.add_parser(
+            "roles",
+            help="Manage user roles.",
+        )
+
+        roles.add_argument(
+            "username",
+        )
+
+        role_subparsers = roles.add_subparsers(
+            dest="role_action",
+        )
+
+        role_subparsers.add_parser(
+            "list",
+            help="List user roles.",
+        )
+
+        add = role_subparsers.add_parser(
+            "grant",
+            help="Assign a role to a user.",
+        )
+
+        add.add_argument(
+            "role",
+        )
+
+        revoke = role_subparsers.add_parser(
+            "revoke",
+            help="Revoke a role from a user.",
+        )
+
+        revoke.add_argument(
+            "role",
+        )
+
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -183,6 +226,7 @@ class UserCommand(BaseCommand):
             "password": self._password,
             "enable": self._enable,
             "disable": self._disable,
+            "roles": self._roles,
         }[args.action](
             args,
         )
@@ -691,4 +735,79 @@ class UserCommand(BaseCommand):
         self._authorization.require(
             session,
             permission,
+        )
+
+    # ------------------------------------------------------------------
+    # Roles
+    # ------------------------------------------------------------------
+
+    def _roles(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        session = self._session.require()
+
+        self._authorization.require(
+            session,
+            "users.roles",
+        )
+
+        user = self._users.get(
+            args.username,
+        )
+
+        if args.role_action == "grant":
+
+            self._user_roles.add_role(
+                user,
+                args.role,
+            )
+
+            self._ui.success(
+                f"Role '{args.role}' "
+                f"assigned to user '{user.username}'.",
+            )
+
+            return
+
+        if args.role_action == "revoke":
+
+            self._user_roles.revoke_role(
+                user,
+                args.role,
+            )
+
+            self._ui.success(
+                f"Role '{args.role}' "
+                f"revoked from user '{user.username}'.",
+            )
+
+            return
+
+        roles = self._user_roles.roles(
+            user,
+        )
+
+        if not roles:
+
+            self._ui.info(
+                f"User '{user.username}' has no roles.",
+            )
+
+            return
+
+        self._ui.table(
+            title=f"Roles : {user.username}",
+            columns=[
+                "Name",
+                "Description",
+            ],
+            rows=[
+                [
+                    role.name,
+                    role.description or "",
+                ]
+                for role in roles
+            ],
         )

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from lib.auth.manager import SessionManager
     from lib.auth.service import AuthenticationService
     from lib.authorization.service import AuthorizationService
+    from lib.authorization.user_role_manager import UserRoleManager
     from lib.database.manager import DatabaseManager
     from lib.database.repositories.users import UserRepository
     from lib.executor import LinuxExecutor
@@ -147,6 +148,8 @@ class EntropyContext:
         self.user_repository: UserRepository | None = None
 
         self.user_manager: UserManager | None = None
+
+        self.user_role_manager: UserRoleManager | None = None
 
         self.session_manager: SessionManager | None = None
 

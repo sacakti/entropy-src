@@ -459,11 +459,15 @@ def verify_package(
                 "manifest.json",
                 "application/entropy.py",
                 "application/core/version.py",
+                "application/core/version.py",
+                "application/resources/documentation/initial.md",
             )
 
             required_directories = (
                 "application/core/",
                 "application/lib/",
+                "application/resources/",
+                "application/resources/documentation/",
             )
 
             missing_files = [path for path in required_files if path not in names]
