@@ -33,15 +33,12 @@ class BootstrapInstaller:
         if self._users.any():
             return None
 
+        username = "admin"
+
         print()
         print("Bootstrap Administrator")
         print("-----------------------")
-
-        # username = input("Username [admin]: ").strip()
-        username = "admin"
-
-        # if not username:
-        #     username = "admin"
+        print(f"Username: {username}")
 
         while True:
 

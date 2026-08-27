@@ -30,17 +30,28 @@ class DefaultPluginInstaller:
 
     def install(self) -> None:
         """
-        Install Entropy's default plugins.
+        Install all built-in plugins shipped with Entropy.
         """
 
-        plugins = (
-            "hello",
-            "shell",
+        root = (
+            self._bootstrap.resources.plugins
+            / "builtin"
         )
 
-        for name in plugins:
+        if not root.is_dir():
 
-            source = self._bootstrap.resources.plugins / "builtin" / name
+            raise RuntimeError(
+                f"Built-in plugin directory not found: {root}",
+            )
+
+        plugins = sorted(
+            path
+            for path in root.iterdir()
+            if path.is_dir()
+            and not path.name.startswith(".")
+        )
+
+        for source in plugins:
 
             self._plugins.install(
                 source,
