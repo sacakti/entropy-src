@@ -7,9 +7,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from lib.executor.exceptions import LinuxExceptions
-
-
 class ApplicationInstaller:
 
     def __init__(
@@ -38,7 +35,7 @@ class ApplicationInstaller:
 
         if not self._source.is_dir():
 
-            raise LinuxExceptions(
+            raise ValueError(
                 f"Application source is not a directory: {self._source}",
             )
 
