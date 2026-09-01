@@ -28,7 +28,23 @@
                         "password": "1234",
                         "script": "/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/App1/App1_calling_script.sql"
                     }
-                ]
+                ],
+                "spool": {
+                    "enabled": false,
+                    "override": true,
+                    "create_if_not_exists": true,
+                    "name_placeholder": "%execution_path/%release_%schema_%date.log",
+                    "wrappers_before": [
+                        "SET ECHO ON",
+                        "SET FEEDBACK ON",
+                        "SET HEADING ON",
+                        "SET SERVEROUTPUT ON"
+                    ],
+                    "wrappers_after": [
+                        "SPOOL OFF",
+                        "EXIT"
+                    ]
+                }
             }
         }
     ]

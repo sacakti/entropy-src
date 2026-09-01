@@ -179,8 +179,11 @@ class PluginLoader:
 
         except Exception as exc:
 
+            #import traceback
+
             raise PluginLoadError(
-                f"Unable to load plugin " f"'{qualified_name}'.",
+                f"Unable to load plugin " f"'{qualified_name}'.\n",
+            #    f"Exception : {traceback.print_exc()}"
             ) from exc
 
     def _find_plugin_class(

@@ -3,7 +3,7 @@ SQLPlus plugin models.
 """
 
 from __future__ import annotations
-
+from typing import Any
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,3 +36,29 @@ class SqlPlusExecutionResult:
     stdout: str
     stderr: str
     duration: float
+    spool: dict[str, Any] | None = None
+
+"""
+SQLPlus spool models.
+"""
+@dataclass(frozen=True)
+class SpoolSettings:
+    """
+    SQLPlus spool configuration.
+    """
+
+    enabled: bool = False
+
+    create_if_not_exists: bool = True
+
+    name_placeholder: str = (
+        "%execution_path/%release_%schema_%date.log"
+    )
+
+    infile_replace: bool = False
+
+    override: bool = False
+
+    wrappers_before: tuple[str, ...] = ()
+
+    wrappers_after: tuple[str, ...] = ()

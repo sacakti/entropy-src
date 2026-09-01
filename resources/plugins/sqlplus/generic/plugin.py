@@ -5,6 +5,7 @@ SQLPlus plugin.
 from __future__ import annotations
 
 from typing import Any
+from pathlib import Path
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
@@ -12,7 +13,7 @@ from lib.plugins.base import BasePlugin
 from .exceptions import GenericPluginError
 from .executor import SqlPlusExecutor
 from .resolver import SqlPlusResolver
-
+from .spool.resolver import SpoolSettingsResolver
 
 class GenericPlugin(
     BasePlugin,
@@ -35,10 +36,7 @@ class GenericPlugin(
         changes: list[dict[str, Any]]
         errors: list[dict[str, Any]]
 
-        with self.activity(
-            "sqlplus",
-        ):
-            changes, errors = self._execute()
+        changes, errors = self._execute()
 
         success = bool(
             self.outputs.get(
@@ -110,6 +108,12 @@ class GenericPlugin(
             ),
         )
 
+        spool_settings = SpoolSettingsResolver().resolve(
+            self.arguments.get(
+                "spool",
+            ),
+        )
+
         resolver = SqlPlusResolver()
 
         if mode == "plan":
@@ -178,11 +182,66 @@ class GenericPlugin(
 
         executor = SqlPlusExecutor(
             shell=self.shell,
+            activity=self.activity,
         )
+
+        execution_path_value = self.arguments.get(
+            "execution_path",
+        )
+
+        execution_path = None
+
+        if execution_path_value is not None:
+
+            if not isinstance(
+                execution_path_value,
+                str,
+            ):
+                raise GenericPluginError(
+                    "'execution_path' must be a string.",
+                )
+
+            if not execution_path_value.strip():
+                raise GenericPluginError(
+                    "'execution_path' must be a non-empty path.",
+                )
+
+            execution_path = Path(
+                execution_path_value,
+            )
+
+        release_value = self.arguments.get(
+            "release",
+            "release",
+        )
+
+        if not isinstance(
+            release_value,
+            str,
+        ):
+            raise GenericPluginError(
+                "'release' must be a string.",
+            )
+
+        if (
+            spool_settings.enabled
+            and execution_path is None
+        ):
+
+            if not executions:
+                raise GenericPluginError(
+                    "'execution_path' cannot be resolved because "
+                    "there are no SQL executions.",
+                )
+
+            execution_path = executions[0].script.parent
 
         results = executor.execute_all(
             executions,
             on_error=on_error,
+            spool_settings=spool_settings,
+            execution_path=execution_path,
+            release=release_value,
         )
 
         changes: list[dict[str, Any]] = []
@@ -257,6 +316,7 @@ class GenericPlugin(
                         "stdout": result.stdout,
                         "stderr": result.stderr,
                         "duration": result.duration,
+                        "spool": result.spool,
                     }
                     for result in results
                 ],
