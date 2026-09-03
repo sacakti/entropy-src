@@ -1,0 +1,37 @@
+{
+    "name": "ServicesRoutesPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Create OpenShift Service and Route YAML resources.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "Create Services and Routes",
+            "plugin": "oc.services_routes",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "services_routes"
+            ],
+            "arguments": {
+                "resources": [
+                    {
+                        "name": "app1",
+                        "kind": "Service",
+                        "action": "CREATE",
+                        "source": "/Users/aravinthselvaraj/Desktop/releases/SR01/App/openshift/yamls/service.yaml",
+                        "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT/services/app1-service.yaml"
+                    },
+                    {
+                        "name": "app1",
+                        "kind": "Route",
+                        "action": "CREATE",
+                        "source": "/Users/aravinthselvaraj/Desktop/releases/SR01/App/openshift/yamls/route.yaml",
+                        "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT/routes/app1-route.yaml"
+                    }
+                ]
+            }
+        }
+    ]
+}

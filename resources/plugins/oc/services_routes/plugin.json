@@ -1,0 +1,14 @@
+{
+    "name": "services_routes",
+    "namespace": "oc",
+    "version": "1.0.0",
+    "description": "",
+    "author": "Aravithan Selvaraj",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "tags": [],
+
+    "license": ""
+}
