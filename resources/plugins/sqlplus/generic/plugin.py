@@ -4,7 +4,7 @@ SQLPlus plugin.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from pathlib import Path
 
 from lib.models.plugin import PluginResult
@@ -14,6 +14,9 @@ from .exceptions import GenericPluginError
 from .executor import SqlPlusExecutor
 from .resolver import SqlPlusResolver
 from .spool.resolver import SpoolSettingsResolver
+
+if TYPE_CHECKING:
+    from .model import SqlPlusExecutionResult
 
 class GenericPlugin(
     BasePlugin,
@@ -90,11 +93,17 @@ class GenericPlugin(
         Resolve and execute SQLPlus operations.
         """
 
-        mode = self.arguments.get(
-            "mode",
+        sqlhome = self.arguments.path(
+            "sqlhome",
+            None
         )
 
-        if not isinstance(mode, str):
+        mode = self.arguments.string(
+            "mode",
+            None
+        )
+
+        if not mode:
             raise GenericPluginError(
                 "'mode' is required.",
             )
@@ -109,7 +118,7 @@ class GenericPlugin(
         )
 
         spool_settings = SpoolSettingsResolver().resolve(
-            self.arguments.get(
+            self.arguments.dictionary(
                 "spool",
             ),
         )
@@ -118,14 +127,10 @@ class GenericPlugin(
 
         if mode == "plan":
 
-            execution = self.arguments.get(
+            execution = self.arguments.dictionary(
                 "execution",
             )
 
-            if not isinstance(execution, dict):
-                raise GenericPluginError(
-                    "'execution' must be an object in plan mode.",
-                )
 
             execution_plan = execution.get(
                 "execution_plan",
@@ -183,45 +188,17 @@ class GenericPlugin(
         executor = SqlPlusExecutor(
             shell=self.shell,
             activity=self.activity,
+            message=self.message,
         )
 
-        execution_path_value = self.arguments.get(
+        execution_path = self.arguments.path(
             "execution_path",
         )
 
-        execution_path = None
-
-        if execution_path_value is not None:
-
-            if not isinstance(
-                execution_path_value,
-                str,
-            ):
-                raise GenericPluginError(
-                    "'execution_path' must be a string.",
-                )
-
-            if not execution_path_value.strip():
-                raise GenericPluginError(
-                    "'execution_path' must be a non-empty path.",
-                )
-
-            execution_path = Path(
-                execution_path_value,
-            )
-
-        release_value = self.arguments.get(
+        release_value = self.arguments.string(
             "release",
             "release",
         )
-
-        if not isinstance(
-            release_value,
-            str,
-        ):
-            raise GenericPluginError(
-                "'release' must be a string.",
-            )
 
         if (
             spool_settings.enabled
@@ -237,6 +214,7 @@ class GenericPlugin(
             execution_path = executions[0].script.parent
 
         results = executor.execute_all(
+            sqlhome,
             executions,
             on_error=on_error,
             spool_settings=spool_settings,
@@ -248,12 +226,17 @@ class GenericPlugin(
 
         for result in results:
 
+            self._log_execution_output(
+                result,
+            )
+
             if result.success:
 
                 changes.append(
                     {
                         "schema": result.schema,
                         "script": str(result.script),
+                        "executed_script": str(result.executed_script),
                         "action": "execute",
                         "status": "executed",
                     },
@@ -265,6 +248,7 @@ class GenericPlugin(
                     {
                         "schema": result.schema,
                         "script": str(result.script),
+                         "executed_script": str(result.executed_script),
                         "action": "execute",
                         "status": "failed",
                     },
@@ -292,7 +276,10 @@ class GenericPlugin(
                 "schema": result.schema,
                 "script": str(result.script),
                 "exit_code": result.exit_code,
+                "type": result.error_type,
+                "message": result.error_message,
                 "stderr": result.stderr,
+                "spool": result.spool.get("used"),
             }
             for result in results
             if not result.success
@@ -313,14 +300,99 @@ class GenericPlugin(
                         "script": str(result.script),
                         "success": result.success,
                         "exit_code": result.exit_code,
-                        "stdout": result.stdout,
+                        "stdout": self._stdout_summary(
+                            result.stdout,
+                        ),
                         "stderr": result.stderr,
                         "duration": result.duration,
                         "spool": result.spool,
+                        "error_type": result.error_type,
+                        "error_message": result.error_message,
                     }
                     for result in results
                 ],
             },
         )
 
+        for result in results:
+
+            if not result.spool:
+                continue
+
+            spool_path = result.spool.get(
+                "used",
+            )
+
+            if not isinstance(
+                spool_path,
+                str,
+            ) or not spool_path.strip():
+                continue
+
+            self.artifacts[
+                f"sqlplus_{result.schema}_{result.script.stem}_spool"
+            ] = Path(spool_path)
+
         return changes, errors
+
+    @staticmethod
+    def _stdout_summary(
+        stdout: str,
+        *,
+        max_lines: int = 5,
+    ) -> dict[str, Any]:
+        """
+        Create a concise SQLPlus stdout representation.
+        """
+
+        if not stdout:
+            return {
+                "preview": "",
+                "lines": 0,
+                "truncated": False,
+            }
+
+        lines = stdout.splitlines()
+        line_count = len(lines)
+
+        if line_count <= max_lines:
+            return {
+                "preview": stdout,
+                "lines": line_count,
+                "truncated": False,
+            }
+
+        preview = "\n".join(
+            lines[:max_lines],
+        )
+
+        return {
+            "preview": (
+                f"{preview}\n"
+                "... (stdout is large; see spool log)"
+            ),
+            "lines": line_count,
+            "truncated": True,
+        }
+
+    def _log_execution_output(
+        self,
+        result: SqlPlusExecutionResult,
+    ) -> None:
+        """
+        Log SQLPlus execution output when no spool is available.
+        """
+
+        if result.spool is not None:
+            return
+
+        if not result.stdout.strip():
+            return
+
+        self.log.info(
+            (
+                f"SQLPlus output: "
+                f"{result.schema}/{result.script.name}\n"
+                f"{result.stdout}"
+            ),
+        )

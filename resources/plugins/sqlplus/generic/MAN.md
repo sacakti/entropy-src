@@ -1,6 +1,6 @@
 # sqlplus.generic
 
-------------------------------------------------------------------------
+---
 
 ## Overview
 
@@ -21,23 +21,21 @@ For each execution, the plugin:
 1. Resolves the database connection and schema credentials.
 2. Resolves the SQL script associated with the application.
 3. Builds the SQLPlus connection command.
-4. Executes SQLPlus with the script directory as the working directory.
-5. Captures the SQLPlus execution result.
-6. Detects process-level and SQLPlus/Oracle-level failures.
-7. Applies the configured `on_error` policy.
-8. Publishes structured workflow outputs, changes, and errors.
+4. Detects an existing SQLPlus `SPOOL` command when present.
+5. Applies the configured spool policy.
+6. Executes SQLPlus with the script directory as the working directory.
+7. Captures stdout, stderr, exit code, and duration.
+8. Detects process-level and SQLPlus/Oracle-level failures.
+9. Applies the configured `on_error` policy.
+10. Publishes structured workflow outputs, changes, errors, and artifacts.
 
-Each application/schema execution is independent.
+Each application/schema execution is independent. A failure in one
+application does not necessarily stop execution of subsequent
+applications. The behavior is controlled by the `on_error` argument.
 
-A failure in one application does not necessarily stop execution of
-subsequent applications. The behavior is controlled by the `on_error`
-argument.
-
-------------------------------------------------------------------------
+---
 
 ## Requirements
-
-The following requirements must be satisfied before using this plugin.
 
 ### Operating System
 
@@ -55,12 +53,12 @@ The plugin executes SQLPlus using:
 
 ```text
 sqlplus
-````
+```
 
 If the executable cannot be found, the plugin reports a structured
 execution failure.
 
-Example error:
+Example:
 
 ```text
 SQLPlus executable was not found. Ensure 'sqlplus' is installed and available on PATH.
@@ -71,52 +69,42 @@ SQLPlus executable was not found. Ensure 'sqlplus' is installed and available on
 The execution environment must be able to connect to the target Oracle
 database using the supplied:
 
-* IP/host
-* port
-* SID/service identifier
-* username
-* password
-
-### Entropy
-
-The plugin requires the Entropy plugin execution infrastructure,
-including:
-
-* `BasePlugin`
-* `PluginResult`
-* Entropy shell/process execution through `self.shell`
+- IP/host
+- port
+- SID/service identifier
+- username
+- password
 
 ### Files
 
 Every SQL script supplied to the plugin must:
 
-* exist before execution
-* be readable by the Entropy process
-* be a valid SQLPlus script
-* be accessible from the execution environment
+- exist before execution
+- be readable by the Entropy process
+- be a valid SQLPlus script
+- be accessible from the execution environment
 
 ---
 
 ## Arguments
 
-The plugin accepts the following arguments.
-
-| Argument     | Required         | Type     | Default | Description                                                                   |
-| ------------ | ---------------- | -------- | ------- | ----------------------------------------------------------------------------- |
-| `mode`       | Yes              | `string` | ---     | SQLPlus execution mode.                                                       |
-| `on_error`   | No               | `string` | `abort` | Determines whether execution stops or continues after an application failure. |
-| `connection` | Yes for `plan`   | `object` | ---     | Common Oracle connection information.                                         |
-| `schemas`    | Yes for `plan`   | `object` | ---     | Schema-specific credentials.                                                  |
-| `execution`  | Yes for `plan`   | `object` | ---     | Database execution context, normally supplied by `BuildReleaseContext`.       |
-| `executions` | Yes for `direct` | `array`  | ---     | Explicit SQLPlus executions.                                                  |
+| Argument | Required | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `mode` | Yes | `string` | — | SQLPlus execution mode: `plan` or `direct`. |
+| `on_error` | No | `string` | `abort` | Determines whether execution stops or continues after an individual execution failure. |
+| `connection` | Yes for `plan` | `object` | — | Common Oracle connection information. |
+| `schemas` | Yes for `plan` | `object` | — | Schema-specific credentials. |
+| `execution` | Yes for `plan` | `object` | — | Database execution context, normally supplied by `release.context_builder`. |
+| `executions` | Yes for `direct` | `array` | — | Explicit SQLPlus executions. |
+| `execution_path` | No | `string` | First script's parent when spool is enabled | Base directory used for generated spool paths. |
+| `release` | No | `string` | `release` | Release value used by spool filename placeholders. |
+| `spool` | No | `object` | Disabled | Controls spool detection, validation, override, and generated spool files. |
 
 ---
 
 ## Argument Details
 
 ### `mode`
-
-Defines how database executions are resolved.
 
 Accepted values:
 
@@ -129,9 +117,9 @@ direct
 
 Uses:
 
-* `connection`
-* `schemas`
-* `execution`
+- `connection`
+- `schemas`
+- `execution`
 
 The `execution` object normally comes from:
 
@@ -154,7 +142,7 @@ credentials.
 Does not use a release execution plan.
 
 The caller directly supplies the complete list of executions through
-the `executions` argument.
+`executions`.
 
 ---
 
@@ -180,8 +168,6 @@ abort
 
 Stops execution after the first failed application.
 
-Example:
-
 ```text
 APP1 → SUCCESS
 APP2 → FAILURE
@@ -192,8 +178,6 @@ APP4 → SKIPPED
 #### `continue`
 
 Continues executing subsequent applications after a failure.
-
-Example:
 
 ```text
 APP1 → SUCCESS
@@ -214,8 +198,8 @@ success = false
 
 ### `connection`
 
-Defines the common Oracle connection information used by all schemas
-in plan mode.
+Defines common Oracle connection information used by all schemas in
+plan mode.
 
 Example:
 
@@ -227,11 +211,8 @@ Example:
 }
 ```
 
-The connection contains environment-specific information.
-
-It is intended to be common to all database schemas in the execution.
-
-The connection does not contain schema usernames or passwords.
+The connection contains environment-specific information and does not
+contain schema usernames or passwords.
 
 ---
 
@@ -254,28 +235,6 @@ Example:
 }
 ```
 
-The schema key must correspond to the schema referenced by the
-execution plan.
-
-For example:
-
-```json
-{
-    "schema": "APP1"
-}
-```
-
-must resolve against:
-
-```json
-{
-    "APP1": {
-        "username": "...",
-        "password": "..."
-    }
-}
-```
-
 Credentials should normally be supplied through Entropy Vault
 interpolation rather than being written directly in workflow files.
 
@@ -285,7 +244,7 @@ interpolation rather than being written directly in workflow files.
 
 Contains the database execution context.
 
-The recommended source is:
+Recommended source:
 
 ```text
 ${steps.BuildReleaseContext.outputs.database}
@@ -319,7 +278,7 @@ execution.scripts
 execution.execution_plan
 ```
 
-to construct the actual SQLPlus executions.
+to construct actual SQLPlus executions.
 
 ---
 
@@ -341,28 +300,357 @@ Example:
         "username": "app1",
         "password": "1234",
         "script": "/path/to/App1_calling_script.sql"
-    },
-    {
-        "ip": "localhost",
-        "port": 1521,
-        "sid": "orcl",
-        "schema": "APP2",
-        "username": "app2",
-        "password": "1234",
-        "script": "/path/to/App2_calling_script.sql"
     }
 ]
 ```
 
-Each execution is independent.
+---
+
+## Spool Subsystem
+
+The spool subsystem provides reliable SQLPlus execution tracing without
+requiring every calling script to contain a valid `SPOOL` command.
+
+The configuration is:
+
+```json
+"spool": {
+    "enabled": true,
+    "override": false,
+    "create_if_not_exists": true,
+    "name_placeholder": "%execution_path/%release_%schema_%date.log",
+    "wrappers_before": [
+        "SET ECHO ON",
+        "SET FEEDBACK ON",
+        "SET HEADING ON",
+        "SET SERVEROUTPUT ON"
+    ],
+    "wrappers_after": [
+        "SPOOL OFF",
+        "EXIT"
+    ]
+}
+```
+
+### `spool.enabled`
+
+Controls whether Entropy manages spool behavior.
+
+```text
+enabled = false
+```
+
+The SQLPlus script is executed normally. If the script itself contains
+a `SPOOL` command, SQLPlus uses it. Entropy does not replace or create a
+spool file.
+
+If no spool is available, the captured stdout is written to the Entropy
+execution log in a concise form so that execution output is not lost.
+
+```text
+enabled = true
+```
+
+Entropy detects the script's existing spool configuration and ensures
+that a usable execution spool is available.
+
+### `spool.override`
+
+Controls whether an existing active spool target should be replaced by
+the configured spool target.
+
+```text
+override = false
+```
+
+Behavior:
+
+- valid existing spool → use it unchanged
+- invalid existing spool → generate a replacement execution copy using
+  the configured spool path
+- no existing spool → generate a wrapper execution script
+
+```text
+override = true
+```
+
+An existing active spool target is replaced with the configured spool
+target in an Entropy-generated execution copy.
+
+The original user SQL script is not modified.
+
+`override` therefore acts as the input spool replacement mechanism; a
+separate `infile_replace` setting is not required.
+
+### Existing Spool Detection
+
+When `spool.enabled` is true, the plugin scans the calling script for an
+active SQLPlus spool command.
+
+Example:
+
+```sql
+SPOOL /opt/oracle/prod/customer.log;
+
+@test.sql;
+
+SPOOL OFF;
+```
+
+The active spool target is:
+
+```text
+/opt/oracle/prod/customer.log
+```
+
+`SPOOL OFF` is not considered an active spool target.
+
+Relative spool paths are resolved relative to the directory containing
+the calling script.
+
+For example:
+
+```sql
+SPOOL logs/customer.log;
+```
+
+with:
+
+```text
+/db/releases/H004/DBScripts/App1/App1_calling_script.sql
+```
+
+resolves to:
+
+```text
+/db/releases/H004/DBScripts/App1/logs/customer.log
+```
+
+### Spool Path Validation
+
+An existing spool target is considered usable when:
+
+- an existing target is a writable file, or
+- the target does not exist but its existing parent directory is
+  writable.
+
+The plugin also validates that the target is not an invalid filesystem
+object such as a directory where a file is expected.
+
+This allows deployment environments to contain hardcoded spool paths
+from another environment without forcing SQLPlus to use an unusable
+location.
+
+### Automatic Path Replacement
+
+If an existing spool path is invalid and `spool.enabled` is true, the
+plugin may use the configured spool target instead.
+
+Example:
+
+```text
+existing:
+    /opt/oracle/prod/customer.log
+
+configured:
+    /release/H004/APP1_2026-09-01.log
+```
+
+The execution result records why the configured path was selected.
+
+Example:
+
+```json
+{
+    "enabled": true,
+    "detected": true,
+    "existing": "/opt/oracle/prod/customer.log",
+    "used": "/release/H004/APP1_2026-09-01.log",
+    "overridden": true,
+    "reason": "existing_spool_invalid"
+}
+```
+
+Other reasons may include:
+
+```text
+spool_created
+override_requested
+existing_spool
+```
+
+The exact reason describes the spool decision made for that execution.
+
+### Generated Execution Scripts
+
+The plugin never modifies the original calling script.
+
+When a wrapper or replacement is required, Entropy creates an execution
+copy under:
+
+```text
+<execution_path>/.entropy/sqlplus/
+```
+
+Examples:
+
+```text
+App1_calling_script_spool.sql
+```
+
+The generated script is then passed to SQLPlus instead of the original
+calling script.
+
+### Spool Filename Placeholders
+
+The default spool filename is:
+
+```text
+%execution_path/%release_%schema_%date.log
+```
+
+Supported placeholders:
+
+| Placeholder | Meaning |
+| --- | --- |
+| `%execution_path` | Resolved execution directory. |
+| `%release` | Workflow `release` value. |
+| `%schema` | Current database schema. |
+| `%date` | Current date in `YYYY-MM-DD` format. |
+
+Example:
+
+```text
+%execution_path/%release_%schema_%date.log
+```
+
+can resolve to:
+
+```text
+/release/H004/APP1_2026-09-01.log
+```
+
+### `spool.create_if_not_exists`
+
+Controls creation of the parent directory for a configured spool path.
+
+When enabled, missing parent directories are created before SQLPlus
+execution.
+
+### `spool.wrappers_before`
+
+Commands inserted before the generated `SPOOL` command.
+
+Example:
+
+```json
+"wrappers_before": [
+    "SET ECHO ON",
+    "SET FEEDBACK ON",
+    "SET HEADING ON",
+    "SET SERVEROUTPUT ON"
+]
+```
+
+### `spool.wrappers_after`
+
+Commands inserted after the calling script.
+
+Example:
+
+```json
+"wrappers_after": [
+    "SPOOL OFF",
+    "EXIT"
+]
+```
+
+These settings are primarily used when Entropy creates a wrapper for a
+script that does not already contain a spool command.
+
+---
+
+## Spool Result Information
+
+When spool processing is enabled, each execution result can contain:
+
+```json
+"spool": {
+    "enabled": true,
+    "detected": true,
+    "existing": "/opt/oracle/prod/customer.log",
+    "used": "/release/H004/APP1_2026-09-01.log",
+    "overridden": true,
+    "reason": "override_requested"
+}
+```
+
+Fields:
+
+| Field | Description |
+| --- | --- |
+| `enabled` | Whether Entropy spool management was enabled. |
+| `detected` | Whether an active spool command was detected in the calling script. |
+| `existing` | Resolved existing spool target, if detected. |
+| `used` | Spool path selected for this execution, if Entropy manages a spool. |
+| `overridden` | Whether the existing spool target was replaced. |
+| `reason` | Explanation for the spool decision. |
+
+When spool management is disabled and no Entropy-managed spool is
+created, `spool` remains `null`.
+
+---
+
+## Execution Logging Without Spool
+
+Spool is optional.
+
+When:
+
+```json
+"spool": {
+    "enabled": false
+}
+```
+
+SQLPlus executes normally.
+
+If the calling script has its own `SPOOL` command, SQLPlus continues to
+use that command.
+
+If there is no spool, Entropy still retains execution output by
+capturing SQLPlus stdout.
+
+The UI-facing output is intentionally summarized rather than displaying
+large SQLPlus output in full.
+
+Example:
+
+```text
+SQLPlus output:
+...
+...
+... (stdout is large; see execution log)
+```
+
+The structured result contains a concise stdout representation with:
+
+```json
+{
+    "preview": "...",
+    "lines": 120,
+    "truncated": true
+}
+```
+
+This prevents large SQL result sets from overwhelming workflow output
+while retaining an execution trace in the Entropy log.
 
 ---
 
 ## Workflow Configuration
 
-The plugin is executed through a workflow step.
-
-### Basic Configuration
+Basic configuration:
 
 ```json
 {
@@ -385,110 +673,95 @@ The plugin is executed through a workflow step.
 
 These are different controls.
 
-`on_failure` belongs to the Entropy workflow engine.
-
-Example:
-
-```json
-{
-    "on_failure": "abort"
-}
-```
-
-It determines what the workflow does when the SQLPlus plugin itself
-returns:
+`on_failure` belongs to the Entropy workflow engine and determines what
+the workflow does when the SQLPlus plugin itself returns:
 
 ```text
 success = false
 ```
 
-`on_error` belongs to the SQLPlus plugin.
-
-Example:
-
-```json
-{
-    "on_error": "continue"
-}
-```
-
-It determines whether SQLPlus continues with subsequent database
-applications after an individual database execution fails.
-
-For example:
-
-```text
-SQLPlus plugin
-    │
-    ├── APP1 → success
-    ├── APP2 → failure
-    └── APP3 → success
-```
-
-with:
-
-```text
-on_error = continue
-```
-
-causes APP3 to execute.
-
-The final plugin result is still:
-
-```text
-success = false
-```
-
-because APP2 failed.
+`on_error` belongs to the SQLPlus plugin and determines whether SQLPlus
+continues with subsequent database executions after an individual
+execution fails.
 
 ---
 
-## Complete Workflow Example
+## Complete Direct Example With Spool
 
-### Plan Mode
+```json
+{
+    "name": "SQLPlus Direct Test",
+    "version": "1.0.0",
+    "description": "Execute SQLPlus scripts directly with managed spooling.",
+    "variables": {},
+    "steps": [
+        {
+            "name": "SQLPlus Direct",
+            "plugin": "sqlplus.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "sqlplus",
+                "direct"
+            ],
+            "arguments": {
+                "mode": "direct",
+                "on_error": "abort",
+                "executions": [
+                    {
+                        "ip": "localhost",
+                        "port": 1521,
+                        "sid": "orcl",
+                        "schema": "APP1",
+                        "username": "app1",
+                        "password": "1234",
+                        "script": "/db/App1/App1_calling_script.sql"
+                    }
+                ],
+                "spool": {
+                    "enabled": true,
+                    "override": true,
+                    "create_if_not_exists": true,
+                    "name_placeholder": "%execution_path/%release_%schema_%date.log",
+                    "wrappers_before": [
+                        "SET ECHO ON",
+                        "SET FEEDBACK ON",
+                        "SET HEADING ON",
+                        "SET SERVEROUTPUT ON"
+                    ],
+                    "wrappers_after": [
+                        "SPOOL OFF",
+                        "EXIT"
+                    ]
+                }
+            }
+        }
+    ]
+}
+```
 
-The recommended deployment configuration is to use the database
-execution context generated by `BuildReleaseContext`.
+---
+
+## Plan Mode Example
 
 ```json
 {
     "name": "SQLPlus Workflow",
     "version": "1.0.0",
     "description": "Execute database release scripts using SQLPlus.",
-
-    "variables": {
-        "release": "/path/to/release.zip",
-        "docker_repository": "/path/to/repository",
-        "yaml_repository": "/path/to/yamls",
-        "image_tag": "1.1.10"
-    },
-
     "steps": [
         {
             "name": "BuildReleaseContext",
             "plugin": "release.context_builder",
             "enabled": true,
             "on_failure": "abort",
-            "tags": [
-                "release",
-                "context_builder"
-            ],
-            "arguments": {
-                "release": "${release}",
-                "docker_repository": "${docker_repository}",
-                "yaml_repository": "${yaml_repository}",
-                "image_tag": "${image_tag}"
-            }
+            "arguments": {}
         },
         {
             "name": "SQLPlus",
             "plugin": "sqlplus.generic",
             "enabled": true,
             "on_failure": "abort",
-            "tags": [
-                "release",
-                "sqlplus"
-            ],
             "arguments": {
                 "mode": "plan",
                 "on_error": "continue",
@@ -507,163 +780,53 @@ execution context generated by `BuildReleaseContext`.
                         "password": "1234"
                     }
                 },
-                "execution": "${steps.BuildReleaseContext.outputs.database}"
+                "execution": "${steps.BuildReleaseContext.outputs.database}",
+                "spool": {
+                    "enabled": true,
+                    "override": false,
+                    "create_if_not_exists": true,
+                    "name_placeholder": "%execution_path/%release_%schema_%date.log"
+                }
             }
         }
     ]
 }
 ```
 
-In production, credentials should not be hardcoded as shown above.
-Use Vault variables instead.
-
----
-
-## Workflow Variables
-
-Workflow variables can be used to supply plugin arguments.
-
-Example:
-
-```json
-{
-    "variables": {
-        "oracle_connection": {
-            "IP": "localhost",
-            "PORT": 1521,
-            "SID": "orcl"
-        }
-    }
-}
-```
-
-The variable can then be referenced where supported:
-
-```json
-{
-    "arguments": {
-        "connection": "${oracle_connection}"
-    }
-}
-```
-
-Workflow variables are resolved by the workflow engine before the plugin
-receives its runtime arguments.
-
----
-
-## Vault Variables
-
-Database credentials should be stored in Entropy Vault rather than
-hardcoded in workflow files.
-
-A recommended environment structure is:
-
-```text
-SIT_CONNECTION
-SIT_SCHEMA_APP1
-SIT_SCHEMA_APP2
-```
-
-For example, the connection Vault value can contain:
-
-```json
-{
-    "IP": "localhost",
-    "PORT": 1521,
-    "SID": "orcl"
-}
-```
-
-A schema Vault value can contain:
-
-```json
-{
-    "username": "app1",
-    "password": "..."
-}
-```
-
-The workflow can reference these values through Entropy Vault
-interpolation.
-
-Example:
-
-```json
-{
-    "variables": {
-        "SIT": {
-            "connection": "${entv:SIT_CONNECTION}",
-            "schemas": "${entv:SIT_SCHEMA_*}"
-        }
-    }
-}
-```
-
-These variables can then be passed to the SQLPlus plugin according to
-the workflow variable interpolation rules.
-
-Actual passwords must never be placed in this manual.
+In production, credentials should be supplied through Entropy Vault.
 
 ---
 
 ## Execution
 
-The plugin execution consists of the following stages.
+The plugin execution consists of the following stages:
 
-1. Validate the `mode` argument.
-
-2. Validate the `on_error` policy.
-
+1. Validate `mode`.
+2. Validate `on_error`.
 3. Resolve database executions.
-
-4. In `plan` mode:
-
-   * Read the database execution context.
-   * Resolve the execution plan.
-   * Resolve the corresponding SQL scripts.
-   * Resolve schema credentials.
-
-5. In `direct` mode:
-
-   * Validate the explicitly supplied execution definitions.
-
-6. Build the SQLPlus command for each execution.
-
-7. Execute SQLPlus using Entropy's shell abstraction.
-
-8. Set the SQL script's parent directory as the process working
-   directory.
-
-9. Capture:
-
-   * exit code
-   * stdout
-   * stderr
-   * execution duration
-
-10. Detect SQLPlus/Oracle failures.
-
-11. Apply the `on_error` policy.
-
-12. Publish workflow outputs.
-
-13. Publish structured changes and errors.
+4. In `plan` mode, resolve the database execution plan and scripts.
+5. In `direct` mode, resolve explicitly supplied executions.
+6. Detect an existing SQLPlus spool command.
+7. Validate the detected spool path when spool management is enabled.
+8. Determine whether the existing spool can be used or must be replaced.
+9. Generate an execution wrapper/replacement when required.
+10. Build the SQLPlus command.
+11. Execute SQLPlus using Entropy's shell abstraction.
+12. Capture exit code, stdout, stderr, and duration.
+13. Detect SQLPlus/Oracle failures.
+14. Record spool decision information.
+15. Apply the `on_error` policy.
+16. Publish workflow outputs.
+17. Publish changes, errors, and spool artifacts.
 
 ---
 
 ## SQLPlus Execution
 
-The plugin invokes SQLPlus using the following connection format:
+The plugin invokes SQLPlus using:
 
 ```text
 sqlplus username/password@//host:port/sid @script
-```
-
-Example:
-
-```bash
-sqlplus app1/****@//localhost:1521/orcl @App1_calling_script.sql
 ```
 
 The actual password is supplied to the process, while the command
@@ -689,82 +852,22 @@ location.
 
 ## Outputs
 
-The plugin produces the following outputs.
+The plugin produces:
 
-| Output       | Type      | Description                                                    |
-| ------------ | --------- | -------------------------------------------------------------- |
-| `success`    | `boolean` | Overall SQLPlus execution status.                              |
-| `mode`       | `string`  | Execution mode used by the plugin.                             |
-| `on_error`   | `string`  | Error policy used during execution.                            |
-| `executions` | `integer` | Number of executions requested.                                |
-| `succeeded`  | `integer` | Number of executions that completed successfully.              |
-| `failed`     | `integer` | Number of executions that failed.                              |
-| `skipped`    | `integer` | Number of executions skipped because of `abort`.               |
-| `results`    | `array`   | Detailed result of each execution that was actually attempted. |
+| Output | Type | Description |
+| --- | --- | --- |
+| `success` | `boolean` | Overall SQLPlus execution status. |
+| `mode` | `string` | Execution mode. |
+| `on_error` | `string` | Error policy used. |
+| `executions` | `integer` | Number of resolved executions. |
+| `succeeded` | `integer` | Number of successful executions. |
+| `failed` | `integer` | Number of failed executions. |
+| `skipped` | `integer` | Number skipped because of `abort`. |
+| `results` | `array` | Detailed results for attempted executions. |
 
-### `success`
+### Result Fields
 
-`true` only when all requested executions completed successfully.
-
-Example:
-
-```text
-success = true
-```
-
-If any execution fails:
-
-```text
-success = false
-```
-
-If `on_error` is `continue`, subsequent applications may still execute,
-but the overall result remains failed.
-
-### `executions`
-
-The total number of execution definitions resolved by the plugin.
-
-Example:
-
-```text
-executions = 3
-```
-
-### `succeeded`
-
-Number of executions that completed successfully.
-
-### `failed`
-
-Number of executions that failed.
-
-### `skipped`
-
-Number of executions that were not attempted because:
-
-```text
-on_error = abort
-```
-
-Example:
-
-```text
-APP1 → success
-APP2 → failure
-APP3 → skipped
-
-executions = 3
-succeeded = 1
-failed = 1
-skipped = 1
-```
-
-### `results`
-
-Contains detailed information for each execution that was attempted.
-
-Example:
+A result can contain:
 
 ```json
 {
@@ -772,46 +875,88 @@ Example:
     "script": "/path/to/App1_calling_script.sql",
     "success": true,
     "exit_code": 0,
-    "stdout": "...",
+    "stdout": {
+        "preview": "...",
+        "lines": 10,
+        "truncated": false
+    },
     "stderr": "",
-    "duration": 0.42
+    "duration": 0.42,
+    "spool": {
+        "enabled": true,
+        "detected": false,
+        "existing": null,
+        "used": "/release/H004/APP1_2026-09-01.log",
+        "overridden": false,
+        "reason": "spool_created"
+    },
+    "error_type": null,
+    "error_message": null
 }
 ```
 
-Sensitive connection credentials are not included.
+Sensitive credentials are not included.
+
+### Stdout
+
+The plugin does not expose potentially huge stdout directly in the UI
+result.
+
+Instead it publishes:
+
+```json
+{
+    "preview": "...",
+    "lines": 120,
+    "truncated": true
+}
+```
+
+When stdout is large, the preview ends with an indication that the
+execution log should be checked.
 
 ---
 
-## Example Output
+## Failure Information
 
-```text
-outputs:
-    success = false
-    mode = "plan"
-    on_error = "continue"
-    executions = 2
-    succeeded = 1
-    failed = 1
-    skipped = 0
+SQLPlus failures can include:
 
-    results:
-        APP1:
-            success = true
-            exit_code = 0
+- process startup failures
+- timeout failures
+- operating-system errors
+- Oracle `ORA-*` errors
+- SQLPlus `SP2-*` errors
+- PL/SQL `PLS-*` errors
+- non-zero SQLPlus exit codes
 
-        APP2:
-            success = false
-            exit_code = 1
+The plugin records structured error information when available.
+
+Example:
+
+```json
+{
+    "schema": "APP1",
+    "script": "/path/to/App1_calling_script.sql",
+    "exit_code": 1,
+    "type": "ORA",
+    "message": "Oracle error detected",
+    "stderr": "...",
+    "spool": "/release/H004/APP1_2026-09-01.log"
+}
 ```
+
+When an execution fails, the spool log should be checked for the full
+SQLPlus execution trace.
 
 ---
 
 ## Plugin Result
 
-The plugin publishes the following top-level result structure:
+The plugin publishes:
 
 ```text
 PluginResult
+
 ├── success
 ├── changed
 ├── outputs
@@ -823,30 +968,14 @@ PluginResult
 
 ### `changed`
 
-`changed` indicates whether at least one SQLPlus execution completed
+`changed` is true when at least one SQLPlus execution completed
 successfully.
-
-Therefore:
 
 ```text
 No successful executions → changed = false
+
 At least one successful execution → changed = true
 ```
-
-Examples:
-
-```text
-APP1 → failure
-changed = false
-```
-
-```text
-APP1 → success
-APP2 → failure
-changed = true
-```
-
-A failed execution by itself does not make `changed` true.
 
 ---
 
@@ -880,10 +1009,6 @@ For a failed execution:
 ]
 ```
 
-Changes are published at the top level of `PluginResult`.
-
-They are not duplicated inside `outputs`.
-
 ---
 
 ## Errors
@@ -898,32 +1023,487 @@ Example:
         "schema": "APP1",
         "script": "/path/to/App1_calling_script.sql",
         "exit_code": 1,
-        "stderr": "..."
+        "type": "ORA",
+        "message": "Oracle error detected",
+        "stderr": "...",
+        "spool": "/release/H004/APP1_2026-09-01.log"
     }
 ]
 ```
 
-Errors are published at the top level of `PluginResult`.
-
-They are not duplicated inside `outputs`.
+The full execution trace should be inspected in the spool artifact when
+one is available.
 
 ---
 
 ## Artifacts
 
-The SQLPlus plugin does not create deployment artifacts.
+When Entropy-managed spooling is used, the generated spool log is
+published as a plugin artifact.
 
-The plugin may expose artifacts inherited through the Entropy plugin
-framework, but SQLPlus does not create or persist SQL execution output
-as an Entropy artifact.
+The artifact name identifies the schema and calling script:
 
-SQLPlus stdout and stderr are available through the execution results.
+```text
+sqlplus_<schema>_<script>_spool
+```
+
+Example:
+
+```text
+sqlplus_APP1_App1_calling_script_spool
+```
+
+The artifact value is the spool log path.
+
+Example:
+
+```text
+{
+    "artifacts": {
+        "sqlplus_APP1_App1_calling_script_spool":
+            "/release/H004/APP1_2026-09-01.log"
+    }
+}
+```
+
+These spool logs are intended to provide the full execution trace for
+later analysis or reporting plugins.
+
+A future reporting plugin can consume these artifacts to identify
+invalid objects, SQL errors, execution failures, and other deployment
+information.
+
+---
+
+## Validation
+
+The plugin validates:
+
+### Mode
+
+```text
+plan
+direct
+```
+
+### Error Policy
+
+```text
+abort
+continue
+```
+
+### Spool Configuration
+
+When provided, `spool` must be an object.
+
+The following fields are validated:
+
+- `enabled` → boolean
+- `override` → boolean
+- `create_if_not_exists` → boolean
+- `name_placeholder` → non-empty string
+- `wrappers_before` → list of strings
+- `wrappers_after` → list of strings
+
+### Execution Path
+
+If supplied:
+
+```text
+execution_path
+```
+
+must be a non-empty string.
+
+When spool management is enabled and no execution path is supplied, the
+plugin can derive the execution path from the first resolved SQL script.
+
+### Direct Mode
+
+Each execution must contain valid connection, schema, credential, and
+script information.
+
+---
+
+## Error Handling
+
+### Configuration Failures
+
+Invalid arguments are rejected during resolution.
+
+Examples:
+
+- missing mode
+- unsupported mode
+- invalid error policy
+- invalid spool configuration
+- invalid execution plan
+- invalid direct execution definitions
+
+### Process Failures
+
+Operating-system failures are converted into structured SQLPlus
+execution failures.
+
+Examples:
+
+- `sqlplus` executable not found
+- permission errors
+- process execution errors
+- timeout failures
+
+### SQLPlus/Oracle Failures
+
+The plugin evaluates:
+
+1. process exit code
+2. SQLPlus/Oracle error output
+
+Recognized error patterns include:
+
+```text
+ORA-xxxxx
+SP2-xxxxx
+PLS-xxxxx
+```
+
+A detected SQLPlus/Oracle error causes the execution to be marked as
+failed.
+
+### Partial Execution
+
+With:
+
+```text
+on_error = continue
+```
+
+a failed application does not prevent subsequent applications from
+executing.
+
+With:
+
+```text
+on_error = abort
+```
+
+execution stops after the first failure.
+
+---
+
+## Security
+
+SQLPlus credentials are sensitive information.
+
+Credentials should be stored in Entropy Vault rather than hardcoded in
+workflow files.
+
+The actual SQLPlus process requires credentials, but the displayed
+command representation masks the password.
+
+Example displayed command:
+
+```text
+app1/****@//localhost:1521/orcl
+```
+
+Passwords must not be placed in:
+
+- workflow files
+- documentation
+- source code
+- test fixtures
+- custom log messages
+
+The plugin does not intentionally include database passwords in
+structured outputs, changes, or errors.
+
+---
+
+## Filesystem
+
+The plugin reads SQL scripts supplied by the resolver.
+
+The original SQL scripts are not modified or deleted.
+
+When spool management requires a generated execution script, the
+generated copy is stored under:
+
+```text
+<execution_path>/.entropy/sqlplus/
+```
+
+The original calling script remains unchanged.
+
+### Working Directory
+
+SQLPlus runs with:
+
+```text
+cwd = script.parent
+```
+
+This is important for calling scripts that reference other files using
+relative paths.
+
+### Generated Spool Logs
+
+When configured, spool directories are created when
+`create_if_not_exists` is enabled and the filesystem permits creation.
+
+The target directory/file must be writable for the spool to be usable.
+
+---
+
+## External Commands
+
+The plugin executes:
+
+```bash
+sqlplus username/password@//host:port/sid @script
+```
+
+The `sqlplus` executable must be available in `PATH`.
+
+---
+
+## External Services
+
+### Oracle Database
+
+The plugin connects to Oracle databases using SQLPlus.
+
+Connection information consists of:
+
+```text
+IP
+PORT
+SID
+```
+
+Authentication consists of:
+
+```text
+username
+password
+```
+
+Each schema may have independent credentials.
+
+---
+
+## Side Effects
+
+SQL scripts may:
+
+- create database objects
+- alter database objects
+- insert data
+- update data
+- delete data
+- execute stored procedures
+- perform other database operations
+
+The plugin starts the SQLPlus process for each execution and can create
+Entropy-generated spool directories, wrapper scripts, and spool log
+files when spool management is enabled.
+
+The original SQL scripts are not modified or deleted.
+
+---
+
+## Performance
+
+Executions are performed sequentially.
+
+For multiple schemas:
+
+```text
+APP1
+  ↓
+APP2
+  ↓
+APP3
+```
+
+The plugin does not execute schemas concurrently.
+
+Database execution time depends primarily on:
+
+- SQL script complexity
+- database performance
+- network latency
+- number of applications
+- number of SQL statements
+- database locks
+- external database dependencies
+
+---
+
+## Limitations
+
+- Requires SQLPlus to be installed.
+- Requires `sqlplus` to be available in `PATH`.
+- Requires Oracle database connectivity.
+- Requires valid schema credentials.
+- Executes database operations sequentially.
+- Does not provide database transaction management across independent
+  applications.
+- Cannot automatically roll back changes already committed by a
+  previously successful application.
+- `on_error = continue` does not make a failed execution successful.
+- SQL scripts are responsible for their own transaction semantics.
+- SQLPlus/Oracle errors are detected from exit status and recognized
+  output patterns.
+- Spool path validation cannot guarantee that the Oracle SQLPlus process
+  will ultimately have sufficient permissions in every runtime
+  environment.
+
+---
+
+## Troubleshooting
+
+### SQLPlus executable was not found
+
+Check:
+
+```bash
+which sqlplus
+```
+
+Then:
+
+```bash
+sqlplus -v
+```
+
+Ensure the Entropy execution environment has the same `PATH` used to
+locate SQLPlus.
+
+### Existing spool path is replaced
+
+Check the execution result:
+
+```json
+"spool": {
+    "enabled": true,
+    "detected": true,
+    "existing": "/opt/oracle/prod/customer.log",
+    "used": "/release/H004/APP1_2026-09-01.log",
+    "overridden": true,
+    "reason": "existing_spool_invalid"
+}
+```
+
+Possible reasons include:
+
+- the original spool file does not exist and its parent directory is
+  unavailable
+- the parent directory is not writable
+- the existing target is not a file
+- `override` was explicitly requested
+
+### Existing spool is used
+
+With:
+
+```text
+enabled = true
+override = false
+```
+
+a valid existing spool target is preserved.
+
+The result identifies it through:
+
+```text
+detected = true
+existing = <path>
+used = <path>
+overridden = false
+```
+
+### No spool command exists
+
+With:
+
+```text
+enabled = true
+```
+
+Entropy generates an execution wrapper containing the configured spool
+command.
+
+The original SQL script remains unchanged.
+
+### Large stdout appears truncated
+
+This is intentional.
+
+The structured output uses a preview to prevent large SQL query results
+from overwhelming the workflow UI.
+
+Check the Entropy execution log when spool is disabled, or the generated
+spool artifact when spool is enabled.
+
+### Oracle/SQLPlus execution failed
+
+Check:
+
+1. `error_type`
+2. `error_message`
+3. `stderr`
+4. `spool.used`
+5. the generated spool artifact
+
+The spool log is the preferred source for detailed execution analysis
+when available.
+
+---
+
+## Recommended Architecture
+
+```text
+BuildReleaseContext
+        │
+        ▼
+database execution context
+        │
+        ▼
+SQLPlus
+        │
+        ├── connection
+        ├── schema credentials
+        ├── execution plan
+        │
+        └── spool subsystem
+                │
+                ├── detect existing spool
+                ├── validate path
+                ├── preserve valid spool
+                ├── override invalid/existing spool when configured
+                └── generate spool when absent
+                        │
+                        ▼
+                SQLPlus execution trace
+                        │
+                        ▼
+                spool artifact
+                        │
+                        ▼
+                future analysis/reporting plugin
+```
+
+The spool subsystem is deliberately separated from database execution
+resolution so that future plugins can consume the resulting execution
+logs without needing to execute SQL again.
 
 ---
 
 ## Examples
 
-### Example 1 --- Basic Direct Usage
+### Basic Direct Usage
 
 ```json
 {
@@ -949,785 +1529,73 @@ SQLPlus stdout and stderr are available through the execution results.
 }
 ```
 
-Do not use plaintext credentials in production workflows.
-
----
-
-### Example 2 --- Multiple Schemas
+### Managed Spool Without Override
 
 ```json
 {
-    "name": "SQLPlus Multiple Schemas",
-    "plugin": "sqlplus.generic",
-    "enabled": true,
-    "on_failure": "abort",
-    "arguments": {
-        "mode": "direct",
-        "on_error": "continue",
-        "executions": [
-            {
-                "ip": "localhost",
-                "port": 1521,
-                "sid": "orcl",
-                "schema": "APP1",
-                "username": "app1",
-                "password": "1234",
-                "script": "/db/App1/App1_calling_script.sql"
-            },
-            {
-                "ip": "localhost",
-                "port": 1521,
-                "sid": "orcl",
-                "schema": "APP2",
-                "username": "app2",
-                "password": "1234",
-                "script": "/db/App2/App2_calling_script.sql"
-            }
+    "mode": "direct",
+    "on_error": "continue",
+    "executions": [],
+    "spool": {
+        "enabled": true,
+        "override": false,
+        "create_if_not_exists": true,
+        "name_placeholder": "%execution_path/%release_%schema_%date.log"
+    }
+}
+```
+
+A valid existing spool is preserved. An invalid spool is replaced by an
+Entropy-generated execution copy.
+
+### Managed Spool With Override
+
+```json
+{
+    "mode": "direct",
+    "on_error": "abort",
+    "executions": [],
+    "spool": {
+        "enabled": true,
+        "override": true,
+        "create_if_not_exists": true,
+        "name_placeholder": "%execution_path/%release_%schema_%date.log",
+        "wrappers_before": [
+            "SET ECHO ON",
+            "SET FEEDBACK ON",
+            "SET HEADING ON",
+            "SET SERVEROUTPUT ON"
+        ],
+        "wrappers_after": [
+            "SPOOL OFF",
+            "EXIT"
         ]
     }
 }
 ```
 
-With:
+The existing active spool target is replaced in the generated execution
+copy.
 
-```text
-on_error = continue
-```
-
-APP2 is executed even if APP1 fails.
-
----
-
-### Example 3 --- Plan Mode
+### Spool Disabled
 
 ```json
 {
-    "name": "SQLPlus Plan",
-    "plugin": "sqlplus.generic",
-    "enabled": true,
-    "on_failure": "abort",
-    "arguments": {
-        "mode": "plan",
-        "on_error": "continue",
-        "connection": {
-            "IP": "localhost",
-            "PORT": 1521,
-            "SID": "orcl"
-        },
-        "schemas": {
-            "APP1": {
-                "username": "app1",
-                "password": "1234"
-            },
-            "APP2": {
-                "username": "app2",
-                "password": "1234"
-            }
-        },
-        "execution": "${steps.BuildReleaseContext.outputs.database}"
+    "mode": "direct",
+    "on_error": "abort",
+    "executions": [],
+    "spool": {
+        "enabled": false
     }
 }
 ```
 
-The database execution context is obtained from the
-`release.context_builder` step.
+The calling script is executed normally.
 
----
+If the script contains its own spool command, SQLPlus uses it.
 
-### Example 4 --- Using Workflow Variables
-
-```json
-{
-    "variables": {
-        "connection": {
-            "IP": "localhost",
-            "PORT": 1521,
-            "SID": "orcl"
-        }
-    },
-
-    "steps": [
-        {
-            "name": "SQLPlus",
-            "plugin": "sqlplus.generic",
-            "enabled": true,
-            "on_failure": "abort",
-            "arguments": {
-                "mode": "plan",
-                "on_error": "continue",
-                "connection": "${connection}",
-                "execution": "${steps.BuildReleaseContext.outputs.database}"
-            }
-        }
-    ]
-}
-```
-
----
-
-### Example 5 --- Using Vault Variables
-
-```json
-{
-    "variables": {
-        "SIT": {
-            "connection": "${entv:SIT_CONNECTION}",
-            "schemas": "${entv:SIT_SCHEMA_*}"
-        }
-    },
-
-    "steps": [
-        {
-            "name": "SQLPlus",
-            "plugin": "sqlplus.generic",
-            "enabled": true,
-            "on_failure": "abort",
-            "tags": [
-                "release",
-                "sqlplus"
-            ],
-            "arguments": {
-                "mode": "plan",
-                "on_error": "continue",
-                "connection": "${SIT.connection}",
-                "schemas": "${SIT.schemas}",
-                "execution": "${steps.BuildReleaseContext.outputs.database}"
-            }
-        }
-    ]
-}
-```
-
-Vault values are resolved by the workflow engine before the SQLPlus
-plugin receives its arguments.
-
-Do not place actual credentials in workflow files or documentation.
-
----
-
-## Validation
-
-The plugin validates the following.
-
-### Mode
-
-`mode` is required.
-
-Allowed values:
-
-```text
-plan
-direct
-```
-
-### Error Policy
-
-`on_error` must be one of:
-
-```text
-abort
-continue
-```
-
-### Plan Mode
-
-Plan mode requires:
-
-```text
-connection
-schemas
-execution
-```
-
-The `execution` object must contain the database execution information
-required by the resolver.
-
-The plugin extracts:
-
-```text
-execution.execution_plan
-execution.scripts
-```
-
-### Direct Mode
-
-Direct mode requires:
-
-```text
-executions
-```
-
-Each execution must contain the required database connection,
-credentials, schema, and script information.
-
-### Script Validation
-
-Scripts must resolve to valid filesystem paths and must be accessible
-for execution.
-
-### Runtime Validation
-
-The SQLPlus executable must be available when execution begins.
-
----
-
-## Validation Errors
-
-Examples include:
-
-```text
-'mode' is required.
-```
-
-```text
-'execution' must be an object in plan mode.
-```
-
-```text
-Unsupported SQLPlus mode: 'example'.
-```
-
-```text
-'on_error' must be either 'abort' or 'continue'.
-```
-
-Resolver validation errors are returned through the plugin/workflow
-error handling mechanism.
-
----
-
-## Error Handling
-
-The plugin handles failures at multiple levels.
-
-### Configuration Failures
-
-Invalid arguments are rejected during resolution.
-
-Examples:
-
-* missing mode
-* unsupported mode
-* invalid error policy
-* invalid execution plan
-* missing execution information
-* invalid direct execution definitions
-
-### Process Failures
-
-Operating-system failures are converted into structured SQLPlus
-execution failures.
-
-Examples:
-
-* `sqlplus` executable not found
-* permission errors
-* process execution errors
-* timeout failures
-
-A process failure does not result in an uncaught Python traceback from
-the SQLPlus execution layer.
-
-### SQLPlus/Oracle Failures
-
-The plugin evaluates the SQLPlus execution result using:
-
-1. Process exit code.
-2. SQLPlus/Oracle error output.
-
-Recognized SQLPlus/Oracle error patterns include errors such as:
-
-```text
-ORA-xxxxx
-SP2-xxxxx
-PLS-xxxxx
-```
-
-A detected SQLPlus/Oracle error causes the individual execution to be
-marked as failed.
-
-### Partial Execution
-
-Applications are independent.
-
-With:
-
-```text
-on_error = continue
-```
-
-a failed application does not prevent subsequent applications from
-executing.
-
-With:
-
-```text
-on_error = abort
-```
-
-execution stops after the first failure.
-
-### Overall Success
-
-The overall plugin result is unsuccessful if any requested execution
-fails or is skipped because the `abort` policy stopped the batch.
-
-Example:
-
-```text
-APP1 → SUCCESS
-APP2 → FAILURE
-APP3 → SUCCESS
-
-on_error = continue
-
-success = false
-changed = true
-```
-
-### Cleanup
-
-The plugin does not modify or delete SQL scripts.
-
----
-
-## Security
-
-SQLPlus credentials are sensitive information.
-
-### Credential Storage
-
-Credentials should be stored in Entropy Vault.
-
-Recommended structure:
-
-```text
-SIT_CONNECTION
-SIT_SCHEMA_APP1
-SIT_SCHEMA_APP2
-```
-
-The workflow should resolve these values through Vault interpolation.
-
-### Password Exposure
-
-The actual SQLPlus process requires the database credentials.
-
-The plugin therefore constructs the SQLPlus authentication argument
-internally.
-
-The displayed command representation is sanitized so that the
-password is not exposed as part of the recorded command.
-
-For example, the actual process command may contain:
-
-```text
-app1/<password>@//localhost:1521/orcl
-```
-
-while the displayed representation uses:
-
-```text
-app1/****@//localhost:1521/orcl
-```
-
-### Plugin Outputs
-
-The plugin does not include:
-
-* database passwords
-* complete database connection credentials
-* authentication secrets
-
-in its structured `outputs`, `changes`, or `errors`.
-
-### Logs
-
-Do not manually log the SQLPlus connection string or credentials from
-custom workflow components.
-
-### Documentation
-
-Never store real credentials in workflow examples, plugin
-documentation, source code, or test fixtures.
-
----
-
-## Filesystem
-
-The plugin reads SQL scripts supplied by the resolver.
-
-Example:
-
-```text
-/releases/H004/DBScripts/App1/App1_calling_script.sql
-```
-
-The script:
-
-* must already exist
-* must be readable
-* is not modified by the plugin
-* is not deleted by the plugin
-
-### Working Directory
-
-SQLPlus is executed with:
-
-```text
-cwd = script.parent
-```
-
-For:
-
-```text
-/releases/H004/DBScripts/App1/App1_calling_script.sql
-```
-
-the working directory is:
-
-```text
-/releases/H004/DBScripts/App1
-```
-
-This is important when SQL scripts reference other files using relative
-paths.
-
----
-
-## External Commands
-
-The plugin executes:
-
-```bash
-sqlplus username/password@//host:port/sid @script
-```
-
-Example:
-
-```bash
-sqlplus app1/****@//localhost:1521/orcl @App1_calling_script.sql
-```
-
-### Purpose
-
-SQLPlus is used to execute Oracle database calling scripts.
-
-### Required Availability
-
-The `sqlplus` executable must be available in `PATH`.
-
-### Working Directory
-
-The SQLPlus process runs from the directory containing the SQL script.
-
-### Failure Conditions
-
-The plugin reports failure when:
-
-* SQLPlus cannot be started.
-* SQLPlus returns a non-zero exit code.
-* SQLPlus/Oracle error patterns are detected.
-* The process times out.
-* An operating-system process error occurs.
-
----
-
-## External Services
-
-### Oracle Database
-
-The plugin connects to Oracle databases using SQLPlus.
-
-Connection information consists of:
-
-```text
-IP
-PORT
-SID
-```
-
-Authentication consists of:
-
-```text
-username
-password
-```
-
-### Connectivity
-
-The execution environment must have network connectivity to the
-configured Oracle database.
-
-### Authentication
-
-Each schema may have independent credentials.
-
-For example:
-
-```text
-APP1 → app1 credentials
-APP2 → app2 credentials
-```
-
-A schema failure does not automatically imply that another schema will
-fail.
-
----
-
-## Side Effects
-
-The plugin can cause significant external state changes.
-
-### Database Changes
-
-SQL scripts may:
-
-* create database objects
-* alter database objects
-* insert data
-* update data
-* delete data
-* execute stored procedures
-* perform other database operations
-
-The exact database changes are determined by the SQL scripts.
-
-### External Process
-
-The plugin starts the SQLPlus process for each execution.
-
-### Filesystem
-
-The plugin reads SQL scripts but does not modify or delete them.
-
-### Remote Systems
-
-The plugin connects to the configured Oracle database.
-
----
-
-## Performance
-
-Database execution time depends primarily on:
-
-* SQL script complexity
-* database performance
-* network latency
-* number of applications
-* number of SQL statements
-* database locks
-* external database dependencies
-
-Executions are performed sequentially.
-
-For multiple schemas:
-
-```text
-APP1
-  ↓
-APP2
-  ↓
-APP3
-```
-
-The plugin does not execute schemas concurrently.
-
-This ensures deterministic execution order and makes the `abort`
-behavior predictable.
-
----
-
-## Limitations
-
-The plugin currently has the following operational constraints.
-
-* Requires SQLPlus to be installed.
-* Requires `sqlplus` to be available in `PATH`.
-* Requires Oracle database connectivity.
-* Requires valid schema credentials.
-* Executes database operations sequentially.
-* Does not provide database transaction management across independent
-  applications.
-* Cannot automatically roll back changes already committed by a
-  previously successful application.
-* `on_error = continue` does not make a failed execution successful.
-* SQL scripts are responsible for their own database transaction
-  semantics.
-* The plugin does not modify SQL scripts to add SQLPlus error handling.
-* SQLPlus/Oracle errors are detected from exit status and recognized
-  output patterns.
-
----
-
-## Troubleshooting
-
-### Problem
-
-```text
-SQLPlus executable was not found.
-```
-
-### Cause
-
-The `sqlplus` executable is not installed or is not available in the
-process `PATH`.
-
-### Solution
-
-Install the Oracle SQLPlus client and ensure:
-
-```bash
-which sqlplus
-```
-
-resolves to the executable.
-
-Then verify:
-
-```bash
-sqlplus -v
-```
-
----
-
-### Problem
-
-```text
-'execution' must be an object in plan mode.
-```
-
-### Cause
-
-The `execution` argument is missing or is not an object.
-
-### Solution
-
-Use:
-
-```json
-{
-    "mode": "plan",
-    "execution": "${steps.BuildReleaseContext.outputs.database}"
-}
-```
-
-The supplied value must contain the database execution context.
-
----
-
-### Problem
-
-```text
-Unsupported SQLPlus mode
-```
-
-### Cause
-
-An unsupported value was supplied for `mode`.
-
-### Solution
-
-Use one of:
-
-```text
-plan
-direct
-```
-
----
-
-### Problem
-
-One application fails and subsequent applications do not execute.
-
-### Cause
-
-The plugin is configured with:
-
-```text
-on_error = abort
-```
-
-### Solution
-
-Use:
-
-```json
-{
-    "on_error": "continue"
-}
-```
-
-if independent applications should continue executing after a failure.
-
----
-
-### Problem
-
-The plugin reports failure even though subsequent applications
-completed successfully.
-
-### Cause
-
-One or more applications failed.
-
-With:
-
-```text
-on_error = continue
-```
-
-the plugin continues execution but the overall result remains:
-
-```text
-success = false
-```
-
-This is expected behavior.
-
----
-
-### Problem
-
-`changed` is `false` even though a database execution was attempted.
-
-### Cause
-
-`changed` represents successful execution, not attempted execution.
-
-For example:
-
-```text
-APP1 → SQLPlus executable missing
-```
-
-results in:
-
-```text
-success = false
-changed = false
-```
-
-If at least one application successfully executes:
-
-```text
-changed = true
-```
-
----
-
-### Problem
-
-A SQL script reports an Oracle error but SQLPlus appears to continue.
-
-### Cause
-
-SQLPlus script behavior depends on the SQL script's error handling and
-SQLPlus settings.
-
-The plugin also examines recognized SQLPlus/Oracle error output, but
-scripts should be designed with appropriate SQLPlus error handling.
+If no spool is available, Entropy captures stdout and writes a concise
+execution trace to the Entropy log.
 
 ---
 
@@ -1736,86 +1604,64 @@ scripts should be designed with appropriate SQLPlus error handling.
 The SQLPlus plugin is intended primarily for release/deployment
 workflows.
 
-The recommended architecture is:
+Use `plan` mode when SQL executions originate from a release execution
+plan.
 
-```text
-BuildReleaseContext
-        │
-        ▼
-database execution context
-        │
-        ▼
-SQLPlus
-        │
-        ├── connection
-        ├── schema credentials
-        └── execution plan
-                │
-                ▼
-        SQLPlus executions
-                │
-                ▼
-        Oracle database
-```
+Use `direct` mode when the caller already has complete SQLPlus execution
+definitions.
 
-For environment-specific deployment, keep common connection
-information and schema-specific credentials separate.
+Keep common connection information and schema-specific credentials
+separate.
 
-A recommended model is:
+Store credentials in Entropy Vault.
 
-```text
-Environment
-│
-├── Connection
-│     ├── IP
-│     ├── PORT
-│     └── SID
-│
-└── Schemas
-      ├── APP1
-      │     ├── username
-      │     └── password
-      │
-      └── APP2
-            ├── username
-            └── password
-```
+For production deployments, select `on_error` deliberately according to
+the independence and failure-isolation requirements of the applications.
 
-Store these values in Entropy Vault and resolve them through workflow
-variables.
-
-Use `plan` mode when the SQL executions originate from a release
-execution plan.
-
-Use `direct` mode when the caller already has the complete SQLPlus
-execution definitions.
-
-For production deployments, `on_error` should be selected deliberately
-based on the independence and failure-isolation requirements of the
-applications being deployed.
+Spool logs are intended to become the durable execution evidence for
+future analysis and reporting plugins.
 
 ---
 
 ## Changelog
 
+### Current
+
+- Added SQLPlus spool subsystem.
+- Added active spool detection.
+- Added relative spool path resolution.
+- Added spool path validation.
+- Added writable file/directory checks.
+- Added configurable spool filename placeholders.
+- Added automatic spool creation when no active spool exists.
+- Added configurable spool wrapper commands.
+- Added `spool.override`.
+- Added safe generated execution copies instead of modifying original SQL
+  scripts.
+- Added automatic replacement of invalid existing spool paths.
+- Added structured spool decision metadata:
+  `enabled`, `detected`, `existing`, `used`, `overridden`, and `reason`.
+- Added spool log artifacts to `PluginResult.metadata`.
+- Added concise stdout previews for large SQLPlus output.
+- Added Entropy execution-log fallback when spool is disabled or
+  unavailable.
+- Added structured SQLPlus/Oracle failure information.
+- Preserved `plan` and `direct` execution modes.
+- Preserved schema-level sequential execution and `on_error` handling.
+
 ### 1.0.0
 
-* Initial SQLPlus plugin release.
-* Added `plan` execution mode.
-* Added `direct` execution mode.
-* Added multiple schema execution support.
-* Added configurable `on_error` policy.
-* Added `abort` execution behavior.
-* Added `continue` execution behavior.
-* Added SQLPlus command execution through Entropy shell infrastructure.
-* Added script-directory working-directory support.
-* Added credential-safe command representation.
-* Added SQLPlus/Oracle error detection.
-* Added structured execution results.
-* Added structured changes and errors.
-* Added Vault-compatible credential configuration.
-* Added integration with database execution plans produced by
+- Initial SQLPlus plugin release.
+- Added `plan` execution mode.
+- Added `direct` execution mode.
+- Added multiple schema execution support.
+- Added configurable `on_error` policy.
+- Added SQLPlus command execution through Entropy shell infrastructure.
+- Added script-directory working-directory support.
+- Added credential-safe command representation.
+- Added SQLPlus/Oracle error detection.
+- Added structured execution results.
+- Added structured changes and errors.
+- Added Vault-compatible credential configuration.
+- Added integration with database execution plans produced by
   `release.context_builder`.
-
-```
-```

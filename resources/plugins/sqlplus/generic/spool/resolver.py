@@ -24,10 +24,6 @@ class SpoolSettingsResolver:
         if value is None:
             return SpoolSettings()
 
-        if not isinstance(value, dict):
-            raise GenericPluginError(
-                "'spool' must be an object.",
-            )
 
         enabled = value.get(
             "enabled",
@@ -92,7 +88,7 @@ class SpoolSettingsResolver:
             bool,
         ):
             raise GenericPluginError(
-                "'spool.infile_replace' "
+                "'spool.override' "
                 "must be a boolean.",
             )
 

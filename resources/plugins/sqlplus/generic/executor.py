@@ -3,6 +3,7 @@ SQLPlus command execution.
 """
 
 from __future__ import annotations
+import os
 from typing import Any
 
 from pathlib import Path
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
     from lib.executor.result import ExecutionResult
 
 _ORACLE_ERROR = re.compile(
-    r"^\s*(?:ORA|SP2|PLS)-\d+",
+    r"^\s*((?:ORA|SP2|PLS)-\d+.*)$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -40,9 +41,11 @@ class SqlPlusExecutor:
         *,
         shell,
         activity,
+        message
     ) -> None:
         self._shell = shell
         self._activity = activity
+        self._message = message
         self._spool_builder = SpoolScriptBuilder()
 
     @staticmethod
@@ -50,6 +53,7 @@ class SqlPlusExecutor:
         execution: SqlPlusExecution,
         *,
         script: Path | None = None,
+        sql_home: Path | None = None,
     ) -> tuple[list[str], list[str]]:
         """
         Build the actual and display-safe SQLPlus commands.
@@ -73,6 +77,19 @@ class SqlPlusExecutor:
 
         script_path = script or execution.script
 
+        if sql_home is not None:
+            if not sql_home.is_dir():
+                raise GenericPluginError(
+                    f"Oracle Home does not exist: {sql_home}"
+                )
+
+            sqlplus_path = sql_home / "bin" / "sqlplus"
+
+            if not sqlplus_path.is_file():
+                raise GenericPluginError(
+                    f"SQLPlus executable does not exist: {sqlplus_path}"
+                )
+
         command = [
             "sqlplus",
             connection,
@@ -89,6 +106,7 @@ class SqlPlusExecutor:
 
     def execute(
         self,
+        sql_home: Path,
         execution: SqlPlusExecution,
         *,
         timeout: int | None = None,
@@ -186,20 +204,29 @@ class SqlPlusExecutor:
                     exist_ok=True,
                 )
 
-                wrapper = (
-                    wrapper_directory
-                    / (
-                        f"{execution.script.stem}_"
-                        f"{execution.schema}_spool.sql"
-                    )
-                )
+                if existing_spool is not None and settings.override and settings.infile_replace:
 
-                script = self._spool_builder.build(
-                    script=execution.script,
-                    spool_path=spool_path,
-                    settings=settings,
-                    destination=wrapper,
-                )
+                        script = self._spool_builder.replace_spool(
+                            script=execution.script,
+                            spool_path=spool_path,
+                        )
+
+                else:
+
+                    wrapper = (
+                        wrapper_directory
+                        / (
+                            f"{execution.script.stem}_"
+                            f"{execution.schema}_spool.sql"
+                        )
+                    )
+
+                    script = self._spool_builder.build(
+                        script=execution.script,
+                        spool_path=spool_path,
+                        settings=settings,
+                        destination=wrapper,
+                    )
 
             spool_metadata = self._build_spool_metadata(
                 settings=settings,
@@ -211,9 +238,24 @@ class SqlPlusExecutor:
         command, display_command = self.build_command(
             execution,
             script=script,
+            sql_home=sql_home,
         )
 
         start = time.perf_counter()
+
+        environment = None
+
+        if sql_home is not None:
+
+            environment = {
+                "ORACLE_HOME": str(sql_home),
+                "PATH": os.pathsep.join(
+                    [
+                        str(sql_home / "bin"),
+                        os.environ.get("PATH", ""),
+                    ],
+                ),
+            }
 
         try:
             result = self._shell.run(
@@ -221,6 +263,7 @@ class SqlPlusExecutor:
                 display_command=display_command,
                 cwd=execution.script.parent,
                 timeout=timeout,
+                env=environment if environment else None,
             )
 
         except FileNotFoundError as exc:
@@ -229,6 +272,7 @@ class SqlPlusExecutor:
             return SqlPlusExecutionResult(
                 schema=execution.schema,
                 script=execution.script,
+                executed_script=script,
                 success=False,
                 exit_code=-1,
                 stdout="",
@@ -247,6 +291,7 @@ class SqlPlusExecutor:
             return SqlPlusExecutionResult(
                 schema=execution.schema,
                 script=execution.script,
+                executed_script=script,
                 success=False,
                 exit_code=-1,
                 stdout="",
@@ -264,6 +309,7 @@ class SqlPlusExecutor:
             return SqlPlusExecutionResult(
                 schema=execution.schema,
                 script=execution.script,
+                executed_script=script,
                 success=False,
                 exit_code=-1,
                 stdout="",
@@ -280,6 +326,7 @@ class SqlPlusExecutor:
             return SqlPlusExecutionResult(
                 schema=execution.schema,
                 script=execution.script,
+                executed_script=script,
                 success=False,
                 exit_code=-1,
                 stdout="",
@@ -294,10 +341,12 @@ class SqlPlusExecutor:
             execution,
             result,
             spool_metadata=spool_metadata,
+            executed_script=script
         )
 
     def execute_all(
         self,
+        sql_home: Path,
         executions: list[SqlPlusExecution],
         *,
         on_error: str,
@@ -315,13 +364,16 @@ class SqlPlusExecutor:
         for execution in executions:
 
             activity_name = (
-                f"{execution.schema}/{execution.script.name}"
+                f"{execution.script.parent.name} › "
+                f"{execution.schema}/"
+                f"{execution.script.name}"
             )
 
             with self._activity(
                 activity_name,
             ):
                 result = self.execute(
+                    sql_home,
                     execution,
                     timeout=timeout,
                     spool_settings=spool_settings,
@@ -340,41 +392,81 @@ class SqlPlusExecutor:
         return results
 
     @staticmethod
-    def _contains_sqlplus_error(
+    def _find_sqlplus_error(
         stdout: str,
         stderr: str,
-    ) -> bool:
+    ) -> tuple[str, str] | None:
+        """
+        Find the first Oracle/SQLPlus error line.
+        """
+
         output = f"{stdout}\n{stderr}"
 
-        return bool(
-            _ORACLE_ERROR.search(output),
+        match = _ORACLE_ERROR.search(
+            output,
         )
+
+        if match is None:
+            return None
+
+        message = match.group(1).strip()
+
+        error_type = message.split("-", 1)[0].upper()
+
+        return error_type, message
 
     @staticmethod
     def interpret_result(
         execution: SqlPlusExecution,
         result: ExecutionResult,
         *,
-        spool_metadata: Path | None = None,
+        spool_metadata: dict[str, Any] | None = None,
+        executed_script: Path,
     ) -> SqlPlusExecutionResult:
+        """
+        Interpret SQLPlus execution result.
+        """
 
         sqlplus_error = (
             result.exit_code != 0
-            or SqlPlusExecutor._contains_sqlplus_error(
+        )
+
+        error_type: str | None = None
+        error_message: str | None = None
+
+        detected_error = (
+            SqlPlusExecutor._find_sqlplus_error(
                 result.stdout,
                 result.stderr,
             )
         )
 
+        if detected_error is not None:
+
+            error_type, error_message = detected_error
+
+            sqlplus_error = True
+
+        elif result.exit_code != 0:
+
+            error_type = "SQLPLUS"
+            error_message = (
+                f"SQLPlus exited with code "
+                f"{result.exit_code}."
+            )
+
         return SqlPlusExecutionResult(
             schema=execution.schema,
             script=execution.script,
+            executed_script=executed_script,
             success=not sqlplus_error,
             exit_code=result.exit_code,
             stdout=result.stdout,
             stderr=result.stderr,
             duration=result.duration,
             spool=spool_metadata,
+            error_type=error_type,
+            error_message=error_message,
         )
 
     # Helper

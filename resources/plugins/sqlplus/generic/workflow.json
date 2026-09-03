@@ -16,6 +16,7 @@
                 "direct"
             ],
             "arguments": {
+                "sqlhome": "/Users/aravinthselvaraj/Desktop/ORACLE_HOME",
                 "mode": "direct",
                 "on_error": "abort",
                 "executions": [
@@ -30,8 +31,9 @@
                     }
                 ],
                 "spool": {
-                    "enabled": false,
+                    "enabled": true,
                     "override": true,
+                    "infile_replace": true,
                     "create_if_not_exists": true,
                     "name_placeholder": "%execution_path/%release_%schema_%date.log",
                     "wrappers_before": [

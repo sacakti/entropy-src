@@ -31,12 +31,15 @@ class SqlPlusExecutionResult:
 
     schema: str
     script: Path
+    executed_script: Path
     success: bool
     exit_code: int
     stdout: str
     stderr: str
     duration: float
     spool: dict[str, Any] | None = None
+    error_type: str | None = None
+    error_message: str | None = None
 
 """
 SQLPlus spool models.

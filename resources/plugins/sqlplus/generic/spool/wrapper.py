@@ -10,9 +10,13 @@ import os
 
 from ..model import SpoolSettings
 
+_ACTIVE_SPOOL_PATTERN = re.compile(
+    r"^\s*SPOOL\s+(?!OFF\b)(.+?)\s*;?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
 
-_SPOOL_PATTERN = re.compile(
-    r"^\s*SPOOL\s+(.+?)\s*$",
+_SPOOL_COMMAND_PATTERN = re.compile(
+    r"^\s*SPOOL\b.*$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -28,17 +32,14 @@ class SpoolScriptBuilder:
         script: Path,
     ) -> Path | None:
         """
-        Detect an existing SPOOL command and resolve its path.
-
-        Relative spool paths are resolved relative to the
-        directory containing the SQLPlus calling script.
+        Detect an active SPOOL command and resolve its path.
         """
 
         content = script.read_text(
             encoding="utf-8",
         )
 
-        match = _SPOOL_PATTERN.search(
+        match = _ACTIVE_SPOOL_PATTERN.search(
             content,
         )
 
@@ -50,15 +51,10 @@ class SpoolScriptBuilder:
         if not value:
             return None
 
-        if value.casefold() == "off":
-            return None
-
         spool_path = Path(value)
 
         if not spool_path.is_absolute():
-            spool_path = (
-                script.parent / spool_path
-            )
+            spool_path = script.parent / spool_path
 
         return spool_path
 
@@ -92,6 +88,50 @@ class SpoolScriptBuilder:
             parent,
             os.W_OK,
         )
+
+    @staticmethod
+    def replace_spool(
+        script: Path,
+        spool_path: Path,
+    ) -> Path:
+        """
+        Replace the active SPOOL target while preserving
+        SPOOL OFF and all other script content.
+        """
+
+        content = script.read_text(
+            encoding="utf-8",
+        )
+
+        def replace(
+            match: re.Match[str],
+        ) -> str:
+            return f"SPOOL {spool_path}"
+
+        content = _ACTIVE_SPOOL_PATTERN.sub(
+            replace,
+            content,
+            count=1,
+        )
+
+        destination = (
+            script.parent
+            / ".entropy"
+            / "sqlplus"
+            / f"{script.stem}_spool.sql"
+        )
+
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        destination.write_text(
+            content,
+            encoding="utf-8",
+        )
+
+        return destination
 
     def build(
         self,
