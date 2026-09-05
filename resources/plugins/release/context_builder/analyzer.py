@@ -118,6 +118,8 @@ class ReleaseAnalyzer:
             docker_repository,
         )
 
+        images: dict[str, dict[str, Any]] = {}
+
         for component_name in definition.children:
 
             component = definition.component(
@@ -137,19 +139,6 @@ class ReleaseAnalyzer:
                 )
 
                 context["images"] = images
-
-                deployment = (
-                    self._build_deployment_context(
-                        images=images,
-                        yaml_repository=yaml_repository,
-                        index=resource_index
-                    )
-                )
-
-                self._merge_deployment_context(
-                    context["deployment"],
-                    deployment,
-                )
 
             elif component_name == "openshift":
 
@@ -188,6 +177,18 @@ class ReleaseAnalyzer:
                     f"component '{component_name}'.",
                 )
 
+        deployment = self._build_deployment_context(
+            images=images,
+            yaml_repository=yaml_repository,
+            index=resource_index,
+            existing_resources=context["deployment"]["resources"],
+        )
+
+        self._merge_deployment_context(
+            context["deployment"],
+            deployment,
+        )
+
         return context
 
     # ------------------------------------------------------------------
@@ -211,10 +212,7 @@ class ReleaseAnalyzer:
             "deployment": {
                 "required": False,
                 "resources": self._empty_resources(),
-                "operations": {
-                    "apply": [],
-                    "replace": [],
-                },
+                "operations": self._empty_operations(),
             },
             "common_paths": [],
             "database": {
@@ -232,6 +230,15 @@ class ReleaseAnalyzer:
             "secrets": [],
             "services": [],
             "routes": [],
+        }
+
+    @staticmethod
+    def _empty_operations() -> dict[str, list[str]]:
+
+        return {
+            "create": [],
+            "apply": [],
+            "replace": [],
         }
 
     # ------------------------------------------------------------------
@@ -421,21 +428,57 @@ class ReleaseAnalyzer:
         images: dict[str, dict[str, Any]],
         yaml_repository: Path,
         index: dict[str, Any],
+        existing_resources: dict[str, list],
     ) -> dict[str, Any]:
+        """
+        Correlate Docker images with Deployment resources.
+
+        OpenShift analysis is authoritative for resource existence and
+        action. Existing indexed Deployments are used only as the fallback
+        for an image-only change where the OpenShift YAML itself is
+        unchanged.
+        """
 
         result = {
             "required": False,
             "resources": self._empty_resources(),
-            "operations": {
-                "apply": [],
-                "replace": [],
-            },
+            "operations": self._empty_operations(),
         }
 
         if not images:
             return result
 
+        deployments = existing_resources.get(
+            "deployments",
+            [],
+        )
+
         for image_name, image in images.items():
+
+            deployment_resource = self._find_context_deployment(
+                deployments,
+                image_name,
+            )
+
+            if deployment_resource is not None:
+
+                if self._enrich_context_deployment(
+                    deployment_resource,
+                    image_name=image_name,
+                    image=image,
+                ):
+                    operation = self._deployment_operation(
+                        deployment_resource["action"],
+                    )
+
+                    if operation is not None:
+                        self._add_operation(
+                            result["operations"],
+                            operation,
+                            deployment_resource["repository"],
+                        )
+
+                continue
 
             match = self._resource_index.find_deployment(
                 index,
@@ -452,53 +495,264 @@ class ReleaseAnalyzer:
                 continue
 
             current_image = match["current_image"].strip()
-
-            repository_name, separator, tag = (
-                current_image.rpartition(":")
+            target_image = self._retag_image(
+                current_image,
+                image["image_tag"],
             )
 
-            if separator:
-                current_image = (
-                    f"{repository_name.strip()}:"
-                    f"{tag.strip()}"
-                )
-
-            image_repository = current_image.rsplit(
-                ":",
-                1,
-            )[0]
-
-            target_image = (
-                f"{image_repository}:"
-                f"{image['image_tag']}"
-            )
+            deployment_resource = {
+                "name": match["deployment"],
+                "kind": "Deployment",
+                "action": "UPDATE",
+                "file": match["file"],
+                "repository": str(yaml_repository),
+                "container": match["container"],
+                "current_image": current_image,
+                "target_image": target_image,
+            }
 
             result["resources"]["deployments"].append(
-                {
-                    "name": match["deployment"],
-                    "file": match["file"],
-                    "container": match["container"],
-                    "current_image": current_image,
-                    "target_image": target_image,
-                },
+                deployment_resource,
             )
 
-            deployment_path = str(
-                yaml_repository
-                / match["file"]
+            self._add_operation(
+                result["operations"],
+                "apply",
+                str(yaml_repository / match["file"]),
             )
-
-            if deployment_path not in result["operations"]["apply"]:
-
-                result["operations"]["apply"].append(
-                    deployment_path,
-                )
 
         result["required"] = bool(
-            result["resources"]["deployments"],
+            result["resources"]["deployments"]
+            or any(result["operations"].values())
         )
 
         return result
+
+    def _find_context_deployment(
+        self,
+        deployments: list,
+        image_name: str,
+    ) -> dict[str, Any] | None:
+        """
+        Find a Deployment context resource containing the image.
+        """
+
+        matches: list[dict[str, Any]] = []
+
+        for resource in deployments:
+
+            if not isinstance(resource, dict):
+                continue
+
+            kind = resource.get("kind")
+            source = resource.get("source")
+
+            if (
+                not isinstance(kind, str)
+                or kind.casefold() not in {
+                    "deployment",
+                    "deploymentconfig",
+                }
+                or not isinstance(source, str)
+                or not source.strip()
+            ):
+                continue
+
+            if self._find_container_image(
+                Path(source),
+                image_name,
+            ) is not None:
+                matches.append(resource)
+
+        if len(matches) == 1:
+            return matches[0]
+
+        if len(matches) > 1:
+            self._log.warning(
+                f"Multiple deployments found for image "
+                f"'{image_name}'.",
+            )
+
+        return None
+
+    def _enrich_context_deployment(
+        self,
+        resource: dict[str, Any],
+        *,
+        image_name: str,
+        image: dict[str, Any],
+    ) -> bool:
+        """
+        Add Docker image metadata to a Deployment context resource.
+        """
+
+        source = resource.get("source")
+
+        if not isinstance(source, str) or not source.strip():
+            return False
+
+        match = self._find_container_image(
+            Path(source),
+            image_name,
+        )
+
+        if match is None:
+            self._log.warning(
+                f"No container image found for Docker image "
+                f"'{image_name}' in deployment "
+                f"'{resource.get('name', source)}'.",
+            )
+            return False
+
+        container_name, current_image = match
+        resource["container"] = container_name
+
+        if resource.get("action") == "UPDATE":
+            resource["current_image"] = current_image
+
+        resource["target_image"] = self._retag_image(
+            current_image,
+            image["image_tag"],
+        )
+
+        return True
+
+    def _find_container_image(
+        self,
+        source: Path,
+        image_name: str,
+    ) -> tuple[str, str] | None:
+        """
+        Find the container that references a Docker image.
+        """
+
+        if not self._filesystem.exists(source):
+            return None
+
+        documents = self._filesystem.load_yaml_documents(
+            self._filesystem.read_text(source),
+        )
+
+        candidates: list[tuple[str, str, bool]] = []
+
+        for document in documents:
+
+            if not isinstance(document, dict):
+                continue
+
+            kind = document.get("kind")
+
+            if (
+                not isinstance(kind, str)
+                or kind.casefold() not in {
+                    "deployment",
+                    "deploymentconfig",
+                }
+            ):
+                continue
+
+            spec = document.get("spec")
+
+            if not isinstance(spec, dict):
+                continue
+
+            template = spec.get("template")
+
+            if not isinstance(template, dict):
+                continue
+
+            pod_spec = template.get("spec")
+
+            if not isinstance(pod_spec, dict):
+                continue
+
+            containers = pod_spec.get("containers", [])
+
+            if not isinstance(containers, list):
+                continue
+
+            for container in containers:
+
+                if not isinstance(container, dict):
+                    continue
+
+                name = container.get("name")
+                image = container.get("image")
+
+                if not isinstance(name, str) or not isinstance(image, str):
+                    continue
+
+                exact_name = name.casefold() == image_name.casefold()
+                image_repository = self._image_repository(image)
+                image_basename = image_repository.rsplit("/", 1)[-1]
+
+                if exact_name or image_basename.casefold() == image_name.casefold():
+                    candidates.append((name, image, exact_name))
+
+        exact = [candidate for candidate in candidates if candidate[2]]
+
+        if len(exact) == 1:
+            return exact[0][0], exact[0][1]
+
+        if len(exact) > 1:
+            return None
+
+        if len(candidates) == 1:
+            return candidates[0][0], candidates[0][1]
+
+        return None
+
+    @staticmethod
+    def _image_repository(image: str) -> str:
+        """
+        Return an image reference without its tag or digest.
+        """
+
+        repository = image.strip().split("@", 1)[0]
+        last_component = repository.rsplit("/", 1)[-1]
+
+        if ":" in last_component:
+            return repository.rsplit(":", 1)[0]
+
+        return repository
+
+    @classmethod
+    def _retag_image(
+        cls,
+        image: str,
+        tag: str,
+    ) -> str:
+        """
+        Replace an image tag or digest while preserving its repository.
+        """
+
+        return f"{cls._image_repository(image)}:{tag.strip()}"
+
+    @staticmethod
+    def _deployment_operation(
+        action: str,
+    ) -> str | None:
+        """
+        Map a Deployment action to its execution operation.
+        """
+
+        return {
+            "CREATE": "create",
+            "UPDATE": "apply",
+        }.get(action.upper())
+
+    @staticmethod
+    def _add_operation(
+        operations: dict[str, list[str]],
+        operation: str,
+        path: str,
+    ) -> None:
+        """
+        Add an operation path once.
+        """
+
+        if path not in operations[operation]:
+            operations[operation].append(path)
 
     def _merge_deployment_context(
         self,
@@ -524,10 +778,7 @@ class ReleaseAnalyzer:
 
         target_operations = target.setdefault(
             "operations",
-            {
-                "apply": [],
-                "replace": [],
-            },
+            self._empty_operations(),
         )
 
         source_operations = source.get(
@@ -536,6 +787,7 @@ class ReleaseAnalyzer:
         )
 
         for operation in (
+            "create",
             "apply",
             "replace",
         ):
@@ -579,18 +831,12 @@ class ReleaseAnalyzer:
             return {
                 "required": False,
                 "resources": self._empty_resources(),
-                "operations": {
-                    "apply": [],
-                    "replace": [],
-                },
+                "operations": self._empty_operations(),
             }
 
         resources = self._empty_resources()
 
-        operations = {
-            "apply": [],
-            "replace": [],
-        }
+        operations = self._empty_operations()
 
         for source in self._yaml_files(
             yamls_root,
@@ -638,6 +884,7 @@ class ReleaseAnalyzer:
                         source=source,
                         repository=repository,
                         resources=resources,
+                        operations=operations,
                         resource_index=resource_index,
                     )
 
@@ -743,6 +990,7 @@ class ReleaseAnalyzer:
         source: Path,
         repository: Path,
         resources: dict[str, list],
+        operations: dict[str, list[str]],
         resource_index: dict[str, Any],
     ) -> None:
 
@@ -823,6 +1071,17 @@ class ReleaseAnalyzer:
                 "repository": str(target),
             },
         )
+
+        operation = self._deployment_operation(
+            action,
+        )
+
+        if operation is not None:
+            self._add_operation(
+                operations,
+                operation,
+                str(target),
+            )
 
     @staticmethod
     def _resource_category(

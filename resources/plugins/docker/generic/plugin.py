@@ -51,11 +51,7 @@ class GenericPlugin(
 
         try:
 
-            with self.activity(
-                "docker-generic",
-            ):
-
-                result = self._execute()
+            result = self._execute()
 
         except GenericPluginException as exc:
 
@@ -294,13 +290,16 @@ class GenericPlugin(
                 f"Executing Docker {operation} for image '{image}'.",
             )
 
-            result = self.shell.run(
-                [
-                    "docker",
-                    operation,
-                    image,
-                ],
-            )
+            with self.activity(
+                image,
+            ):
+                result = self.shell.run(
+                    [
+                        "docker",
+                        operation,
+                        image,
+                    ],
+                )
 
             self._log_result(
                 result,

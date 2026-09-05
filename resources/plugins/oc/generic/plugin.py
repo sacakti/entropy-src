@@ -25,6 +25,7 @@ class GenericPlugin(BasePlugin):
     - project
     - whoami
     - get
+    - create
     - apply
     - replace
     - delete
@@ -37,6 +38,7 @@ class GenericPlugin(BasePlugin):
         "project",
         "whoami",
         "get",
+        "create",
         "apply",
         "replace",
         "delete",
@@ -62,11 +64,7 @@ class GenericPlugin(BasePlugin):
 
         try:
 
-            with self.activity(
-                "oc-generic",
-            ):
-
-                result = self._execute()
+            result = self._execute()
 
         except GenericPluginException as exc:
 
@@ -105,9 +103,27 @@ class GenericPlugin(BasePlugin):
         Dispatch the requested OpenShift operation.
         """
 
-        operation = self.arguments.get(
-            "operation",
-        )
+        operations = self.arguments.get("operations")
+        operation = self.arguments.get("operation")
+        resources = self.arguments.get("resources")
+
+        if operations is not None:
+
+            if operation is not None or resources is not None:
+                raise GenericPluginException(
+                    "Arguments 'operations' cannot be combined with "
+                    "'operation' or 'resources'.",
+                )
+
+            return self._operations(
+                operations,
+            )
+
+        if operation is None:
+
+            raise GenericPluginException(
+                "Either 'operations' or 'operation' must be specified.",
+            )
 
         if not isinstance(
             operation,
@@ -129,44 +145,31 @@ class GenericPlugin(BasePlugin):
             )
 
         if operation == "login":
-
             return self._login()
 
         if operation == "logout":
-
             return self._logout()
 
         if operation == "project":
-
             return self._project()
 
         if operation == "whoami":
-
             return self._whoami()
 
         if operation == "get":
+            return self._resource_operation("get")
 
-            return self._resource_operation(
-                "get",
-            )
+        if operation == "create":
+            return self._resource_operation("create")
 
         if operation == "apply":
-
-            return self._resource_operation(
-                "apply",
-            )
+            return self._resource_operation("apply")
 
         if operation == "replace":
-
-            return self._resource_operation(
-                "replace",
-            )
+            return self._resource_operation("replace")
 
         if operation == "delete":
-
-            return self._resource_operation(
-                "delete",
-            )
+            return self._resource_operation("delete")
 
         return self._raw()
 
@@ -655,7 +658,7 @@ class GenericPlugin(BasePlugin):
         operation: str,
     ) -> PluginResult:
         """
-        Execute a generic OpenShift resource operation.
+        Execute a single OpenShift resource operation.
 
         ``resource`` may be either a single resource path or
         a list of resource paths.
@@ -665,8 +668,8 @@ class GenericPlugin(BasePlugin):
 
         environment = self._environment()
 
-        resource = self.arguments.get(
-            "resource",
+        resources = self.arguments.get(
+            "resources",
         )
 
         arguments = self.arguments.get(
@@ -675,7 +678,7 @@ class GenericPlugin(BasePlugin):
         )
 
         resources = self._normalize_resources(
-            resource,
+            resources,
         )
 
         self._validate_arguments(
@@ -686,7 +689,209 @@ class GenericPlugin(BasePlugin):
             environment,
         )
 
+        return self._execute_resources(
+            operation=operation,
+            resources=resources,
+            arguments=arguments,
+            environment=environment,
+            kubeconfig=kubeconfig,
+        )
+
+    def _operations(
+        self,
+        operations: Any,
+    ) -> PluginResult:
+        """
+        Execute multiple OpenShift resource operations.
+
+        Operations are executed in the following order:
+
+        create -> apply -> replace
+
+        The ``operations`` argument must be a dictionary whose
+        values are lists of resource paths.
+        """
+
+        if not isinstance(
+            operations,
+            dict,
+        ):
+
+            raise GenericPluginException(
+                "Argument 'operations' must be a dictionary.",
+            )
+
+        supported_operations = (
+            "create",
+            "apply",
+            "replace",
+        )
+
+        unknown_operations = set(
+            operations,
+        ) - set(
+            supported_operations,
+        )
+
+        if unknown_operations:
+
+            raise GenericPluginException(
+                "Unsupported operation(s) in 'operations': "
+                + ", ".join(
+                    sorted(
+                        unknown_operations,
+                    ),
+                )
+                + ". Supported operations: "
+                + ", ".join(
+                    supported_operations,
+                )
+                + ".",
+            )
+
+        environment = self._environment()
+
+        arguments = self.arguments.get(
+            "arguments",
+            [],
+        )
+
+        self._validate_arguments(
+            arguments,
+        )
+
+        kubeconfig = self._kubeconfig(
+            environment,
+        )
+
+        all_results: list[dict[str, Any]] = []
+
+        failed_resources: list[str] = []
+
+        changed = False
+
+        executed_operations: dict[
+            str,
+            list[str],
+        ] = {}
+
+        for operation in supported_operations:
+
+            resources = operations.get(
+                operation,
+                [],
+            )
+
+            if resources is None:
+                continue
+
+            normalized_resources = self._normalize_resources(
+                resources,
+                allow_empty=True,
+            )
+
+            if not normalized_resources:
+                continue
+
+            executed_operations[
+                operation
+            ] = list(
+                normalized_resources,
+            )
+
+            result = self._execute_resources(
+                operation=operation,
+                resources=normalized_resources,
+                arguments=arguments,
+                environment=environment,
+                kubeconfig=kubeconfig,
+            )
+
+            operation_results = result.outputs.get(
+                "results",
+                [],
+            )
+
+            if isinstance(
+                operation_results,
+                list,
+            ):
+                all_results.extend(
+                    operation_results,
+                )
+
+            if result.changed:
+                changed = True
+
+            if not result.success:
+
+                for item in operation_results:
+
+                    if (
+                        isinstance(
+                            item,
+                            dict,
+                        )
+                        and not item.get(
+                            "success",
+                            False,
+                        )
+                    ):
+
+                        resource_path = item.get(
+                            "resource",
+                        )
+
+                        if isinstance(
+                            resource_path,
+                            str,
+                        ):
+                            failed_resources.append(
+                                resource_path,
+                            )
+
+        self.outputs.update(
+            {
+                "operation": "auto",
+                "environment": environment,
+                "operations": executed_operations,
+                "results": all_results,
+                "success": not failed_resources,
+            },
+        )
+
+        if failed_resources:
+
+            details = "; ".join(
+                failed_resources,
+            )
+
+            return self._failure(
+                "OpenShift automatic operation failed "
+                f"for resource(s): {details}.",
+            )
+
+        return self._success(
+            changed=changed,
+        )
+
+    def _execute_resources(
+        self,
+        *,
+        operation: str,
+        resources: list[str],
+        arguments: list[str],
+        environment: str,
+        kubeconfig: Path,
+    ) -> PluginResult:
+        """
+        Execute an OpenShift operation against multiple resources.
+
+        Each resource is executed independently.
+        """
+
         results: list[dict[str, Any]] = []
+
         failed_resources: list[str] = []
 
         changed = False
@@ -700,12 +905,17 @@ class GenericPlugin(BasePlugin):
                 *arguments,
             ]
 
-            result = self._oc(
-                command,
-                kubeconfig=kubeconfig,
-            )
+            with self.activity(
+                f"{operation} › {resource_path}",
+            ):
+
+                result = self._oc(
+                    command,
+                    kubeconfig=kubeconfig,
+                )
 
             resource_result = {
+                "operation": operation,
                 "resource": resource_path,
                 "exit_code": result.exit_code,
                 "success": result.success,
@@ -721,6 +931,7 @@ class GenericPlugin(BasePlugin):
             if result.success:
 
                 if operation in {
+                    "create",
                     "apply",
                     "replace",
                     "delete",
@@ -766,12 +977,18 @@ class GenericPlugin(BasePlugin):
     @staticmethod
     def _normalize_resources(
         resource: Any,
+        *,
+        allow_empty: bool = False,
     ) -> list[str]:
         """
         Normalize a resource argument into a list.
 
-        Supports both the original single-resource form and
-        the context-generated list form.
+        Supports both a single resource path and a list of
+        resource paths.
+
+        When ``allow_empty`` is True, an empty list is accepted.
+        This is used by automatic operations where an operation
+        may legitimately have no resources.
         """
 
         if isinstance(
@@ -782,8 +999,7 @@ class GenericPlugin(BasePlugin):
             if not resource.strip():
 
                 raise GenericPluginException(
-                    "Argument 'resource' must be a "
-                    "non-empty string.",
+                    "Resource path must be a non-empty string.",
                 )
 
             return [
@@ -796,6 +1012,9 @@ class GenericPlugin(BasePlugin):
         ):
 
             if not resource:
+
+                if allow_empty:
+                    return []
 
                 raise GenericPluginException(
                     "Argument 'resource' must not be empty.",

@@ -99,22 +99,30 @@ class ServicesRoutesPlugin(
     # Implementation
     # ------------------------------------------------------------------
 
-    def _execute(
-        self,
-    ) -> PluginResult:
-        """
-        Create Service and Route YAML resources.
-        """
+    def _execute(self) -> PluginResult:
+        services = self.arguments.get("services")
+        routes = self.arguments.get("routes")
 
-        resources = self.arguments.get(
-            "resources",
-            [],
-        )
+        if services is None:
+            services = []
 
-        if not isinstance(resources, list):
+        if routes is None:
+            routes = []
+
+        if not isinstance(services, list):
             raise ServicesRoutesPluginException(
-                "Argument 'resources' must be a list.",
+                "Argument 'services' must be a list.",
             )
+
+        if not isinstance(routes, list):
+            raise ServicesRoutesPluginException(
+                "Argument 'routes' must be a list.",
+            )
+
+        resources = [
+            *services,
+            *routes,
+        ]
 
         if not resources:
             self.message.info(
@@ -137,43 +145,19 @@ class ServicesRoutesPlugin(
             processed += 1
 
             try:
-                self._validate_resource(
-                    resource,
-                )
-
-                self._create_resource(
-                    resource,
-                )
+                self._validate_resource(resource)
+                self._create_resource(resource)
 
                 succeeded += 1
                 changes += 1
 
                 self.message.info(
-                    f"Created "
-                    f"{resource['kind']}/{resource['name']}.",
+                    f"Created {resource['kind']}/{resource['name']}.",
                 )
 
             except Exception as exc:
                 errors.append(
                     {
-                        "kind": (
-                            resource.get("kind", "")
-                            if isinstance(resource, dict)
-                            else ""
-                        ),
-                        "name": (
-                            resource.get("name", "")
-                            if isinstance(resource, dict)
-                            else ""
-                        ),
-                        "path": (
-                            resource.get(
-                                "source",
-                                "",
-                            )
-                            if isinstance(resource, dict)
-                            else ""
-                        ),
                         "message": str(exc),
                     },
                 )

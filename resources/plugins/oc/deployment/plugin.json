@@ -1,7 +1,7 @@
 {
     "name": "deployment",
     "namespace": "oc",
-    "version": "1.0.1",
+    "version": "1.0.6",
     "description": "Update OpenShift Deployment YAML resources.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",

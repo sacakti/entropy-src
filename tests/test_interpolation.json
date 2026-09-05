@@ -4,7 +4,7 @@
     "description": "Test step output interpolation.",
 
     "variables": {
-        "release": "/Users/aravinthselvaraj/Desktop/releases/TC01.zip",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/TCX03.zip",
         "environment": "UAT",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
         "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
@@ -21,7 +21,7 @@
             "on_failure": "abort",
             "tags": [
                 "release",
-                "context_builder"
+                "context"
             ],
             "arguments": {
                 "release": "${release}",
@@ -161,6 +161,10 @@
             "plugin": "oc.deployment",
             "enabled": true,
             "on_failure": "abort",
+            "tags": [
+                "openshift",
+                "deployment"
+            ],
             "arguments": {
                 "mode" : "deployments",
                 "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
@@ -168,25 +172,32 @@
             }
         },
         {
+            "name": "CreateServicesRoutes",
+            "plugin": "oc.services_routes",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "services_routes",
+                "deployment"
+
+            ],
+            "arguments": {
+                "services": "${steps.BuildReleaseContext.outputs.deployment.resources.services}",
+                "routes": "${steps.BuildReleaseContext.outputs.deployment.resources.routes}"
+            }
+        },
+        {
             "name": "ApplyDeployments",
             "plugin": "oc.generic",
             "enabled": true,
             "on_failure": "abort",
+            "tags": [
+                "openshift",
+                "deployment"
+            ],
             "arguments": {
-                "operation": "apply",
                 "environment": "SIT",
-                "resource": "${steps.BuildReleaseContext.outputs.deployment.operations.apply}"
-            }
-        },
-        {
-            "name": "ReplaceConfigMapsSecrets",
-            "plugin": "oc.generic",
-            "enabled": true,
-            "on_failure": "abort",
-            "arguments": {
-                "operation": "replace",
-                "environment": "SIT",
-                "resource": "${steps.BuildReleaseContext.outputs.deployment.operations.replace}"
+                "operations": "${steps.BuildReleaseContext.outputs.deployment.operations}"
             }
         },
         {

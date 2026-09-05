@@ -79,6 +79,35 @@
             }
         },
         {
+            "name": "ApplyDeployments",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "openshift",
+                "deployment"
+            ],
+            "arguments": {
+                "environment": "SIT",
+                "operations": "${steps.BuildReleaseContext.outputs.deployment.operations}"
+            }
+        },
+        {
+            "name": "ApplyDeploymentsConfigMap",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "openshift",
+                "deployment"
+            ],
+            "arguments": {
+                "operation": "apply",
+                "environment": "SIT",
+                "resources": "${steps.BuildReleaseContext.outputs.deployment.operations.apply}"
+            }
+        },
+        {
             "name": "Logout",
             "plugin": "oc.generic",
             "enabled": true,
