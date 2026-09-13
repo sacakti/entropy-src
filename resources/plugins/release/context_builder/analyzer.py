@@ -462,21 +462,82 @@ class ReleaseAnalyzer:
 
             if deployment_resource is not None:
 
-                if self._enrich_context_deployment(
+                if not self._enrich_context_deployment(
                     deployment_resource,
                     image_name=image_name,
                     image=image,
                 ):
-                    operation = self._deployment_operation(
-                        deployment_resource["action"],
+                    continue
+
+                action = deployment_resource.get(
+                    "action",
+                )
+
+                if action == "UPDATE":
+
+                    match = self._resource_index.find_deployment(
+                        index,
+                        image_name,
                     )
 
-                    if operation is not None:
-                        self._add_operation(
-                            result["operations"],
-                            operation,
-                            deployment_resource["repository"],
+                    if match is None:
+                        raise ContextBuilderPluginException(
+                            f"Deployment UPDATE resource "
+                            f"'{deployment_resource.get('name')}' "
+                            f"could not be resolved from the "
+                            f"resource index.",
                         )
+
+                    file = match.get(
+                        "file",
+                    )
+
+                    if not isinstance(
+                        file,
+                        str,
+                    ) or not file.strip():
+                        raise ContextBuilderPluginException(
+                            f"Deployment UPDATE resource "
+                            f"'{deployment_resource.get('name')}' "
+                            f"does not have a valid file in "
+                            f"the resource index.",
+                        )
+
+                    deployment_resource["file"] = file
+                    deployment_resource["repository"] = str(
+                        yaml_repository,
+                    )
+
+                    operation = "apply"
+                    operation_path = str(
+                        yaml_repository / file,
+                    )
+
+                elif action == "CREATE":
+
+                    operation = "create"
+                    operation_path = deployment_resource[
+                        "repository"
+                    ]
+
+                else:
+
+                    operation = self._deployment_operation(
+                        action,
+                    )
+
+                    if operation is None:
+                        continue
+
+                    operation_path = deployment_resource[
+                        "repository"
+                    ]
+
+                self._add_operation(
+                    result["operations"],
+                    operation,
+                    operation_path,
+                )
 
                 continue
 
