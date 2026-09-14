@@ -30,6 +30,7 @@ class ReportTimelineEvent:
         default_factory=dict,
     )
 
+
 @dataclass(frozen=True)
 class ActivityReport:
     """
@@ -85,6 +86,8 @@ class StepReport:
     )
 
     result: dict[str, Any] | None = None
+
+    failure: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -143,6 +146,7 @@ class ExecutionReport:
     metadata: dict[str, Any] = field(
         default_factory=dict,
     )
+
 
 @dataclass(frozen=True)
 class StageReport:

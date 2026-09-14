@@ -1,10 +1,3 @@
-"""
-Render an ExecutionReport as one self-contained HTML file.
-
-The Python implementation is split across html.py, css.py and js.py,
-but the generated artifact remains a single report.html.
-"""
-
 from __future__ import annotations
 
 import html
@@ -14,26 +7,27 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..models.report import (
+    ExecutionReport,
+)
 from .css import REPORT_CSS
 from .js import REPORT_JS
-from ..models.report import (
-    ActivityReport,
-    ExecutionReport,
-    ReportTimelineEvent,
-    StageReport,
-    StepReport,
-)
 
 
 class HtmlReportRenderer:
-    """Render an ExecutionReport into one portable HTML document."""
+    """Render the complete execution report as one report.html file."""
 
     def render(self, report: ExecutionReport) -> str:
-        payload = json.dumps(
-            self._serialize(report),
-            ensure_ascii=False,
-            separators=(",", ":"),
-        ).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        payload = (
+            json.dumps(
+                self._serialize(report),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026")
+        )
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -41,14 +35,12 @@ class HtmlReportRenderer:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Entropy — {html.escape(report.workflow)}</title>
-<style>
-{REPORT_CSS}
-</style>
+<style>{REPORT_CSS}</style>
 </head>
 <body>
 <div id="app">
 {self._header(report)}
-{self._failure(report)}
+{self._failure_summary(report)}
 {self._summary(report)}
 {self._steps(report)}
 {self._performance(report)}
@@ -56,28 +48,28 @@ class HtmlReportRenderer:
 </div>
 
 <div id="result-modal" class="modal-backdrop">
-    <div class="modal">
-        <div class="modal-head">
-            <strong id="result-title">Plugin Result</strong>
-            <button id="result-close" class="close" type="button">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div id="result-content"></div>
-            <details class="raw">
-                <summary>View raw result</summary>
-                <pre id="result-raw"></pre>
-            </details>
-        </div>
+  <div class="modal">
+    <div class="modal-head">
+      <strong id="result-title">Plugin Result</strong>
+      <button id="result-close" class="close" type="button">&times;</button>
     </div>
+    <div class="modal-body">
+      <div class="result-tabs">
+        <button class="result-tab active" data-view="pretty" type="button">Pretty</button>
+        <button class="result-tab" data-view="raw" type="button">Raw</button>
+      </div>
+      <div id="result-pretty"></div>
+      <div id="result-raw" class="raw-result">
+        <pre id="result-raw-content"></pre>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script id="report-data" type="application/json">{payload}</script>
-<script>
-{REPORT_JS}
-</script>
+<script>{REPORT_JS}</script>
 </body>
-</html>
-"""
+</html>"""
 
     def write(self, report: ExecutionReport, path: Path) -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,61 +77,72 @@ class HtmlReportRenderer:
         return path
 
     @staticmethod
-    def _header(report: ExecutionReport) -> str:
-        status = report.status.upper()
-        css_status = {
-            "COMPLETED": "success",
-            "SUCCESS": "success",
-            "FAILED": "failed",
-            "CANCELLED": "cancelled",
-            "SKIPPED": "skipped",
-            "RUNNING": "running",
-        }.get(status, "running")
-
+    def _header(report):
         return f"""
-<header class="header">
-    <div>
-        <div class="brand">Entropy Execution Report</div>
-        <h1>{html.escape(report.workflow)}</h1>
-        <div class="meta mono">Execution: {html.escape(report.execution_id)}</div>
-        <div class="meta">
-            {HtmlReportRenderer._date(report.started_at)}
-            → {HtmlReportRenderer._date(report.finished_at)}
-            · {HtmlReportRenderer._duration(report.duration_ms)}
-        </div>
-    </div>
-    <div class="status status-{css_status}">{html.escape(status)}</div>
-</header>
-"""
+<header class="page-header">
+  <div>
+    <div class="brand">Entropy</div>
+    <h1>{html.escape(report.workflow)}</h1>
+    <div class="execution-id">Execution: {html.escape(report.execution_id)}</div>
+    <div class="muted">{HtmlReportRenderer._date(report.started_at)} → {HtmlReportRenderer._date(report.finished_at)} · {HtmlReportRenderer._duration(report.duration_ms)}</div>
+  </div>
+  <div class="status status-{html.escape(report.status.lower())}">{html.escape(report.status)}</div>
+</header>"""
 
-    @staticmethod
-    def _failure(report: ExecutionReport) -> str:
-        failed = [step for step in report.steps if step.status == "FAILED"]
+    @classmethod
+    def _failure_summary(cls, report):
+        failed = next(
+            (
+                s
+                for s in report.steps
+                if s.status == "FAILED" or (s.result and s.result.get("success") is False)
+            ),
+            None,
+        )
         if not failed:
             return ""
-
-        step = failed[0]
-        error = HtmlReportRenderer._first_error(step)
-        if not error:
-            error = "The step reported a failure."
-
+        failure = failed.failure or {}
+        message = (
+            failure.get("message") or cls._first_error(failed) or "The step reported a failure."
+        )
         return f"""
-<section class="panel alert">
-    <div class="alert-title">Execution failed</div>
-    <div><strong>{html.escape(step.name)}</strong></div>
-    <div class="meta">{html.escape(step.plugin or "Plugin unavailable")}</div>
-    <div style="margin-top:8px">{html.escape(error)}</div>
-</section>
-"""
+<section class="section">
+  <div class="failure">
+    <div class="failure-title">Execution failure</div>
+    <strong>{html.escape(failed.name)}</strong>
+    <div class="muted">{html.escape(failed.plugin or "Plugin unavailable")}</div>
+    <div class="failure-message">{html.escape(str(message))}</div>
+    <div class="failure-meta">
+      <div><label>Failure type</label><strong>{html.escape(str(failure.get("type") or "Failure"))}</strong></div>
+      <div><label>Step duration</label><strong>{cls._duration(failed.duration_ms)}</strong></div>
+      <div><label>Step</label><strong>{html.escape(failed.name)}</strong></div>
+    </div>
+    {cls._failure_detail(failed)}
+  </div>
+</section>"""
+
+    @classmethod
+    def _failure_detail(cls, step):
+        failure = step.failure or {}
+        exception = failure.get("message")
+        if not exception:
+            return ""
+        return f"""
+<div class="detail-block">
+  <div class="detail-title">Failure details</div>
+  <div class="failure-detail">
+    <div><strong>Source:</strong> {html.escape(str(failure.get("source") or step.name))}</div>
+    <div class="exception" style="margin-top:8px">{html.escape(str(exception))}</div>
+  </div>
+</div>"""
 
     @staticmethod
-    def _summary(report: ExecutionReport) -> str:
+    def _summary(report):
         s = report.summary
-        selected = report.metadata.get("selected_steps", 0)
+        selected = int(report.metadata.get("selected_steps") or s.total_steps)
         not_run = max(selected - s.total_steps, 0)
-
-        metrics = [
-            ("Workflow steps", selected or s.total_steps),
+        values = [
+            ("Workflow steps", selected),
             ("Executed", s.total_steps),
             ("Successful", s.successful_steps),
             ("Failed", s.failed_steps),
@@ -148,173 +151,196 @@ class HtmlReportRenderer:
             ("Warnings", s.warning_steps),
             ("Errors", s.error_steps),
         ]
-
         cards = "".join(
-            f'<div class="metric"><div class="metric-label">{label}</div>'
-            f'<div class="metric-value">{value}</div></div>'
-            for label, value in metrics
+            f'<div class="card"><div class="card-label">{label}</div><div class="card-value">{value}</div></div>'
+            for label, value in values
         )
+        return f'<section class="section"><div class="section-title"><h2>Execution summary</h2></div><div class="cards">{cards}</div></section>'
 
+    def _steps(self, report):
+        cards = "".join(self._step(i, step) for i, step in enumerate(report.steps))
         return f"""
-<section class="panel">
-    <div class="panel-header"><h2>Execution summary</h2></div>
-    <div class="panel-body">
-        <div class="summary-grid">{cards}</div>
+<section class="section">
+  <div class="section-title">
+    <h2>Steps</h2>
+    <div class="filters">
+      <button class="filter active" data-filter="all">All</button>
+      <button class="filter" data-filter="success">Success</button>
+      <button class="filter" data-filter="failed">Failed</button>
+      <button class="filter" data-filter="changed">Changed</button>
+      <button class="filter" data-filter="warnings">Warnings</button>
+      <button class="filter" data-filter="errors">Errors</button>
     </div>
-</section>
-"""
+  </div>
+  <div class="search"><input id="report-search" type="search" placeholder="Search execution..."></div>
+  {cards or '<div class="muted">No steps executed.</div>'}
+</section>"""
 
-    def _steps(self, report: ExecutionReport) -> str:
-        if not report.steps:
-            return """
-<section class="panel">
-    <div class="panel-header"><h2>Execution steps</h2></div>
-    <div class="panel-body"><div class="empty">No steps were executed.</div></div>
-</section>
-"""
-
-        controls = """
-<div class="controls">
-    <input id="report-search" class="search" placeholder="Search steps, plugins and messages...">
-    <button class="filter active" data-filter="all">All</button>
-    <button class="filter" data-filter="success">Success</button>
-    <button class="filter" data-filter="failed">Failed</button>
-    <button class="filter" data-filter="changed">Changed</button>
-    <button class="filter" data-filter="warnings">Warnings</button>
-    <button class="filter" data-filter="errors">Errors</button>
-</div>
-"""
-
-        cards = "".join(self._step(index, step) for index, step in enumerate(report.steps))
-        return f"""
-<section class="panel">
-    <div class="panel-header"><h2>Execution steps</h2></div>
-    <div class="panel-body">
-        {controls}
-        {cards}
-    </div>
-</section>
-"""
-
-    def _step(self, index: int, step: StepReport) -> str:
+    def _step(self, index, step):
         messages = self._all_messages(step)
         warnings = any(self._level(m.level) == "WARNING" for m in messages)
         errors = any(self._level(m.level) in {"ERROR", "CRITICAL"} for m in messages)
-        searchable = " ".join(
-            [
-                step.name,
-                step.plugin,
-                step.status,
-                *[(m.message or "") for m in messages],
-            ]
+        search = " ".join(
+            [step.name, step.plugin, step.status, *(m.message or "" for m in messages)]
         ).lower()
-
-        status_class = step.status.lower()
         result_button = (
-            f'<button class="action result-button" data-result-index="{index}">View result</button>'
-            if step.result
+            f'<button class="action" data-result-index="{index}" type="button">View result</button>'
+            if step.result is not None
             else ""
         )
-
         return f"""
-<article class="step"
-    data-status="{html.escape(step.status)}"
-    data-changed="{str(step.changed).lower()}"
-    data-warnings="{str(warnings).lower()}"
-    data-errors="{str(errors).lower()}"
-    data-search="{html.escape(searchable)}">
-
-    <div class="step-head">
-        <div class="step-title">
-            <div class="step-index">{step.index if step.index is not None else index + 1}</div>
-            <div>
-                <div class="step-name">{html.escape(step.name)}</div>
-                <div class="step-meta">{html.escape(step.plugin or "Plugin unavailable")}</div>
-            </div>
-        </div>
-        <div class="actions">
-            <span class="status status-{status_class}">{html.escape(step.status)}</span>
-            {result_button}
-        </div>
+<article class="step" data-status="{html.escape(step.status)}" data-changed="{str(step.changed).lower()}"
+ data-warnings="{str(warnings).lower()}" data-errors="{str(errors).lower()}" data-search="{html.escape(search)}">
+  <div class="step-header" onclick="toggleStep(this)">
+    <div class="step-title">
+      <span class="step-index">{step.index if step.index is not None else index + 1}</span>
+      <span>{html.escape(step.name)}</span>
     </div>
-
-    <div class="step-body">
-        <div class="info-grid">
-            {self._info("Plugin", step.plugin or "—")}
-            {self._info("Duration", self._duration(step.duration_ms))}
-            {self._info("Changed", "Yes" if step.changed else "No")}
-        </div>
-
-        {self._diagnostics(step)}
-        {self._execution_tree(step)}
+    <div class="step-meta">
+      <span class="status status-{html.escape(step.status.lower())}">{html.escape(step.status)}</span>
+      <span>{self._duration(step.duration_ms)}</span>
+      {result_button}
     </div>
-</article>
-"""
+  </div>
+  <div class="step-body">
+    <div class="step-info">
+      <div><span>Plugin</span><strong>{html.escape(step.plugin or "—")}</strong></div>
+      <div><span>Duration</span><strong>{self._duration(step.duration_ms)}</strong></div>
+      <div><span>Changed</span><strong>{"Yes" if step.changed else "No"}</strong></div>
+    </div>
+    {self._step_failure(step)}
+    {self._messages(step)}
+    {self._tree(step)}
+  </div>
+</article>"""
 
-    @staticmethod
-    def _info(label: str, value: str) -> str:
-        return (
-            f'<div class="info-item"><label>{html.escape(label)}</label>'
-            f'<strong>{html.escape(value)}</strong></div>'
-        )
+    def _step_failure(self, step):
+        if not step.failure:
+            return ""
+        f = step.failure
+        return f"""
+<div class="detail-block">
+  <div class="detail-title">Why this step failed</div>
+  <div class="failure-detail">
+    <div><strong>Type:</strong> {html.escape(str(f.get("type") or "Failure"))}</div>
+    <div><strong>Source:</strong> {html.escape(str(f.get("source") or step.name))}</div>
+    <div class="exception" style="margin-top:8px">{html.escape(str(f.get("message") or "Step execution failed."))}</div>
+  </div>
+</div>"""
 
-    def _diagnostics(self, step: StepReport) -> str:
+    def _messages(self, step):
         messages = self._all_messages(step)
+
         if not messages:
             return ""
 
-        content = "".join(
-            f'<div class="message {html.escape(self._level(m.level))}">'
-            f'<span class="level">{html.escape(self._level(m.level))}</span>'
-            f'{html.escape(m.message or "")}</div>'
-            for m in messages
-            if m.message
-        )
+        items = []
 
-        return f"""
-<div style="margin-bottom:15px">
-    <h3>Messages</h3>
-    {content}
-</div>
-"""
+        for message in messages:
+            if not message.message:
+                continue
 
-    def _execution_tree(self, step: StepReport) -> str:
-        blocks = []
+            level = self._level(message.level)
 
-        for stage in step.stages:
-            blocks.append(self._stage(stage))
+            items.append(
+                f'<div class="message {html.escape(level)}">'
+                f'<span class="level">{html.escape(level)}</span>'
+                f'<span class="message-text">{html.escape(message.message)}</span>'
+                f"</div>"
+            )
 
-        for activity in step.activities:
-            blocks.append(self._activity(activity))
-
-        if not blocks:
+        if not items:
             return ""
 
-        return f"""
-<div>
-    <h3>Execution details</h3>
-    <div class="tree">{''.join(blocks)}</div>
-</div>
-"""
+        return '<div style="margin-bottom:15px">' "<h3>Messages</h3>" f'{"".join(items)}' "</div>"
 
-    def _stage(self, stage: StageReport) -> str:
-        children = "".join(self._activity(a) for a in stage.activities)
+    def _tree(self, step):
+        parts = []
+        for stage in step.stages:
+            acts = "".join(
+                f'<div class="activity"><span>{html.escape(a.name)}</span><span>{html.escape(a.status)} · {self._duration(a.duration_ms)}</span></div>'
+                for a in stage.activities
+            )
+            parts.append(
+                f'<div class="stage"><div class="stage-header"><strong>{html.escape(stage.name)}</strong><span>{html.escape(stage.status)} · {self._duration(stage.duration_ms)}</span></div>{acts}</div>'
+            )
+        for activity in step.activities:
+            parts.append(
+                f'<div class="activity"><span>{html.escape(activity.name)}</span><span>{html.escape(activity.status)} · {self._duration(activity.duration_ms)}</span></div>'
+            )
+        if not parts:
+            return ""
+        return f'<div class="detail-block"><div class="detail-title">Execution details</div><div class="tree">{"".join(parts)}</div></div>'
+
+    def _performance(self, report):
+        bars = []
+        maximum = max((s.duration_ms or 0 for s in report.steps), default=0)
+
+        for step in report.steps:
+            if step.duration_ms is None:
+                continue
+
+            width = 2 if maximum == 0 else max(2, int(step.duration_ms / maximum * 100))
+
+            bars.append(
+                f'<div style="display:grid;grid-template-columns:220px 1fr 70px;'
+                f'gap:10px;align-items:center;margin:8px 0;font-size:12px">'
+                f"<span>{html.escape(step.name)}</span>"
+                f'<span style="height:11px;background:#e9edf1;border-radius:6px">'
+                f'<span style="display:block;width:{width}%;height:100%;'
+                f'background:#536878;border-radius:6px"></span>'
+                f"</span>"
+                f"<span>{self._duration(step.duration_ms)}</span>"
+                f"</div>"
+            )
+
+        chart = "".join(bars)
+        if not chart:
+            chart = '<div class="chart-empty">No timing data available.</div>'
+
         return (
-            f'<div class="tree-row"><span class="name">{html.escape(stage.name)}</span>'
-            f'<span>{html.escape(stage.status)} · {self._duration(stage.duration_ms)}</span></div>'
-            f'{children}'
+            f'<section class="section">'
+            f'<div class="section-title"><h2>Performance</h2></div>'
+            f'<div class="performance-grid">'
+            f'<div class="metric"><span>Total duration</span>'
+            f"<strong>{self._duration(report.duration_ms)}</strong></div>"
+            f'<div class="metric"><span>Average step</span>'
+            f"<strong>{self._duration(report.summary.average_step_duration_ms)}</strong></div>"
+            f'<div class="metric"><span>Slowest step</span>'
+            f'<strong>{html.escape(report.summary.slowest_step or "—")}</strong></div>'
+            f'<div class="metric"><span>Slowest duration</span>'
+            f"<strong>{self._duration(report.summary.slowest_step_duration_ms)}</strong></div>"
+            f"</div>"
+            f'<div class="chart-container"><div class="chart">{chart}</div></div>'
+            f"</section>"
         )
 
     @staticmethod
-    def _activity(activity: ActivityReport) -> str:
+    def _timeline(report):
+        items = "".join(
+            f'<div class="timeline-item">'
+            f'<div class="timeline-time">'
+            f"{html.escape(HtmlReportRenderer._date(e.timestamp))}"
+            f"</div>"
+            f"<div><strong>{html.escape(e.event_type)}</strong></div>"
+            f'<div>{html.escape(e.message or e.node_name or "")}</div>'
+            f"</div>"
+            for e in report.timeline
+            if e.message or e.node_name
+        )
+
+        if not items:
+            items = '<div class="muted">No timeline events.</div>'
+
         return (
-            f'<div class="tree-row"><span class="name">{html.escape(activity.name)}</span>'
-            f'<span>{html.escape(activity.status)} · '
-            f'{HtmlReportRenderer._duration(activity.duration_ms)}</span></div>'
+            f'<section class="section">'
+            f'<div class="section-title"><h2>Execution timeline</h2></div>'
+            f'<div class="timeline">{items}</div>'
+            f"</section>"
         )
 
     @staticmethod
-    def _all_messages(step: StepReport) -> list[ReportTimelineEvent]:
+    def _all_messages(step):
         messages = list(step.messages)
         for stage in step.stages:
             messages.extend(stage.messages)
@@ -324,93 +350,49 @@ class HtmlReportRenderer:
             messages.extend(activity.messages)
         return messages
 
-    def _performance(self, report: ExecutionReport) -> str:
-        return """
-<section class="panel">
-    <div class="panel-header"><h2>Performance</h2></div>
-    <div class="panel-body">
-        <div id="performance-chart" class="chart"></div>
-    </div>
-</section>
-"""
-
     @staticmethod
-    def _timeline(report: ExecutionReport) -> str:
-        events = "".join(
-            f"""
-<div class="timeline-item">
-    <div class="mono">{html.escape(HtmlReportRenderer._date(event.timestamp))}</div>
-    <div><strong>{html.escape(event.event_type)}</strong></div>
-    <div>{html.escape(event.message or event.node_name or "")}</div>
-</div>
-"""
-            for event in report.timeline
-            if event.message or event.node_name
-        )
-
-        return f"""
-<section class="panel">
-    <div class="panel-header"><h2>Detailed timeline</h2></div>
-    <div class="panel-body">
-        {events or '<div class="empty">No timeline events.</div>'}
-    </div>
-</section>
-"""
-
-    @staticmethod
-    def _first_error(step: StepReport) -> str | None:
-        messages = HtmlReportRenderer._all_messages(step)
-        for message in messages:
-            if HtmlReportRenderer._level(message.level) in {"ERROR", "CRITICAL"}:
-                if message.message:
-                    return message.message
-
+    def _first_error(step):
+        for message in HtmlReportRenderer._all_messages(step):
+            if (
+                HtmlReportRenderer._level(message.level) in {"ERROR", "CRITICAL"}
+                and message.message
+            ):
+                return message.message
         result = step.result or {}
-        errors = result.get("errors")
-        if isinstance(errors, list) and errors:
-            first = errors[0]
-            if isinstance(first, dict):
-                return str(first.get("message") or first.get("error") or first)
-            return str(first)
-
-        return None
+        errors = result.get("errors") or []
+        return str(errors[0]) if errors else None
 
     @staticmethod
-    def _level(value: str | None) -> str:
+    def _level(value):
         return {
             "10": "DEBUG",
             "20": "INFO",
+            "25": "NOTICE",
             "30": "WARNING",
             "40": "ERROR",
             "50": "CRITICAL",
         }.get(str(value or "").upper(), str(value or "").upper())
 
     @staticmethod
-    def _duration(ms: int | None) -> str:
+    def _duration(ms):
         if ms is None:
             return "—"
         if ms < 1000:
             return f"{ms} ms"
-        seconds = ms / 1000
-        if seconds < 60:
-            return f"{seconds:.1f} s"
-        minutes = int(seconds // 60)
-        return f"{minutes}m {round(seconds % 60):02d}s"
+        return f"{ms/1000:.1f} s" if ms < 60000 else f"{ms//60000}m {round((ms%60000)/1000)}s"
 
     @staticmethod
-    def _date(value: datetime | None) -> str:
-        if value is None:
-            return "—"
-        return value.isoformat(sep=" ", timespec="seconds")
+    def _date(value):
+        return "—" if value is None else value.isoformat(sep=" ", timespec="seconds")
 
     @staticmethod
-    def _serialize(value: Any) -> Any:
+    def _serialize(value: Any):
         if is_dataclass(value):
-            return {key: HtmlReportRenderer._serialize(item) for key, item in asdict(value).items()}
+            return {k: HtmlReportRenderer._serialize(v) for k, v in asdict(value).items()}
         if isinstance(value, datetime):
             return value.isoformat()
         if isinstance(value, list):
-            return [HtmlReportRenderer._serialize(item) for item in value]
+            return [HtmlReportRenderer._serialize(v) for v in value]
         if isinstance(value, dict):
-            return {key: HtmlReportRenderer._serialize(item) for key, item in value.items()}
+            return {k: HtmlReportRenderer._serialize(v) for k, v in value.items()}
         return value

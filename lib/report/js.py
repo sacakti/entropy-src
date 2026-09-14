@@ -1,180 +1,154 @@
-REPORT_JS = r'''(function () {
-    "use strict";
+REPORT_JS = r"""
+(function(){
+"use strict";
 
-    function data() {
-        const node = document.getElementById("report-data");
-        if (!node) return null;
-        try { return JSON.parse(node.textContent); }
-        catch (_) { return null; }
+function reportData(){const e=document.getElementById("report-data");if(!e)return null;try{return JSON.parse(e.textContent)}catch(_){return null}}
+function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function formatKey(v){return String(v).replaceAll("_"," ").replace(/([a-z])([A-Z])/g,"$1 $2").replace(/\b\w/g,c=>c.toUpperCase())}
+function formatValue(v){if(v===null||v===undefined)return "—";if(typeof v==="boolean")return v?"Yes":"No";return String(v)}
+function duration(ms){if(ms===null||ms===undefined)return "—";if(ms<1000)return `${ms} ms`;const s=ms/1000;if(s<60)return `${s.toFixed(1)} s`;return `${Math.floor(s/60)}m ${Math.round(s%60)}s`}
+function toggleStep(header){header.closest(".step")?.classList.toggle("open")}
+
+function renderValue(value){
+    if(value===null||value===undefined){
+        return '<div class="result-empty">No data</div>';
     }
 
-    function escape(value) {
-        return String(value ?? "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-
-    function duration(ms) {
-        if (ms === null || ms === undefined) return "—";
-        if (ms < 1000) return `${ms} ms`;
-        const seconds = ms / 1000;
-        if (seconds < 60) return `${seconds.toFixed(1)} s`;
-        const minutes = Math.floor(seconds / 60);
-        const remaining = Math.round(seconds % 60);
-        return `${minutes}m ${remaining}s`;
-    }
-
-    function level(value) {
-        return ({
-            "10": "DEBUG",
-            "20": "INFO",
-            "30": "WARNING",
-            "40": "ERROR",
-            "50": "CRITICAL"
-        })[String(value ?? "").toUpperCase()] || String(value ?? "");
-    }
-
-    function resultRows(value, depth) {
-        depth = depth || 0;
-        if (value === null || value === undefined) {
-            return `<div class="kv"><div class="kv-key">Value</div><div class="kv-value">null</div></div>`;
-        }
-
-        if (typeof value !== "object") {
-            return `<div class="kv"><div class="kv-key">Value</div><div class="kv-value">${escape(value)}</div></div>`;
-        }
-
-        const entries = Array.isArray(value)
-            ? value.map((item, index) => [index, item])
-            : Object.entries(value);
-
-        if (!entries.length) {
-            return `<div class="empty">No data</div>`;
-        }
-
-        return entries.map(([key, item]) => {
-            const label = escape(formatKey(key));
-            if (item && typeof item === "object") {
-                return `
-                    <div class="kv">
-                        <div class="kv-key">${label}</div>
-                        <div class="kv-value">${resultRows(item, depth + 1)}</div>
-                    </div>`;
-            }
-            return `
-                <div class="kv">
-                    <div class="kv-key">${label}</div>
-                    <div class="kv-value">${escape(formatValue(item))}</div>
-                </div>`;
-        }).join("");
-    }
-
-    function formatKey(value) {
-        return String(value)
-            .replaceAll("_", " ")
-            .replace(/([a-z])([A-Z])/g, "$1 $2")
-            .replace(/\b\w/g, c => c.toUpperCase());
-    }
-
-    function formatValue(value) {
-        if (value === null || value === undefined) return "—";
-        if (typeof value === "boolean") return value ? "Yes" : "No";
-        return String(value);
-    }
-
-    function openResult(index) {
-        const report = data();
-        const step = report?.steps?.[index];
-        if (!step?.result) return;
-
-        document.getElementById("result-title").textContent =
-            `${step.name} — Plugin Result`;
-
-        document.getElementById("result-content").innerHTML =
-            resultRows(step.result);
-
-        document.getElementById("result-raw").textContent =
-            JSON.stringify(step.result, null, 2);
-
-        document.getElementById("result-modal").classList.add("open");
-    }
-
-    function closeResult() {
-        document.getElementById("result-modal").classList.remove("open");
-    }
-
-    function applyFilters() {
-        const query = document.getElementById("report-search").value.toLowerCase().trim();
-        const active = document.querySelector(".filter.active");
-        const filter = active?.dataset.filter || "all";
-
-        document.querySelectorAll(".step").forEach((node) => {
-            const text = node.dataset.search || "";
-            const status = node.dataset.status || "";
-            const changed = node.dataset.changed === "true";
-            const warnings = node.dataset.warnings === "true";
-            const errors = node.dataset.errors === "true";
-
-            let matches = filter === "all";
-            if (filter === "success") matches = status === "COMPLETED";
-            if (filter === "failed") matches = status === "FAILED";
-            if (filter === "changed") matches = changed;
-            if (filter === "warnings") matches = warnings;
-            if (filter === "errors") matches = errors;
-
-            node.classList.toggle("hidden", !(matches && (!query || text.includes(query))));
-        });
-    }
-
-    function drawPerformance(report) {
-        const container = document.getElementById("performance-chart");
-        const steps = (report.steps || []).filter(s => Number.isFinite(s.duration_ms));
-        if (!steps.length) {
-            container.innerHTML = `<div class="empty">No step timing data available.</div>`;
-            return;
-        }
-
-        const max = Math.max(...steps.map(s => s.duration_ms), 1);
-        container.innerHTML = steps.map(step => `
-            <div class="bar-row">
-                <div>${escape(step.name)}</div>
-                <div class="bar"><span style="width:${Math.max(2, (step.duration_ms / max) * 100)}%"></span></div>
-                <div>${duration(step.duration_ms)}</div>
+    if(typeof value!=="object"){
+        return `
+            <div class="result-value">
+                <span class="result-value-text">${esc(formatValue(value))}</span>
             </div>
-        `).join("");
+        `;
     }
 
-    function init() {
-        const report = data();
-        if (!report) return;
+    if(Array.isArray(value)){
+        if(!value.length){
+            return '<div class="result-empty">No data</div>';
+        }
 
-        drawPerformance(report);
-
-        document.querySelectorAll(".filter").forEach(button => {
-            button.addEventListener("click", () => {
-                document.querySelectorAll(".filter").forEach(b => b.classList.remove("active"));
-                button.classList.add("active");
-                applyFilters();
-            });
-        });
-
-        document.getElementById("report-search").addEventListener("input", applyFilters);
-        document.querySelectorAll("[data-result-index]").forEach(button => {
-            button.addEventListener("click", () => openResult(Number(button.dataset.resultIndex)));
-        });
-
-        document.getElementById("result-close").addEventListener("click", closeResult);
-        document.getElementById("result-modal").addEventListener("click", event => {
-            if (event.target.id === "result-modal") closeResult();
-        });
-        document.addEventListener("keydown", event => {
-            if (event.key === "Escape") closeResult();
-        });
+        return `
+            <div class="result-list">
+                ${value.map((item,index)=>`
+                    <div class="result-list-item">
+                        <span class="result-list-index">${index + 1}</span>
+                        <div class="result-list-content">
+                            ${typeof item==="object"
+                                ? renderValue(item)
+                                : `<span class="result-value-text">${esc(formatValue(item))}</span>`
+                            }
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
     }
 
-    document.addEventListener("DOMContentLoaded", init);
-}());
-'''
+    const entries=Object.entries(value);
+
+    if(!entries.length){
+        return '<div class="result-empty">No data</div>';
+    }
+
+    return `
+        <div class="result-object">
+            ${entries.map(([key,val])=>{
+                const label=esc(formatKey(key));
+
+                if(val===null||val===undefined){
+                    return `
+                        <div class="result-field">
+                            <div class="result-field-label">${label}</div>
+                            <div class="result-field-value muted">—</div>
+                        </div>
+                    `;
+                }
+
+                if(typeof val==="boolean"){
+                    return `
+                        <div class="result-field">
+                            <div class="result-field-label">${label}</div>
+                            <div class="result-field-value">
+                                <span class="result-bool ${val?"true":"false"}">
+                                    ${val?"Yes":"No"}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if(typeof val==="object"){
+                    return `
+                        <div class="result-field result-field-object">
+                            <div class="result-field-label">${label}</div>
+                            <div class="result-field-value">
+                                ${renderValue(val)}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="result-field">
+                        <div class="result-field-label">${label}</div>
+                        <div class="result-field-value">
+                            ${esc(formatValue(val))}
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
+function openResult(index){
+    const report=reportData(), step=report?.steps?.[index];
+    if(!step?.result)return;
+    document.getElementById("result-title").textContent=`${step.name} — Plugin Result`;
+    document.getElementById("result-pretty").innerHTML=renderValue(step.result);
+    document.getElementById("result-raw-content").textContent=JSON.stringify(step.result,null,2);
+    document.getElementById("result-pretty").style.display="block";
+    document.getElementById("result-raw").style.display="none";
+    document.querySelectorAll(".result-tab").forEach(b=>b.classList.toggle("active",b.dataset.view==="pretty"));
+    document.getElementById("result-modal").classList.add("open");
+}
+function closeResult(){document.getElementById("result-modal")?.classList.remove("open")}
+function setResultView(view){
+    document.getElementById("result-pretty").style.display=view==="pretty"?"block":"none";
+    document.getElementById("result-raw").style.display=view==="raw"?"block":"none";
+    document.querySelectorAll(".result-tab").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+}
+function matches(step,filter){
+    if(filter==="all")return true;
+    if(filter==="success")return step.dataset.status==="COMPLETED";
+    if(filter==="failed")return step.dataset.status==="FAILED";
+    if(filter==="changed")return step.dataset.changed==="true";
+    if(filter==="warnings")return step.dataset.warnings==="true";
+    if(filter==="errors")return step.dataset.errors==="true";
+    return true;
+}
+function applyFilters(){
+    const filter=document.querySelector(".filter.active")?.dataset.filter||"all";
+    const q=document.getElementById("report-search")?.value.toLowerCase().trim()||"";
+    document.querySelectorAll(".step").forEach(step=>{
+        const text=step.dataset.search||"";
+        step.style.display=matches(step,filter)&&(!q||text.includes(q))?"":"none";
+    });
+}
+function init(){
+    document.querySelectorAll(".filter").forEach(b=>b.addEventListener("click",()=>{
+        document.querySelectorAll(".filter").forEach(x=>x.classList.remove("active"));
+        b.classList.add("active");applyFilters();
+    }));
+    document.getElementById("report-search")?.addEventListener("input",applyFilters);
+    document.querySelectorAll("[data-result-index]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();openResult(Number(b.dataset.resultIndex))}));
+    document.getElementById("result-close")?.addEventListener("click",closeResult);
+    document.getElementById("result-modal")?.addEventListener("click",e=>{if(e.target.id==="result-modal")closeResult()});
+    document.querySelectorAll(".result-tab").forEach(b=>b.addEventListener("click",()=>setResultView(b.dataset.view)));
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeResult()});
+}
+window.toggleStep=toggleStep;
+window.openResult=openResult;
+document.addEventListener("DOMContentLoaded",init);
+})();
+"""
