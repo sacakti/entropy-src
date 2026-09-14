@@ -1,0 +1,41 @@
+{
+    "name": "DockerFileFromImageChange",
+    "version": "1.0.0",
+    "description": "Test workflow for docker.docker_file_from_image_change.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "DockerFileFromImageChange",
+            "plugin": "docker.docker_file_from_image_change",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "docker_file_from_image_change",
+                "direct"
+            ],
+            "arguments": {
+                "mode": "direct",
+                "mappings": {
+                    "./tests/test-data/app-1/Dockerfile": "registry.example.com/apps/app-1:2.0",
+                    "./tests/test-data/app-2/Dockerfile": "registry.example.com/apps/app-2:3.0"
+                }
+            }
+        },
+        {
+            "name": "DockerFileFromImageChangeJSON",
+            "plugin": "docker.docker_file_from_image_change",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "docker_file_from_image_change",
+                "json"
+            ],
+            "arguments": {
+                "mode": "source",
+                "source": "./tests/test-data/base-images.json"
+            }
+        }
+    ]
+}

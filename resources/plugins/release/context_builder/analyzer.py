@@ -73,19 +73,33 @@ class ReleaseAnalyzer:
 
         release = release.expanduser().resolve()
         structure = structure.expanduser().resolve()
-        resource_index = self._resource_index.load(
-            yaml_repository,
-        )
+
         self._validate_release(
             release,
+        )
+
+        definition = self._structures.load(
+            structure,
         )
 
         release_root = self._extract(
             release,
         )
 
-        definition = self._structures.load(
-            structure,
+        release_root = self._structures.find_root(
+            release_root,
+            definition,
+        )
+
+        if release_root is None:
+
+            raise ContextBuilderPluginException(
+                "Unable to locate the release root matching "
+                "the configured release structure.",
+            )
+
+        resource_index = self._resource_index.load(
+            yaml_repository,
         )
 
         docker_definition = definition.component(

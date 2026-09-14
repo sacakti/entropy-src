@@ -16,37 +16,54 @@
                 "cache"
             ],
             "arguments": {
-                "kubeconfig": "/path/to/kubeconfig",
-                "namespace": "SIT",
+                "environment": "dev",
+                "namespace": "app-dev",
 
                 "rebuild": true,
+
                 "stop_all_before_cache_rebuild": true,
+
                 "mode": "force",
 
+                "parallel": false,
+
                 "services": [
-                    "app-1",
-                    "app-2",
-                    "app-3"
+                    "app1",
+                    "app2",
+                    "cache",
+                    "app3"
                 ],
 
                 "cache": {
-                    "deployment": "app-1",
-                    "environment": {
-                        "name": "CACHE_REFRESH",
-                        "value": "true"
-                    }
-                },
+                    "deployment": "cache",
 
-                "startup": {
-                    "messages": [
-                        "Catalina server startup completed"
+                    "environment": {
+                    "name": "CACHE_REFRESH",
+                    "value": "true"
+                    },
+
+                    "readiness": {
+                    "ready_by": "log",
+                    "success_messages": [
+                        "org.apache.catalina.startup.Catalina start Server startup in"
+                    ],
+                    "failure_messages": [
+                        "Caused by:",
+                        "Redis"
                     ],
                     "timeout": 300,
                     "poll_interval": 5
+                    }
                 },
 
-                "parallel": true
-            }
+                "service_readiness": {
+                    "ready_by": "ready",
+                    "success_messages": [],
+                    "failure_messages": [],
+                    "timeout": 300,
+                    "poll_interval": 5
+                }
+                }
         }
     ]
 }

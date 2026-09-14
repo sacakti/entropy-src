@@ -3,6 +3,7 @@ Logging sink.
 """
 
 from __future__ import annotations
+import json
 
 from ...models.enums import EventType
 from ..event import (
@@ -10,6 +11,7 @@ from ..event import (
     LifecycleEvent,
     LogEvent,
     MessageEvent,
+    PluginResultEvent,
 )
 from ..sink import Sink
 from .logger import ExecutionLogger
@@ -65,6 +67,22 @@ class LoggingSink(Sink):
             )
 
             self._write_message(
+                logger,
+                event,
+            )
+
+            return
+
+        if isinstance(
+            event,
+            PluginResultEvent,
+        ):
+
+            logger = self._logger(
+                event,
+            )
+
+            self._write_result(
                 logger,
                 event,
             )
@@ -204,3 +222,15 @@ class LoggingSink(Sink):
                 event.source,
                 event.message,
             )
+
+    @staticmethod
+    def _write_result(
+        logger: ExecutionLogger,
+        event: PluginResultEvent,
+    ) -> None:
+
+        logger.info(
+            "plugin",
+            f"Plugin result: {event.node.name}\n"
+            f"{json.dumps(event.result, indent=2)}",
+        )

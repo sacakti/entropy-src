@@ -12,7 +12,7 @@ from lib.plugins.base import BasePlugin
 from .exceptions import CacheRefreshPluginException
 from .model import CacheRefreshConfig
 from .resolver import CacheRefreshResolver
-
+from .executor import CacheRefreshExecutor
 
 class CacheRefreshPlugin(BasePlugin):
     """
@@ -33,13 +33,34 @@ class CacheRefreshPlugin(BasePlugin):
             with self.activity(
                 "cache_refresh",
             ):
-                config = CacheRefreshResolver().resolve(
+                config = CacheRefreshResolver(
+                    session_directory=self.session_directory,
+                    filesystem=self.filesystem,
+                ).resolve(
                     self.arguments,
+                )
+
+                self.message.info(
+                    f"Cache refresh configuration: {config!r}",
                 )
 
                 self._verify_access(
                     config,
                 )
+
+                executor = CacheRefreshExecutor(
+                    shell=self.shell,
+                    message=self.message,
+                    log=self.log,
+                    result_factory=self._result,
+                )
+
+                result = executor.execute(
+                    config,
+                )
+
+                if not result.success:
+                    return result
 
                 self.outputs.update(
                     {
@@ -55,6 +76,7 @@ class CacheRefreshPlugin(BasePlugin):
                         "namespace": config.namespace,
                     },
                 )
+
 
         except CacheRefreshPluginException as exc:
 
@@ -75,7 +97,7 @@ class CacheRefreshPlugin(BasePlugin):
             )
 
         self.message.success(
-            "cache_refresh configuration validated successfully.",
+            "cache_refresh completed successfully.",
         )
 
         return self._result(

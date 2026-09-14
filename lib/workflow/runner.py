@@ -610,6 +610,12 @@ class WorkflowRunner:
             result,
         )
 
+        runtime.emitter("workflow").result(
+            execution=runtime.execution,
+            node=runtime.node,
+            result=result.to_dict(),
+        )
+
     # ------------------------------------------------------------------
     # Finalize
     # ------------------------------------------------------------------

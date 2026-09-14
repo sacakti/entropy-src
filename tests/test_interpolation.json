@@ -4,7 +4,7 @@
     "description": "Test step output interpolation.",
 
     "variables": {
-        "release": "/Users/aravinthselvaraj/Desktop/releases/TCX03.zip",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/F01.zip",
         "environment": "UAT",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
         "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",

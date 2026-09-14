@@ -9,12 +9,14 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
-class StartupConfig:
+class ReadinessConfig:
     """
-    Startup verification configuration.
+    Service readiness verification configuration.
     """
 
-    messages: tuple[str, ...]
+    ready_by: str
+    success_messages: tuple[str, ...]
+    failure_messages: tuple[str, ...]
     timeout: int
     poll_interval: int
 
@@ -37,6 +39,7 @@ class CacheConfig:
 
     deployment: str
     environment: CacheEnvironment
+    readiness: ReadinessConfig
 
 
 @dataclass(frozen=True)
@@ -56,6 +59,6 @@ class CacheRefreshConfig:
 
     cache: CacheConfig | None
 
-    startup: StartupConfig
+    service_readiness: ReadinessConfig
 
     parallel: bool

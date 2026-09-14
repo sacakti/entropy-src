@@ -8,6 +8,7 @@ from core.observability.event import (
     BaseEvent,
     LifecycleEvent,
     MessageEvent,
+    PluginResultEvent,
 )
 from core.observability.sink import Sink
 
@@ -55,6 +56,17 @@ class WorkflowEventSink(Sink):
         ):
 
             self._message(
+                event,
+            )
+
+            return
+
+        if isinstance(
+            event,
+            PluginResultEvent,
+        ):
+
+            self._result(
                 event,
             )
 
@@ -119,4 +131,30 @@ class WorkflowEventSink(Sink):
             node_type=event.node.type.value,
             node_id=event.node.id,
             node_name=event.node.name,
+        )
+
+    def _result(
+        self,
+        event: PluginResultEvent,
+    ) -> None:
+
+        job_id = event.execution.get(
+            "job_id",
+        )
+
+        if job_id is None:
+
+            return
+
+        self._jobs.event(
+            job_id=job_id,
+            execution_id=event.execution_id,
+            event_type="plugin_result",
+            source=event.source,
+            node_type=event.node.type.value,
+            node_id=event.node.id,
+            node_name=event.node.name,
+            payload={
+                "result": event.result,
+            },
         )

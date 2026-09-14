@@ -1,0 +1,4 @@
+{
+    "./tests/test-data/app-1/Dockerfile": "registry.example.com/apps/app-1:2.0",
+    "./tests/test-data/app-2/Dockerfile": "registry.example.com/apps/app-2:3.0"
+}

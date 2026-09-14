@@ -348,3 +348,154 @@ class ReleaseStructureResolver:
             current = found
 
         return current
+
+    def find_root(
+        self,
+        root: Path,
+        structure: ReleaseStructure,
+    ) -> Path | None:
+        """
+        Find the actual release root below the extraction root.
+        """
+
+        candidates = []
+
+        for candidate in self._directories_recursive(
+            root,
+        ):
+
+            if self._matches_structure(
+                candidate,
+                structure,
+            ):
+
+                candidates.append(
+                    candidate,
+                )
+
+        if self._matches_structure(
+            root,
+            structure,
+        ):
+
+            candidates.insert(
+                0,
+                root,
+            )
+
+        candidates = list(
+            dict.fromkeys(
+                candidates,
+            ),
+        )
+
+        if not candidates:
+            return None
+
+        if len(candidates) > 1:
+
+            raise ContextBuilderPluginException(
+                "Multiple directories match the configured "
+                "release structure: "
+                + ", ".join(
+                    str(path)
+                    for path in candidates
+                ),
+            )
+
+        return candidates[0]
+
+    def _matches_structure(
+        self,
+        root: Path,
+        structure: ReleaseStructure,
+    ) -> bool:
+        """
+        Return True when a directory contains the configured
+        release components.
+        """
+
+        matches = 0
+
+        for name in structure.children:
+
+            definition = structure.component(
+                name,
+            )
+
+            if definition is None:
+                continue
+
+            path = self.path(
+                root,
+                definition,
+            )
+
+            if path is not None:
+                matches += 1
+
+        return matches > 0
+
+    def _directories_recursive(
+        self,
+        root: Path,
+    ) -> list[Path]:
+        """
+        Find directories recursively.
+        """
+
+        if not self._filesystem.exists(
+            root,
+        ):
+            return []
+
+        result = []
+
+        for path in self._filesystem.find(
+            root,
+            pattern="*",
+            recursive=True,
+        ):
+
+            if self._filesystem.is_directory(
+                path,
+            ):
+
+                if self._ignored(
+                    path,
+                ):
+                    continue
+
+                result.append(
+                    path,
+                )
+
+        return sorted(
+            result,
+        )
+
+    @staticmethod
+    def _ignored(
+        path: Path,
+    ) -> bool:
+        """
+        Return True when a path belongs to an ignored directory
+        or is itself an ignored filesystem entry.
+        """
+
+        ignored_names = (
+            "__MACOSX",
+            ".DS_Store",
+        )
+
+        for part in path.parts:
+            if part in ignored_names:
+                return True
+
+            if part.startswith("._"):
+                return True
+
+            if part.startswith(".gitignore"):
+                return True
+
+        return False

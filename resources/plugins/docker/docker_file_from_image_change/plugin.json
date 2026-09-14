@@ -1,0 +1,14 @@
+{
+    "name": "docker_file_from_image_change",
+    "namespace": "docker",
+    "version": "1.0.0",
+    "description": "",
+    "author": "",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "tags": [],
+
+    "license": ""
+}

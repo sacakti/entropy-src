@@ -1,7 +1,3 @@
-"""
-Observability emitter facade.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -9,6 +5,7 @@ from typing import TYPE_CHECKING
 from core.models.enums import EventType
 
 from .dispatcher import EventDispatcher
+from .event import PluginResultEvent
 from .lifecycle import LifecycleEmitter
 from .log import LogEmitter
 from .message import MessageEmitter
@@ -28,6 +25,9 @@ class Emitter:
         dispatcher: EventDispatcher,
         source: str,
     ) -> None:
+
+        self._dispatcher = dispatcher
+        self._source = source
 
         self._lifecycle = LifecycleEmitter(
             dispatcher,
@@ -50,12 +50,25 @@ class Emitter:
         execution: WorkflowExecution,
         node: RuntimeNode,
     ) -> None:
-        """
-        Emit a runtime lifecycle event.
-        """
 
         self._lifecycle.emit(
             event_type,
             execution,
             node,
+        )
+
+    def result(
+        self,
+        execution: WorkflowExecution,
+        node: RuntimeNode,
+        result: dict,
+    ) -> None:
+
+        self._dispatcher.dispatch(
+            PluginResultEvent(
+                source=self._source,
+                execution=execution,
+                node=node,
+                result=result,
+            )
         )

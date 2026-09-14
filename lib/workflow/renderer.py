@@ -61,6 +61,18 @@ class WorkflowEventRenderer:
             return
 
         #
+        # Plugin result.
+        #
+
+        if event.event_type == "plugin_result":
+
+            self._plugin_result(
+                event,
+            )
+
+            return
+
+        #
         # Lifecycle event.
         #
 
@@ -104,6 +116,31 @@ class WorkflowEventRenderer:
             handler(
                 event,
             )
+
+    # Plugin result
+    def _plugin_result(
+        self,
+        event: WorkflowEvent,
+    ) -> None:
+        """
+        Render a persisted plugin result.
+        """
+
+        payload = event.payload or {}
+
+        result = payload.get(
+            "result",
+            {},
+        )
+
+        self._ui.info(
+            "Plugin result:"
+            f" {event.node_name or 'Plugin'}",
+        )
+
+        self._ui.print(
+            result,
+        )
 
     # ------------------------------------------------------------------
     # Workflow

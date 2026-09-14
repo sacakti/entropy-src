@@ -154,3 +154,30 @@ class LogEvent(BaseEvent):
     timestamp: datetime = field(
         default_factory=datetime.utcnow,
     )
+
+# ------------------------------------------------------------------
+# Plugin Result Event
+# ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PluginResultEvent(RuntimeEvent):
+    """
+    Result produced by a workflow plugin execution.
+    """
+
+    source: str
+
+    execution: WorkflowExecution
+
+    node: RuntimeNode
+
+    result: dict
+
+    id: str = field(
+        default_factory=lambda: uuid4().hex,
+    )
+
+    timestamp: datetime = field(
+        default_factory=datetime.utcnow,
+    )
