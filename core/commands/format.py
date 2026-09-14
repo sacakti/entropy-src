@@ -68,10 +68,7 @@ class FormatCommand(
                 "yml",
                 "sql",
             ],
-            help=(
-                "Explicit document format. "
-                "Must match the source file extension."
-            ),
+            help=("Explicit document format. " "Must match the source file extension."),
         )
 
         output = parser.add_mutually_exclusive_group()

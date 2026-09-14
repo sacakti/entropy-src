@@ -99,6 +99,7 @@ class VaultNamespaceAccessError(VaultError):
             message,
         )
 
+
 class VaultAccessDeniedError(VaultError):
     """
     Raised when a user cannot access a Vault namespace.

@@ -64,9 +64,7 @@ class NormalizerManager:
         normalizer: BaseNormalizer,
     ) -> None:
 
-        self._normalizers[
-            name
-        ] = normalizer
+        self._normalizers[name] = normalizer
 
     # ------------------------------------------------------------------
     # Normalization

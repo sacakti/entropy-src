@@ -93,9 +93,7 @@ class VaultNamespaceAccessRepository(Repository):
             FROM vault_namespace_access
             WHERE id = ?
             """,
-            (
-                assignment_id,
-            ),
+            (assignment_id,),
         )
 
         if row is None:
@@ -191,9 +189,7 @@ class VaultNamespaceAccessRepository(Repository):
             WHERE namespace_id = ?
             ORDER BY user_id
             """,
-            (
-                namespace_id,
-            ),
+            (namespace_id,),
         )
 
         return [
@@ -222,9 +218,7 @@ class VaultNamespaceAccessRepository(Repository):
             WHERE user_id = ?
             ORDER BY namespace_id
             """,
-            (
-                user_id,
-            ),
+            (user_id,),
         )
 
         return [
@@ -284,9 +278,7 @@ class VaultNamespaceAccessRepository(Repository):
                 FROM vault_namespace_access
                 WHERE id = ?
                 """,
-                (
-                    assignment_id,
-                ),
+                (assignment_id,),
             )
 
     # ------------------------------------------------------------------

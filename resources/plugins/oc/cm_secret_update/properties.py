@@ -35,11 +35,7 @@ class PropertiesUpdater:
 
             stripped = line.strip()
 
-            if (
-                not stripped
-                or stripped.startswith("#")
-                or stripped.startswith("!")
-            ):
+            if not stripped or stripped.startswith("#") or stripped.startswith("!"):
 
                 result.append(
                     line,
@@ -88,9 +84,7 @@ class PropertiesUpdater:
                 newline = ""
 
             result.append(
-                f"{key}{separator}"
-                f"{entries[key]}"
-                f"{newline}",
+                f"{key}{separator}" f"{entries[key]}" f"{newline}",
             )
 
             updated.add(
@@ -154,11 +148,7 @@ class PropertiesUpdater:
 
             stripped = line.strip()
 
-            if (
-                not stripped
-                or stripped.startswith("#")
-                or stripped.startswith("!")
-            ):
+            if not stripped or stripped.startswith("#") or stripped.startswith("!"):
 
                 result.append(
                     line,

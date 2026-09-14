@@ -7,7 +7,6 @@ from __future__ import annotations
 from typing import Any
 
 from lib.database.repositories.vault import VaultRepository
-from lib.models.users import User
 from lib.models.vault import VaultEntry, VaultValueType
 from lib.vault.cipher import VaultCipher
 from lib.vault.exceptions import (
@@ -192,7 +191,7 @@ class VaultManager:
 
         for entry in entries:
 
-            key = entry.key[len(prefix):]
+            key = entry.key[len(prefix) :]
 
             if not key:
 
@@ -232,8 +231,7 @@ class VaultManager:
         if access is None:
 
             raise VaultAccessDeniedError(
-                f"Permission denied for Vault namespace "
-                f"'{namespace}'.",
+                f"Permission denied for Vault namespace " f"'{namespace}'.",
             )
 
         assert namespace_entry.id is not None
@@ -265,8 +263,7 @@ class VaultManager:
         if access is None:
 
             raise VaultAccessDeniedError(
-                f"Permission denied for Vault namespace "
-                f"'{namespace}'.",
+                f"Permission denied for Vault namespace " f"'{namespace}'.",
             )
 
         assert namespace_entry.id is not None
@@ -524,8 +521,7 @@ class VaultManager:
         if field not in current:
 
             raise VaultValueError(
-                f"Field '{field}' does not exist "
-                f"in Vault entry '{key}'.",
+                f"Field '{field}' does not exist " f"in Vault entry '{key}'.",
             )
 
         current[field] = value
@@ -575,8 +571,7 @@ class VaultManager:
         if field in current:
 
             raise VaultValueError(
-                f"Field '{field}' already exists "
-                f"in Vault entry '{key}'.",
+                f"Field '{field}' already exists " f"in Vault entry '{key}'.",
             )
 
         self._validate_key(
@@ -629,8 +624,7 @@ class VaultManager:
         if field not in current:
 
             raise VaultValueError(
-                f"Field '{field}' does not exist "
-                f"in Vault entry '{key}'.",
+                f"Field '{field}' does not exist " f"in Vault entry '{key}'.",
             )
 
         del current[field]
@@ -685,15 +679,8 @@ class VaultManager:
 
         for character in key:
 
-            if not (
-                character.isascii()
-                and (
-                    character.isalnum()
-                    or character == "_"
-                )
-            ):
+            if not (character.isascii() and (character.isalnum() or character == "_")):
 
                 raise VaultValueError(
-                    "Vault key may contain only "
-                    "letters, numbers, and underscore (_).",
+                    "Vault key may contain only " "letters, numbers, and underscore (_).",
                 )

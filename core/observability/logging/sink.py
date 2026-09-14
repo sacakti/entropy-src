@@ -3,6 +3,7 @@ Logging sink.
 """
 
 from __future__ import annotations
+
 import json
 
 from ...models.enums import EventType
@@ -231,6 +232,5 @@ class LoggingSink(Sink):
 
         logger.info(
             "plugin",
-            f"Plugin result: {event.node.name}\n"
-            f"{json.dumps(event.result, indent=2)}",
+            f"Plugin result: {event.node.name}\n" f"{json.dumps(event.result, indent=2)}",
         )

@@ -4,13 +4,13 @@ Role management.
 
 from __future__ import annotations
 
+from lib.authorization.exceptions import AuthGenericError
 from lib.database.repositories.permissions import PermissionRepository
 from lib.database.repositories.role_permissions import (
     RolePermissionRepository,
 )
 from lib.database.repositories.roles import RoleRepository
 from lib.models.authorization import Permission, Role, RolePermission
-from lib.authorization.exceptions import AuthGenericError
 
 ADMIN_ROLE = "admin"
 
@@ -135,10 +135,7 @@ class RoleManager:
                     "Role name cannot be empty.",
                 )
 
-            if (
-                name != role.name
-                and self._roles.exists(name)
-            ):
+            if name != role.name and self._roles.exists(name):
 
                 raise AuthGenericError(
                     f"Role '{name}' already exists.",

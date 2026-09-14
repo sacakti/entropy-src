@@ -100,17 +100,12 @@ class CacheRefreshExecutor:
         if config.cache is None:
 
             raise CacheRefreshPluginException(
-                "Cache configuration is required when "
-                "'rebuild' is true.",
+                "Cache configuration is required when " "'rebuild' is true.",
             )
 
         cache_deployment = config.cache.deployment
 
-        remaining_services = [
-            service
-            for service in config.services
-            if service != cache_deployment
-        ]
+        remaining_services = [service for service in config.services if service != cache_deployment]
 
         # --------------------------------------------------------------
         # 1. Stop all services
@@ -130,8 +125,7 @@ class CacheRefreshExecutor:
         # --------------------------------------------------------------
 
         self.message.info(
-            f"Setting cache refresh environment on "
-            f"'{cache_deployment}'.",
+            f"Setting cache refresh environment on " f"'{cache_deployment}'.",
         )
 
         self._set_cache_environment(
@@ -143,8 +137,7 @@ class CacheRefreshExecutor:
         # --------------------------------------------------------------
 
         self.message.info(
-            f"Starting cache service '{cache_deployment}' "
-            "for cache rebuild.",
+            f"Starting cache service '{cache_deployment}' " "for cache rebuild.",
         )
 
         self._start_services(
@@ -157,8 +150,7 @@ class CacheRefreshExecutor:
         # --------------------------------------------------------------
 
         self.message.info(
-            f"Waiting for cache service '{cache_deployment}' "
-            "cache rebuild completion.",
+            f"Waiting for cache service '{cache_deployment}' " "cache rebuild completion.",
         )
 
         self._wait_for_services(
@@ -175,8 +167,7 @@ class CacheRefreshExecutor:
         # --------------------------------------------------------------
 
         self.message.info(
-            f"Removing cache refresh environment from "
-            f"'{cache_deployment}'.",
+            f"Removing cache refresh environment from " f"'{cache_deployment}'.",
         )
 
         self._remove_cache_environment(
@@ -188,8 +179,7 @@ class CacheRefreshExecutor:
         # --------------------------------------------------------------
 
         self.message.info(
-            f"Waiting for cache service '{cache_deployment}' "
-            "normal startup.",
+            f"Waiting for cache service '{cache_deployment}' " "normal startup.",
         )
 
         self._wait_for_services(
@@ -205,8 +195,7 @@ class CacheRefreshExecutor:
         if remaining_services:
 
             self.message.info(
-                "Starting remaining services: "
-                + ", ".join(remaining_services),
+                "Starting remaining services: " + ", ".join(remaining_services),
             )
 
             self._start_services(
@@ -351,8 +340,7 @@ class CacheRefreshExecutor:
                     except Exception as exc:
 
                         raise CacheRefreshPluginException(
-                            f"Operation failed for deployment "
-                            f"'{service}': {exc}",
+                            f"Operation failed for deployment " f"'{service}': {exc}",
                         ) from exc
 
             return
@@ -448,8 +436,7 @@ class CacheRefreshExecutor:
         ]
 
         self.log.debug(
-            "Executing OpenShift command: "
-            + " ".join(full_command),
+            "Executing OpenShift command: " + " ".join(full_command),
         )
 
         try:
@@ -667,8 +654,7 @@ class CacheRefreshExecutor:
                             raise
 
                         raise CacheRefreshPluginException(
-                            f"Readiness verification failed for "
-                            f"deployment '{service}': {exc}",
+                            f"Readiness verification failed for " f"deployment '{service}': {exc}",
                         ) from exc
 
             return
@@ -692,14 +678,10 @@ class CacheRefreshExecutor:
         """
 
         self.message.info(
-            f"Waiting for deployment '{deployment}' "
-            f"using ready_by='{readiness.ready_by}'.",
+            f"Waiting for deployment '{deployment}' " f"using ready_by='{readiness.ready_by}'.",
         )
 
-        deadline = (
-            time.monotonic()
-            + readiness.timeout
-        )
+        deadline = time.monotonic() + readiness.timeout
 
         while True:
 
@@ -722,16 +704,14 @@ class CacheRefreshExecutor:
                     readiness,
                 ):
                     self.message.info(
-                        f"Deployment '{deployment}' startup "
-                        "message detected.",
+                        f"Deployment '{deployment}' startup " "message detected.",
                     )
                     return
 
             else:
 
                 raise CacheRefreshPluginException(
-                    f"Unsupported readiness method "
-                    f"'{readiness.ready_by}'.",
+                    f"Unsupported readiness method " f"'{readiness.ready_by}'.",
                 )
 
             if time.monotonic() >= deadline:
@@ -767,8 +747,7 @@ class CacheRefreshExecutor:
         if not selector:
 
             self.log.debug(
-                f"No deployment selector found for "
-                f"'{deployment}'.",
+                f"No deployment selector found for " f"'{deployment}'.",
             )
 
             return False
@@ -790,8 +769,7 @@ class CacheRefreshExecutor:
         if result.failed:
 
             self.log.debug(
-                f"Unable to inspect pods for '{deployment}': "
-                f"{result.stderr.strip()}",
+                f"Unable to inspect pods for '{deployment}': " f"{result.stderr.strip()}",
             )
 
             return False
@@ -814,8 +792,7 @@ class CacheRefreshExecutor:
         if not items:
 
             self.log.debug(
-                f"No pod found yet for deployment "
-                f"'{deployment}'.",
+                f"No pod found yet for deployment " f"'{deployment}'.",
             )
 
             return False
@@ -916,8 +893,7 @@ class CacheRefreshExecutor:
         if result.failed:
 
             self.log.debug(
-                f"Unable to retrieve deployment "
-                f"'{deployment}': {result.stderr.strip()}",
+                f"Unable to retrieve deployment " f"'{deployment}': {result.stderr.strip()}",
             )
 
             return None
@@ -933,8 +909,7 @@ class CacheRefreshExecutor:
             return None
 
         match_labels = (
-            data
-            .get(
+            data.get(
                 "spec",
                 {},
             )
@@ -952,10 +927,7 @@ class CacheRefreshExecutor:
 
             return None
 
-        return ",".join(
-            f"{key}={value}"
-            for key, value in match_labels.items()
-        )
+        return ",".join(f"{key}={value}" for key, value in match_labels.items())
 
     # ==================================================================
     # Log readiness
@@ -991,8 +963,7 @@ class CacheRefreshExecutor:
         if pod is None:
 
             self.log.debug(
-                f"No pod available yet for deployment "
-                f"'{deployment}'.",
+                f"No pod available yet for deployment " f"'{deployment}'.",
             )
 
             return False
@@ -1023,8 +994,7 @@ class CacheRefreshExecutor:
         }:
 
             self.log.debug(
-                f"Pod '{pod_name}' for deployment "
-                f"'{deployment}' is in phase '{phase}'.",
+                f"Pod '{pod_name}' for deployment " f"'{deployment}' is in phase '{phase}'.",
             )
 
             return False
@@ -1032,8 +1002,7 @@ class CacheRefreshExecutor:
         if phase == "Failed":
 
             raise CacheRefreshPluginException(
-                f"Pod '{pod_name}' for deployment "
-                f"'{deployment}' entered Failed state.",
+                f"Pod '{pod_name}' for deployment " f"'{deployment}' entered Failed state.",
             )
 
         result = self._oc_result(
@@ -1057,8 +1026,7 @@ class CacheRefreshExecutor:
             ):
 
                 self.log.debug(
-                    f"Logs for pod '{pod_name}' are not "
-                    "available yet. Retrying.",
+                    f"Logs for pod '{pod_name}' are not " "available yet. Retrying.",
                 )
 
                 return False
@@ -1115,8 +1083,7 @@ class CacheRefreshExecutor:
         if result.failed:
 
             self.log.debug(
-                f"Unable to list pods: "
-                f"{result.stderr.strip()}",
+                f"Unable to list pods: " f"{result.stderr.strip()}",
             )
 
             return None
@@ -1148,7 +1115,8 @@ class CacheRefreshExecutor:
                 {},
             ).get(
                 "phase",
-            ) not in {
+            )
+            not in {
                 "Succeeded",
                 "Failed",
             }
@@ -1227,7 +1195,4 @@ class CacheRefreshExecutor:
             "a container name must be specified",
         )
 
-        return any(
-            item in value
-            for item in transient_messages
-        )
+        return any(item in value for item in transient_messages)

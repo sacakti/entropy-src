@@ -4,10 +4,11 @@ Authorization service.
 
 from __future__ import annotations
 
+from lib.auth.session import Session
 from lib.authorization.exceptions import AuthorizationRequiredError
 from lib.database.connection import DatabaseConnection
 from lib.models.authorization import PermissionType
-from lib.auth.session import Session
+
 
 class AuthorizationService:
     """
@@ -42,8 +43,9 @@ class AuthorizationService:
         Return True when the user has the requested permission.
         """
 
-        return self._connection.fetchone(
-            """
+        return (
+            self._connection.fetchone(
+                """
             SELECT 1
             FROM permissions p
 
@@ -88,13 +90,15 @@ class AuthorizationService:
 
             LIMIT 1
             """,
-            (
-                permission,
-                user_id,
-                user_id,
-                user_id,
-            ),
-        ) is not None
+                (
+                    permission,
+                    user_id,
+                    user_id,
+                    user_id,
+                ),
+            )
+            is not None
+        )
 
     # ------------------------------------------------------------------
     # Permission type
@@ -111,8 +115,9 @@ class AuthorizationService:
         requested type within a module.
         """
 
-        return self._connection.fetchone(
-            """
+        return (
+            self._connection.fetchone(
+                """
             SELECT 1
             FROM permissions p
             JOIN modules m
@@ -160,14 +165,16 @@ class AuthorizationService:
 
             LIMIT 1
             """,
-            (
-                module,
-                permission_type.value,
-                user_id,
-                user_id,
-                user_id,
-            ),
-        ) is not None
+                (
+                    module,
+                    permission_type.value,
+                    user_id,
+                    user_id,
+                    user_id,
+                ),
+            )
+            is not None
+        )
 
     # ------------------------------------------------------------------
     # Permissions
@@ -230,10 +237,7 @@ class AuthorizationService:
             ),
         )
 
-        return [
-            row["name"]
-            for row in rows
-        ]
+        return [row["name"] for row in rows]
 
     # ------------------------------------------------------------------
     # Require

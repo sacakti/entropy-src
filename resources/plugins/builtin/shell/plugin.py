@@ -4,9 +4,8 @@ Shell plugin.
 
 from __future__ import annotations
 
-import shutil
-
 import json
+import shutil
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin

@@ -36,8 +36,7 @@ class DeploymentUpdateValidator:
 
         if value.get("kind") != cls.KIND:
             raise DeploymentUpdateDefinitionError(
-                f"Invalid update definition kind '{value.get('kind')}'. "
-                f"Expected '{cls.KIND}'.",
+                f"Invalid update definition kind '{value.get('kind')}'. " f"Expected '{cls.KIND}'.",
             )
 
         target = value.get("target")
@@ -47,8 +46,7 @@ class DeploymentUpdateValidator:
         target_kind = target.get("kind")
         if target_kind != cls.TARGET_KIND:
             raise DeploymentUpdateDefinitionError(
-                f"Unsupported target kind '{target_kind}'. "
-                f"Expected '{cls.TARGET_KIND}'.",
+                f"Unsupported target kind '{target_kind}'. " f"Expected '{cls.TARGET_KIND}'.",
             )
 
         name = target.get("name")

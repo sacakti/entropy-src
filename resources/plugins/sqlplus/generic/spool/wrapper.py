@@ -4,9 +4,9 @@ SQLPlus spool wrapper generation and detection.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
-import os
 
 from ..model import SpoolSettings
 
@@ -68,12 +68,9 @@ class SpoolScriptBuilder:
 
         if spool_path.exists():
 
-            return (
-                spool_path.is_file()
-                and os.access(
-                    spool_path,
-                    os.W_OK,
-                )
+            return spool_path.is_file() and os.access(
+                spool_path,
+                os.W_OK,
             )
 
         parent = spool_path.parent
@@ -114,12 +111,7 @@ class SpoolScriptBuilder:
             count=1,
         )
 
-        destination = (
-            script.parent
-            / ".entropy"
-            / "sqlplus"
-            / f"{script.stem}_spool.sql"
-        )
+        destination = script.parent / ".entropy" / "sqlplus" / f"{script.stem}_spool.sql"
 
         destination.parent.mkdir(
             parents=True,

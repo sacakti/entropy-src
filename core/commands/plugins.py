@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.commands.base import (
     BaseCommand,
@@ -17,10 +17,9 @@ from lib.models.plugin import PluginResult
 from lib.plugins.mode import PluginMode
 from lib.workflow.assignments import WorkflowAssignments
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from core.context import EntropyContext
+
 
 class PluginCommand(
     BaseCommand,
@@ -181,7 +180,7 @@ class PluginCommand(
             help="Plugin source directory.",
         )
 
-                #
+        #
         # upgrade
         #
 
@@ -713,15 +712,13 @@ class PluginCommand(
         if result.upgraded:
 
             self._ui.success(
-                f"Successfully upgraded "
-                f"{len(result.upgraded)} plugin(s).",
+                f"Successfully upgraded " f"{len(result.upgraded)} plugin(s).",
             )
 
         if result.failed:
 
             self._ui.error(
-                f"Failed to upgrade "
-                f"{len(result.failed)} plugin(s).",
+                f"Failed to upgrade " f"{len(result.failed)} plugin(s).",
             )
 
     def _default_plugin_source(
@@ -733,11 +730,7 @@ class PluginCommand(
 
         assert self.context.bootstrap is not None
 
-        return (
-            self.context.bootstrap.application.directory
-            / "resources"
-            / "plugins"
-        ).resolve()
+        return (self.context.bootstrap.application.directory / "resources" / "plugins").resolve()
 
     def _render_upgrade_plan(
         self,
@@ -751,11 +744,7 @@ class PluginCommand(
 
         for change in plan.changes:
 
-            installed = (
-                change.installed.version
-                if change.installed is not None
-                else "-"
-            )
+            installed = change.installed.version if change.installed is not None else "-"
 
             rows.append(
                 [

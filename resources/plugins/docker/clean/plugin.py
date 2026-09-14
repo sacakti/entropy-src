@@ -74,10 +74,7 @@ class DockerCleanPlugin(
                 ],
                 warnings=[],
                 metadata={
-                    "artifacts": {
-                        name: str(path)
-                        for name, path in self.artifacts.items()
-                    },
+                    "artifacts": {name: str(path) for name, path in self.artifacts.items()},
                 },
             )
 
@@ -97,10 +94,14 @@ class DockerCleanPlugin(
             self.DEFAULT_MINIMUM_STORAGE,
         )
 
-        cleanup = self.arguments.string(
-            "cleanup",
-            "tag",
-        ).strip().lower()
+        cleanup = (
+            self.arguments.string(
+                "cleanup",
+                "tag",
+            )
+            .strip()
+            .lower()
+        )
 
         tag_pattern = self.arguments.string(
             "tag_pattern",
@@ -144,22 +145,17 @@ class DockerCleanPlugin(
         )
 
         self.message.info(
-            f"Available Docker storage: "
-            f"{storage['available_gb']:.2f} GB",
+            f"Available Docker storage: " f"{storage['available_gb']:.2f} GB",
         )
 
         self.message.info(
             f"Minimum storage: {minimum_storage} GB",
         )
 
-        if (
-            not force
-            and storage["available_gb"] >= minimum_storage
-        ):
+        if not force and storage["available_gb"] >= minimum_storage:
 
             self.message.info(
-                "Minimum storage requirement is satisfied. "
-                "No cleanup required.",
+                "Minimum storage requirement is satisfied. " "No cleanup required.",
             )
 
             return self._result(
@@ -170,15 +166,13 @@ class DockerCleanPlugin(
         if force:
 
             self.message.warning(
-                "Force enabled. Running cleanup regardless "
-                "of available storage.",
+                "Force enabled. Running cleanup regardless " "of available storage.",
             )
 
         if dry_run:
 
             self.message.warning(
-                "Dry-run enabled. No Docker resources will "
-                "be removed.",
+                "Dry-run enabled. No Docker resources will " "be removed.",
             )
 
         if cleanup == "tag":
@@ -208,14 +202,11 @@ class DockerCleanPlugin(
 
         storage_after = self._storage()
 
-        self.outputs["storage_after_gb"] = (
-            storage_after["available_gb"]
-        )
+        self.outputs["storage_after_gb"] = storage_after["available_gb"]
 
         self.outputs["storage_reclaimed_gb"] = max(
             0.0,
-            storage_after["available_gb"]
-            - storage["available_gb"],
+            storage_after["available_gb"] - storage["available_gb"],
         )
 
         return result
@@ -254,15 +245,10 @@ class DockerCleanPlugin(
         references = [
             line.strip()
             for line in result.stdout.splitlines()
-            if line.strip()
-            and "<none>:<none>" not in line
+            if line.strip() and "<none>:<none>" not in line
         ]
 
-        matches = [
-            reference
-            for reference in references
-            if tag_pattern in reference
-        ]
+        matches = [reference for reference in references if tag_pattern in reference]
 
         self.outputs["matched_images"] = matches
         self.outputs["items_removed"] = 0
@@ -324,8 +310,7 @@ class DockerCleanPlugin(
             if remove.failed:
 
                 errors.append(
-                    f"Failed to remove '{reference}': "
-                    f"{remove.stderr.strip()}",
+                    f"Failed to remove '{reference}': " f"{remove.stderr.strip()}",
                 )
 
                 continue
@@ -459,10 +444,7 @@ class DockerCleanPlugin(
                 success=False,
                 changed=False,
                 errors=[
-                    (
-                        "Docker cleanup failed with "
-                        f"exit code {result.exit_code}."
-                    ),
+                    ("Docker cleanup failed with " f"exit code {result.exit_code}."),
                 ],
             )
 
@@ -521,15 +503,11 @@ class DockerCleanPlugin(
 
         if result.stdout:
 
-            self.log.info(
-                f"Docker stdout:\n{result.stdout.rstrip()}"
-            )
+            self.log.info(f"Docker stdout:\n{result.stdout.rstrip()}")
 
         if result.stderr:
 
-            self.log.warning(
-                f"Docker stderr:\n{result.stderr.rstrip()}"
-            )
+            self.log.warning(f"Docker stderr:\n{result.stderr.rstrip()}")
 
         self.outputs["exit_code"] = result.exit_code
         self.outputs["success"] = result.success
@@ -565,8 +543,7 @@ class DockerCleanPlugin(
         if result.failed:
 
             raise CleanPluginException(
-                "Unable to determine Docker storage root: "
-                f"{result.stderr.strip()}",
+                "Unable to determine Docker storage root: " f"{result.stderr.strip()}",
             )
 
         try:
@@ -617,11 +594,7 @@ class DockerCleanPlugin(
                 "Unable to determine available Docker storage.",
             )
 
-        lines = [
-            line
-            for line in df.stdout.splitlines()
-            if line.strip()
-        ]
+        lines = [line for line in df.stdout.splitlines() if line.strip()]
 
         if len(lines) < 2:
 
@@ -674,8 +647,7 @@ class DockerCleanPlugin(
         if minimum_storage <= 0:
 
             raise CleanPluginException(
-                "Argument 'minimum_storage' must be "
-                "greater than zero.",
+                "Argument 'minimum_storage' must be " "greater than zero.",
             )
 
         if cleanup not in cls.CLEANUP_TYPES:
@@ -687,22 +659,19 @@ class DockerCleanPlugin(
             )
 
             raise CleanPluginException(
-                f"Invalid cleanup type '{cleanup}'. "
-                f"Expected one of: {supported}.",
+                f"Invalid cleanup type '{cleanup}'. " f"Expected one of: {supported}.",
             )
 
         if cleanup == "tag" and not tag_pattern:
 
             raise CleanPluginException(
-                "Argument 'tag_pattern' is required when "
-                "cleanup is 'tag'.",
+                "Argument 'tag_pattern' is required when " "cleanup is 'tag'.",
             )
 
         if cleanup == "complete" and not confirm:
 
             raise CleanPluginException(
-                "Cleanup type 'complete' is destructive and "
-                "requires 'confirm=true'.",
+                "Cleanup type 'complete' is destructive and " "requires 'confirm=true'.",
             )
 
     # ------------------------------------------------------------------
@@ -750,9 +719,6 @@ class DockerCleanPlugin(
             errors=errors or [],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )

@@ -72,11 +72,7 @@ class ImageFieldHandler:
             raise DeploymentUpdateTargetError(
                 "Deployment containers must be an array.",
             )
-        return [
-            container
-            for container in containers
-            if isinstance(container, dict)
-        ]
+        return [container for container in containers if isinstance(container, dict)]
 
     @staticmethod
     def _find_container(

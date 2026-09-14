@@ -109,9 +109,7 @@ class VaultRepository(Repository):
             FROM vault_entries
             WHERE id = ?
             """,
-            (
-                entry_id,
-            ),
+            (entry_id,),
         )
 
         if row is None:
@@ -244,9 +242,7 @@ class VaultRepository(Repository):
             WHERE namespace_id = ?
             ORDER BY key
             """,
-            (
-                namespace_id,
-            ),
+            (namespace_id,),
         )
 
         return [

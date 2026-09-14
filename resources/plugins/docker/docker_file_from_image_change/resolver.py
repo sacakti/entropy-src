@@ -139,8 +139,7 @@ class DockerFileFromImageChangeResolver:
         }:
 
             raise DockerFileFromImageChangePluginException(
-                "Unsupported source format. "
-                "Expected JSON, YAML, or YML.",
+                "Unsupported source format. " "Expected JSON, YAML, or YML.",
             )
 
         if suffix in {
@@ -179,8 +178,7 @@ class DockerFileFromImageChangeResolver:
         ):
 
             raise DockerFileFromImageChangePluginException(
-                "Source file must contain an object mapping "
-                "Dockerfile paths to target images.",
+                "Source file must contain an object mapping " "Dockerfile paths to target images.",
             )
 
         return self._normalize_mappings(

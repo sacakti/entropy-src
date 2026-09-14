@@ -8,8 +8,9 @@ import json
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, call
+from unittest.mock import Mock
 
+from resources.plugins.custom.cache_refresh.exceptions import CacheRefreshPluginException
 from resources.plugins.custom.cache_refresh.executor import CacheRefreshExecutor
 from resources.plugins.custom.cache_refresh.model import (
     CacheConfig,
@@ -17,7 +18,7 @@ from resources.plugins.custom.cache_refresh.model import (
     CacheRefreshConfig,
     ReadinessConfig,
 )
-from resources.plugins.custom.cache_refresh.exceptions import CacheRefreshPluginException
+
 
 class FakeExecutionResult:
     """
@@ -92,9 +93,7 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
 
         cache_readiness = ReadinessConfig(
             ready_by=cache_ready_by,
-            success_messages=(
-                "Server startup in",
-            ),
+            success_messages=("Server startup in",),
             failure_messages=(
                 "Caused by:",
                 "Redis",
@@ -105,12 +104,8 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
 
         service_readiness = ReadinessConfig(
             ready_by=service_ready_by,
-            success_messages=(
-                "Server startup in",
-            ) if service_ready_by == "log" else (),
-            failure_messages=(
-                "Caused by:",
-            ) if service_ready_by == "log" else (),
+            success_messages=("Server startup in",) if service_ready_by == "log" else (),
+            failure_messages=("Caused by:",) if service_ready_by == "log" else (),
             timeout=10,
             poll_interval=1,
         )
@@ -160,9 +155,7 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
                     {
                         "metadata": {
                             "name": pod_name,
-                            "creationTimestamp": (
-                                "2026-09-13T10:00:00Z"
-                            ),
+                            "creationTimestamp": ("2026-09-13T10:00:00Z"),
                         },
                         "status": {
                             "phase": phase,
@@ -216,10 +209,7 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
             self.config.service_readiness,
         )
 
-        commands = [
-            item.args[0]
-            for item in self.shell.run.call_args_list
-        ]
+        commands = [item.args[0] for item in self.shell.run.call_args_list]
 
         self.assertEqual(
             commands,
@@ -376,8 +366,7 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
             ),
             # logs
             FakeExecutionResult(
-                stdout="org.apache.catalina.startup.Catalina "
-                       "start Server startup in 5000 ms",
+                stdout="org.apache.catalina.startup.Catalina " "start Server startup in 5000 ms",
             ),
         ]
 
@@ -542,10 +531,7 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
             result.success,
         )
 
-        commands = [
-            item.args[0]
-            for item in self.shell.run.call_args_list
-        ]
+        commands = [item.args[0] for item in self.shell.run.call_args_list]
 
         # Stop all.
         self.assertIn(
@@ -690,17 +676,15 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
 
         # Don't need actual OC readiness for this ordering test.
         self.executor._wait_for_services = Mock(
-            side_effect=lambda config, services, readiness:
-                events.append(
-                    f"wait:{services[0]}",
-                ),
+            side_effect=lambda config, services, readiness: events.append(
+                f"wait:{services[0]}",
+            ),
         )
 
         self.executor._restart_service = Mock(
-            side_effect=lambda config, service:
-                events.append(
-                    f"restart:{service}",
-                ),
+            side_effect=lambda config, service: events.append(
+                f"restart:{service}",
+            ),
         )
 
         config = self._config(
@@ -736,17 +720,15 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
         events: list[str] = []
 
         self.executor._restart_service = Mock(
-            side_effect=lambda config, service:
-                events.append(
-                    f"restart:{service}",
-                ),
+            side_effect=lambda config, service: events.append(
+                f"restart:{service}",
+            ),
         )
 
         self.executor._wait_for_services = Mock(
-            side_effect=lambda config, services, readiness:
-                events.append(
-                    "wait",
-                ),
+            side_effect=lambda config, services, readiness: events.append(
+                "wait",
+            ),
         )
 
         config = self._config(
@@ -759,11 +741,7 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
             config.service_readiness,
         )
 
-        restart_events = [
-            event
-            for event in events
-            if event.startswith("restart:")
-        ]
+        restart_events = [event for event in events if event.startswith("restart:")]
 
         self.assertEqual(
             set(restart_events),
@@ -794,7 +772,6 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
                     deployment="cache",
                 ),
             ),
-
             # Pod list:
             # old pod is ready, new pod is not ready.
             FakeExecutionResult(
@@ -804,9 +781,7 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
                             {
                                 "metadata": {
                                     "name": "cache-old",
-                                    "creationTimestamp": (
-                                        "2026-09-13T10:00:00Z"
-                                    ),
+                                    "creationTimestamp": ("2026-09-13T10:00:00Z"),
                                 },
                                 "status": {
                                     "phase": "Running",
@@ -821,9 +796,7 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
                             {
                                 "metadata": {
                                     "name": "cache-new",
-                                    "creationTimestamp": (
-                                        "2026-09-13T10:05:00Z"
-                                    ),
+                                    "creationTimestamp": ("2026-09-13T10:05:00Z"),
                                 },
                                 "status": {
                                     "phase": "Running",
@@ -858,4 +831,3 @@ class CacheRefreshExecutorTestCase(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

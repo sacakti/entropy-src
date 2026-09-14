@@ -71,10 +71,7 @@ class GenericPlugin(
                 ],
                 warnings=[],
                 metadata={
-                    "artifacts": {
-                        name: str(path)
-                        for name, path in self.artifacts.items()
-                    },
+                    "artifacts": {name: str(path) for name, path in self.artifacts.items()},
                 },
             )
 
@@ -109,10 +106,13 @@ class GenericPlugin(
             "operation",
         )
 
-        if not isinstance(
-            operation,
-            str,
-        ) or not operation.strip():
+        if (
+            not isinstance(
+                operation,
+                str,
+            )
+            or not operation.strip()
+        ):
 
             raise GenericPluginException(
                 "Argument 'operation' must be specified.",
@@ -166,9 +166,12 @@ class GenericPlugin(
         Verify that Docker is available.
         """
 
-        if shutil.which(
-            "docker",
-        ) is None:
+        if (
+            shutil.which(
+                "docker",
+            )
+            is None
+        ):
 
             raise GenericPluginException(
                 "Docker is not available on this system.",
@@ -252,8 +255,7 @@ class GenericPlugin(
         if not result.success:
 
             return self._failure(
-                result.stderr
-                or "Docker login failed.",
+                result.stderr or "Docker login failed.",
             )
 
         return self._success(
@@ -394,22 +396,23 @@ class GenericPlugin(
                 ):
 
                     raise GenericPluginException(
-                        f"Image specification '{name}' "
-                        "must be a dictionary.",
+                        f"Image specification '{name}' " "must be a dictionary.",
                     )
 
                 image = specification.get(
                     "image",
                 )
 
-                if not isinstance(
-                    image,
-                    str,
-                ) or not image.strip():
+                if (
+                    not isinstance(
+                        image,
+                        str,
+                    )
+                    or not image.strip()
+                ):
 
                     raise GenericPluginException(
-                        f"Image specification '{name}' "
-                        "does not contain a valid 'image'.",
+                        f"Image specification '{name}' " "does not contain a valid 'image'.",
                     )
 
                 images.append(
@@ -419,8 +422,7 @@ class GenericPlugin(
             if not images:
 
                 raise GenericPluginException(
-                    "Argument 'images' must contain at least "
-                    "one Docker image.",
+                    "Argument 'images' must contain at least " "one Docker image.",
                 )
 
             return images
@@ -449,19 +451,25 @@ class GenericPlugin(
             "target",
         )
 
-        if not isinstance(
-            source,
-            str,
-        ) or not source.strip():
+        if (
+            not isinstance(
+                source,
+                str,
+            )
+            or not source.strip()
+        ):
 
             raise GenericPluginException(
                 "Argument 'source' must be a non-empty string.",
             )
 
-        if not isinstance(
-            target,
-            str,
-        ) or not target.strip():
+        if (
+            not isinstance(
+                target,
+                str,
+            )
+            or not target.strip()
+        ):
 
             raise GenericPluginException(
                 "Argument 'target' must be a non-empty string.",
@@ -499,8 +507,7 @@ class GenericPlugin(
         if not result.success:
 
             return self._failure(
-                result.stderr
-                or f"Failed to tag '{source}'.",
+                result.stderr or f"Failed to tag '{source}'.",
             )
 
         return self._success(
@@ -529,10 +536,13 @@ class GenericPlugin(
             [],
         )
 
-        if not isinstance(
-            command,
-            str,
-        ) or not command.strip():
+        if (
+            not isinstance(
+                command,
+                str,
+            )
+            or not command.strip()
+        ):
 
             raise GenericPluginException(
                 "Argument 'command' must be a non-empty string.",
@@ -595,8 +605,7 @@ class GenericPlugin(
         if not result.success:
 
             return self._failure(
-                result.stderr
-                or "Docker command failed.",
+                result.stderr or "Docker command failed.",
             )
 
         return self._success(
@@ -618,10 +627,13 @@ class GenericPlugin(
         Validate login arguments.
         """
 
-        if not isinstance(
-            registry,
-            str,
-        ) or not registry.strip():
+        if (
+            not isinstance(
+                registry,
+                str,
+            )
+            or not registry.strip()
+        ):
 
             raise GenericPluginException(
                 "Argument 'registry' must be a non-empty string.",
@@ -634,14 +646,16 @@ class GenericPlugin(
         if username is None or password is None:
 
             raise GenericPluginException(
-                "Arguments 'username' and 'password' "
-                "must be provided together.",
+                "Arguments 'username' and 'password' " "must be provided together.",
             )
 
-        if not isinstance(
-            username,
-            str,
-        ) or not username.strip():
+        if (
+            not isinstance(
+                username,
+                str,
+            )
+            or not username.strip()
+        ):
 
             raise GenericPluginException(
                 "Argument 'username' must be a non-empty string.",

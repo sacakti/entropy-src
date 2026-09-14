@@ -289,8 +289,7 @@ class GenericGitPlugin(
             ):
 
                 raise GenericGitPluginException(
-                    "Every Git add path must be "
-                    "a non-empty string.",
+                    "Every Git add path must be " "a non-empty string.",
                 )
 
             normalized_paths.append(
@@ -359,9 +358,7 @@ class GenericGitPlugin(
 
         revision = self.generate_revision()
 
-        message = (
-            f"Revision: {revision}"
-        )
+        message = f"Revision: {revision}"
 
         self._stage_all(
             repository,
@@ -404,9 +401,7 @@ class GenericGitPlugin(
                 "Argument 'tag' must not be empty.",
             )
 
-        message = (
-            f"Deployment - {tag}"
-        )
+        message = f"Deployment - {tag}"
 
         self._stage_all(
             repository,
@@ -651,8 +646,7 @@ class GenericGitPlugin(
         ]
 
         self.log.debug(
-            "Executing Git command: "
-            + " ".join(command),
+            "Executing Git command: " + " ".join(command),
         )
 
         try:
@@ -686,11 +680,8 @@ class GenericGitPlugin(
         if result.success:
             return result
 
-        if (
-            allow_no_changes
-            and self._is_nothing_to_commit(
-                result,
-            )
+        if allow_no_changes and self._is_nothing_to_commit(
+            result,
         ):
             return result
 
@@ -712,15 +703,13 @@ class GenericGitPlugin(
         if not repository.exists():
 
             raise GenericGitPluginException(
-                f"Git repository does not exist: "
-                f"{repository}",
+                f"Git repository does not exist: " f"{repository}",
             )
 
         if not repository.is_dir():
 
             raise GenericGitPluginException(
-                f"Git repository path is not a directory: "
-                f"{repository}",
+                f"Git repository path is not a directory: " f"{repository}",
             )
 
         git_directory = repository / ".git"
@@ -728,8 +717,7 @@ class GenericGitPlugin(
         if not git_directory.exists():
 
             raise GenericGitPluginException(
-                f"Path is not a Git repository: "
-                f"{repository}",
+                f"Path is not a Git repository: " f"{repository}",
             )
 
     @staticmethod
@@ -737,15 +725,9 @@ class GenericGitPlugin(
         result: Any,
     ) -> bool:
 
-        output = (
-            f"{result.stdout}\n"
-            f"{result.stderr}"
-        ).lower()
+        output = (f"{result.stdout}\n" f"{result.stderr}").lower()
 
-        return (
-            "nothing to commit" in output
-            or "nothing added to commit" in output
-        )
+        return "nothing to commit" in output or "nothing added to commit" in output
 
     @staticmethod
     def _git_error(
@@ -755,11 +737,7 @@ class GenericGitPlugin(
         Extract a useful Git error message.
         """
 
-        message = (
-            result.stderr.strip()
-            if result.stderr
-            else result.stdout.strip()
-        )
+        message = result.stderr.strip() if result.stderr else result.stdout.strip()
 
         if not message:
             return "Git command failed."
@@ -801,11 +779,7 @@ class GenericGitPlugin(
             errors=[],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 
@@ -827,10 +801,6 @@ class GenericGitPlugin(
             errors=errors,
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )

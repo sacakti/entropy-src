@@ -421,8 +421,7 @@ class GroupsCommand(BaseCommand):
             )
 
             self._ui.success(
-                f"User '{args.username}' "
-                f"added to group '{group.name}'.",
+                f"User '{args.username}' " f"added to group '{group.name}'.",
             )
 
             return
@@ -435,8 +434,7 @@ class GroupsCommand(BaseCommand):
             )
 
             self._ui.success(
-                f"User '{args.username}' "
-                f"removed from group '{group.name}'.",
+                f"User '{args.username}' " f"removed from group '{group.name}'.",
             )
 
             return
@@ -500,8 +498,7 @@ class GroupsCommand(BaseCommand):
             )
 
             self._ui.success(
-                f"Role '{args.role}' "
-                f"granted to group '{group.name}'.",
+                f"Role '{args.role}' " f"granted to group '{group.name}'.",
             )
 
             return
@@ -514,8 +511,7 @@ class GroupsCommand(BaseCommand):
             )
 
             self._ui.success(
-                f"Role '{args.role}' "
-                f"revoked from group '{group.name}'.",
+                f"Role '{args.role}' " f"revoked from group '{group.name}'.",
             )
 
             return

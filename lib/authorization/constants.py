@@ -102,7 +102,7 @@ PERMISSIONS = (
         "write",
         "Delete a Vault entry.",
     ),
-        PermissionDefinition(
+    PermissionDefinition(
         "vault",
         "vault.namespace.create",
         "write",

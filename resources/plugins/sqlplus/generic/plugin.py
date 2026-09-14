@@ -4,8 +4,8 @@ SQLPlus plugin.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
@@ -17,6 +17,7 @@ from .spool.resolver import SpoolSettingsResolver
 
 if TYPE_CHECKING:
     from .model import SqlPlusExecutionResult
+
 
 class GenericPlugin(
     BasePlugin,
@@ -72,10 +73,7 @@ class GenericPlugin(
             errors=errors,
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 
@@ -93,15 +91,9 @@ class GenericPlugin(
         Resolve and execute SQLPlus operations.
         """
 
-        sqlhome = self.arguments.path(
-            "sqlhome",
-            None
-        )
+        sqlhome = self.arguments.path("sqlhome", None)
 
-        mode = self.arguments.string(
-            "mode",
-            None
-        )
+        mode = self.arguments.string("mode", None)
 
         if not mode:
             raise GenericPluginError(
@@ -130,7 +122,6 @@ class GenericPlugin(
             execution = self.arguments.dictionary(
                 "execution",
             )
-
 
             execution_plan = execution.get(
                 "execution_plan",
@@ -200,15 +191,11 @@ class GenericPlugin(
             "release",
         )
 
-        if (
-            spool_settings.enabled
-            and execution_path is None
-        ):
+        if spool_settings.enabled and execution_path is None:
 
             if not executions:
                 raise GenericPluginError(
-                    "'execution_path' cannot be resolved because "
-                    "there are no SQL executions.",
+                    "'execution_path' cannot be resolved because " "there are no SQL executions.",
                 )
 
             execution_path = executions[0].script.parent
@@ -248,28 +235,19 @@ class GenericPlugin(
                     {
                         "schema": result.schema,
                         "script": str(result.script),
-                         "executed_script": str(result.executed_script),
+                        "executed_script": str(result.executed_script),
                         "action": "execute",
                         "status": "failed",
                     },
                 )
 
-        succeeded = sum(
-            result.success
-            for result in results
-        )
+        succeeded = sum(result.success for result in results)
 
         failed = len(results) - succeeded
 
-        skipped = (
-            len(executions)
-            - len(results)
-        )
+        skipped = len(executions) - len(results)
 
-        success = (
-            failed == 0
-            and skipped == 0
-        )
+        success = failed == 0 and skipped == 0
 
         errors = [
             {
@@ -323,15 +301,16 @@ class GenericPlugin(
                 "used",
             )
 
-            if not isinstance(
-                spool_path,
-                str,
-            ) or not spool_path.strip():
+            if (
+                not isinstance(
+                    spool_path,
+                    str,
+                )
+                or not spool_path.strip()
+            ):
                 continue
 
-            self.artifacts[
-                f"sqlplus_{result.schema}_{result.script.stem}_spool"
-            ] = Path(spool_path)
+            self.artifacts[f"sqlplus_{result.schema}_{result.script.stem}_spool"] = Path(spool_path)
 
         return changes, errors
 
@@ -367,10 +346,7 @@ class GenericPlugin(
         )
 
         return {
-            "preview": (
-                f"{preview}\n"
-                "... (stdout is large; see spool log)"
-            ),
+            "preview": (f"{preview}\n" "... (stdout is large; see spool log)"),
             "lines": line_count,
             "truncated": True,
         }
@@ -390,9 +366,5 @@ class GenericPlugin(
             return
 
         self.log.info(
-            (
-                f"SQLPlus output: "
-                f"{result.schema}/{result.script.name}\n"
-                f"{result.stdout}"
-            ),
+            (f"SQLPlus output: " f"{result.schema}/{result.script.name}\n" f"{result.stdout}"),
         )

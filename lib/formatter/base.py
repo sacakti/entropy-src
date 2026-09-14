@@ -49,5 +49,4 @@ class BaseFormatter(ABC):
     def serialize(
         self,
         value: Any,
-    ) -> str:
-        ...
+    ) -> str: ...

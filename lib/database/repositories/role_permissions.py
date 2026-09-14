@@ -87,9 +87,7 @@ class RolePermissionRepository(Repository):
             FROM role_permissions
             WHERE id = ?
             """,
-            (
-                assignment_id,
-            ),
+            (assignment_id,),
         )
 
         if row is None:
@@ -151,9 +149,7 @@ class RolePermissionRepository(Repository):
             WHERE role_id = ?
             ORDER BY permission_id
             """,
-            (
-                role_id,
-            ),
+            (role_id,),
         )
 
         return [
@@ -185,9 +181,7 @@ class RolePermissionRepository(Repository):
             WHERE role_permissions.role_id = ?
             ORDER BY permissions.name
             """,
-            (
-                role_id,
-            ),
+            (role_id,),
         )
 
         return [
@@ -223,9 +217,7 @@ class RolePermissionRepository(Repository):
                 FROM role_permissions
                 WHERE id = ?
                 """,
-                (
-                    assignment_id,
-                ),
+                (assignment_id,),
             )
 
     # ------------------------------------------------------------------

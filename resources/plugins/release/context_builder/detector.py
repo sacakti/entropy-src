@@ -41,10 +41,7 @@ class ReleaseChangeDetector:
 
             return True
 
-        return (
-            self._hash(source)
-            != self._hash(target)
-        )
+        return self._hash(source) != self._hash(target)
 
     def directory_changed(
         self,
@@ -67,15 +64,9 @@ class ReleaseChangeDetector:
             extensions=extensions,
         )
 
-        source_names = {
-            path.relative_to(source)
-            for path in source_files
-        }
+        source_names = {path.relative_to(source) for path in source_files}
 
-        target_names = {
-            path.relative_to(target)
-            for path in target_files
-        }
+        target_names = {path.relative_to(target) for path in target_files}
 
         if source_names != target_names:
 
@@ -133,10 +124,7 @@ class ReleaseChangeDetector:
 
             if extensions is not None:
 
-                if path.suffix.casefold() not in {
-                    extension.casefold()
-                    for extension in extensions
-                }:
+                if path.suffix.casefold() not in {extension.casefold() for extension in extensions}:
 
                     continue
 

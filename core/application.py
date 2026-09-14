@@ -150,11 +150,7 @@ class Application:
         assert self.context.bootstrap is not None
         assert self.context.ui is not None
 
-        source = (
-            self.context.bootstrap.application.directory
-            / "resources"
-            / "plugins"
-        )
+        source = self.context.bootstrap.application.directory / "resources" / "plugins"
 
         if not source.is_dir():
 
@@ -167,7 +163,8 @@ class Application:
         changes = [
             change
             for change in changes
-            if change.change_type.value in {
+            if change.change_type.value
+            in {
                 "new",
                 "upgrade",
             }

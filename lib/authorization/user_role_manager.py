@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from lib.database.repositories.roles import RoleRepository
 from lib.database.repositories.user_roles import UserRoleRepository
-from lib.database.repositories.users import UserRepository
 from lib.models.authorization import Role, UserRole
 from lib.models.users import User
 

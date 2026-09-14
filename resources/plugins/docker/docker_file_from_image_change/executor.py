@@ -21,9 +21,7 @@ class DockerFileFromImageChangeExecutor:
     """
 
     _FROM_PATTERN = re.compile(
-        r"^(\s*FROM\s+)"
-        r"(?P<image>\S+)"
-        r"(?P<suffix>\s+.*)?$",
+        r"^(\s*FROM\s+)" r"(?P<image>\S+)" r"(?P<suffix>\s+.*)?$",
         re.IGNORECASE,
     )
 
@@ -119,17 +117,12 @@ class DockerFileFromImageChangeExecutor:
             keepends=True,
         )
 
-        from_indexes = [
-            index
-            for index, line in enumerate(lines)
-            if self._is_from_statement(line)
-        ]
+        from_indexes = [index for index, line in enumerate(lines) if self._is_from_statement(line)]
 
         if not from_indexes:
 
             raise DockerFileFromImageChangePluginException(
-                f"No FROM statement found in Dockerfile: "
-                f"{dockerfile}",
+                f"No FROM statement found in Dockerfile: " f"{dockerfile}",
             )
 
         if len(from_indexes) > 1:
@@ -157,8 +150,7 @@ class DockerFileFromImageChangeExecutor:
         if current_image == target_image:
 
             self.message.info(
-                f"Dockerfile already uses target image: "
-                f"{dockerfile}",
+                f"Dockerfile already uses target image: " f"{dockerfile}",
             )
 
             return None
@@ -184,13 +176,11 @@ class DockerFileFromImageChangeExecutor:
         except Exception as exc:
 
             raise DockerFileFromImageChangePluginException(
-                f"Unable to update Dockerfile '{dockerfile}': "
-                f"{exc}",
+                f"Unable to update Dockerfile '{dockerfile}': " f"{exc}",
             ) from exc
 
         self.message.info(
-            f"Updated base image in {dockerfile}: "
-            f"{current_image} -> {target_image}",
+            f"Updated base image in {dockerfile}: " f"{current_image} -> {target_image}",
         )
 
         return {
@@ -214,9 +204,12 @@ class DockerFileFromImageChangeExecutor:
         Return whether a line is a FROM instruction.
         """
 
-        return cls._FROM_PATTERN.match(
-            line.rstrip("\r\n"),
-        ) is not None
+        return (
+            cls._FROM_PATTERN.match(
+                line.rstrip("\r\n"),
+            )
+            is not None
+        )
 
     @classmethod
     def _replace_from_image(
@@ -251,13 +244,11 @@ class DockerFileFromImageChangeExecutor:
             1,
         )
 
-        suffix = match.group(
-            "suffix",
-        ) or ""
-
-        return (
-            f"{prefix}"
-            f"{target_image}"
-            f"{suffix}"
-            f"{newline}"
+        suffix = (
+            match.group(
+                "suffix",
+            )
+            or ""
         )
+
+        return f"{prefix}" f"{target_image}" f"{suffix}" f"{newline}"

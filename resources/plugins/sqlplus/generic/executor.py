@@ -3,22 +3,16 @@ SQLPlus command execution.
 """
 
 from __future__ import annotations
-import os
-from typing import Any
 
-from pathlib import Path
+import os
 import re
 import subprocess
 import time
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from .exceptions import GenericPluginError
-
-from .model import (
-    SqlPlusExecution,
-    SqlPlusExecutionResult,
-    SpoolSettings
-)
+from .model import SpoolSettings, SqlPlusExecution, SqlPlusExecutionResult
 from .spool.resolver import SpoolSettingsResolver
 from .spool.wrapper import SpoolScriptBuilder
 
@@ -30,19 +24,13 @@ _ORACLE_ERROR = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+
 class SqlPlusExecutor:
     """
     Execute SQLPlus scripts through Entropy's shell abstraction.
     """
 
-
-    def __init__(
-        self,
-        *,
-        shell,
-        activity,
-        message
-    ) -> None:
+    def __init__(self, *, shell, activity, message) -> None:
         self._shell = shell
         self._activity = activity
         self._message = message
@@ -79,16 +67,12 @@ class SqlPlusExecutor:
 
         if sql_home is not None:
             if not sql_home.is_dir():
-                raise GenericPluginError(
-                    f"Oracle Home does not exist: {sql_home}"
-                )
+                raise GenericPluginError(f"Oracle Home does not exist: {sql_home}")
 
             sqlplus_path = sql_home / "bin" / "sqlplus"
 
             if not sqlplus_path.is_file():
-                raise GenericPluginError(
-                    f"SQLPlus executable does not exist: {sqlplus_path}"
-                )
+                raise GenericPluginError(f"SQLPlus executable does not exist: {sqlplus_path}")
 
         command = [
             "sqlplus",
@@ -128,17 +112,12 @@ class SqlPlusExecutor:
         # Always detect an existing spool.
         # --------------------------------------------------------------
 
-        existing_spool = (
-            self._spool_builder.detect_spool(
-                execution.script,
-            )
+        existing_spool = self._spool_builder.detect_spool(
+            execution.script,
         )
 
-        existing_spool_valid = (
-            existing_spool is not None
-            and self._spool_builder.is_valid_spool(
-                existing_spool,
-            )
+        existing_spool_valid = existing_spool is not None and self._spool_builder.is_valid_spool(
+            existing_spool,
         )
 
         # --------------------------------------------------------------
@@ -170,13 +149,11 @@ class SqlPlusExecutor:
                     "execution_path is required when spool is enabled.",
                 )
 
-            configured_spool_path = (
-                SpoolSettingsResolver.resolve_path(
-                    settings.name_placeholder,
-                    execution_path=execution_path,
-                    release=release,
-                    schema=execution.schema,
-                )
+            configured_spool_path = SpoolSettingsResolver.resolve_path(
+                settings.name_placeholder,
+                execution_path=execution_path,
+                release=release,
+                schema=execution.schema,
             )
 
             if settings.create_if_not_exists:
@@ -193,11 +170,7 @@ class SqlPlusExecutor:
 
                 spool_path = configured_spool_path
 
-                wrapper_directory = (
-                    execution_path
-                    / ".entropy"
-                    / "sqlplus"
-                )
+                wrapper_directory = execution_path / ".entropy" / "sqlplus"
 
                 wrapper_directory.mkdir(
                     parents=True,
@@ -206,19 +179,15 @@ class SqlPlusExecutor:
 
                 if existing_spool is not None and settings.override and settings.infile_replace:
 
-                        script = self._spool_builder.replace_spool(
-                            script=execution.script,
-                            spool_path=spool_path,
-                        )
+                    script = self._spool_builder.replace_spool(
+                        script=execution.script,
+                        spool_path=spool_path,
+                    )
 
                 else:
 
-                    wrapper = (
-                        wrapper_directory
-                        / (
-                            f"{execution.script.stem}_"
-                            f"{execution.schema}_spool.sql"
-                        )
+                    wrapper = wrapper_directory / (
+                        f"{execution.script.stem}_" f"{execution.schema}_spool.sql"
                     )
 
                     script = self._spool_builder.build(
@@ -266,7 +235,7 @@ class SqlPlusExecutor:
                 env=environment if environment else None,
             )
 
-        except FileNotFoundError as exc:
+        except FileNotFoundError:
             duration = time.perf_counter() - start
 
             return SqlPlusExecutionResult(
@@ -295,13 +264,10 @@ class SqlPlusExecutor:
                 success=False,
                 exit_code=-1,
                 stdout="",
-                stderr=(
-                    f"SQLPlus execution timed out: {exc}"
-                ),
+                stderr=(f"SQLPlus execution timed out: {exc}"),
                 duration=duration,
                 spool=spool_metadata,
             )
-
 
         except subprocess.TimeoutExpired as exc:
             duration = time.perf_counter() - start
@@ -313,9 +279,7 @@ class SqlPlusExecutor:
                 success=False,
                 exit_code=-1,
                 stdout="",
-                stderr=(
-                    f"SQLPlus execution timed out: {exc}"
-                ),
+                stderr=(f"SQLPlus execution timed out: {exc}"),
                 duration=duration,
                 spool=spool_metadata,
             )
@@ -330,18 +294,13 @@ class SqlPlusExecutor:
                 success=False,
                 exit_code=-1,
                 stdout="",
-                stderr=(
-                    f"Unable to execute SQLPlus: {exc}"
-                ),
+                stderr=(f"Unable to execute SQLPlus: {exc}"),
                 duration=duration,
                 spool=spool_metadata,
             )
 
         return self.interpret_result(
-            execution,
-            result,
-            spool_metadata=spool_metadata,
-            executed_script=script
+            execution, result, spool_metadata=spool_metadata, executed_script=script
         )
 
     def execute_all(
@@ -383,10 +342,7 @@ class SqlPlusExecutor:
 
             results.append(result)
 
-            if (
-                not result.success
-                and on_error == "abort"
-            ):
+            if not result.success and on_error == "abort":
                 break
 
         return results
@@ -427,18 +383,14 @@ class SqlPlusExecutor:
         Interpret SQLPlus execution result.
         """
 
-        sqlplus_error = (
-            result.exit_code != 0
-        )
+        sqlplus_error = result.exit_code != 0
 
         error_type: str | None = None
         error_message: str | None = None
 
-        detected_error = (
-            SqlPlusExecutor._find_sqlplus_error(
-                result.stdout,
-                result.stderr,
-            )
+        detected_error = SqlPlusExecutor._find_sqlplus_error(
+            result.stdout,
+            result.stderr,
         )
 
         if detected_error is not None:
@@ -450,10 +402,7 @@ class SqlPlusExecutor:
         elif result.exit_code != 0:
 
             error_type = "SQLPLUS"
-            error_message = (
-                f"SQLPlus exited with code "
-                f"{result.exit_code}."
-            )
+            error_message = f"SQLPlus exited with code " f"{result.exit_code}."
 
         return SqlPlusExecutionResult(
             schema=execution.schema,
@@ -485,20 +434,10 @@ class SqlPlusExecutor:
         return {
             "enabled": settings.enabled,
             "detected": existing_spool is not None,
-            "existing": (
-                str(existing_spool)
-                if existing_spool is not None
-                else None
-            ),
-            "used": (
-                str(used_spool)
-                if used_spool is not None
-                else None
-            ),
+            "existing": (str(existing_spool) if existing_spool is not None else None),
+            "used": (str(used_spool) if used_spool is not None else None),
             "overridden": (
-                settings.enabled
-                and existing_spool is not None
-                and used_spool != existing_spool
+                settings.enabled and existing_spool is not None and used_spool != existing_spool
             ),
             "reason": self._spool_reason(
                 settings=settings,

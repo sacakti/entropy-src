@@ -87,9 +87,7 @@ class UserRoleRepository(Repository):
             FROM user_roles
             WHERE id = ?
             """,
-            (
-                assignment_id,
-            ),
+            (assignment_id,),
         )
 
         if row is None:
@@ -178,9 +176,7 @@ class UserRoleRepository(Repository):
             WHERE user_id = ?
             ORDER BY role_id
             """,
-            (
-                user_id,
-            ),
+            (user_id,),
         )
 
         return [
@@ -212,9 +208,7 @@ class UserRoleRepository(Repository):
             WHERE user_roles.user_id = ?
             ORDER BY roles.name
             """,
-            (
-                user_id,
-            ),
+            (user_id,),
         )
 
         return [
@@ -260,9 +254,7 @@ class UserRoleRepository(Repository):
                 FROM user_roles
                 WHERE id = ?
                 """,
-                (
-                    assignment_id,
-                ),
+                (assignment_id,),
             )
 
     # ------------------------------------------------------------------

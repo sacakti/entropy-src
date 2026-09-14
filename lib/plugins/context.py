@@ -165,7 +165,6 @@ class PluginContext:
 
         return self._outputs
 
-
     @property
     def artifacts(
         self,

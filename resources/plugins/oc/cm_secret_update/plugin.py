@@ -5,12 +5,14 @@ ConfigMap/Secret update plugin.
 from __future__ import annotations
 
 from pathlib import Path
-import traceback
 from typing import Any
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 
+from .engine import ConfigMapSecretUpdateEngine
+from .exceptions import ConfigMapSecretUpdateException
+from .loader import ConfigMapSecretUpdateLoader
 from .model import (
     ConfigMapSecretResource,
     ConfigMapSecretSource,
@@ -19,10 +21,6 @@ from .model import (
     UpdateOperation,
     UpdateTarget,
 )
-
-from .engine import ConfigMapSecretUpdateEngine
-from .exceptions import ConfigMapSecretUpdateException
-from .loader import ConfigMapSecretUpdateLoader
 from .target_loader import ConfigMapSecretTargetLoader
 from .updater import ConfigMapSecretUpdater
 
@@ -97,8 +95,7 @@ class CmSecretUpdatePlugin(BasePlugin):
             return self._execute_deployments()
 
         raise ConfigMapSecretUpdateException(
-            f"Unsupported mode '{mode}'. "
-            "Expected 'folder' or 'deployments'.",
+            f"Unsupported mode '{mode}'. " "Expected 'folder' or 'deployments'.",
         )
 
     # ------------------------------------------------------------------
@@ -342,10 +339,7 @@ class CmSecretUpdatePlugin(BasePlugin):
                         (
                             item
                             for item in target_resources
-                            if (
-                                item.kind == resource["kind"]
-                                and item.name == resource["name"]
-                            )
+                            if (item.kind == resource["kind"] and item.name == resource["name"])
                         ),
                         None,
                     )
@@ -420,9 +414,7 @@ class CmSecretUpdatePlugin(BasePlugin):
                     succeeded += 1
 
                     self.message.info(
-                        f"Updated "
-                        f"{resource['kind']}/"
-                        f"{resource['name']}.",
+                        f"Updated " f"{resource['kind']}/" f"{resource['name']}.",
                     )
 
                     continue
@@ -459,9 +451,7 @@ class CmSecretUpdatePlugin(BasePlugin):
                 succeeded += 1
 
                 self.message.info(
-                    f"Created "
-                    f"{resource['kind']}/"
-                    f"{resource['name']}.",
+                    f"Created " f"{resource['kind']}/" f"{resource['name']}.",
                 )
 
             except Exception as exc:
@@ -552,8 +542,7 @@ class CmSecretUpdatePlugin(BasePlugin):
             "Secret",
         }:
             raise ConfigMapSecretUpdateException(
-                f"Unsupported deployment resource kind "
-                f"'{resource['kind']}'.",
+                f"Unsupported deployment resource kind " f"'{resource['kind']}'.",
             )
 
         if "operations" in resource and not isinstance(
@@ -561,8 +550,7 @@ class CmSecretUpdatePlugin(BasePlugin):
             list,
         ):
             raise ConfigMapSecretUpdateException(
-                "Deployment resource 'operations' "
-                "must be a list.",
+                "Deployment resource 'operations' " "must be a list.",
             )
 
     def _build_source(
@@ -682,8 +670,7 @@ class CmSecretUpdatePlugin(BasePlugin):
         except Exception as exc:
 
             raise ConfigMapSecretUpdateException(
-                f"Unable to read source YAML file "
-                f"'{path}': {exc}",
+                f"Unable to read source YAML file " f"'{path}': {exc}",
             ) from exc
 
         if documents is None:
@@ -764,10 +751,7 @@ class CmSecretUpdatePlugin(BasePlugin):
                 ):
                     continue
 
-                if (
-                    target.get("kind") == kind
-                    and target.get("name") == name
-                ):
+                if target.get("kind") == kind and target.get("name") == name:
 
                     return document
 
@@ -993,23 +977,19 @@ class CmSecretUpdatePlugin(BasePlugin):
         )
 
         self.message.info(
-            f"Resources processed: "
-            f"{summary.resources_processed}",
+            f"Resources processed: " f"{summary.resources_processed}",
         )
 
         self.message.info(
-            f"Resources succeeded: "
-            f"{summary.resources_succeeded}",
+            f"Resources succeeded: " f"{summary.resources_succeeded}",
         )
 
         self.message.info(
-            f"Resources failed: "
-            f"{summary.resources_failed}",
+            f"Resources failed: " f"{summary.resources_failed}",
         )
 
         self.message.info(
-            f"Changes applied: "
-            f"{summary.changes_count}",
+            f"Changes applied: " f"{summary.changes_count}",
         )
 
         if summary.results:
@@ -1020,16 +1000,10 @@ class CmSecretUpdatePlugin(BasePlugin):
 
             for result in summary.results:
 
-                action = (
-                    "CREATE"
-                    if result.created
-                    else "UPDATE"
-                )
+                action = "CREATE" if result.created else "UPDATE"
 
                 self.message.info(
-                    f"  {action:<6} "
-                    f"{result.kind}/{result.name} "
-                    f"({result.path})",
+                    f"  {action:<6} " f"{result.kind}/{result.name} " f"({result.path})",
                 )
 
                 for change in result.changes:
@@ -1043,22 +1017,19 @@ class CmSecretUpdatePlugin(BasePlugin):
                     if status == "replaced_add":
 
                         self.message.info(
-                            f"    {action:<6} "
-                            f"{key} (replaced add)",
+                            f"    {action:<6} " f"{key} (replaced add)",
                         )
 
                     elif status == "unchanged":
 
                         self.message.info(
-                            f"    {action:<6} "
-                            f"{key} (unchanged)",
+                            f"    {action:<6} " f"{key} (unchanged)",
                         )
 
                     else:
 
                         self.message.info(
-                            f"    {action:<6} "
-                            f"{key}",
+                            f"    {action:<6} " f"{key}",
                         )
 
         if summary.errors:
@@ -1069,23 +1040,18 @@ class CmSecretUpdatePlugin(BasePlugin):
 
             for error in summary.errors:
 
-                location = (
-                    f"{error.kind}/{error.name}"
-                )
+                location = f"{error.kind}/{error.name}"
 
                 if error.key:
 
                     self.message.error(
-                        f"  {location} "
-                        f"[{error.key}]: "
-                        f"{error.message}",
+                        f"  {location} " f"[{error.key}]: " f"{error.message}",
                     )
 
                 else:
 
                     self.message.error(
-                        f"  {location}: "
-                        f"{error.message}",
+                        f"  {location}: " f"{error.message}",
                     )
 
     def _metadata(
@@ -1094,10 +1060,7 @@ class CmSecretUpdatePlugin(BasePlugin):
         """Build plugin result metadata."""
 
         return {
-            "artifacts": {
-                name: str(path)
-                for name, path in self.artifacts.items()
-            },
+            "artifacts": {name: str(path) for name, path in self.artifacts.items()},
         }
 
     def _changes(

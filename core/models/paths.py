@@ -38,6 +38,7 @@ class ResourcePaths:
     structures: Path
     documentation: Path
 
+
 @dataclass(frozen=True)
 class VendorPaths:
     root: Path

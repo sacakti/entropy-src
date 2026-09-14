@@ -207,15 +207,17 @@ class StructureNormalizer(
         ):
 
             return [
-                self._normalize(
-                    item,
-                    structure,
+                (
+                    self._normalize(
+                        item,
+                        structure,
+                    )
+                    if isinstance(
+                        item,
+                        (dict, list),
+                    )
+                    else item
                 )
-                if isinstance(
-                    item,
-                    (dict, list),
-                )
-                else item
                 for item in value
             ]
 

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
+
 from .exceptions import StageReleaseCopyError
 
 
@@ -165,14 +166,16 @@ class StageReleaseCopyPlugin(
                 "mappings",
             )
 
-            if not isinstance(
-                raw_mappings,
-                list,
-            ) or not raw_mappings:
+            if (
+                not isinstance(
+                    raw_mappings,
+                    list,
+                )
+                or not raw_mappings
+            ):
 
                 raise StageReleaseCopyError(
-                    "Argument 'mappings' must contain "
-                    "at least one mapping.",
+                    "Argument 'mappings' must contain " "at least one mapping.",
                 )
 
             for index, mapping in enumerate(
@@ -197,24 +200,28 @@ class StageReleaseCopyPlugin(
                     "destination",
                 )
 
-                if not isinstance(
-                    source,
-                    str,
-                ) or not source.strip():
+                if (
+                    not isinstance(
+                        source,
+                        str,
+                    )
+                    or not source.strip()
+                ):
 
                     raise StageReleaseCopyError(
-                        f"Mapping {index} requires "
-                        "a non-empty 'source'.",
+                        f"Mapping {index} requires " "a non-empty 'source'.",
                     )
 
-                if not isinstance(
-                    destination,
-                    str,
-                ) or not destination.strip():
+                if (
+                    not isinstance(
+                        destination,
+                        str,
+                    )
+                    or not destination.strip()
+                ):
 
                     raise StageReleaseCopyError(
-                        f"Mapping {index} requires "
-                        "a non-empty 'destination'.",
+                        f"Mapping {index} requires " "a non-empty 'destination'.",
                     )
 
                 mappings.append(
@@ -227,8 +234,7 @@ class StageReleaseCopyPlugin(
         else:
 
             raise StageReleaseCopyError(
-                f"Unsupported copy_type '{copy_type}'. "
-                "Expected 'single' or 'multi'.",
+                f"Unsupported copy_type '{copy_type}'. " "Expected 'single' or 'multi'.",
             )
 
         total_files = 0
@@ -382,17 +388,12 @@ class StageReleaseCopyPlugin(
 
         if backup_root is not None:
 
-            self.artifacts[
-                f"backup_{len(self.artifacts)}"
-            ] = backup_root
+            self.artifacts[f"backup_{len(self.artifacts)}"] = backup_root
 
-        self.artifacts[
-            f"staged_{len(self.artifacts)}"
-        ] = destination
+        self.artifacts[f"staged_{len(self.artifacts)}"] = destination
 
         self.message.info(
-            f"Copied {len(copied_files)} file(s) "
-            f"from '{source}' to '{destination}'.",
+            f"Copied {len(copied_files)} file(s) " f"from '{source}' to '{destination}'.",
         )
 
         return len(copied_files)
@@ -486,10 +487,7 @@ class StageReleaseCopyPlugin(
         Create a timestamped backup directory.
         """
 
-        backup_directory = (
-            destination_path
-            / self.BACKUP_DIRECTORY
-        )
+        backup_directory = destination_path / self.BACKUP_DIRECTORY
 
         self.filesystem.mkdir(
             backup_directory,
@@ -499,10 +497,7 @@ class StageReleaseCopyPlugin(
             "%Y%m%d_%H%M%S_%f",
         )
 
-        backup_root = (
-            backup_directory
-            / timestamp
-        )
+        backup_root = backup_directory / timestamp
 
         self.filesystem.mkdir(
             backup_root,
@@ -525,10 +520,7 @@ class StageReleaseCopyPlugin(
             destination_root,
         )
 
-        backup_file = (
-            backup_root
-            / relative
-        )
+        backup_file = backup_root / relative
 
         self.filesystem.mkdir(
             backup_file.parent,
@@ -540,8 +532,7 @@ class StageReleaseCopyPlugin(
         )
 
         self.log.info(
-            f"Backed up '{destination}' "
-            f"to '{backup_file}'.",
+            f"Backed up '{destination}' " f"to '{backup_file}'.",
         )
 
     # ------------------------------------------------------------------
@@ -561,10 +552,7 @@ class StageReleaseCopyPlugin(
         Rotate backup directories.
         """
 
-        backup_directory = (
-            destination_path
-            / self.BACKUP_DIRECTORY
-        )
+        backup_directory = destination_path / self.BACKUP_DIRECTORY
 
         if not self.filesystem.exists(
             backup_directory,
@@ -674,10 +662,6 @@ class StageReleaseCopyPlugin(
             errors=errors or [],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )

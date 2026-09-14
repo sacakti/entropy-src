@@ -87,11 +87,7 @@ class ProcessMixin:
         # command_text = " ".join(map(str, command)) if isinstance(command, list) else command
 
         # command_text = shlex.join(command)
-        command_text = shlex.join(
-            display_command
-            if display_command is not None
-            else command
-        )
+        command_text = shlex.join(display_command if display_command is not None else command)
 
         return ExecutionResult(
             command=command_text,

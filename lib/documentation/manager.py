@@ -5,10 +5,10 @@ Entropy documentation manager.
 from __future__ import annotations
 
 import hashlib
-import markdown
-import html
 import re
 from pathlib import Path
+
+import markdown
 
 
 class DocumentationManager:
@@ -109,8 +109,7 @@ class DocumentationManager:
         if not self._documentation_path.exists():
 
             raise FileNotFoundError(
-                "Entropy documentation directory does not exist: "
-                f"{self._documentation_path}",
+                "Entropy documentation directory does not exist: " f"{self._documentation_path}",
             )
 
         initial = self._documentation_path / "initial.md"
@@ -155,10 +154,7 @@ class DocumentationManager:
             key=lambda item: item[0],
         )
 
-        files.extend(
-            path
-            for _, path in changelogs
-        )
+        files.extend(path for _, path in changelogs)
 
         return files
 
@@ -203,10 +199,7 @@ class DocumentationManager:
 
             return False
 
-        return (
-            f'<meta name="entropy-documentation-hash" '
-            f'content="{digest}">'
-        ) in content
+        return (f'<meta name="entropy-documentation-hash" ' f'content="{digest}">') in content
 
     # ------------------------------------------------------------------
     # HTML

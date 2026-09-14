@@ -4,26 +4,24 @@ Vault namespace management.
 
 from __future__ import annotations
 
+from lib.database.repositories.users import UserRepository
 from lib.database.repositories.vault_namespace_access import (
     VaultNamespaceAccessRepository,
 )
 from lib.database.repositories.vault_namespaces import (
     VaultNamespaceRepository,
 )
-from lib.database.repositories.users import UserRepository
 from lib.models.authorization import (
     VaultAccess,
     VaultNamespace,
     VaultNamespaceAccess,
 )
-
+from lib.models.users import User
 from lib.vault.exceptions import (
     VaultError,
     VaultNamespaceExistsError,
     VaultNamespaceNameError,
 )
-
-from lib.models.users import User
 
 
 class VaultNamespaceManager:
@@ -136,10 +134,7 @@ class VaultNamespaceManager:
                     "Vault namespace name cannot be empty.",
                 )
 
-            if (
-                name != namespace.name
-                and self._namespaces.exists(name)
-            ):
+            if name != namespace.name and self._namespaces.exists(name):
 
                 raise VaultNamespaceExistsError(name)
 

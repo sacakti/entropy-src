@@ -51,9 +51,7 @@ class ConfigMapSecretUpdateEngine:
         self._yaml_dumper = yaml_dumper
 
         self._properties = (
-            properties_updater
-            if properties_updater is not None
-            else PropertiesUpdater()
+            properties_updater if properties_updater is not None else PropertiesUpdater()
         )
 
     # ------------------------------------------------------------------
@@ -143,11 +141,7 @@ class ConfigMapSecretUpdateEngine:
             key,
         )
 
-        existing = (
-            target.get(key)
-            if existed
-            else None
-        )
+        existing = target.get(key) if existed else None
 
         value = self._value(
             existing,
@@ -162,11 +156,7 @@ class ConfigMapSecretUpdateEngine:
         return {
             "action": "add",
             "key": key,
-            "status": (
-                "replaced_existing"
-                if existed
-                else "added"
-            ),
+            "status": ("replaced_existing" if existed else "added"),
         }
 
     # ------------------------------------------------------------------
@@ -184,11 +174,7 @@ class ConfigMapSecretUpdateEngine:
             key,
         )
 
-        existing = (
-            target.get(key)
-            if existed
-            else None
-        )
+        existing = target.get(key) if existed else None
 
         value = self._value(
             existing,
@@ -203,11 +189,7 @@ class ConfigMapSecretUpdateEngine:
         return {
             "action": "update",
             "key": key,
-            "status": (
-                "updated"
-                if existed
-                else "added_missing"
-            ),
+            "status": ("updated" if existed else "added_missing"),
         }
 
     # ------------------------------------------------------------------
@@ -263,8 +245,7 @@ class ConfigMapSecretUpdateEngine:
             )
 
         raise UnsupportedUpdateFormatError(
-            f"Unsupported update format "
-            f"'{operation.format}'.",
+            f"Unsupported update format " f"'{operation.format}'.",
         )
 
     # ------------------------------------------------------------------
@@ -296,8 +277,7 @@ class ConfigMapSecretUpdateEngine:
             )
 
         raise UnsupportedUpdateFormatError(
-            f"Unsupported update format "
-            f"'{operation.format}'.",
+            f"Unsupported update format " f"'{operation.format}'.",
         )
 
     # ------------------------------------------------------------------
@@ -320,8 +300,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"Embedded properties value for key "
-                f"'{operation.key}' must be a string.",
+                f"Embedded properties value for key " f"'{operation.key}' must be a string.",
             )
 
         if not isinstance(
@@ -330,8 +309,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"Properties operation for key "
-                f"'{operation.key}' requires object entries.",
+                f"Properties operation for key " f"'{operation.key}' requires object entries.",
             )
 
         content, _ = self._properties.update(
@@ -371,8 +349,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"Embedded properties value for key "
-                f"'{key}' must be a string.",
+                f"Embedded properties value for key " f"'{key}' must be a string.",
             )
 
         if not isinstance(
@@ -425,8 +402,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"YAML operation for key "
-                f"'{operation.key}' requires object entries.",
+                f"YAML operation for key " f"'{operation.key}' requires object entries.",
             )
 
         self._merge(
@@ -473,8 +449,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"YAML delete operation for key "
-                f"'{key}' requires a list of paths.",
+                f"YAML delete operation for key " f"'{key}' requires a list of paths.",
             )
 
         changes: list[dict[str, Any]] = []
@@ -487,8 +462,7 @@ class ConfigMapSecretUpdateEngine:
             ):
 
                 raise DeploymentUpdateTargetError(
-                    f"YAML delete path for key "
-                    f"'{key}' must be a string.",
+                    f"YAML delete path for key " f"'{key}' must be a string.",
                 )
 
             status = self._delete_yaml_path(
@@ -541,8 +515,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"Embedded YAML value for key "
-                f"'{key}' must be a string.",
+                f"Embedded YAML value for key " f"'{key}' must be a string.",
             )
 
         current = self._yaml_loader(
@@ -559,8 +532,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"Embedded YAML value for key "
-                f"'{key}' must contain an object.",
+                f"Embedded YAML value for key " f"'{key}' must contain an object.",
             )
 
         return current
@@ -617,11 +589,7 @@ class ConfigMapSecretUpdateEngine:
         path: str,
     ) -> str:
 
-        parts = [
-            part.strip()
-            for part in path.split(".")
-            if part.strip()
-        ]
+        parts = [part.strip() for part in path.split(".") if part.strip()]
 
         if not parts:
 

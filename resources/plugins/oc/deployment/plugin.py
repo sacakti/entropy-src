@@ -106,9 +106,7 @@ class DeploymentPlugin(BasePlugin):
                 )
                 self._write_target_file(target.target_file)
                 changes += sum(
-                    1
-                    for change in resource_changes
-                    if change.get("status") != "unchanged"
+                    1 for change in resource_changes if change.get("status") != "unchanged"
                 )
                 succeeded += 1
             except Exception as exc:
@@ -188,14 +186,12 @@ class DeploymentPlugin(BasePlugin):
 
                 if not self.filesystem.exists(repository_path):
                     raise DeploymentPluginException(
-                        f"Deployment repository "
-                        f"'{repository_path}' does not exist.",
+                        f"Deployment repository " f"'{repository_path}' does not exist.",
                     )
 
                 if not self.filesystem.is_directory(repository_path):
                     raise DeploymentPluginException(
-                        f"Deployment repository "
-                        f"'{repository_path}' is not a directory.",
+                        f"Deployment repository " f"'{repository_path}' is not a directory.",
                     )
 
                 path = repository_path / resource["file"]
@@ -203,18 +199,13 @@ class DeploymentPlugin(BasePlugin):
                 targets = target_loader.load_file(path)
 
                 target = next(
-                    (
-                        item
-                        for item in targets
-                        if item.name == resource["name"]
-                    ),
+                    (item for item in targets if item.name == resource["name"]),
                     None,
                 )
 
                 if target is None:
                     raise DeploymentPluginException(
-                        f"Target Deployment '{resource['name']}' "
-                        f"not found in '{path}'.",
+                        f"Target Deployment '{resource['name']}' " f"not found in '{path}'.",
                     )
 
                 definition = build_context_definition(resource)
@@ -228,9 +219,7 @@ class DeploymentPlugin(BasePlugin):
                 self._write_target_file(target.target_file)
 
                 resource_change_count = sum(
-                    1
-                    for change in resource_changes
-                    if change.get("status") != "unchanged"
+                    1 for change in resource_changes if change.get("status") != "unchanged"
                 )
 
                 changes += resource_change_count
@@ -370,10 +359,7 @@ class DeploymentPlugin(BasePlugin):
 
     def _metadata(self) -> dict[str, Any]:
         return {
-            "artifacts": {
-                name: str(path)
-                for name, path in self.artifacts.items()
-            },
+            "artifacts": {name: str(path) for name, path in self.artifacts.items()},
         }
 
     def _create_deployment(
@@ -387,46 +373,34 @@ class DeploymentPlugin(BasePlugin):
         source_path = self.filesystem.path(source)
 
         if not source_path.exists():
-            raise DeploymentPluginException(
-                f"Deployment source does not exist: {source}"
-            )
+            raise DeploymentPluginException(f"Deployment source does not exist: {source}")
 
         if not source_path.is_file():
-            raise DeploymentPluginException(
-                f"Deployment source is not a file: {source}"
-            )
+            raise DeploymentPluginException(f"Deployment source is not a file: {source}")
 
         if target_path.exists():
-            raise DeploymentPluginException(
-                f"Deployment target already exists: {target_path}"
-            )
+            raise DeploymentPluginException(f"Deployment target already exists: {target_path}")
 
         document = self.filesystem.read_yaml(source_path)
 
         if not isinstance(document, dict):
-            raise DeploymentPluginException(
-                f"Invalid Deployment YAML: {source}"
-            )
+            raise DeploymentPluginException(f"Invalid Deployment YAML: {source}")
 
         if document.get("kind") != "Deployment":
             raise DeploymentPluginException(
-                f"Expected Deployment resource in {source}, "
-                f"found {document.get('kind')!r}"
+                f"Expected Deployment resource in {source}, " f"found {document.get('kind')!r}"
             )
 
         metadata = document.get("metadata")
 
         if not isinstance(metadata, dict):
-            raise DeploymentPluginException(
-                f"Deployment metadata is missing in {source}"
-            )
+            raise DeploymentPluginException(f"Deployment metadata is missing in {source}")
 
         source_name = metadata.get("name")
 
         if source_name != name:
             raise DeploymentPluginException(
-                f"Deployment name mismatch: context={name!r}, "
-                f"source={source_name!r}"
+                f"Deployment name mismatch: context={name!r}, " f"source={source_name!r}"
             )
 
         self._apply_create_image(document, resource)
@@ -434,7 +408,6 @@ class DeploymentPlugin(BasePlugin):
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.filesystem.write_yaml(target_path, document)
-
 
     def _apply_create_image(
         self,
@@ -458,30 +431,22 @@ class DeploymentPlugin(BasePlugin):
         spec = document.get("spec")
 
         if not isinstance(spec, dict):
-            raise DeploymentPluginException(
-                "Deployment spec is missing."
-            )
+            raise DeploymentPluginException("Deployment spec is missing.")
 
         template = spec.get("template")
 
         if not isinstance(template, dict):
-            raise DeploymentPluginException(
-                "Deployment spec.template is missing."
-            )
+            raise DeploymentPluginException("Deployment spec.template is missing.")
 
         pod_spec = template.get("spec")
 
         if not isinstance(pod_spec, dict):
-            raise DeploymentPluginException(
-                "Deployment spec.template.spec is missing."
-            )
+            raise DeploymentPluginException("Deployment spec.template.spec is missing.")
 
         containers = pod_spec.get("containers")
 
         if not isinstance(containers, list):
-            raise DeploymentPluginException(
-                "Deployment spec.template.spec.containers is missing."
-            )
+            raise DeploymentPluginException("Deployment spec.template.spec.containers is missing.")
 
         for item in containers:
             if not isinstance(item, dict):
@@ -492,8 +457,7 @@ class DeploymentPlugin(BasePlugin):
                 return
 
         raise DeploymentPluginException(
-            f"Container {container!r} was not found in "
-            f"Deployment {resource.get('name')!r}."
+            f"Container {container!r} was not found in " f"Deployment {resource.get('name')!r}."
         )
 
     @staticmethod

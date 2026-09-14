@@ -102,8 +102,7 @@ class DockerFileFromImageChangePlugin(
         )
 
         self.message.info(
-            f"Dockerfiles configured: "
-            f"{len(config.mappings)}",
+            f"Dockerfiles configured: " f"{len(config.mappings)}",
         )
 
         executor = DockerFileFromImageChangeExecutor(
@@ -121,13 +120,11 @@ class DockerFileFromImageChangePlugin(
         )
 
         self.message.info(
-            f"Dockerfiles changed: "
-            f"{len(context['changes'])}",
+            f"Dockerfiles changed: " f"{len(context['changes'])}",
         )
 
         self.message.info(
-            f"Images requiring build: "
-            f"{len(context['images'])}",
+            f"Images requiring build: " f"{len(context['images'])}",
         )
 
         if context["build_required"]:
@@ -174,10 +171,6 @@ class DockerFileFromImageChangePlugin(
             errors=errors or [],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )

@@ -97,8 +97,7 @@ class ConfigMapSecretUpdateLoader:
         if not sources:
 
             raise UpdateFileError(
-                f"No YAML source definitions found in "
-                f"'{directory}'.",
+                f"No YAML source definitions found in " f"'{directory}'.",
             )
 
         return sources
@@ -142,8 +141,7 @@ class ConfigMapSecretUpdateLoader:
         except OSError as exc:
 
             raise UpdateFileError(
-                f"Unable to read source YAML file "
-                f"'{path}': {exc}",
+                f"Unable to read source YAML file " f"'{path}': {exc}",
             ) from exc
 
         try:
@@ -155,8 +153,7 @@ class ConfigMapSecretUpdateLoader:
         except Exception as exc:
 
             raise UpdateFileError(
-                f"Unable to parse source YAML file "
-                f"'{path}': {exc}",
+                f"Unable to parse source YAML file " f"'{path}': {exc}",
             ) from exc
 
         if documents is None:
@@ -192,8 +189,7 @@ class ConfigMapSecretUpdateLoader:
             except Exception as exc:
 
                 raise UpdateFileError(
-                    f"Invalid source definition in "
-                    f"'{path}' document {index}: {exc}",
+                    f"Invalid source definition in " f"'{path}' document {index}: {exc}",
                 ) from exc
 
             sources.append(
@@ -239,10 +235,8 @@ class ConfigMapSecretUpdateLoader:
             )
 
         if (
-            document.get("apiVersion")
-            == ConfigMapSecretUpdateValidator.API_VERSION
-            and kind
-            == ConfigMapSecretUpdateValidator.KIND
+            document.get("apiVersion") == ConfigMapSecretUpdateValidator.API_VERSION
+            and kind == ConfigMapSecretUpdateValidator.KIND
         ):
 
             definition = ConfigMapSecretUpdateValidator.parse(
@@ -300,8 +294,7 @@ class ConfigMapSecretUpdateLoader:
         ):
 
             raise UpdateFileError(
-                f"Native {kind} '{path}' "
-                "must contain apiVersion.",
+                f"Native {kind} '{path}' " "must contain apiVersion.",
             )
 
         metadata = document.get(
@@ -330,8 +323,7 @@ class ConfigMapSecretUpdateLoader:
         ):
 
             raise UpdateFileError(
-                f"Native {kind} resource must contain "
-                "metadata.name.",
+                f"Native {kind} resource must contain " "metadata.name.",
             )
 
         return ConfigMapSecretSource(

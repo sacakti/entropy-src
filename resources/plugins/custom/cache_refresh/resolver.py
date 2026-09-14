@@ -257,8 +257,7 @@ class CacheRefreshResolver:
             )
 
             raise CacheRefreshPluginException(
-                f"Unsupported mode '{value}'. "
-                f"Allowed values: {allowed}.",
+                f"Unsupported mode '{value}'. " f"Allowed values: {allowed}.",
             )
 
         return mode
@@ -339,8 +338,7 @@ class CacheRefreshResolver:
         if not isinstance(value, dict):
 
             raise CacheRefreshPluginException(
-                "Argument 'cache' must be an object "
-                "when 'rebuild' is true.",
+                "Argument 'cache' must be an object " "when 'rebuild' is true.",
             )
 
         deployment = value.get(
@@ -364,8 +362,7 @@ class CacheRefreshResolver:
         if deployment not in services:
 
             raise CacheRefreshPluginException(
-                f"Cache deployment '{deployment}' "
-                "is not present in 'services'.",
+                f"Cache deployment '{deployment}' " "is not present in 'services'.",
             )
 
         environment = value.get(
@@ -472,18 +469,14 @@ class CacheRefreshResolver:
             )
 
             raise CacheRefreshPluginException(
-                f"Unsupported '{name}.ready_by' value "
-                f"'{ready_by}'. Allowed values: {allowed}.",
+                f"Unsupported '{name}.ready_by' value " f"'{ready_by}'. Allowed values: {allowed}.",
             )
 
         success_messages = self._messages(
             value,
             name,
             "success_messages",
-            required=(
-                ready_by == "log"
-                or require_messages
-            ),
+            required=(ready_by == "log" or require_messages),
         )
 
         failure_messages = self._messages(
@@ -498,11 +491,7 @@ class CacheRefreshResolver:
             self.DEFAULT_TIMEOUT,
         )
 
-        if (
-            not isinstance(timeout, int)
-            or isinstance(timeout, bool)
-            or timeout <= 0
-        ):
+        if not isinstance(timeout, int) or isinstance(timeout, bool) or timeout <= 0:
 
             raise CacheRefreshPluginException(
                 f"'{name}.timeout' must be a positive integer.",
@@ -520,15 +509,13 @@ class CacheRefreshResolver:
         ):
 
             raise CacheRefreshPluginException(
-                f"'{name}.poll_interval' "
-                "must be a positive integer.",
+                f"'{name}.poll_interval' " "must be a positive integer.",
             )
 
         if poll_interval > timeout:
 
             raise CacheRefreshPluginException(
-                f"'{name}.poll_interval' cannot be greater "
-                f"than '{name}.timeout'.",
+                f"'{name}.poll_interval' cannot be greater " f"than '{name}.timeout'.",
             )
 
         return ReadinessConfig(
@@ -575,8 +562,7 @@ class CacheRefreshResolver:
             if not isinstance(message, str):
 
                 raise CacheRefreshPluginException(
-                    f"All values in '{parent}.{name}' "
-                    "must be strings.",
+                    f"All values in '{parent}.{name}' " "must be strings.",
                 )
 
             message = message.strip()
@@ -584,8 +570,7 @@ class CacheRefreshResolver:
             if not message:
 
                 raise CacheRefreshPluginException(
-                    f"Values in '{parent}.{name}' "
-                    "must not be empty.",
+                    f"Values in '{parent}.{name}' " "must not be empty.",
                 )
 
             normalized.append(message)

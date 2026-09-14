@@ -11,13 +11,13 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 
+from lib.authorization import AuthorizationInitializer
 from lib.install.application import ApplicationInstaller
 from lib.install.console import InstallerConsole
 from lib.install.directory import DirectoryInstaller
 from lib.install.paths import InstallerPathManager
 from lib.install.plugins import DefaultPluginInstaller
 from lib.install.workflow import DefaultWorkflowInstaller
-from lib.authorization import AuthorizationInitializer
 
 from .launcher import Launcher
 from .platform import PlatformDetector

@@ -87,9 +87,7 @@ class GroupRoleRepository(Repository):
             FROM group_roles
             WHERE id = ?
             """,
-            (
-                assignment_id,
-            ),
+            (assignment_id,),
         )
 
         if row is None:
@@ -178,9 +176,7 @@ class GroupRoleRepository(Repository):
             WHERE group_id = ?
             ORDER BY role_id
             """,
-            (
-                group_id,
-            ),
+            (group_id,),
         )
 
         return [
@@ -212,9 +208,7 @@ class GroupRoleRepository(Repository):
             WHERE group_roles.group_id = ?
             ORDER BY roles.name
             """,
-            (
-                group_id,
-            ),
+            (group_id,),
         )
 
         return [
@@ -260,9 +254,7 @@ class GroupRoleRepository(Repository):
                 FROM group_roles
                 WHERE id = ?
                 """,
-                (
-                    assignment_id,
-                ),
+                (assignment_id,),
             )
 
     # ------------------------------------------------------------------

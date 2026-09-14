@@ -83,9 +83,7 @@ class ModuleRepository(Repository):
             FROM modules
             WHERE id = ?
             """,
-            (
-                module_id,
-            ),
+            (module_id,),
         )
 
         if row is None:
@@ -116,9 +114,7 @@ class ModuleRepository(Repository):
             FROM modules
             WHERE name = ?
             """,
-            (
-                name,
-            ),
+            (name,),
         )
 
         if row is None:
@@ -151,9 +147,7 @@ class ModuleRepository(Repository):
                 WHERE name = ?
                 LIMIT 1
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
             is not None
         )
@@ -233,9 +227,7 @@ class ModuleRepository(Repository):
                 FROM modules
                 WHERE id = ?
                 """,
-                (
-                    module_id,
-                ),
+                (module_id,),
             )
 
     # ------------------------------------------------------------------

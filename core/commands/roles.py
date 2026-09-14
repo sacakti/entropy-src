@@ -448,8 +448,7 @@ class RolesCommand(BaseCommand):
         )
 
         self._ui.success(
-            f"Permission '{permission}' "
-            f"granted to role '{role.name}'.",
+            f"Permission '{permission}' " f"granted to role '{role.name}'.",
         )
 
     # ------------------------------------------------------------------
@@ -468,6 +467,5 @@ class RolesCommand(BaseCommand):
         )
 
         self._ui.success(
-            f"Permission '{permission}' "
-            f"revoked from role '{role.name}'.",
+            f"Permission '{permission}' " f"revoked from role '{role.name}'.",
         )

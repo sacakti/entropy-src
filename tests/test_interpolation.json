@@ -4,7 +4,7 @@
     "description": "Test step output interpolation.",
 
     "variables": {
-        "release": "/Users/aravinthselvaraj/Desktop/releases/F01.zip",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
         "environment": "UAT",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
         "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
@@ -43,7 +43,7 @@
         {
             "name": "PrintImages",
             "plugin": "builtin.shell",
-            "enabled": false,
+            "enabled": true,
             "on_failure": "abort",
             "suppress_result": false,
             "tags": [
@@ -60,7 +60,7 @@
             "name": "PrintDeployment",
             "plugin": "builtin.shell",
             "suppress_result": false,
-            "enabled": false,
+            "enabled": true,
             "on_failure": "abort",
             "tags": [
                 "test"
@@ -76,7 +76,7 @@
             "name": "PrintCommonPaths",
             "plugin": "builtin.shell",
             "suppress_result": false,
-            "enabled": false,
+            "enabled": true,
             "on_failure": "abort",
             "tags": [
                 "test"
@@ -143,7 +143,7 @@
         {
             "name": "CmSecretUpdate",
             "plugin": "oc.cm_secret_update",
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "tags": [
                 "openshift",
@@ -159,7 +159,7 @@
         {
             "name": "DeploymentYAMLUpdate",
             "plugin": "oc.deployment",
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "tags": [
                 "openshift",
@@ -174,7 +174,7 @@
         {
             "name": "CreateServicesRoutes",
             "plugin": "oc.services_routes",
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "tags": [
                 "services_routes",
@@ -189,7 +189,7 @@
         {
             "name": "ApplyDeployments",
             "plugin": "oc.generic",
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "tags": [
                 "openshift",
@@ -213,7 +213,7 @@
         {
             "name": "SQLPlus Plan",
             "plugin": "sqlplus.generic",
-            "enabled": true,
+            "enabled": false,
             "on_failure": "abort",
             "tags": [
                 "sqlplus",

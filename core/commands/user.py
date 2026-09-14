@@ -12,8 +12,6 @@ from core.commands.base import (
     CommandMetadata,
 )
 from lib.users.exceptions import (
-    SystemUserError,
-    UnauthorizedActionError,
     UserAlreadyActiveError,
     UserAlreadyExistsError,
     UserAlreadyInactiveError,
@@ -765,8 +763,7 @@ class UserCommand(BaseCommand):
             )
 
             self._ui.success(
-                f"Role '{args.role}' "
-                f"assigned to user '{user.username}'.",
+                f"Role '{args.role}' " f"assigned to user '{user.username}'.",
             )
 
             return
@@ -779,8 +776,7 @@ class UserCommand(BaseCommand):
             )
 
             self._ui.success(
-                f"Role '{args.role}' "
-                f"revoked from user '{user.username}'.",
+                f"Role '{args.role}' " f"revoked from user '{user.username}'.",
             )
 
             return

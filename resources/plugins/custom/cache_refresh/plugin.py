@@ -10,9 +10,10 @@ from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 
 from .exceptions import CacheRefreshPluginException
+from .executor import CacheRefreshExecutor
 from .model import CacheRefreshConfig
 from .resolver import CacheRefreshResolver
-from .executor import CacheRefreshExecutor
+
 
 class CacheRefreshPlugin(BasePlugin):
     """
@@ -65,9 +66,7 @@ class CacheRefreshPlugin(BasePlugin):
                 self.outputs.update(
                     {
                         "rebuild": config.rebuild,
-                        "stop_all_before_cache_rebuild": (
-                            config.stop_all_before_cache_rebuild
-                        ),
+                        "stop_all_before_cache_rebuild": (config.stop_all_before_cache_rebuild),
                         "mode": config.mode,
                         "services": list(
                             config.services,
@@ -76,7 +75,6 @@ class CacheRefreshPlugin(BasePlugin):
                         "namespace": config.namespace,
                     },
                 )
-
 
         except CacheRefreshPluginException as exc:
 
@@ -125,8 +123,7 @@ class CacheRefreshPlugin(BasePlugin):
         ]
 
         self.log.debug(
-            "Executing OpenShift command: "
-            + " ".join(full_command),
+            "Executing OpenShift command: " + " ".join(full_command),
         )
 
         try:
@@ -230,10 +227,7 @@ class CacheRefreshPlugin(BasePlugin):
             message = result.stderr.strip()
 
             if not message:
-                message = (
-                    f"Unable to verify access to namespace "
-                    f"'{config.namespace}'."
-                )
+                message = f"Unable to verify access to namespace " f"'{config.namespace}'."
 
             raise CacheRefreshPluginException(
                 message,
@@ -297,10 +291,7 @@ class CacheRefreshPlugin(BasePlugin):
                 message = result.stderr.strip()
 
                 if not message:
-                    message = (
-                        f"Unable to verify permission "
-                        f"'{verb}' on '{resource}'."
-                    )
+                    message = f"Unable to verify permission " f"'{verb}' on '{resource}'."
 
                 raise CacheRefreshPluginException(
                     message,
@@ -339,9 +330,6 @@ class CacheRefreshPlugin(BasePlugin):
             errors=errors or [],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )

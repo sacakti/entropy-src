@@ -89,9 +89,7 @@ class GroupRepository(Repository):
             FROM groups
             WHERE id = ?
             """,
-            (
-                group_id,
-            ),
+            (group_id,),
         )
 
         if row is None:
@@ -122,9 +120,7 @@ class GroupRepository(Repository):
             FROM groups
             WHERE name = ?
             """,
-            (
-                name,
-            ),
+            (name,),
         )
 
         if row is None:
@@ -157,9 +153,7 @@ class GroupRepository(Repository):
                 WHERE name = ?
                 LIMIT 1
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
             is not None
         )
@@ -240,9 +234,7 @@ class GroupRepository(Repository):
                 FROM groups
                 WHERE id = ?
                 """,
-                (
-                    group_id,
-                ),
+                (group_id,),
             )
 
     # ------------------------------------------------------------------

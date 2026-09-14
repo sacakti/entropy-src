@@ -33,10 +33,7 @@ class DefaultPluginInstaller:
         Install all built-in plugins shipped with Entropy.
         """
 
-        root = (
-            self._bootstrap.resources.plugins
-            / "builtin"
-        )
+        root = self._bootstrap.resources.plugins / "builtin"
 
         if not root.is_dir():
 
@@ -45,10 +42,7 @@ class DefaultPluginInstaller:
             )
 
         plugins = sorted(
-            path
-            for path in root.iterdir()
-            if path.is_dir()
-            and not path.name.startswith(".")
+            path for path in root.iterdir() if path.is_dir() and not path.name.startswith(".")
         )
 
         for source in plugins:

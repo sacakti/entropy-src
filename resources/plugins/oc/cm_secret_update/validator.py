@@ -11,9 +11,9 @@ from .model import (
     ConfigMapSecretResource,
     ConfigMapSecretSource,
     ConfigMapSecretUpdate,
+    SourceType,
     UpdateOperation,
     UpdateTarget,
-    SourceType,
 )
 
 
@@ -85,10 +85,7 @@ class ConfigMapSecretUpdateValidator:
             "kind",
         )
 
-        if (
-            api_version == cls.API_VERSION
-            and kind == cls.KIND
-        ):
+        if api_version == cls.API_VERSION and kind == cls.KIND:
 
             return ConfigMapSecretSource(
                 source_type=SourceType.UPDATE,
@@ -98,10 +95,7 @@ class ConfigMapSecretUpdateValidator:
                 ),
             )
 
-        if (
-            api_version in cls.NATIVE_API_VERSIONS
-            and kind in cls.NATIVE_KINDS
-        ):
+        if api_version in cls.NATIVE_API_VERSIONS and kind in cls.NATIVE_KINDS:
 
             return ConfigMapSecretSource(
                 source_type=SourceType.RESOURCE,
@@ -190,8 +184,7 @@ class ConfigMapSecretUpdateValidator:
         if kind not in cls.NATIVE_KINDS:
 
             raise UpdateDefinitionError(
-                f"Unsupported native resource kind '{kind}'. "
-                "Expected ConfigMap or Secret.",
+                f"Unsupported native resource kind '{kind}'. " "Expected ConfigMap or Secret.",
             )
 
         metadata = value.get(
@@ -204,8 +197,7 @@ class ConfigMapSecretUpdateValidator:
         ):
 
             raise UpdateDefinitionError(
-                f"Native {kind} must contain "
-                "'metadata' as an object.",
+                f"Native {kind} must contain " "'metadata' as an object.",
             )
 
         name = metadata.get(
@@ -221,8 +213,7 @@ class ConfigMapSecretUpdateValidator:
         ):
 
             raise UpdateDefinitionError(
-                f"Native {kind} must contain a "
-                "non-empty metadata.name.",
+                f"Native {kind} must contain a " "non-empty metadata.name.",
             )
 
         data = value.get(
@@ -276,8 +267,7 @@ class ConfigMapSecretUpdateValidator:
         if kind not in cls.TARGET_KINDS:
 
             raise UpdateDefinitionError(
-                f"Unsupported target kind '{kind}'. "
-                "Supported values: ConfigMap, Secret.",
+                f"Unsupported target kind '{kind}'. " "Supported values: ConfigMap, Secret.",
             )
 
         name = value.get(
@@ -341,8 +331,7 @@ class ConfigMapSecretUpdateValidator:
         if action not in cls.ACTIONS:
 
             raise UpdateDefinitionError(
-                f"Unsupported operation '{action}'. "
-                "Supported values: add, update, delete.",
+                f"Unsupported operation '{action}'. " "Supported values: add, update, delete.",
             )
 
         key = value.get(
@@ -375,8 +364,7 @@ class ConfigMapSecretUpdateValidator:
             ):
 
                 raise UpdateDefinitionError(
-                    f"Format for key '{key}' "
-                    "must be a string.",
+                    f"Format for key '{key}' " "must be a string.",
                 )
 
             operation_format = operation_format.strip().lower()
@@ -435,8 +423,7 @@ class ConfigMapSecretUpdateValidator:
         if "value" in value:
 
             raise UpdateDefinitionError(
-                f"Delete operation for key '{key}' "
-                "cannot specify 'value'.",
+                f"Delete operation for key '{key}' " "cannot specify 'value'.",
             )
 
         entries = value.get(
@@ -472,8 +459,7 @@ class ConfigMapSecretUpdateValidator:
         if not entries:
 
             raise UpdateDefinitionError(
-                f"Delete operation for key '{key}' "
-                "cannot contain an empty 'entries' array.",
+                f"Delete operation for key '{key}' " "cannot contain an empty 'entries' array.",
             )
 
         for entry in entries:
@@ -487,18 +473,14 @@ class ConfigMapSecretUpdateValidator:
             ):
 
                 raise UpdateDefinitionError(
-                    f"Delete entries for key '{key}' "
-                    "must contain non-empty strings.",
+                    f"Delete entries for key '{key}' " "must contain non-empty strings.",
                 )
 
         return UpdateOperation(
             action="delete",
             key=key,
             format=operation_format,
-            entries=[
-                entry.strip()
-                for entry in entries
-            ],
+            entries=[entry.strip() for entry in entries],
         )
 
     # ------------------------------------------------------------------
@@ -560,15 +542,13 @@ class ConfigMapSecretUpdateValidator:
         if "value" not in value:
 
             raise UpdateDefinitionError(
-                f"Operation for key '{key}' "
-                "requires 'value'.",
+                f"Operation for key '{key}' " "requires 'value'.",
             )
 
         if entries is not None:
 
             raise UpdateDefinitionError(
-                f"Scalar operation for key '{key}' "
-                "cannot specify 'entries'.",
+                f"Scalar operation for key '{key}' " "cannot specify 'entries'.",
             )
 
         return UpdateOperation(

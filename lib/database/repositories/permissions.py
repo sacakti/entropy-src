@@ -96,9 +96,7 @@ class PermissionRepository(Repository):
             FROM permissions
             WHERE id = ?
             """,
-            (
-                permission_id,
-            ),
+            (permission_id,),
         )
 
         if row is None:
@@ -129,9 +127,7 @@ class PermissionRepository(Repository):
             FROM permissions
             WHERE name = ?
             """,
-            (
-                name,
-            ),
+            (name,),
         )
 
         if row is None:
@@ -163,9 +159,7 @@ class PermissionRepository(Repository):
             WHERE module_id = ?
             ORDER BY name
             """,
-            (
-                module_id,
-            ),
+            (module_id,),
         )
 
         return [
@@ -221,9 +215,7 @@ class PermissionRepository(Repository):
                 WHERE name = ?
                 LIMIT 1
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
             is not None
         )
@@ -287,9 +279,7 @@ class PermissionRepository(Repository):
                 FROM permissions
                 WHERE id = ?
                 """,
-                (
-                    permission_id,
-                ),
+                (permission_id,),
             )
 
     # ------------------------------------------------------------------

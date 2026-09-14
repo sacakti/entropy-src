@@ -27,6 +27,7 @@ class AuthorizationRequiredError(AuthorizationException):
             f"Permission denied: '{permission}'.",
         )
 
+
 class RoleNotFoundError(AuthorizationException):
     """
     Raised when a role does not exist.
@@ -100,6 +101,7 @@ class PermissionNotFoundError(AuthorizationException):
         super().__init__(
             f"Permission '{name}' not found.",
         )
+
 
 class AuthGenericError(AuthorizationException):
     """

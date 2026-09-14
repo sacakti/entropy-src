@@ -7,10 +7,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .detector import ReleaseChangeDetector
 from .exceptions import ContextBuilderPluginException
 from .resource_index import ResourceIndex
-from .detector import ReleaseChangeDetector
 from .structure import ReleaseStructureResolver
+
 
 class ReleaseAnalyzer:
     """
@@ -94,8 +95,7 @@ class ReleaseAnalyzer:
         if release_root is None:
 
             raise ContextBuilderPluginException(
-                "Unable to locate the release root matching "
-                "the configured release structure.",
+                "Unable to locate the release root matching " "the configured release structure.",
             )
 
         resource_index = self._resource_index.load(
@@ -123,9 +123,7 @@ class ReleaseAnalyzer:
         )
 
         context["release"]["docker_source_release"] = (
-            str(docker_source_release)
-            if docker_source_release is not None
-            else None
+            str(docker_source_release) if docker_source_release is not None else None
         )
 
         context["release"]["docker_dest_repo"] = str(
@@ -160,7 +158,7 @@ class ReleaseAnalyzer:
                     root=release_root,
                     definition=component,
                     repository=yaml_repository,
-                    resource_index=resource_index
+                    resource_index=resource_index,
                 )
 
                 self._merge_deployment_context(
@@ -168,27 +166,22 @@ class ReleaseAnalyzer:
                     openshift,
                 )
 
-                context["common_paths"] = (
-                    self._analyse_common_paths(
-                        root=release_root,
-                        definition=component,
-                    )
+                context["common_paths"] = self._analyse_common_paths(
+                    root=release_root,
+                    definition=component,
                 )
 
             elif component_name == "database":
 
-                context["database"] = (
-                    self._analyse_database(
-                        root=release_root,
-                        definition=component,
-                    )
+                context["database"] = self._analyse_database(
+                    root=release_root,
+                    definition=component,
                 )
 
             else:
 
                 self._log.debug(
-                    f"No analyser registered for "
-                    f"component '{component_name}'.",
+                    f"No analyser registered for " f"component '{component_name}'.",
                 )
 
         deployment = self._build_deployment_context(
@@ -350,22 +343,23 @@ class ReleaseAnalyzer:
             dict,
         ):
             raise ContextBuilderPluginException(
-                "Docker image requires a "
-                "'dockerfile' definition.",
+                "Docker image requires a " "'dockerfile' definition.",
             )
 
         dockerfile_name = dockerfile_definition.get(
             "name",
         )
 
-        if not isinstance(
-            dockerfile_name,
-            str,
-        ) or not dockerfile_name.strip():
+        if (
+            not isinstance(
+                dockerfile_name,
+                str,
+            )
+            or not dockerfile_name.strip()
+        ):
 
             raise ContextBuilderPluginException(
-                "Dockerfile name must be "
-                "a non-empty string.",
+                "Dockerfile name must be " "a non-empty string.",
             )
 
         result: dict[str, dict[str, Any]] = {}
@@ -391,21 +385,14 @@ class ReleaseAnalyzer:
             if dockerfile is None:
 
                 self._log.debug(
-                    f"Dockerfile '{dockerfile_name}' "
-                    f"not found for '{service.name}'.",
+                    f"Dockerfile '{dockerfile_name}' " f"not found for '{service.name}'.",
                 )
 
                 pass
 
-            repository_service = (
-                repository
-                / service.name
-            )
+            repository_service = repository / service.name
 
-            repository_image = (
-                repository_service
-                / "image"
-            )
+            repository_image = repository_service / "image"
 
             if not self._changes.directory_changed(
                 image_root,
@@ -415,8 +402,7 @@ class ReleaseAnalyzer:
 
             result[service.name] = {
                 "dockerfile": str(
-                    repository_image
-                    / dockerfile_name,
+                    repository_image / dockerfile_name,
                 ),
                 "context": str(
                     repository_service,
@@ -426,8 +412,7 @@ class ReleaseAnalyzer:
             }
 
             self._message.info(
-                f"Docker build required for "
-                f"'{service.name}'.",
+                f"Docker build required for " f"'{service.name}'.",
             )
 
         return result
@@ -506,10 +491,13 @@ class ReleaseAnalyzer:
                         "file",
                     )
 
-                    if not isinstance(
-                        file,
-                        str,
-                    ) or not file.strip():
+                    if (
+                        not isinstance(
+                            file,
+                            str,
+                        )
+                        or not file.strip()
+                    ):
                         raise ContextBuilderPluginException(
                             f"Deployment UPDATE resource "
                             f"'{deployment_resource.get('name')}' "
@@ -530,9 +518,7 @@ class ReleaseAnalyzer:
                 elif action == "CREATE":
 
                     operation = "create"
-                    operation_path = deployment_resource[
-                        "repository"
-                    ]
+                    operation_path = deployment_resource["repository"]
 
                 else:
 
@@ -543,9 +529,7 @@ class ReleaseAnalyzer:
                     if operation is None:
                         continue
 
-                    operation_path = deployment_resource[
-                        "repository"
-                    ]
+                    operation_path = deployment_resource["repository"]
 
                 self._add_operation(
                     result["operations"],
@@ -563,8 +547,7 @@ class ReleaseAnalyzer:
             if match is None:
 
                 self._log.warning(
-                    f"No deployment found for image "
-                    f"'{image_name}'.",
+                    f"No deployment found for image " f"'{image_name}'.",
                 )
 
                 continue
@@ -597,8 +580,7 @@ class ReleaseAnalyzer:
             )
 
         result["required"] = bool(
-            result["resources"]["deployments"]
-            or any(result["operations"].values())
+            result["resources"]["deployments"] or any(result["operations"].values())
         )
 
         return result
@@ -624,7 +606,8 @@ class ReleaseAnalyzer:
 
             if (
                 not isinstance(kind, str)
-                or kind.casefold() not in {
+                or kind.casefold()
+                not in {
                     "deployment",
                     "deploymentconfig",
                 }
@@ -633,10 +616,13 @@ class ReleaseAnalyzer:
             ):
                 continue
 
-            if self._find_container_image(
-                Path(source),
-                image_name,
-            ) is not None:
+            if (
+                self._find_container_image(
+                    Path(source),
+                    image_name,
+                )
+                is not None
+            ):
                 matches.append(resource)
 
         if len(matches) == 1:
@@ -644,8 +630,7 @@ class ReleaseAnalyzer:
 
         if len(matches) > 1:
             self._log.warning(
-                f"Multiple deployments found for image "
-                f"'{image_name}'.",
+                f"Multiple deployments found for image " f"'{image_name}'.",
             )
 
         return None
@@ -717,13 +702,10 @@ class ReleaseAnalyzer:
 
             kind = document.get("kind")
 
-            if (
-                not isinstance(kind, str)
-                or kind.casefold() not in {
-                    "deployment",
-                    "deploymentconfig",
-                }
-            ):
+            if not isinstance(kind, str) or kind.casefold() not in {
+                "deployment",
+                "deploymentconfig",
+            }:
                 continue
 
             spec = document.get("spec")
@@ -917,12 +899,10 @@ class ReleaseAnalyzer:
             yamls_root,
         ):
 
-            documents = (
-                self._filesystem.load_yaml_documents(
-                    self._filesystem.read_text(
-                        source,
-                    ),
-                )
+            documents = self._filesystem.load_yaml_documents(
+                self._filesystem.read_text(
+                    source,
+                ),
             )
 
             for document in documents:
@@ -937,11 +917,7 @@ class ReleaseAnalyzer:
                     "kind",
                 )
 
-                if (
-                    isinstance(kind, str)
-                    and kind.casefold()
-                    == "configmapsecretupdate"
-                ):
+                if isinstance(kind, str) and kind.casefold() == "configmapsecretupdate":
 
                     self._analyse_cmsecret_document(
                         document=document,
@@ -1017,8 +993,7 @@ class ReleaseAnalyzer:
         if indexed_resource is None:
 
             self._log.warning(
-                f"No repository resource found for "
-                f"{kind}/{name}.",
+                f"No repository resource found for " f"{kind}/{name}.",
             )
 
             return
@@ -1034,10 +1009,7 @@ class ReleaseAnalyzer:
         ):
             source_operations = []
 
-        repository_path = (
-            repository
-            / indexed_resource["file"]
-        )
+        repository_path = repository / indexed_resource["file"]
 
         resources[category].append(
             {
@@ -1116,18 +1088,11 @@ class ReleaseAnalyzer:
 
         if indexed_resource is not None:
 
-            target = (
-                repository
-                / indexed_resource["file"]
-            )
+            target = repository / indexed_resource["file"]
 
         else:
 
-            target = (
-                repository
-                / category
-                / f"{name}.yaml"
-            )
+            target = repository / category / f"{name}.yaml"
 
         action = self._resource_action(
             source,
@@ -1492,10 +1457,7 @@ class ReleaseAnalyzer:
             for path in self._filesystem.listdir(
                 root,
             )
-            if (
-                self._filesystem.is_directory(path)
-                and not self._ignored(path)
-            )
+            if (self._filesystem.is_directory(path) and not self._ignored(path))
         ]
 
     def _files(
@@ -1515,10 +1477,7 @@ class ReleaseAnalyzer:
                 pattern="*",
                 recursive=True,
             )
-            if (
-                self._filesystem.is_file(path)
-                and not self._ignored(path)
-            )
+            if (self._filesystem.is_file(path) and not self._ignored(path))
         ]
 
     def _yaml_files(
@@ -1531,8 +1490,7 @@ class ReleaseAnalyzer:
             for path in self._files(
                 root,
             )
-            if path.suffix.casefold()
-            in self.YAML_EXTENSIONS
+            if path.suffix.casefold() in self.YAML_EXTENSIONS
         ]
 
     def _find_child_file(
@@ -1550,11 +1508,7 @@ class ReleaseAnalyzer:
             root,
         ):
 
-            if (
-                self._filesystem.is_file(path)
-                and path.name.casefold()
-                == name.casefold()
-            ):
+            if self._filesystem.is_file(path) and path.name.casefold() == name.casefold():
                 return path
 
         return None
@@ -1629,11 +1583,7 @@ class ReleaseAnalyzer:
 
                 target = (
                     repository
-                    / (
-                        "configmaps"
-                        if kind.casefold() == "configmap"
-                        else "secrets"
-                    )
+                    / ("configmaps" if kind.casefold() == "configmap" else "secrets")
                     / self._resource_filename(
                         repository=repository,
                         kind=kind,

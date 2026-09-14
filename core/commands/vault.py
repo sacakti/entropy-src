@@ -1466,8 +1466,7 @@ class VaultCommand(BaseCommand):
         if action is None:
 
             raise VaultValueError(
-                f"Unsupported namespace action: "
-                f"{args.namespace_action}",
+                f"Unsupported namespace action: " f"{args.namespace_action}",
             )
 
         action(
@@ -1486,11 +1485,7 @@ class VaultCommand(BaseCommand):
             "vault.namespace.create",
         )
 
-        visibility = (
-            VaultVisibility.SHARED
-            if args.shared
-            else VaultVisibility.PRIVATE
-        )
+        visibility = VaultVisibility.SHARED if args.shared else VaultVisibility.PRIVATE
 
         namespace = self._namespaces.create(
             name=args.name,
@@ -1499,8 +1494,7 @@ class VaultCommand(BaseCommand):
         )
 
         self._ui.success(
-            f"Vault namespace '{namespace.name}' "
-            "created successfully.",
+            f"Vault namespace '{namespace.name}' " "created successfully.",
         )
 
     def _namespace_list(
@@ -1613,8 +1607,7 @@ class VaultCommand(BaseCommand):
         )
 
         self._ui.success(
-            f"Vault namespace '{namespace.name}' "
-            "modified successfully.",
+            f"Vault namespace '{namespace.name}' " "modified successfully.",
         )
 
     def _namespace_delete(
@@ -1675,8 +1668,7 @@ class VaultCommand(BaseCommand):
         )
 
         self._ui.success(
-            f"Vault namespace '{namespace.name}' "
-            "deleted successfully.",
+            f"Vault namespace '{namespace.name}' " "deleted successfully.",
         )
 
     def _namespace_users(
@@ -1721,8 +1713,7 @@ class VaultCommand(BaseCommand):
             )
 
             self._ui.success(
-                f"User '{args.username}' revoked from "
-                f"namespace '{namespace.name}'.",
+                f"User '{args.username}' revoked from " f"namespace '{namespace.name}'.",
             )
 
             return
@@ -1734,8 +1725,7 @@ class VaultCommand(BaseCommand):
         if not users:
 
             self._ui.info(
-                f"No users have explicit access to "
-                f"namespace '{namespace.name}'.",
+                f"No users have explicit access to " f"namespace '{namespace.name}'.",
             )
 
             return
@@ -1744,10 +1734,7 @@ class VaultCommand(BaseCommand):
             namespace,
         )
 
-        access_by_user = {
-            assignment.user_id: assignment.access.value
-            for assignment in assignments
-        }
+        access_by_user = {assignment.user_id: assignment.access.value for assignment in assignments}
 
         self._ui.table(
             title=f"Namespace Users : {namespace.name}",

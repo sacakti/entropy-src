@@ -27,6 +27,7 @@ from pathlib import Path
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
+
 from .exceptions import ImageTransferError
 
 
@@ -104,10 +105,7 @@ class ImageTransferPlugin(BasePlugin):
                 ],
                 warnings=[],
                 metadata={
-                    "artifacts": {
-                        name: str(path)
-                        for name, path in self.artifacts.items()
-                    },
+                    "artifacts": {name: str(path) for name, path in self.artifacts.items()},
                 },
             )
 
@@ -125,10 +123,7 @@ class ImageTransferPlugin(BasePlugin):
             errors=[],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 
@@ -678,9 +673,7 @@ class ImageTransferPlugin(BasePlugin):
         if len(result) < 3:
 
             raise ImageTransferError(
-                "Docker login command is missing "
-                "the registry at line "
-                f"{line_number}."
+                "Docker login command is missing " "the registry at line " f"{line_number}."
             )
 
         return result
@@ -787,7 +780,9 @@ class ImageTransferPlugin(BasePlugin):
 
         if "login" not in (operations[:first_pull]):
 
-            raise ImageTransferError("image_transfer.sh must contain " "a Docker login before Docker pull.")
+            raise ImageTransferError(
+                "image_transfer.sh must contain " "a Docker login before Docker pull."
+            )
 
         #
         # Tag must happen after pull.
@@ -1305,7 +1300,9 @@ class ImageTransferPlugin(BasePlugin):
 
             if not yaml_paths:
 
-                raise ImageTransferError("Could not find any " "'oc apply -f' command " f"in '{script}'.")
+                raise ImageTransferError(
+                    "Could not find any " "'oc apply -f' command " f"in '{script}'."
+                )
 
             #
             # Validate the transformed script
@@ -1440,7 +1437,9 @@ class ImageTransferPlugin(BasePlugin):
 
                 except ImageTransferError as exc:
 
-                    raise ImageTransferError("Invalid shell syntax in " "apply_yaml.sh: " f"{exc}") from exc
+                    raise ImageTransferError(
+                        "Invalid shell syntax in " "apply_yaml.sh: " f"{exc}"
+                    ) from exc
 
                 tokens = [
                     token
@@ -1543,7 +1542,9 @@ class ImageTransferPlugin(BasePlugin):
         relative_part = normalized[len(base) :].lstrip("/")
 
         if not relative_part:
-            raise ImageTransferError("oc apply path points directly to " f"'{base}', which is not valid.")
+            raise ImageTransferError(
+                "oc apply path points directly to " f"'{base}', which is not valid."
+            )
 
         target = release_root / relative_part
 
@@ -1599,7 +1600,9 @@ class ImageTransferPlugin(BasePlugin):
 
         if not matches:
 
-            raise ImageTransferError("Prepared apply_yaml.sh does not " "contain an 'oc apply -f' command.")
+            raise ImageTransferError(
+                "Prepared apply_yaml.sh does not " "contain an 'oc apply -f' command."
+            )
 
         root = str(
             release_root.resolve(),
@@ -1666,7 +1669,9 @@ class ImageTransferPlugin(BasePlugin):
 
             if path.suffix.lower() not in self.YAML_SUFFIXES:
 
-                raise ImageTransferError("Deployment YAML file has an " "unsupported extension: " f"{path}")
+                raise ImageTransferError(
+                    "Deployment YAML file has an " "unsupported extension: " f"{path}"
+                )
 
             self.message.info(f"Validated YAML file: {path}")
 
@@ -1676,7 +1681,9 @@ class ImageTransferPlugin(BasePlugin):
             path,
         ):
 
-            raise ImageTransferError("Deployment YAML path is neither " f"a file nor a directory: {path}")
+            raise ImageTransferError(
+                "Deployment YAML path is neither " f"a file nor a directory: {path}"
+            )
 
         yaml_files = [
             file

@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from .exceptions import GenericPluginError
-
 from .model import SqlPlusExecution
 
 
@@ -95,19 +94,20 @@ class SqlPlusResolver:
 
             if not isinstance(schema, str) or not schema.strip():
                 raise GenericPluginError(
-                    f"Schema is missing for application "
-                    f"'{application}'.",
+                    f"Schema is missing for application " f"'{application}'.",
                 )
 
             schema = schema.strip()
 
-            if not isinstance(
-                calling_script,
-                str,
-            ) or not calling_script.strip():
+            if (
+                not isinstance(
+                    calling_script,
+                    str,
+                )
+                or not calling_script.strip()
+            ):
                 raise GenericPluginError(
-                    f"Calling script is missing for application "
-                    f"'{application}'.",
+                    f"Calling script is missing for application " f"'{application}'.",
                 )
 
             credentials = schema_data.get(
@@ -116,8 +116,7 @@ class SqlPlusResolver:
 
             if not isinstance(credentials, dict):
                 raise GenericPluginError(
-                    f"Schema credentials not found for "
-                    f"schema '{schema}'.",
+                    f"Schema credentials not found for " f"schema '{schema}'.",
                 )
 
             username = credentials.get(
@@ -128,13 +127,15 @@ class SqlPlusResolver:
                 "password",
             )
 
-            if not isinstance(
-                username,
-                str,
-            ) or not username:
+            if (
+                not isinstance(
+                    username,
+                    str,
+                )
+                or not username
+            ):
                 raise GenericPluginError(
-                    f"Username is missing for schema "
-                    f"'{schema}'.",
+                    f"Username is missing for schema " f"'{schema}'.",
                 )
 
             if not isinstance(
@@ -142,8 +143,7 @@ class SqlPlusResolver:
                 str,
             ):
                 raise GenericPluginError(
-                    f"Password is missing for schema "
-                    f"'{schema}'.",
+                    f"Password is missing for schema " f"'{schema}'.",
                 )
 
             script = self._find_script(
@@ -266,14 +266,12 @@ class SqlPlusResolver:
 
             if not isinstance(application, str) or not application:
                 raise GenericPluginError(
-                    "Execution-plan application name must be "
-                    "a non-empty string.",
+                    "Execution-plan application name must be " "a non-empty string.",
                 )
 
             if not isinstance(definition, dict):
                 raise GenericPluginError(
-                    f"Execution-plan entry for '{application}' "
-                    "must be an object.",
+                    f"Execution-plan entry for '{application}' " "must be an object.",
                 )
 
         return applications
@@ -308,22 +306,26 @@ class SqlPlusResolver:
                 "script",
             )
 
-            if not isinstance(
-                application,
-                str,
-            ) or not application.strip():
+            if (
+                not isinstance(
+                    application,
+                    str,
+                )
+                or not application.strip()
+            ):
                 raise GenericPluginError(
-                    f"Script entry {index + 1} has an invalid "
-                    "'application'.",
+                    f"Script entry {index + 1} has an invalid " "'application'.",
                 )
 
-            if not isinstance(
-                path,
-                str,
-            ) or not path.strip():
+            if (
+                not isinstance(
+                    path,
+                    str,
+                )
+                or not path.strip()
+            ):
                 raise GenericPluginError(
-                    f"Script entry {index + 1} has an invalid "
-                    "'script'.",
+                    f"Script entry {index + 1} has an invalid " "'script'.",
                 )
 
         return scripts
@@ -350,10 +352,7 @@ class SqlPlusResolver:
                 "script",
             )
 
-            if (
-                entry_application != application
-                or not isinstance(entry_script, str)
-            ):
+            if entry_application != application or not isinstance(entry_script, str):
                 continue
 
             path = Path(
@@ -428,8 +427,7 @@ class SqlPlusResolver:
 
         if not script_path.is_file():
             raise GenericPluginError(
-                f"{context}: SQL script does not exist: "
-                f"{script_path}",
+                f"{context}: SQL script does not exist: " f"{script_path}",
             )
 
         return SqlPlusExecution(

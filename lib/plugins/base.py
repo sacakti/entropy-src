@@ -295,7 +295,6 @@ class BasePlugin(ABC):
     def normalizer(self):
         return self._context.normalizer
 
-
     @property
     def structures(self):
         return self._context.structures

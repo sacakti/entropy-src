@@ -6,14 +6,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from lib.database.connection import DatabaseConnection
 from lib.database.exceptions import DatabaseException
+from lib.database.repository import Repository
+from lib.models.authorization import VaultNamespace, VaultVisibility
 from lib.vault.exceptions import (
     VaultNamespaceExistsError,
     VaultNamespaceNotFoundError,
 )
-from lib.database.connection import DatabaseConnection
-from lib.database.repository import Repository
-from lib.models.authorization import VaultNamespace, VaultVisibility
 
 
 class VaultNamespaceRepository(Repository):
@@ -104,9 +104,7 @@ class VaultNamespaceRepository(Repository):
             FROM vault_namespaces
             WHERE id = ?
             """,
-            (
-                namespace_id,
-            ),
+            (namespace_id,),
         )
 
         if row is None:
@@ -137,9 +135,7 @@ class VaultNamespaceRepository(Repository):
             FROM vault_namespaces
             WHERE name = ?
             """,
-            (
-                name,
-            ),
+            (name,),
         )
 
         if row is None:
@@ -172,9 +168,7 @@ class VaultNamespaceRepository(Repository):
                 WHERE name = ?
                 LIMIT 1
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
             is not None
         )
@@ -261,9 +255,7 @@ class VaultNamespaceRepository(Repository):
                 FROM vault_namespaces
                 WHERE id = ?
                 """,
-                (
-                    namespace_id,
-                ),
+                (namespace_id,),
             )
 
     # ------------------------------------------------------------------

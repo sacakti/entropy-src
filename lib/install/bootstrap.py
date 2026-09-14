@@ -7,8 +7,9 @@ from __future__ import annotations
 import getpass
 
 from core.context import EntropyContext
-from lib.users.exceptions import WeakPasswordError
 from lib.models.users import User
+from lib.users.exceptions import WeakPasswordError
+
 
 class BootstrapInstaller:
     """

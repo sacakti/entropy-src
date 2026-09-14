@@ -4,17 +4,15 @@ Group management.
 
 from __future__ import annotations
 
+from lib.authorization.exceptions import AuthGenericError
 from lib.database.repositories.group_roles import GroupRoleRepository
 from lib.database.repositories.groups import GroupRepository
 from lib.database.repositories.roles import RoleRepository
 from lib.database.repositories.user_groups import UserGroupRepository
 from lib.database.repositories.users import UserRepository
-from lib.models.authorization import Group
-from lib.models.authorization import GroupRole
-from lib.models.authorization import Role
-from lib.models.authorization import UserGroup
+from lib.models.authorization import Group, GroupRole, Role, UserGroup
 from lib.models.users import User
-from lib.authorization.exceptions import AuthGenericError
+
 
 class GroupManager:
     """
@@ -138,10 +136,7 @@ class GroupManager:
                     "Group name cannot be empty.",
                 )
 
-            if (
-                name != group.name
-                and self._groups.exists(name)
-            ):
+            if name != group.name and self._groups.exists(name):
 
                 raise AuthGenericError(
                     f"Group '{name}' already exists.",

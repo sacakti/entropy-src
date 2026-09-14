@@ -397,6 +397,7 @@ class WorkflowStepRangeError(
 class WorkflowArgumentError(EntropyException):
     """Raised when workflow argument resolution fails."""
 
+
 class VariableResolutionError(
     WorkflowError,
 ):

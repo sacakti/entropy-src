@@ -89,9 +89,7 @@ class RoleRepository(Repository):
             FROM roles
             WHERE id = ?
             """,
-            (
-                role_id,
-            ),
+            (role_id,),
         )
 
         if row is None:
@@ -122,9 +120,7 @@ class RoleRepository(Repository):
             FROM roles
             WHERE name = ?
             """,
-            (
-                name,
-            ),
+            (name,),
         )
 
         if row is None:
@@ -157,9 +153,7 @@ class RoleRepository(Repository):
                 WHERE name = ?
                 LIMIT 1
                 """,
-                (
-                    name,
-                ),
+                (name,),
             )
             is not None
         )
@@ -240,9 +234,7 @@ class RoleRepository(Repository):
                 FROM roles
                 WHERE id = ?
                 """,
-                (
-                    role_id,
-                ),
+                (role_id,),
             )
 
     # ------------------------------------------------------------------

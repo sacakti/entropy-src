@@ -56,10 +56,7 @@ class PluginChangeDetector:
             source,
         )
 
-        installed = {
-            plugin.qualified_name: plugin
-            for plugin in self._repository.list()
-        }
+        installed = {plugin.qualified_name: plugin for plugin in self._repository.list()}
 
         changes: list[PluginChange] = []
 

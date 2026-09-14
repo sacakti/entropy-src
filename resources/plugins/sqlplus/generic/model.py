@@ -3,9 +3,10 @@ SQLPlus plugin models.
 """
 
 from __future__ import annotations
-from typing import Any
+
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -41,9 +42,12 @@ class SqlPlusExecutionResult:
     error_type: str | None = None
     error_message: str | None = None
 
+
 """
 SQLPlus spool models.
 """
+
+
 @dataclass(frozen=True)
 class SpoolSettings:
     """
@@ -54,9 +58,7 @@ class SpoolSettings:
 
     create_if_not_exists: bool = True
 
-    name_placeholder: str = (
-        "%execution_path/%release_%schema_%date.log"
-    )
+    name_placeholder: str = "%execution_path/%release_%schema_%date.log"
 
     infile_replace: bool = False
 

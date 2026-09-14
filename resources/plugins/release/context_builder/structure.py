@@ -68,14 +68,12 @@ class ReleaseStructureResolver:
 
         if not self._filesystem.exists(path):
             raise ContextBuilderPluginException(
-                f"Release structure file "
-                f"'{path}' does not exist.",
+                f"Release structure file " f"'{path}' does not exist.",
             )
 
         if not self._filesystem.is_file(path):
             raise ContextBuilderPluginException(
-                f"Release structure path "
-                f"'{path}' is not a file.",
+                f"Release structure path " f"'{path}' is not a file.",
             )
 
         document = self._filesystem.parse_yaml(
@@ -84,24 +82,21 @@ class ReleaseStructureResolver:
 
         if not isinstance(document, dict):
             raise ContextBuilderPluginException(
-                "Release structure must contain "
-                "a YAML mapping.",
+                "Release structure must contain " "a YAML mapping.",
             )
 
         name = document.get("name")
 
         if not isinstance(name, str) or not name.strip():
             raise ContextBuilderPluginException(
-                "Release structure requires a "
-                "non-empty 'name'.",
+                "Release structure requires a " "non-empty 'name'.",
             )
 
         structure = document.get("structure")
 
         if not isinstance(structure, dict):
             raise ContextBuilderPluginException(
-                "Release structure requires "
-                "a 'structure' mapping.",
+                "Release structure requires " "a 'structure' mapping.",
             )
 
         children = structure.get(
@@ -111,31 +106,21 @@ class ReleaseStructureResolver:
 
         if not isinstance(children, list):
             raise ContextBuilderPluginException(
-                "Release structure 'children' "
-                "must be a list.",
+                "Release structure 'children' " "must be a list.",
             )
 
-        if not all(
-            isinstance(child, str) and child.strip()
-            for child in children
-        ):
+        if not all(isinstance(child, str) and child.strip() for child in children):
             raise ContextBuilderPluginException(
-                "Release structure children "
-                "must contain non-empty strings.",
+                "Release structure children " "must contain non-empty strings.",
             )
 
-        components = {
-            key: value
-            for key, value in structure.items()
-            if key != "children"
-        }
+        components = {key: value for key, value in structure.items() if key != "children"}
 
         for child in children:
 
             if child not in components:
                 raise ContextBuilderPluginException(
-                    f"Release structure component "
-                    f"'{child}' is not defined.",
+                    f"Release structure component " f"'{child}' is not defined.",
                 )
 
         return ReleaseStructure(
@@ -204,14 +189,16 @@ class ReleaseStructureResolver:
         if value is None:
             return root
 
-        if not isinstance(
-            value,
-            str,
-        ) or not value.strip():
+        if (
+            not isinstance(
+                value,
+                str,
+            )
+            or not value.strip()
+        ):
 
             raise ContextBuilderPluginException(
-                "Structure component 'path' "
-                "must be a non-empty string.",
+                "Structure component 'path' " "must be a non-empty string.",
             )
 
         return self._find_path(
@@ -396,11 +383,7 @@ class ReleaseStructureResolver:
 
             raise ContextBuilderPluginException(
                 "Multiple directories match the configured "
-                "release structure: "
-                + ", ".join(
-                    str(path)
-                    for path in candidates
-                ),
+                "release structure: " + ", ".join(str(path) for path in candidates),
             )
 
         return candidates[0]

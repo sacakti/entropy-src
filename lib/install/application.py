@@ -7,6 +7,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+
 class ApplicationInstaller:
 
     def __init__(

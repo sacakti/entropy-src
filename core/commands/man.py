@@ -40,12 +40,8 @@ class ManCommand(
         assert context.ui is not None
 
         self._documentation = DocumentationManager(
-            documentation_path=(
-                context.bootstrap.resources.documentation
-            ),
-            generated_path=(
-                context.paths.workspace.generated
-            ),
+            documentation_path=(context.bootstrap.resources.documentation),
+            generated_path=(context.paths.workspace.generated),
         )
 
         self._ui = context.ui
@@ -76,9 +72,7 @@ class ManCommand(
 
         if args.html:
 
-            path, generated = (
-                self._documentation.generate_html()
-            )
+            path, generated = self._documentation.generate_html()
 
             if generated:
 
@@ -89,8 +83,7 @@ class ManCommand(
             else:
 
                 self._ui.info(
-                    f"Support documentation is already up to date: "
-                    f"{path}",
+                    f"Support documentation is already up to date: " f"{path}",
                 )
 
             return

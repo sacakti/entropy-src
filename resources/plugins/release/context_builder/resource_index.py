@@ -16,10 +16,7 @@ class ResourceIndex:
     Read the cached OpenShift resource index.
     """
 
-    INDEX_PATH = (
-        ".entropy"
-        "/resource_index.json"
-    )
+    INDEX_PATH = ".entropy" "/resource_index.json"
 
     def __init__(
         self,
@@ -42,10 +39,7 @@ class ResourceIndex:
         Load the resource index.
         """
 
-        path = (
-            repository
-            / self.INDEX_PATH
-        )
+        path = repository / self.INDEX_PATH
 
         if not self._filesystem.exists(path):
 

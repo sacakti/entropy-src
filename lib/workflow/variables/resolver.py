@@ -322,13 +322,10 @@ class WorkflowVariableResolver:
             if end is None:
 
                 raise VariableNotFoundError(
-                    f"Invalid workflow variable reference "
-                    f"'{value[start:]}'.",
+                    f"Invalid workflow variable reference " f"'{value[start:]}'.",
                 )
 
-            reference = value[
-                start + 2 : end
-            ]
+            reference = value[start + 2 : end]
 
             #
             # Step output references are intentionally left for
@@ -438,9 +435,7 @@ class WorkflowVariableResolver:
 
             return None
 
-        return value[
-            2:end
-        ]
+        return value[2:end]
 
     # ------------------------------------------------------------------
     # Reference
@@ -493,15 +488,13 @@ class WorkflowVariableResolver:
             ):
 
                 raise VariableNotFoundError(
-                    "Entropy Vault reference must resolve "
-                    "to a string.",
+                    "Entropy Vault reference must resolve " "to a string.",
                 )
 
             if "/" not in target:
 
                 raise VariableNotFoundError(
-                    "Entropy Vault reference must use "
-                    "'namespace/key' format.",
+                    "Entropy Vault reference must use " "'namespace/key' format.",
                 )
 
             namespace, key = target.split(
@@ -515,8 +508,7 @@ class WorkflowVariableResolver:
             if not namespace or not key:
 
                 raise VariableNotFoundError(
-                    "Entropy Vault reference must contain "
-                    "both namespace and key.",
+                    "Entropy Vault reference must contain " "both namespace and key.",
                 )
 
             try:
@@ -538,8 +530,7 @@ class WorkflowVariableResolver:
             except VaultEntryNotFoundError as exc:
 
                 raise VariableNotFoundError(
-                    f"Entropy Vault entry "
-                    f"'{namespace}/{key}' could not be resolved.",
+                    f"Entropy Vault entry " f"'{namespace}/{key}' could not be resolved.",
                 ) from exc
 
         path = self._parse_path(
@@ -552,8 +543,7 @@ class WorkflowVariableResolver:
         if not path:
 
             raise VariableNotFoundError(
-                f"Invalid workflow variable reference "
-                f"'{reference}'.",
+                f"Invalid workflow variable reference " f"'{reference}'.",
             )
 
         current = self._resolve_variable(
@@ -634,13 +624,10 @@ class WorkflowVariableResolver:
                 if end is None:
 
                     raise VariableNotFoundError(
-                        f"Invalid workflow variable "
-                        f"reference '{reference}'.",
+                        f"Invalid workflow variable " f"reference '{reference}'.",
                     )
 
-                selector = reference[
-                    index + 1 : end
-                ].strip()
+                selector = reference[index + 1 : end].strip()
 
                 selector = self._resolve_selector(
                     selector,
@@ -668,11 +655,7 @@ class WorkflowVariableResolver:
                 "".join(current).strip(),
             )
 
-        return [
-            part
-            for part in parts
-            if part
-        ]
+        return [part for part in parts if part]
 
     def _resolve_selector(
         self,
@@ -731,8 +714,7 @@ class WorkflowVariableResolver:
         ):
 
             raise VariableNotFoundError(
-                f"Variable selector '{selector}' "
-                "must resolve to a scalar value.",
+                f"Variable selector '{selector}' " "must resolve to a scalar value.",
             )
 
         return str(
@@ -817,9 +799,7 @@ class WorkflowVariableResolver:
 
             try:
 
-                return value[
-                    int(key)
-                ]
+                return value[int(key)]
 
             except (
                 ValueError,
@@ -829,8 +809,7 @@ class WorkflowVariableResolver:
                 pass
 
         raise VariableNotFoundError(
-            f"Unable to resolve workflow variable "
-            f"reference '{reference}'.",
+            f"Unable to resolve workflow variable " f"reference '{reference}'.",
         )
 
     # ------------------------------------------------------------------

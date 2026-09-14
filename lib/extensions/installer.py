@@ -8,8 +8,8 @@ import csv
 import sys
 from configparser import ConfigParser
 from contextlib import suppress
-from pathlib import Path
 from email.parser import Parser
+from pathlib import Path
 
 from core.context import EntropyContext
 from lib.extensions.base import BaseInstaller
@@ -348,14 +348,10 @@ class OfflineInstaller(BaseInstaller):
         if not matches:
 
             raise ExtensionInstallationError(
-                f"Unable to determine dist-info for "
-                f"'{extension.name}=={extension.version}'.",
+                f"Unable to determine dist-info for " f"'{extension.name}=={extension.version}'.",
             )
 
-        directories = ", ".join(
-            directory.name
-            for directory in matches
-        )
+        directories = ", ".join(directory.name for directory in matches)
 
         raise ExtensionInstallationError(
             f"Multiple dist-info directories found for "

@@ -14,7 +14,6 @@ from .exceptions import UpdateFileError
 from .index import ConfigMapSecretTargetIndex
 from .model import (
     ConfigMapSecretSource,
-    ConfigMapSecretUpdate,
     SourceType,
     UpdateError,
     UpdateResult,
@@ -116,9 +115,7 @@ class ConfigMapSecretUpdater:
                         kind=kind,
                         name=name,
                         path=(
-                            resource.target_file.path
-                            if resource is not None
-                            else target_directory
+                            resource.target_file.path if resource is not None else target_directory
                         ),
                         key=self._error_key(
                             group,
@@ -308,13 +305,7 @@ class ConfigMapSecretUpdater:
                 },
             )
 
-        path = (
-            target_directory
-            / (
-                f"{first.kind.lower()}-"
-                f"{first.name}.yaml"
-            )
-        )
+        path = target_directory / (f"{first.kind.lower()}-" f"{first.name}.yaml")
 
         if self._filesystem.exists(
             path,
@@ -412,11 +403,7 @@ class ConfigMapSecretUpdater:
 
         for key, value in source_data.items():
 
-            status = (
-                "updated"
-                if key in target_data
-                else "added"
-            )
+            status = "updated" if key in target_data else "added"
 
             target_data[key] = deepcopy(
                 value,

@@ -91,9 +91,7 @@ class UserPrivilegeRepository(Repository):
             FROM user_privileges
             WHERE id = ?
             """,
-            (
-                privilege_id,
-            ),
+            (privilege_id,),
         )
 
         if row is None:
@@ -182,9 +180,7 @@ class UserPrivilegeRepository(Repository):
             WHERE user_id = ?
             ORDER BY permission_id
             """,
-            (
-                user_id,
-            ),
+            (user_id,),
         )
 
         return [
@@ -216,9 +212,7 @@ class UserPrivilegeRepository(Repository):
             WHERE user_privileges.user_id = ?
             ORDER BY permissions.name
             """,
-            (
-                user_id,
-            ),
+            (user_id,),
         )
 
         return [
@@ -254,9 +248,7 @@ class UserPrivilegeRepository(Repository):
                 FROM user_privileges
                 WHERE id = ?
                 """,
-                (
-                    privilege_id,
-                ),
+                (privilege_id,),
             )
 
     # ------------------------------------------------------------------

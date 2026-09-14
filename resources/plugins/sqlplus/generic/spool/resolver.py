@@ -7,8 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ..model import SpoolSettings
 from ..exceptions import GenericPluginError
+from ..model import SpoolSettings
 
 
 class SpoolSettingsResolver:
@@ -23,7 +23,6 @@ class SpoolSettingsResolver:
 
         if value is None:
             return SpoolSettings()
-
 
         enabled = value.get(
             "enabled",
@@ -70,8 +69,7 @@ class SpoolSettingsResolver:
             bool,
         ):
             raise GenericPluginError(
-                "'spool.create_if_not_exists' "
-                "must be a boolean.",
+                "'spool.create_if_not_exists' " "must be a boolean.",
             )
 
         if not isinstance(
@@ -79,8 +77,7 @@ class SpoolSettingsResolver:
             bool,
         ):
             raise GenericPluginError(
-                "'spool.infile_replace' "
-                "must be a boolean.",
+                "'spool.infile_replace' " "must be a boolean.",
             )
 
         if not isinstance(
@@ -88,42 +85,35 @@ class SpoolSettingsResolver:
             bool,
         ):
             raise GenericPluginError(
-                "'spool.override' "
-                "must be a boolean.",
+                "'spool.override' " "must be a boolean.",
             )
 
-        if not isinstance(
-            name_placeholder,
-            str,
-        ) or not name_placeholder.strip():
+        if (
+            not isinstance(
+                name_placeholder,
+                str,
+            )
+            or not name_placeholder.strip()
+        ):
 
             raise GenericPluginError(
-                "'spool.name_placeholder' "
-                "must be a non-empty string.",
+                "'spool.name_placeholder' " "must be a non-empty string.",
             )
 
         if not isinstance(
             wrappers_before,
             list,
-        ) or not all(
-            isinstance(item, str)
-            for item in wrappers_before
-        ):
+        ) or not all(isinstance(item, str) for item in wrappers_before):
             raise GenericPluginError(
-                "'spool.wrappers_before' "
-                "must be a list of strings.",
+                "'spool.wrappers_before' " "must be a list of strings.",
             )
 
         if not isinstance(
             wrappers_after,
             list,
-        ) or not all(
-            isinstance(item, str)
-            for item in wrappers_after
-        ):
+        ) or not all(isinstance(item, str) for item in wrappers_after):
             raise GenericPluginError(
-                "'spool.wrappers_after' "
-                "must be a list of strings.",
+                "'spool.wrappers_after' " "must be a list of strings.",
             )
 
         return SpoolSettings(

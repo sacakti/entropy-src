@@ -111,8 +111,7 @@ class GenericPlugin(BasePlugin):
 
             if operation is not None or resources is not None:
                 raise GenericPluginException(
-                    "Arguments 'operations' cannot be combined with "
-                    "'operation' or 'resources'.",
+                    "Arguments 'operations' cannot be combined with " "'operation' or 'resources'.",
                 )
 
             return self._operations(
@@ -125,10 +124,13 @@ class GenericPlugin(BasePlugin):
                 "Either 'operations' or 'operation' must be specified.",
             )
 
-        if not isinstance(
-            operation,
-            str,
-        ) or not operation.strip():
+        if (
+            not isinstance(
+                operation,
+                str,
+            )
+            or not operation.strip()
+        ):
 
             raise GenericPluginException(
                 "Argument 'operation' must be specified.",
@@ -188,14 +190,16 @@ class GenericPlugin(BasePlugin):
             "environment",
         )
 
-        if not isinstance(
-            environment,
-            str,
-        ) or not environment.strip():
+        if (
+            not isinstance(
+                environment,
+                str,
+            )
+            or not environment.strip()
+        ):
 
             raise GenericPluginException(
-                "Argument 'environment' must be a "
-                "non-empty string.",
+                "Argument 'environment' must be a " "non-empty string.",
             )
 
         environment = environment.strip()
@@ -220,11 +224,7 @@ class GenericPlugin(BasePlugin):
         Return the environment-specific kubeconfig directory.
         """
 
-        return (
-            self.session_directory
-            / self.KUBECONFIG_DIRECTORY
-            / environment
-        )
+        return self.session_directory / self.KUBECONFIG_DIRECTORY / environment
 
     def _kubeconfig(
         self,
@@ -255,14 +255,10 @@ class GenericPlugin(BasePlugin):
             except (OSError, ValueError) as exc:
 
                 raise GenericPluginException(
-                    "Unable to create OpenShift kubeconfig "
-                    f"directory '{directory}': {exc}",
+                    "Unable to create OpenShift kubeconfig " f"directory '{directory}': {exc}",
                 ) from exc
 
-        path = (
-            directory
-            / self.KUBECONFIG_FILENAME
-        )
+        path = directory / self.KUBECONFIG_FILENAME
 
         if not create and not self.filesystem.exists(
             path,
@@ -298,8 +294,7 @@ class GenericPlugin(BasePlugin):
         except OSError as exc:
 
             raise GenericPluginException(
-                f"Unable to remove OpenShift kubeconfig "
-                f"'{kubeconfig}': {exc}",
+                f"Unable to remove OpenShift kubeconfig " f"'{kubeconfig}': {exc}",
             ) from exc
 
     # ------------------------------------------------------------------
@@ -395,8 +390,7 @@ class GenericPlugin(BasePlugin):
         )
 
         self.message.info(
-            f"Logging into OpenShift environment "
-            f"'{environment}' at '{api_url}'.",
+            f"Logging into OpenShift environment " f"'{environment}' at '{api_url}'.",
         )
 
         command = [
@@ -434,11 +428,7 @@ class GenericPlugin(BasePlugin):
                 )
 
             return self._failure(
-                result.stderr
-                or (
-                    "OpenShift login failed "
-                    f"for environment '{environment}'."
-                ),
+                result.stderr or ("OpenShift login failed " f"for environment '{environment}'."),
             )
 
         self.outputs.update(
@@ -481,11 +471,7 @@ class GenericPlugin(BasePlugin):
         if result.failed:
 
             return self._failure(
-                result.stderr
-                or (
-                    "OpenShift logout failed "
-                    f"for environment '{environment}'."
-                ),
+                result.stderr or ("OpenShift logout failed " f"for environment '{environment}'."),
             )
 
         self._remove_kubeconfig(
@@ -546,25 +532,23 @@ class GenericPlugin(BasePlugin):
             if result.failed:
 
                 return self._failure(
-                    result.stderr
-                    or (
-                        "Unable to determine current "
-                        "OpenShift project."
-                    ),
+                    result.stderr or ("Unable to determine current " "OpenShift project."),
                 )
 
             return self._success(
                 changed=False,
             )
 
-        if not isinstance(
-            namespace,
-            str,
-        ) or not namespace.strip():
+        if (
+            not isinstance(
+                namespace,
+                str,
+            )
+            or not namespace.strip()
+        ):
 
             raise GenericPluginException(
-                "Argument 'namespace' must be a "
-                "non-empty string.",
+                "Argument 'namespace' must be a " "non-empty string.",
             )
 
         namespace = namespace.strip()
@@ -590,11 +574,7 @@ class GenericPlugin(BasePlugin):
         if result.failed:
 
             return self._failure(
-                result.stderr
-                or (
-                    f"Unable to switch to OpenShift "
-                    f"project '{namespace}'."
-                ),
+                result.stderr or (f"Unable to switch to OpenShift " f"project '{namespace}'."),
             )
 
         return self._success(
@@ -638,11 +618,7 @@ class GenericPlugin(BasePlugin):
         if result.failed:
 
             return self._failure(
-                result.stderr
-                or (
-                    "Unable to determine current "
-                    "OpenShift user."
-                ),
+                result.stderr or ("Unable to determine current " "OpenShift user."),
             )
 
         return self._success(
@@ -793,9 +769,7 @@ class GenericPlugin(BasePlugin):
             if not normalized_resources:
                 continue
 
-            executed_operations[
-                operation
-            ] = list(
+            executed_operations[operation] = list(
                 normalized_resources,
             )
 
@@ -827,15 +801,12 @@ class GenericPlugin(BasePlugin):
 
                 for item in operation_results:
 
-                    if (
-                        isinstance(
-                            item,
-                            dict,
-                        )
-                        and not item.get(
-                            "success",
-                            False,
-                        )
+                    if isinstance(
+                        item,
+                        dict,
+                    ) and not item.get(
+                        "success",
+                        False,
                     ):
 
                         resource_path = item.get(
@@ -867,8 +838,7 @@ class GenericPlugin(BasePlugin):
             )
 
             return self._failure(
-                "OpenShift automatic operation failed "
-                f"for resource(s): {details}.",
+                "OpenShift automatic operation failed " f"for resource(s): {details}.",
             )
 
         return self._success(
@@ -962,8 +932,7 @@ class GenericPlugin(BasePlugin):
             )
 
             return self._failure(
-                f"OpenShift {operation} failed for "
-                f"resource(s): {details}.",
+                f"OpenShift {operation} failed for " f"resource(s): {details}.",
             )
 
         return self._success(
@@ -1033,8 +1002,7 @@ class GenericPlugin(BasePlugin):
                 ):
 
                     raise GenericPluginException(
-                        "All values in 'resource' must be "
-                        "non-empty strings.",
+                        "All values in 'resource' must be " "non-empty strings.",
                     )
 
                 resources.append(
@@ -1044,8 +1012,7 @@ class GenericPlugin(BasePlugin):
             return resources
 
         raise GenericPluginException(
-            "Argument 'resource' must be a string "
-            "or a list of strings.",
+            "Argument 'resource' must be a string " "or a list of strings.",
         )
 
     # ------------------------------------------------------------------
@@ -1070,10 +1037,13 @@ class GenericPlugin(BasePlugin):
             [],
         )
 
-        if not isinstance(
-            command,
-            str,
-        ) or not command.strip():
+        if (
+            not isinstance(
+                command,
+                str,
+            )
+            or not command.strip()
+        ):
 
             raise GenericPluginException(
                 "Argument 'command' must be a non-empty string.",
@@ -1113,8 +1083,7 @@ class GenericPlugin(BasePlugin):
         if result.failed:
 
             return self._failure(
-                result.stderr
-                or "OpenShift command failed.",
+                result.stderr or "OpenShift command failed.",
             )
 
         return self._success(
@@ -1177,11 +1146,7 @@ class GenericPlugin(BasePlugin):
             errors=[],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 
@@ -1205,11 +1170,7 @@ class GenericPlugin(BasePlugin):
             ],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 

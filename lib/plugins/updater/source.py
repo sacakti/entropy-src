@@ -97,8 +97,7 @@ class PluginSourceDiscovery:
 
             if manifest.qualified_name in seen:
                 raise PluginValueError(
-                    f"Duplicate plugin '{manifest.qualified_name}' "
-                    f"found in source '{source}'.",
+                    f"Duplicate plugin '{manifest.qualified_name}' " f"found in source '{source}'.",
                 )
 
             seen.add(

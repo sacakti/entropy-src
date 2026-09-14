@@ -23,9 +23,9 @@ from lib.workflow.exceptions import (
     WorkflowTooManyFilesError,
 )
 
-
 if TYPE_CHECKING:
     from core.context import EntropyContext
+
 
 class WorkflowCommand(
     BaseCommand,

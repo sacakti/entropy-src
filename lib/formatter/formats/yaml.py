@@ -40,9 +40,7 @@ class YamlFormatter(
         self,
     ) -> tuple[str, ...]:
 
-        return (
-            "yml",
-        )
+        return ("yml",)
 
     # ------------------------------------------------------------------
     # Parse
@@ -77,8 +75,7 @@ class YamlFormatter(
         if document is None:
 
             raise FormatterFormatError(
-                "Invalid YAML: document does not contain "
-                "a YAML value.",
+                "Invalid YAML: document does not contain " "a YAML value.",
             )
 
         return document
@@ -110,8 +107,7 @@ class YamlFormatter(
         if not formatted.strip():
 
             raise FormatterFormatError(
-                "Unable to serialize YAML: formatter produced "
-                "an empty document.",
+                "Unable to serialize YAML: formatter produced " "an empty document.",
             )
 
         return formatted

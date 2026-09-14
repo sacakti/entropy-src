@@ -187,20 +187,17 @@ class ServicesRoutesPlugin(
 
         if not self.filesystem.exists(source):
             raise ServicesRoutesPluginException(
-                f"{resource['kind']} source "
-                f"'{source}' does not exist.",
+                f"{resource['kind']} source " f"'{source}' does not exist.",
             )
 
         if not self.filesystem.is_file(source):
             raise ServicesRoutesPluginException(
-                f"{resource['kind']} source "
-                f"'{source}' is not a file.",
+                f"{resource['kind']} source " f"'{source}' is not a file.",
             )
 
         if self.filesystem.exists(target):
             raise ServicesRoutesPluginException(
-                f"{resource['kind']} target "
-                f"'{target}' already exists.",
+                f"{resource['kind']} target " f"'{target}' already exists.",
             )
 
         document = self.filesystem.read_yaml(
@@ -209,16 +206,14 @@ class ServicesRoutesPlugin(
 
         if not isinstance(document, dict):
             raise ServicesRoutesPluginException(
-                f"{resource['kind']} source "
-                f"'{source}' must contain a YAML object.",
+                f"{resource['kind']} source " f"'{source}' must contain a YAML object.",
             )
 
         expected_kind = resource["kind"].strip()
 
         if document.get("kind") != expected_kind:
             raise ServicesRoutesPluginException(
-                f"{expected_kind} source '{source}' must have "
-                f"kind '{expected_kind}'.",
+                f"{expected_kind} source '{source}' must have " f"kind '{expected_kind}'.",
             )
 
         metadata = document.get(
@@ -227,21 +222,16 @@ class ServicesRoutesPlugin(
 
         if not isinstance(metadata, dict):
             raise ServicesRoutesPluginException(
-                f"{expected_kind} source '{source}' "
-                "requires metadata.",
+                f"{expected_kind} source '{source}' " "requires metadata.",
             )
 
         source_name = metadata.get(
             "name",
         )
 
-        if (
-            not isinstance(source_name, str)
-            or not source_name.strip()
-        ):
+        if not isinstance(source_name, str) or not source_name.strip():
             raise ServicesRoutesPluginException(
-                f"{expected_kind} source '{source}' "
-                "requires metadata.name.",
+                f"{expected_kind} source '{source}' " "requires metadata.name.",
             )
 
         requested_name = resource["name"].strip()
@@ -281,10 +271,7 @@ class ServicesRoutesPlugin(
         ):
             value = resource.get(key)
 
-            if (
-                not isinstance(value, str)
-                or not value.strip()
-            ):
+            if not isinstance(value, str) or not value.strip():
                 raise ServicesRoutesPluginException(
                     f"Service/Route resource requires '{key}'.",
                 )
@@ -297,8 +284,7 @@ class ServicesRoutesPlugin(
             )
 
             raise ServicesRoutesPluginException(
-                f"Unsupported Service/Route kind '{kind}'. "
-                f"Expected one of: {supported}.",
+                f"Unsupported Service/Route kind '{kind}'. " f"Expected one of: {supported}.",
             )
 
         action = resource["action"].strip().upper()
@@ -309,8 +295,7 @@ class ServicesRoutesPlugin(
             )
 
             raise ServicesRoutesPluginException(
-                f"Unsupported {kind} action '{action}'. "
-                f"Expected one of: {supported}.",
+                f"Unsupported {kind} action '{action}'. " f"Expected one of: {supported}.",
             )
 
     def _result(
@@ -356,8 +341,5 @@ class ServicesRoutesPlugin(
         """
 
         return {
-            "artifacts": {
-                name: str(path)
-                for name, path in self.artifacts.items()
-            },
+            "artifacts": {name: str(path) for name, path in self.artifacts.items()},
         }

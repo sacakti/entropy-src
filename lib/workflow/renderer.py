@@ -134,8 +134,7 @@ class WorkflowEventRenderer:
         )
 
         self._ui.info(
-            "Plugin result:"
-            f" {event.node_name or 'Plugin'}",
+            "Plugin result:" f" {event.node_name or 'Plugin'}",
         )
 
         self._ui.print(

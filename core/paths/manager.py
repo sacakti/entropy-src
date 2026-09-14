@@ -24,10 +24,12 @@ from lib.models.configuration import ConfigurationModel
 
 from .bootstrap import BootstrapPathManager
 
+
 class RuntimePathError(EntropyException):
     """
     Base exception for runtime
     """
+
 
 class RuntimePathManager:
     """

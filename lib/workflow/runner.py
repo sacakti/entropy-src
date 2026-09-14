@@ -18,6 +18,8 @@ from lib.models.workflow import (
     WorkflowStep,
 )
 from lib.plugins.exceptions import PluginDisabledError
+from lib.report.builder import ReportBuilder
+from lib.report.html import HtmlReportRenderer
 from lib.workflow.arguments import WorkflowArgumentResolver
 from lib.workflow.exceptions import WorkflowArgumentError, WorkflowCancelledError, WorkflowError
 from lib.workflow.overrides import WorkflowArgumentOverrides
@@ -210,6 +212,7 @@ class WorkflowRunner:
                         step.name,
                         index=index,
                         total=total_steps,
+                        plugin=step.plugin,
                     ):
 
                         self._initialize(
@@ -311,6 +314,21 @@ class WorkflowRunner:
             )
 
             raise WorkflowError(f"Failed: {traceback.format_exc()}") from exc
+
+        finally:
+
+            #
+            # Generate execution report regardless of
+            # workflow outcome.
+            #
+
+            try:
+                self._generate_report(runtime, job)
+            except Exception:
+                print("Failed to generate execution report:")
+                traceback.print_exc()
+                # Report generation must never mask the workflow exception.
+                pass
 
     # ------------------------------------------------------------------
     # Initialize
@@ -686,3 +704,30 @@ class WorkflowRunner:
         self._context.ui.print(
             result.to_dict(),
         )
+
+    # Generate report
+    def _generate_report(self, runtime, job):
+
+        job = self._jobs.get(
+            job.require_id(),
+        )
+
+        events = self._jobs.events(
+            job.require_id(),
+        )
+
+        report = ReportBuilder().build(
+            job=job,
+            events=events,
+        )
+
+        report_path = job.workspace / "report.html"
+
+        HtmlReportRenderer().write(
+            report,
+            report_path,
+        )
+
+        self._context.ui.info(f"Execution report generated: {report_path}")
+
+        return report_path

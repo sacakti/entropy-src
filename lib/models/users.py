@@ -26,4 +26,5 @@ class User:
     def is_new(self) -> bool:
         return self.id is None
 
+
 SYSTEM_USERNAME = "admin"

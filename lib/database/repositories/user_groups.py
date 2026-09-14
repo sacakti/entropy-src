@@ -88,9 +88,7 @@ class UserGroupRepository(Repository):
             FROM user_groups
             WHERE id = ?
             """,
-            (
-                assignment_id,
-            ),
+            (assignment_id,),
         )
 
         if row is None:
@@ -179,9 +177,7 @@ class UserGroupRepository(Repository):
             WHERE user_id = ?
             ORDER BY group_id
             """,
-            (
-                user_id,
-            ),
+            (user_id,),
         )
 
         return [
@@ -213,9 +209,7 @@ class UserGroupRepository(Repository):
             WHERE user_groups.user_id = ?
             ORDER BY groups.name
             """,
-            (
-                user_id,
-            ),
+            (user_id,),
         )
 
         return [
@@ -261,9 +255,7 @@ class UserGroupRepository(Repository):
                 FROM user_groups
                 WHERE id = ?
                 """,
-                (
-                    assignment_id,
-                ),
+                (assignment_id,),
             )
 
     # ------------------------------------------------------------------
@@ -293,6 +285,7 @@ class UserGroupRepository(Repository):
                     group_id,
                 ),
             )
+
     # ------------------------------------------------------------------
     # List users
     # ------------------------------------------------------------------
@@ -315,9 +308,7 @@ class UserGroupRepository(Repository):
             WHERE user_groups.group_id = ?
             ORDER BY users.username
             """,
-            (
-                group_id,
-            ),
+            (group_id,),
         )
 
         return [

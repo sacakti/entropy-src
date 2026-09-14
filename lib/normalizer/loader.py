@@ -92,8 +92,7 @@ class StructureLoader:
         ):
 
             raise FormatterFormatError(
-                f"Structure file '{path}' must contain "
-                "a YAML mapping.",
+                f"Structure file '{path}' must contain " "a YAML mapping.",
             )
 
         return dict(

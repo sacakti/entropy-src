@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from collections.abc import Iterator
 from io import StringIO
@@ -18,9 +19,6 @@ from ruamel.yaml import YAML
 
 from lib.executor.exceptions import LinuxExceptions
 from lib.executor.types import PathLike
-
-import re
-
 
 _YAML_AMBIGUOUS_STRING = re.compile(
     r"""
@@ -65,6 +63,7 @@ _YAML_AMBIGUOUS_VALUES = {
     "~",
 }
 
+
 def _yaml_string_representer(
     representer,
     value: str,
@@ -86,11 +85,7 @@ def _yaml_string_representer(
             style="|",
         )
 
-    if (
-        value == ""
-        or value in _YAML_AMBIGUOUS_VALUES
-        or _YAML_AMBIGUOUS_STRING.match(value)
-    ):
+    if value == "" or value in _YAML_AMBIGUOUS_VALUES or _YAML_AMBIGUOUS_STRING.match(value):
 
         return representer.represent_scalar(
             "tag:yaml.org,2002:str",
@@ -102,6 +97,7 @@ def _yaml_string_representer(
         "tag:yaml.org,2002:str",
         value,
     )
+
 
 class FileSystemMixin:
     """

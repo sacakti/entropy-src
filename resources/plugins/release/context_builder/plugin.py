@@ -118,10 +118,7 @@ class ContextBuilderPlugin(
 
         if structure is None:
 
-            structure = (
-                Path(__file__).resolve().parent
-                / "structure.yaml"
-            )
+            structure = Path(__file__).resolve().parent / "structure.yaml"
 
         assert release is not None
         assert docker_repository is not None
@@ -149,27 +146,21 @@ class ContextBuilderPlugin(
         )
 
         self.message.info(
-            f"Images requiring build: "
-            f"{len(context['images'])}",
+            f"Images requiring build: " f"{len(context['images'])}",
         )
 
-        deployment = context[
-            "deployment"
-        ]
+        deployment = context["deployment"]
 
         self.message.info(
-            f"Deployment changes: "
-            f"{self._deployment_count(deployment)}",
+            f"Deployment changes: " f"{self._deployment_count(deployment)}",
         )
 
         self.message.info(
-            f"Database scripts discovered: "
-            f"{len(context['database']['scripts'])}",
+            f"Database scripts discovered: " f"{len(context['database']['scripts'])}",
         )
 
         self.message.info(
-            f"Rsync operations: "
-            f"{len(context['common_paths'])}",
+            f"Rsync operations: " f"{len(context['common_paths'])}",
         )
 
         return self._result(
@@ -194,10 +185,7 @@ class ContextBuilderPlugin(
             {},
         )
 
-        return sum(
-            len(value)
-            for value in resources.values()
-        )
+        return sum(len(value) for value in resources.values())
 
     # ------------------------------------------------------------------
     # Result
@@ -224,10 +212,6 @@ class ContextBuilderPlugin(
             errors=errors or [],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )

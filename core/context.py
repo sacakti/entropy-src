@@ -20,37 +20,38 @@ if TYPE_CHECKING:
     from core.ui import UIManager
     from lib.auth.manager import SessionManager
     from lib.auth.service import AuthenticationService
+    from lib.authorization.group_manager import GroupManager
+    from lib.authorization.role_manager import RoleManager
     from lib.authorization.service import AuthorizationService
     from lib.authorization.user_role_manager import UserRoleManager
     from lib.database.manager import DatabaseManager
-    from lib.database.repositories.users import UserRepository
-    from lib.executor import LinuxExecutor
-    from lib.extensions.manager import ExtensionManager
-    from lib.migrations.manager import MigrationManager
-    from lib.plugins.manager import PluginManager
-    from lib.users.manager import UserManager
-    from lib.users.password import PasswordService
-    from lib.vault.manager import VaultManager
-    from lib.workflow.jobs.manager import WorkflowJobManager
-    from lib.workflow.manager import WorkflowManager
-    from lib.workflow.runner import WorkflowRunner
-    from lib.formatter import FormatterManager
-    from lib.authorization.role_manager import RoleManager
-    from lib.authorization.group_manager import GroupManager
+    from lib.database.repositories.group_roles import GroupRoleRepository
+    from lib.database.repositories.groups import GroupRepository
     from lib.database.repositories.permissions import PermissionRepository
     from lib.database.repositories.role_permissions import RolePermissionRepository
     from lib.database.repositories.roles import RoleRepository
-    from lib.database.repositories.group_roles import GroupRoleRepository
-    from lib.database.repositories.groups import GroupRepository
     from lib.database.repositories.user_groups import UserGroupRepository
+    from lib.database.repositories.users import UserRepository
     from lib.database.repositories.vault_namespace_access import (
         VaultNamespaceAccessRepository,
     )
     from lib.database.repositories.vault_namespaces import (
         VaultNamespaceRepository,
     )
-    from lib.vault.namespace_manager import VaultNamespaceManager
+    from lib.executor import LinuxExecutor
+    from lib.extensions.manager import ExtensionManager
+    from lib.formatter import FormatterManager
+    from lib.migrations.manager import MigrationManager
     from lib.normalizer.manager import NormalizerManager
+    from lib.plugins.manager import PluginManager
+    from lib.users.manager import UserManager
+    from lib.users.password import PasswordService
+    from lib.vault.manager import VaultManager
+    from lib.vault.namespace_manager import VaultNamespaceManager
+    from lib.workflow.jobs.manager import WorkflowJobManager
+    from lib.workflow.manager import WorkflowManager
+    from lib.workflow.runner import WorkflowRunner
+
 
 class EntropyContext:
     """
@@ -153,17 +154,11 @@ class EntropyContext:
 
         self.session_manager: SessionManager | None = None
 
-        self.vault_namespace_repository: (
-            VaultNamespaceRepository | None
-        ) = None
+        self.vault_namespace_repository: VaultNamespaceRepository | None = None
 
-        self.vault_namespace_access_repository: (
-            VaultNamespaceAccessRepository | None
-        ) = None
+        self.vault_namespace_access_repository: VaultNamespaceAccessRepository | None = None
 
-        self.vault_namespace_manager: (
-            VaultNamespaceManager | None
-        ) = None
+        self.vault_namespace_manager: VaultNamespaceManager | None = None
 
         self.vault_manager: VaultManager | None = None
 

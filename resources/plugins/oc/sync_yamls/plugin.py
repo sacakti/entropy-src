@@ -159,11 +159,11 @@ class SyncYamlsPlugin(BasePlugin):
             ),
             "namespace": self.arguments.string(
                 "namespace",
-                 required=True,
+                required=True,
             ),
             "yaml_repository": self.arguments.string(
                 "yaml_repository",
-                 required=True,
+                required=True,
             ),
             "ignore_resources": self._normalize_ignore_resources(
                 ignore_resources,
@@ -200,8 +200,7 @@ class SyncYamlsPlugin(BasePlugin):
 
             if not isinstance(custom, dict):
                 raise SyncYamlsPluginException(
-                    f"'ignore_resources.{resource_type}' "
-                    "must be a dictionary.",
+                    f"'ignore_resources.{resource_type}' " "must be a dictionary.",
                 )
 
             resource_config: dict[str, list[str]] = {}
@@ -219,14 +218,10 @@ class SyncYamlsPlugin(BasePlugin):
 
                 if not isinstance(custom_values, list):
                     raise SyncYamlsPluginException(
-                        f"'ignore_resources.{resource_type}.{field}' "
-                        "must be a list.",
+                        f"'ignore_resources.{resource_type}.{field}' " "must be a list.",
                     )
 
-                if not all(
-                    isinstance(value, str)
-                    for value in custom_values
-                ):
+                if not all(isinstance(value, str) for value in custom_values):
                     raise SyncYamlsPluginException(
                         f"All values in "
                         f"'ignore_resources.{resource_type}.{field}' "
@@ -283,8 +278,7 @@ class SyncYamlsPlugin(BasePlugin):
 
         if missing:
             raise SyncYamlsPluginException(
-                "Missing required argument(s): "
-                + ", ".join(missing),
+                "Missing required argument(s): " + ", ".join(missing),
             )
 
     # ------------------------------------------------------------------
@@ -296,10 +290,7 @@ class SyncYamlsPlugin(BasePlugin):
         Load the OpenShift normalization structure.
         """
 
-        structure_path = (
-            self.structures
-            / self.STRUCTURE_FILENAME
-        )
+        structure_path = self.structures / self.STRUCTURE_FILENAME
 
         try:
             structure = self.normalizer.load_structure(
@@ -307,14 +298,12 @@ class SyncYamlsPlugin(BasePlugin):
             )
         except (OSError, ValueError, TypeError) as exc:
             raise SyncYamlsPluginException(
-                "Unable to load OpenShift structure "
-                f"'{structure_path}': {exc}",
+                "Unable to load OpenShift structure " f"'{structure_path}': {exc}",
             ) from exc
 
         if not isinstance(structure, dict):
             raise SyncYamlsPluginException(
-                f"Invalid OpenShift structure "
-                f"'{structure_path}'.",
+                f"Invalid OpenShift structure " f"'{structure_path}'.",
             )
 
         return structure
@@ -339,8 +328,7 @@ class SyncYamlsPlugin(BasePlugin):
             )
         except (OSError, ValueError) as exc:
             raise SyncYamlsPluginException(
-                f"Unable to create YAML repository "
-                f"'{repository}': {exc}",
+                f"Unable to create YAML repository " f"'{repository}': {exc}",
             ) from exc
 
     # ------------------------------------------------------------------
@@ -364,17 +352,11 @@ class SyncYamlsPlugin(BasePlugin):
         ]
 
         self.log.debug(
-            "Executing OpenShift command: "
-            + " ".join(full_command),
+            "Executing OpenShift command: " + " ".join(full_command),
         )
 
         try:
-            result = self.shell.run(
-                full_command,
-                env = {
-                    "KUBECONFIG" : str(kubeconfig)
-                }
-            )
+            result = self.shell.run(full_command, env={"KUBECONFIG": str(kubeconfig)})
         except FileNotFoundError as exc:
             raise SyncYamlsPluginException(
                 "OpenShift CLI 'oc' was not found. "
@@ -390,8 +372,7 @@ class SyncYamlsPlugin(BasePlugin):
 
         if stderr:
             self.log.warning(
-                "OpenShift stderr:\n"
-                + stderr,
+                "OpenShift stderr:\n" + stderr,
             )
 
         return result
@@ -545,7 +526,7 @@ class SyncYamlsPlugin(BasePlugin):
                     "-o",
                     "json",
                 ],
-                kubeconfig=kubeconfig
+                kubeconfig=kubeconfig,
             )
 
             if result.failed:
@@ -553,8 +534,7 @@ class SyncYamlsPlugin(BasePlugin):
 
                 if not message:
                     message = (
-                        f"Unable to retrieve {resource_type} "
-                        f"from namespace '{namespace}'."
+                        f"Unable to retrieve {resource_type} " f"from namespace '{namespace}'."
                     )
 
                 raise SyncYamlsPluginException(message)
@@ -565,14 +545,12 @@ class SyncYamlsPlugin(BasePlugin):
                 )
             except ValueError as exc:
                 raise SyncYamlsPluginException(
-                    "Invalid JSON returned by OpenShift "
-                    f"for {resource_type}.",
+                    "Invalid JSON returned by OpenShift " f"for {resource_type}.",
                 ) from exc
 
             if not isinstance(document, dict):
                 raise SyncYamlsPluginException(
-                    f"Invalid OpenShift response for "
-                    f"{resource_type}: expected an object.",
+                    f"Invalid OpenShift response for " f"{resource_type}: expected an object.",
                 )
 
             items = document.get(
@@ -582,8 +560,7 @@ class SyncYamlsPlugin(BasePlugin):
 
             if not isinstance(items, list):
                 raise SyncYamlsPluginException(
-                    f"Invalid OpenShift response for "
-                    f"{resource_type}: 'items' must be a list.",
+                    f"Invalid OpenShift response for " f"{resource_type}: 'items' must be a list.",
                 )
 
             if not items:
@@ -597,8 +574,7 @@ class SyncYamlsPlugin(BasePlugin):
             self._prepare_repository(target)
 
             self.message.info(
-                f"Processing {len(items)} "
-                f"{resource_type}.",
+                f"Processing {len(items)} " f"{resource_type}.",
             )
 
             files: list[str] = []
@@ -617,8 +593,7 @@ class SyncYamlsPlugin(BasePlugin):
 
                 if not isinstance(metadata, dict):
                     self.log.warning(
-                        f"Skipping {resource_type} with invalid "
-                        "metadata.",
+                        f"Skipping {resource_type} with invalid " "metadata.",
                     )
                     continue
 
@@ -641,9 +616,7 @@ class SyncYamlsPlugin(BasePlugin):
                     continue
 
                 self.message.info(
-                    f"Downloading "
-                    f"{self._resource_label(resource_type)} "
-                    f"'{name}'...",
+                    f"Downloading " f"{self._resource_label(resource_type)} " f"'{name}'...",
                 )
 
                 resource = self._normalize_resource(
@@ -685,8 +658,7 @@ class SyncYamlsPlugin(BasePlugin):
                 )
 
             self.message.success(
-                f"{resource_type.capitalize()} completed. "
-                f"{len(files)} file(s).",
+                f"{resource_type.capitalize()} completed. " f"{len(files)} file(s).",
             )
 
             return files
@@ -714,14 +686,12 @@ class SyncYamlsPlugin(BasePlugin):
             )
         except (ValueError, TypeError, KeyError) as exc:
             raise SyncYamlsPluginException(
-                f"Unable to normalize {resource_type} "
-                f"'{self._resource_name(resource)}': {exc}",
+                f"Unable to normalize {resource_type} " f"'{self._resource_name(resource)}': {exc}",
             ) from exc
 
         if not isinstance(normalized, dict):
             raise SyncYamlsPluginException(
-                "OpenShift normalizer returned an invalid "
-                f"document for {resource_type}.",
+                "OpenShift normalizer returned an invalid " f"document for {resource_type}.",
             )
 
         self._remove_ignored_keys(
@@ -842,8 +812,7 @@ class SyncYamlsPlugin(BasePlugin):
             )
         except (OSError, ValueError, TypeError) as exc:
             raise SyncYamlsPluginException(
-                f"Unable to write resource "
-                f"'{path}': {exc}",
+                f"Unable to write resource " f"'{path}': {exc}",
             ) from exc
 
         return path
@@ -884,8 +853,7 @@ class SyncYamlsPlugin(BasePlugin):
         ) as exc:
 
             raise SyncYamlsPluginException(
-                f"Unable to write resource index "
-                f"'{path}': {exc}",
+                f"Unable to write resource index " f"'{path}': {exc}",
             ) from exc
 
         relative = self._relative_path(
@@ -939,6 +907,7 @@ class SyncYamlsPlugin(BasePlugin):
             "services": "Service",
             "routes": "Route",
         }[resource_type]
+
     # ------------------------------------------------------------------
     # Result
     # ------------------------------------------------------------------
@@ -962,10 +931,7 @@ class SyncYamlsPlugin(BasePlugin):
             errors=errors or [],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 
@@ -1117,9 +1083,6 @@ class SyncYamlsPlugin(BasePlugin):
                 {},
             )
 
-            deployments[relative] = (
-                self._deployment_index_entry(
-                    resource,
-                )
+            deployments[relative] = self._deployment_index_entry(
+                resource,
             )
-

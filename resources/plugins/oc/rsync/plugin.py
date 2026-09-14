@@ -112,8 +112,7 @@ class RsyncPlugin(
         ):
 
             raise RsyncPluginException(
-                "Argument 'environment' must be a "
-                "non-empty string.",
+                "Argument 'environment' must be a " "non-empty string.",
             )
 
         environment = environment.strip()
@@ -154,21 +153,14 @@ class RsyncPlugin(
 
         for operation in plan:
 
-            deployment = operation[
-                "deployment"
-            ]
+            deployment = operation["deployment"]
 
-            target = operation[
-                "target"
-            ]
+            target = operation["target"]
 
-            source = operation[
-                "source"
-            ]
+            source = operation["source"]
 
             self.message.info(
-                f"  Resolving pod for "
-                f"Deployment/{deployment}.",
+                f"  Resolving pod for " f"Deployment/{deployment}.",
             )
 
             pod = self._resolve_ready_pod(
@@ -177,17 +169,13 @@ class RsyncPlugin(
             )
 
             self.message.info(
-                f"  Selected pod '{pod}' "
-                f"for Deployment/{deployment}.",
+                f"  Selected pod '{pod}' " f"for Deployment/{deployment}.",
             )
 
-            destination = (
-                f"{pod}:{target}"
-            )
+            destination = f"{pod}:{target}"
 
             self.message.info(
-                f"  Rsync '{source}' -> "
-                f"'{destination}'.",
+                f"  Rsync '{source}' -> " f"'{destination}'.",
             )
 
             result = self._rsync(
@@ -218,9 +206,7 @@ class RsyncPlugin(
                 changed = True
 
                 self.message.success(
-                    f"  Rsync completed for "
-                    f"Deployment/{deployment} "
-                    f"using pod '{pod}'.",
+                    f"  Rsync completed for " f"Deployment/{deployment} " f"using pod '{pod}'.",
                 )
 
             else:
@@ -230,8 +216,7 @@ class RsyncPlugin(
                 )
 
                 self.message.error(
-                    f"  Rsync failed for "
-                    f"Deployment/{deployment}.",
+                    f"  Rsync failed for " f"Deployment/{deployment}.",
                 )
 
         self.outputs.update(
@@ -239,13 +224,9 @@ class RsyncPlugin(
                 "success": not failed,
                 "environment": environment,
                 "resources_processed": len(plan),
-                "resources_succeeded": (
-                    len(plan) - len(failed)
-                ),
+                "resources_succeeded": (len(plan) - len(failed)),
                 "resources_failed": len(failed),
-                "changes": (
-                    len(plan) - len(failed)
-                ),
+                "changes": (len(plan) - len(failed)),
                 "results": results,
             },
         )
@@ -303,8 +284,7 @@ class RsyncPlugin(
         ):
 
             raise RsyncPluginException(
-                f"Deployment/{deployment} does not contain "
-                "a valid spec.",
+                f"Deployment/{deployment} does not contain " "a valid spec.",
             )
 
         selector = spec.get(
@@ -317,22 +297,23 @@ class RsyncPlugin(
         ):
 
             raise RsyncPluginException(
-                f"Deployment/{deployment} does not contain "
-                "a valid selector.",
+                f"Deployment/{deployment} does not contain " "a valid selector.",
             )
 
         match_labels = selector.get(
             "matchLabels",
         )
 
-        if not isinstance(
-            match_labels,
-            dict,
-        ) or not match_labels:
+        if (
+            not isinstance(
+                match_labels,
+                dict,
+            )
+            or not match_labels
+        ):
 
             raise RsyncPluginException(
-                f"Deployment/{deployment} does not contain "
-                "spec.selector.matchLabels.",
+                f"Deployment/{deployment} does not contain " "spec.selector.matchLabels.",
             )
 
         label_selector = self._label_selector(
@@ -361,8 +342,7 @@ class RsyncPlugin(
         ):
 
             raise RsyncPluginException(
-                f"Unable to read pods for "
-                f"Deployment/{deployment}.",
+                f"Unable to read pods for " f"Deployment/{deployment}.",
             )
 
         ready_pods: list[str] = []
@@ -442,8 +422,7 @@ class RsyncPlugin(
         if not ready_pods:
 
             raise RsyncPluginException(
-                f"No Running and Ready pods found for "
-                f"Deployment/{deployment}.",
+                f"No Running and Ready pods found for " f"Deployment/{deployment}.",
             )
 
         ready_pods.sort()
@@ -471,8 +450,7 @@ class RsyncPlugin(
             ):
 
                 raise RsyncPluginException(
-                    "Deployment selector contains "
-                    "an invalid label key.",
+                    "Deployment selector contains " "an invalid label key.",
                 )
 
             if (
@@ -484,8 +462,7 @@ class RsyncPlugin(
             ):
 
                 raise RsyncPluginException(
-                    f"Deployment selector label "
-                    f"'{key}' must have a non-empty value.",
+                    f"Deployment selector label " f"'{key}' must have a non-empty value.",
                 )
 
             values.append(
@@ -530,10 +507,7 @@ class RsyncPlugin(
 
                 continue
 
-            if (
-                condition.get("type") == "Ready"
-                and condition.get("status") == "True"
-            ):
+            if condition.get("type") == "Ready" and condition.get("status") == "True":
 
                 return True
 
@@ -604,11 +578,7 @@ class RsyncPlugin(
 
         if not result.success:
 
-            message = (
-                result.stderr.strip()
-                if result.stderr
-                else "unknown OpenShift error"
-            )
+            message = result.stderr.strip() if result.stderr else "unknown OpenShift error"
 
             raise RsyncPluginException(
                 f"OpenShift command failed: {message}",
@@ -635,8 +605,7 @@ class RsyncPlugin(
         ):
 
             raise RsyncPluginException(
-                "OpenShift command returned an invalid "
-                "JSON object.",
+                "OpenShift command returned an invalid " "JSON object.",
             )
 
         return value
@@ -780,8 +749,7 @@ class RsyncPlugin(
             ):
 
                 raise RsyncPluginException(
-                    f"Rsync plan item {index} must be "
-                    "an object.",
+                    f"Rsync plan item {index} must be " "an object.",
                 )
 
             deployment = item.get(
@@ -805,8 +773,7 @@ class RsyncPlugin(
             ):
 
                 raise RsyncPluginException(
-                    f"Rsync plan item {index} must contain "
-                    "a non-empty 'deployment'.",
+                    f"Rsync plan item {index} must contain " "a non-empty 'deployment'.",
                 )
 
             if (
@@ -818,8 +785,7 @@ class RsyncPlugin(
             ):
 
                 raise RsyncPluginException(
-                    f"Rsync plan item {index} must contain "
-                    "a non-empty 'target'.",
+                    f"Rsync plan item {index} must contain " "a non-empty 'target'.",
                 )
 
             if (
@@ -831,8 +797,7 @@ class RsyncPlugin(
             ):
 
                 raise RsyncPluginException(
-                    f"Rsync plan item {index} must contain "
-                    "a non-empty 'source'.",
+                    f"Rsync plan item {index} must contain " "a non-empty 'source'.",
                 )
 
             source_path = Path(
@@ -878,11 +843,7 @@ class RsyncPlugin(
             errors=[],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )
 
@@ -906,10 +867,6 @@ class RsyncPlugin(
             ],
             warnings=[],
             metadata={
-                "artifacts": {
-                    name: str(path)
-                    for name, path
-                    in self.artifacts.items()
-                },
+                "artifacts": {name: str(path) for name, path in self.artifacts.items()},
             },
         )

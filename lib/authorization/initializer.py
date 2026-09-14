@@ -3,14 +3,15 @@ Authorization initialization.
 """
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from lib.database.connection import DatabaseConnection
 
+from lib.authorization.exceptions import AuthGenericError
 from lib.authorization.seeder import AuthorizationSeeder
 from lib.models.users import User
-from lib.authorization.exceptions import AuthGenericError
 
 from .constants import (
     ADMIN_ROLE,
@@ -120,9 +121,7 @@ class AuthorizationInitializer:
             CROSS JOIN permissions
             WHERE roles.name = ?
             """,
-            (
-                ADMIN_ROLE,
-            ),
+            (ADMIN_ROLE,),
         )
 
     def _assign_admin_role(
@@ -139,9 +138,7 @@ class AuthorizationInitializer:
             FROM roles
             WHERE name = ?
             """,
-            (
-                ADMIN_ROLE,
-            ),
+            (ADMIN_ROLE,),
         )
 
         if row is None:
@@ -255,9 +252,7 @@ class AuthorizationInitializer:
                     CROSS JOIN permissions
                     WHERE roles.name = ?
                     """,
-                    (
-                        name,
-                    ),
+                    (name,),
                 )
 
             else:
@@ -335,10 +330,7 @@ class AuthorizationInitializer:
                 """,
                 (
                     role_name,
-                    (
-                        f"{permission_type.capitalize()} access "
-                        f"to the {module} module."
-                    ),
+                    (f"{permission_type.capitalize()} access " f"to the {module} module."),
                 ),
             )
 

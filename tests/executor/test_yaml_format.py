@@ -28,16 +28,13 @@ def test_yaml_preserves_string_values() -> None:
     assert 'date: "2026-08-15"' in content
     assert "normal: hello" in content
 
+
 def test_yaml_serializes_multiline_strings_as_literal_blocks() -> None:
     executor = LinuxExecutor()
 
     document = {
         "data": {
-            "application.properties": (
-                "## TYPE\n"
-                "APP_RATE=O\n"
-                "NEXT_PROPS=Y\n"
-            ),
+            "application.properties": ("## TYPE\n" "APP_RATE=O\n" "NEXT_PROPS=Y\n"),
         },
     }
 
@@ -50,6 +47,7 @@ def test_yaml_serializes_multiline_strings_as_literal_blocks() -> None:
     assert "  APP_RATE=O" in content
     assert "  NEXT_PROPS=Y" in content
     assert "\\n" not in content
+
 
 def test_yaml_string_values_remain_strings() -> None:
     executor = LinuxExecutor()
@@ -81,6 +79,7 @@ def test_yaml_string_values_remain_strings() -> None:
     assert parsed["data"]["number"] == "123"
     assert parsed["data"]["decimal"] == "1.5"
     assert parsed["data"]["date"] == "2026-08-15"
+
 
 def test_yaml_quotes_time_like_strings() -> None:
     executor = LinuxExecutor()

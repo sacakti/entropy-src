@@ -208,6 +208,7 @@ class ExecutionContext:
         *,
         index: int,
         total: int,
+        plugin: str | None = None,
     ) -> StepScope:
         """
         Create a workflow step scope.
@@ -219,6 +220,7 @@ class ExecutionContext:
             metadata={
                 "index": index,
                 "total": total,
+                "plugin": plugin,
             },
         )
 

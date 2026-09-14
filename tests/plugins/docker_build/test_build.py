@@ -21,8 +21,6 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 
-import pytest
-
 from resources.plugins.docker.build.plugin import BuildPlugin
 
 
@@ -127,10 +125,10 @@ class MockActivity:
         self,
         name: str,
         metadata: dict[str, Any] | None = None,
-    ) -> "MockActivity":
+    ) -> MockActivity:
         return self
 
-    def __enter__(self) -> "MockActivity":
+    def __enter__(self) -> MockActivity:
         return self
 
     def __exit__(
@@ -415,10 +413,7 @@ def test_missing_image_registry_when_tagging_fails() -> None:
     assert result.changed is False
 
     assert result.errors == [
-        (
-            "Argument 'image_registry' is required when "
-            "'tag_image' is true."
-        ),
+        ("Argument 'image_registry' is required when " "'tag_image' is true."),
     ]
 
     context.shell.run.assert_not_called()
@@ -475,10 +470,7 @@ def test_images_and_single_image_arguments_cannot_be_combined() -> None:
     assert result.changed is False
 
     assert result.errors == [
-        (
-            "Use either 'images' or the single-image "
-            "arguments, not both."
-        ),
+        ("Use either 'images' or the single-image " "arguments, not both."),
     ]
 
     context.shell.run.assert_not_called()
@@ -572,6 +564,7 @@ def test_docker_stderr_is_logged_as_error_on_failure() -> None:
     assert result.success is False
     assert context.log.error.called
 
+
 def test_docker_unavailable_returns_failure_result() -> None:
     plugin, context = create_plugin(
         {
@@ -595,6 +588,7 @@ def test_docker_unavailable_returns_failure_result() -> None:
     ]
 
     context.shell.run.assert_not_called()
+
 
 def test_single_image_build_is_supported(
     monkeypatch,

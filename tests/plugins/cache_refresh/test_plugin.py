@@ -7,18 +7,16 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from lib.models.plugin import PluginResult
-from lib.plugins.base import BasePlugin
-
-from resources.plugins.custom.cache_refresh.plugin import (
-    CacheRefreshPlugin,
+from resources.plugins.custom.cache_refresh.exceptions import (
+    CacheRefreshPluginException,
 )
 from resources.plugins.custom.cache_refresh.model import (
     CacheRefreshConfig,
 )
-
-from resources.plugins.custom.cache_refresh.exceptions import (
-    CacheRefreshPluginException,
+from resources.plugins.custom.cache_refresh.plugin import (
+    CacheRefreshPlugin,
 )
+
 
 class TestCacheRefreshPlugin:
 
@@ -61,12 +59,8 @@ class TestCacheRefreshPlugin:
     # Success
     # ------------------------------------------------------------------
 
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshExecutor"
-    )
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver"
-    )
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshExecutor")
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver")
     def test_execute_success(
         self,
         resolver_class,
@@ -112,12 +106,8 @@ class TestCacheRefreshPlugin:
     # Executor failure
     # ------------------------------------------------------------------
 
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshExecutor"
-    )
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver"
-    )
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshExecutor")
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver")
     def test_execute_returns_executor_failure(
         self,
         resolver_class,
@@ -153,12 +143,8 @@ class TestCacheRefreshPlugin:
     # Access verification
     # ------------------------------------------------------------------
 
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshExecutor"
-    )
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver"
-    )
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshExecutor")
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver")
     def test_access_is_verified_before_execution(
         self,
         resolver_class,
@@ -214,15 +200,13 @@ class TestCacheRefreshPlugin:
     # Resolver failure
     # ------------------------------------------------------------------
 
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver"
-    )
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver")
     def test_resolver_failure_returns_failed_result(
         self,
         resolver_class,
     ):
-        resolver_class.return_value.resolve.side_effect = (
-            CacheRefreshPluginException("invalid configuration")
+        resolver_class.return_value.resolve.side_effect = CacheRefreshPluginException(
+            "invalid configuration"
         )
 
         result = self.plugin.execute()
@@ -234,12 +218,8 @@ class TestCacheRefreshPlugin:
     # Access failure
     # ------------------------------------------------------------------
 
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshExecutor"
-    )
-    @patch(
-        "resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver"
-    )
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshExecutor")
+    @patch("resources.plugins.custom.cache_refresh.plugin.CacheRefreshResolver")
     def test_access_failure_prevents_execution(
         self,
         resolver_class,

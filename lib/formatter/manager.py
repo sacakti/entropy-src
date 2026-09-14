@@ -21,6 +21,7 @@ from lib.formatter.formats.yaml import YamlFormatter
 if TYPE_CHECKING:
     from lib.executor.linux import LinuxExecutor
 
+
 class FormatterManager:
     """
     Resolve and execute document formatters.
@@ -76,15 +77,11 @@ class FormatterManager:
         Register a formatter.
         """
 
-        self._formatters[
-            formatter.name
-        ] = formatter
+        self._formatters[formatter.name] = formatter
 
         for alias in formatter.aliases:
 
-            self._formatters[
-                alias
-            ] = formatter
+            self._formatters[alias] = formatter
 
     # ------------------------------------------------------------------
     # Public API
@@ -274,13 +271,10 @@ class FormatterManager:
             )
 
             raise FormatterFormatError(
-                f"Unsupported format '{format}'. "
-                f"Supported formats: {supported}.",
+                f"Unsupported format '{format}'. " f"Supported formats: {supported}.",
             )
 
-        formatter = self._formatters[
-            normalized
-        ]
+        formatter = self._formatters[normalized]
 
         return formatter.name
 
@@ -438,9 +432,7 @@ class FormatterManager:
             format,
         )
 
-        return self._formatters[
-            normalized
-        ]
+        return self._formatters[normalized]
 
     def formats(
         self,
@@ -463,9 +455,7 @@ class FormatterManager:
             format,
         )
 
-        return self._formatters[
-            normalized
-        ]
+        return self._formatters[normalized]
 
     def to_text(
         self,
