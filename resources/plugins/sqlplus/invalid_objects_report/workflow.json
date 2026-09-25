@@ -1,0 +1,41 @@
+{
+    "name": "InvalidObjectsReportPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Generate an HTML report of invalid Oracle objects.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "Invalid Objects Report",
+            "plugin": "sqlplus.invalid_objects_report",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "sqlplus",
+                "oracle",
+                "report"
+            ],
+            "arguments": {
+                "sqlhome": "/Users/aravinthselvaraj/Desktop/ORACLE_HOME",
+
+                "connection": {
+                    "IP": "localhost",
+                    "PORT": 1521,
+                    "SID": "orcl"
+                },
+
+                "schemas": {
+                    "APP1": {
+                        "username": "app1",
+                        "password": "1234"
+                    },
+                    "APP2": {
+                        "username": "app2",
+                        "password": "1234"
+                    }
+                }
+            }
+        }
+    ]
+}

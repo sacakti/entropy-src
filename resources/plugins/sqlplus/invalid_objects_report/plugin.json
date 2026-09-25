@@ -1,0 +1,26 @@
+{
+    "name": "invalid_objects_report",
+    "namespace": "sqlplus",
+    "version": "1.0.1",
+    "description": "Generate an HTML report of invalid Oracle objects.",
+    "author": "",
+    "entropy": ">=1.0.0",
+    "dependencies": [],
+    "required_plugins": [
+        {
+            "name": "sqlplus.generic",
+            "version": ">=1.0.5",
+            "imports": [
+                "executor.SqlPlusExecutor",
+                "model.SqlPlusExecution",
+                "model.SqlPlusExecutionResult"
+            ]
+        }
+    ],
+    "tags": [
+        "oracle",
+        "sqlplus",
+        "report"
+    ],
+    "license": ""
+}
