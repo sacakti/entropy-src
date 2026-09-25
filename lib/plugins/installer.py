@@ -20,7 +20,7 @@ from .exceptions import (
 )
 from .manifest import ManifestReader
 from .validator import ManifestValidator
-
+from .dependency import PluginDependencyResolver
 
 class PluginInstaller:
     """
@@ -35,6 +35,7 @@ class PluginInstaller:
         validator: ManifestValidator,
         extensions: ExtensionManager,
         migrations: MigrationManager,
+        dependencies: PluginDependencyResolver,
     ) -> None:
 
         assert context.executor is not None
@@ -52,6 +53,8 @@ class PluginInstaller:
         self._extensions = extensions
 
         self._migrations = migrations
+
+        self._dependencies = dependencies
 
     # ------------------------------------------------------------------
     # Installation
@@ -74,6 +77,10 @@ class PluginInstaller:
         destination = self._paths.plugins.directory / manifest.namespace / manifest.name
 
         self._validator.validate(
+            manifest,
+        )
+
+        self._dependencies.validate_manifest(
             manifest,
         )
 

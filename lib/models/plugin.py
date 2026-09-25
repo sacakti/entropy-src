@@ -72,6 +72,48 @@ class ExtensionRequirement:
 
 
 # ------------------------------------------------------------------
+# Plugin Import Requirement
+# ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PluginImportRequirement:
+    """
+    Explicit import exposed by a required plugin.
+
+    Example:
+        executor.SqlPlusExecutor
+    """
+
+    module: str
+
+    symbol: str
+
+    @property
+    def reference(self) -> str:
+        return f"{self.module}.{self.symbol}"
+
+
+# ------------------------------------------------------------------
+# Plugin Requirement
+# ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PluginRequirement:
+    """
+    Required plugin dependency.
+    """
+
+    name: str
+
+    version: str | None = None
+
+    imports: tuple[PluginImportRequirement, ...] = field(
+        default_factory=tuple,
+    )
+
+# ------------------------------------------------------------------
 # Plugin Manifest
 # ------------------------------------------------------------------
 
@@ -117,6 +159,10 @@ class PluginManifest:
     #
 
     extensions: tuple[ExtensionRequirement, ...] = field(
+        default_factory=tuple,
+    )
+
+    required_plugins: tuple[PluginRequirement, ...] = field(
         default_factory=tuple,
     )
 

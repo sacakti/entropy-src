@@ -121,3 +121,10 @@ class PluginExecutionError(
     PluginException,
 ):
     """Raised when plugin execution violates the plugin contract."""
+
+class PluginDependencyError(
+    PluginException,
+):
+    """
+    Raised when a plugin dependency is not satisfied.
+    """

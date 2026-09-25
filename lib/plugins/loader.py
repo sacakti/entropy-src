@@ -12,6 +12,7 @@ from pathlib import Path
 from types import ModuleType
 
 from lib.models.plugin import Plugin
+from lib.plugins.dependency import PluginDependencyResolver
 
 from .base import BasePlugin
 from .exceptions import (
@@ -34,9 +35,12 @@ class PluginLoader:
     def __init__(
         self,
         registry: PluginRegistry,
+        dependencies: PluginDependencyResolver,
     ) -> None:
 
         self._registry = registry
+
+        self._dependencies = dependencies
 
         self._cache: dict[
             int,
@@ -143,6 +147,25 @@ class PluginLoader:
 
         try:
 
+            #
+            # Validate and prepare required plugins.
+            #
+
+            dependencies = self._dependencies.validate(
+                plugin,
+            )
+
+            for dependency in dependencies:
+
+                self._ensure_package(
+                    dependency.qualified_name,
+                    dependency.path,
+                )
+
+            #
+            # Prepare this plugin package.
+            #
+
             self._ensure_package(
                 qualified_name,
                 plugin_directory,
@@ -179,11 +202,11 @@ class PluginLoader:
 
         except Exception as exc:
 
-            # import traceback
+            #import traceback
 
             raise PluginLoadError(
                 f"Unable to load plugin " f"'{qualified_name}'.\n",
-                #    f"Exception : {traceback.print_exc()}"
+                #   f"Exception : {traceback.print_exc()}"
             ) from exc
 
     def _find_plugin_class(

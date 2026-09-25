@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.context import EntropyContext
+from core.version import VERSION
 from lib.database.repositories.plugin_registry import PluginRepository
 from lib.models.plugin import Plugin, PluginResult
 from lib.plugins.mode import PluginMode
@@ -27,6 +28,7 @@ from .updater import (
     PluginUpgradeResult,
 )
 from .validator import ManifestValidator
+from .dependency import PluginDependencyResolver
 
 
 class PluginManager:
@@ -68,23 +70,32 @@ class PluginManager:
             self._registry,
         )
 
+        self._reader = ManifestReader(
+            context,
+        )
+
+
+        self._dependencies = PluginDependencyResolver(
+            repository=self._repository,
+            reader=self._reader,
+        )
+
         self._loader = PluginLoader(
             self._registry,
+            self._dependencies,
         )
 
         self._runner = PluginRunner(
             self._loader,
         )
 
+        self._validator = ManifestValidator(
+            entropy_version=VERSION,
+        )
+
         #
         # Installation
         #
-
-        self._reader = ManifestReader(
-            context,
-        )
-
-        self._validator = ManifestValidator()
 
         self._installer = PluginInstaller(
             context=context,
@@ -93,6 +104,7 @@ class PluginManager:
             validator=self._validator,
             extensions=context.extension_manager,
             migrations=context.migration_manager,
+            dependencies=self._dependencies,
         )
 
         #
