@@ -100,11 +100,21 @@ class GenericPlugin(
         Dispatch the requested Docker operation.
         """
 
-        self._ensure_docker()
-
         operation = self.arguments.get(
             "operation",
         )
+
+        if operation is None:
+
+            self.message.info(
+                "No Docker operation provided. Skipping Docker operation.",
+            )
+
+            self.outputs["skipped"] = True
+
+            return self._success(
+                changed=False,
+            )
 
         if (
             not isinstance(
@@ -119,6 +129,8 @@ class GenericPlugin(
             )
 
         operation = operation.strip().lower()
+
+        self._ensure_docker()
 
         if operation not in self.SUPPORTED_OPERATIONS:
 
