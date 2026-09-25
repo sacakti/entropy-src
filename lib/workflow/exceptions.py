@@ -420,3 +420,19 @@ class VariableCircularReferenceError(
     """
     Raised when workflow variables contain a circular reference.
     """
+
+class WorkspaceResolutionError(
+    WorkflowError,
+):
+    """
+    Base exception for workflow workspace resolution failures.
+    """
+
+
+class WorkspaceVariableNotFoundError(
+    WorkspaceResolutionError,
+):
+    """
+    Raised when a workspace template references a variable
+    that cannot be resolved.
+    """

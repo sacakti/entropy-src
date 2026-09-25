@@ -6,7 +6,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from lib.models.workflow import Workflow, WorkflowStep
+from lib.models.workflow import (
+    Workflow,
+    WorkflowStep,
+    WorkflowWorkspace,
+)
 from lib.workflow.exceptions import InvalidWorkflowError
 
 from .base import WorkflowCodec
@@ -106,6 +110,85 @@ class StructuredWorkflowCodec(
                 "Workflow 'variables' must be an object.",
             )
 
+        workspace_value = value.get(
+            "workspace",
+        )
+
+        workspace = None
+
+        if workspace_value is not None:
+
+            if not isinstance(
+                workspace_value,
+                dict,
+            ):
+
+                raise InvalidWorkflowError(
+                    "Workflow 'workspace' must be an object.",
+                )
+
+            add_text = workspace_value.get(
+                "add_text",
+                False,
+            )
+
+            if not isinstance(
+                add_text,
+                bool,
+            ):
+
+                raise InvalidWorkflowError(
+                    "Workflow workspace 'add_text' must be a boolean.",
+                )
+
+            position = workspace_value.get(
+                "position",
+                "before",
+            )
+
+            if not isinstance(
+                position,
+                str,
+            ):
+
+                raise InvalidWorkflowError(
+                    "Workflow workspace 'position' must be a string.",
+                )
+
+            workspace_type = workspace_value.get(
+                "type",
+                "variable",
+            )
+
+            if not isinstance(
+                workspace_type,
+                str,
+            ):
+
+                raise InvalidWorkflowError(
+                    "Workflow workspace 'type' must be a string.",
+                )
+
+            workspace_name = workspace_value.get(
+                "name",
+            )
+
+            if workspace_name is not None and not isinstance(
+                workspace_name,
+                str,
+            ):
+
+                raise InvalidWorkflowError(
+                    "Workflow workspace 'name' must be a string or null.",
+                )
+
+            workspace = WorkflowWorkspace(
+                add_text=add_text,
+                position=position,
+                type=workspace_type,
+                name=workspace_name,
+            )
+
         steps_value = value.get(
             "steps",
             [],
@@ -132,6 +215,7 @@ class StructuredWorkflowCodec(
             version=version,
             description=description,
             variables=variables,
+            workspace=workspace,
             steps=steps,
         )
 
@@ -307,7 +391,7 @@ class StructuredWorkflowCodec(
         Convert a Workflow into a structured mapping.
         """
 
-        return {
+        mapping = {
             "name": workflow.name,
             "version": workflow.version,
             "description": workflow.description,
@@ -318,6 +402,31 @@ class StructuredWorkflowCodec(
                 )
                 for step in workflow.steps
             ],
+        }
+
+        if workflow.workspace is not None:
+            mapping["workspace"] = cls._workspace_to_mapping(
+                workflow.workspace,
+            )
+
+        return mapping
+
+    @staticmethod
+    def _workspace_to_mapping(
+        workspace: WorkflowWorkspace | None,
+    ) -> dict[str, Any] | None:
+        """
+        Convert a WorkflowWorkspace into a structured mapping.
+        """
+
+        if workspace is None:
+            return None
+
+        return {
+            "add_text": workspace.add_text,
+            "position": workspace.position,
+            "type": workspace.type,
+            "name": workspace.name,
         }
 
     # ------------------------------------------------------------------

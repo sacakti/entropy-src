@@ -258,8 +258,17 @@ class WorkflowManager:
 
         session = self._context.session_manager.require()
 
+        variables = dict(
+            workflow.variables,
+        )
+
+        variables.update(
+            options.variables,
+        )
+
         execution = self._context.execution_manager.create(
             workflow,
+            variables=variables,
         )
 
         job = self._context.workflow_job_manager.create(

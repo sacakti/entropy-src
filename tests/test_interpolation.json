@@ -4,6 +4,7 @@
     "description": "Test step output interpolation.",
 
     "variables": {
+        "tag": "H004",
         "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
         "environment": "UAT",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
@@ -11,6 +12,13 @@
         "image_tag": "1.1.10",
         "connection": "${entv:${environment}/DB_CONNECTION}",
         "schemas": "${entv:${environment}/SCHEMAS_*}"
+    },
+
+    "workspace": {
+        "add_text": true,
+        "position": "before",
+        "type": "custom",
+        "name": "test"
     },
 
     "steps": [

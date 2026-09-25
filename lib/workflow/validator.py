@@ -47,6 +47,10 @@ class WorkflowValidator:
             workflow,
         )
 
+        self._workspace(
+            workflow,
+        )
+
         self._steps(
             workflow,
         )
@@ -73,6 +77,48 @@ class WorkflowValidator:
 
             raise InvalidWorkflowError(
                 "Workflow contains no steps.",
+            )
+
+    def _workspace(
+        self,
+        workflow: Workflow,
+    ) -> None:
+        """
+        Validate workflow workspace configuration.
+        """
+
+        workspace = workflow.workspace
+
+        if workspace is None:
+            return
+
+        if workspace.position not in {
+            "before",
+            "after",
+        }:
+
+            raise InvalidWorkflowError(
+                f"Unsupported workspace position "
+                f"'{workspace.position}'. "
+                "Supported values: before, after.",
+            )
+
+        if workspace.type not in {
+            "variable",
+            "custom",
+        }:
+
+            raise InvalidWorkflowError(
+                f"Unsupported workspace type "
+                f"'{workspace.type}'. "
+                "Supported values: variable, custom.",
+            )
+
+        if workspace.add_text and not workspace.name:
+
+            raise InvalidWorkflowError(
+                "Workspace 'name' is required when "
+                "'add_text' is enabled.",
             )
 
     # ------------------------------------------------------------------

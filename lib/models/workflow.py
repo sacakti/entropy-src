@@ -23,6 +23,8 @@ class Workflow:
         default_factory=dict,
     )
 
+    workspace: WorkflowWorkspace | None = None
+
     steps: list[WorkflowStep] = field(
         default_factory=list,
     )
@@ -138,3 +140,17 @@ class WorkflowDryRunResult:
         self.errors.append(
             message,
         )
+
+@dataclass(frozen=True)
+class WorkflowWorkspace:
+    """
+    Workflow workspace naming configuration.
+    """
+
+    add_text: bool = False
+
+    position: str = "before"
+
+    type: str = "variable"
+
+    name: str | None = None

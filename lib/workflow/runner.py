@@ -134,10 +134,19 @@ class WorkflowRunner:
 
         if execution is None:
 
+            variables = dict(
+                workflow.variables,
+            )
+
+            variables.update(
+                options.variables,
+            )
+
             assert self._context.execution_manager is not None
 
             execution = self._context.execution_manager.create(
                 workflow,
+                variables=variables,
             )
 
         runtime = execution.context
@@ -189,11 +198,6 @@ class WorkflowRunner:
             job.id,
         )
 
-        variables = dict(workflow.variables)
-
-        variables.update(
-            options.variables,
-        )
 
         runtime.set_variables(
             variables,

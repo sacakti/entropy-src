@@ -9,6 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 from core.context import EntropyContext
+from lib.workflow.workspace import WorkspaceTemplateResolver
 
 from .context import ExecutionContext
 from .execution import WorkflowExecution
@@ -27,6 +28,7 @@ class ExecutionManager:
     ) -> None:
 
         self._context = context
+        self._workspace_resolver = WorkspaceTemplateResolver()
 
     # ------------------------------------------------------------------
     # Public
@@ -35,6 +37,8 @@ class ExecutionManager:
     def create(
         self,
         workflow: Any,
+        *,
+        variables: dict[str, Any] | None = None,
     ) -> WorkflowExecution:
         """
         Create a new workflow execution.
@@ -44,8 +48,14 @@ class ExecutionManager:
             workflow,
         )
 
-        workspace = self._workspace(
+        workspace_name = self._workspace_name(
+            workflow,
             execution_id,
+            variables or {},
+        )
+
+        workspace = self._workspace(
+            workspace_name,
         )
 
         self._prepare(
@@ -113,12 +123,47 @@ class ExecutionManager:
 
     def _workspace(
         self,
-        execution_id: str,
+        workspace_name: str,
     ) -> Path:
 
         assert self._context.paths is not None
 
-        return self._context.paths.workspace.executions / execution_id
+        return self._context.paths.workspace.executions / workspace_name
+
+    def _workspace_name(
+        self,
+        workflow: Any,
+        execution_id: str,
+        variables: dict[str, Any],
+    ) -> str:
+        """
+        Resolve the physical workspace directory name.
+        """
+
+        workspace = getattr(
+            workflow,
+            "workspace",
+            None,
+        )
+
+        if workspace is None or not workspace.add_text:
+            return execution_id
+
+        if workspace.name is None:
+            return execution_id
+
+        if workspace.type == "custom":
+            text = workspace.name
+        else:
+            text = self._workspace_resolver.resolve(
+                workspace.name,
+                variables,
+            )
+
+        if workspace.position == "before":
+            return f"{text}_{execution_id}"
+
+        return f"{execution_id}_{text}"
 
     def _prepare(
         self,
