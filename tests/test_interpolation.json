@@ -31,6 +31,21 @@
             }
         },
         {
+            "name": "Pull Docker Images",
+            "plugin": "docker.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "docker",
+                "generic",
+                "pull"
+            ],
+            "arguments": {
+                "operation": "pull",
+                "images": "${steps.BuildReleaseContext.outputs.images}"
+            }
+        },
+        {
             "name": "CommitRevision",
             "plugin": "builtin.git",
             "enabled": false,

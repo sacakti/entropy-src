@@ -25,6 +25,10 @@ class WorkflowJob:
 
     workflow: str
 
+    user_id: int | None
+
+    username: str | None
+
     state: JobState
 
     pid: int | None

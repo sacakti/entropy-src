@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from lib.auth.session import Session
+from lib.models.session import Session
 
 
 def test_to_dict():

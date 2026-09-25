@@ -78,16 +78,52 @@ class HtmlReportRenderer:
 
     @staticmethod
     def _header(report):
+        user = (
+            f"{html.escape(report.username or '—')}"
+            f" <span class=\"identity-id\">(ID: "
+            f"{html.escape(str(report.user_id)) if report.user_id is not None else '—'})"
+            f"</span>"
+        )
+
+        workspace = html.escape(report.workspace or "—")
+
         return f"""
-<header class="page-header">
-  <div>
-    <div class="brand">Entropy</div>
-    <h1>{html.escape(report.workflow)}</h1>
-    <div class="execution-id">Execution: {html.escape(report.execution_id)}</div>
-    <div class="muted">{HtmlReportRenderer._date(report.started_at)} → {HtmlReportRenderer._date(report.finished_at)} · {HtmlReportRenderer._duration(report.duration_ms)}</div>
-  </div>
-  <div class="status status-{html.escape(report.status.lower())}">{html.escape(report.status)}</div>
-</header>"""
+    <header class="page-header">
+    <div class="header-main">
+        <div class="brand">Entropy</div>
+
+        <h1>{html.escape(report.workflow)}</h1>
+
+        <div class="execution-id">
+        Execution: {html.escape(report.execution_id)}
+        </div>
+
+        <div class="execution-meta">
+        <div class="header-info">
+            <span class="header-label">User</span>
+            <strong>{user}</strong>
+        </div>
+
+        <div class="header-info workspace-info">
+            <span class="header-label">Workspace</span>
+            <code>{workspace}</code>
+        </div>
+        </div>
+
+        <div class="muted">
+        {HtmlReportRenderer._date(report.started_at)}
+        →
+        {HtmlReportRenderer._date(report.finished_at)}
+        ·
+        {HtmlReportRenderer._duration(report.duration_ms)}
+        </div>
+    </div>
+
+    <div class="status status-{html.escape(report.status.lower())}">
+        {html.escape(report.status)}
+    </div>
+    </header>
+    """
 
     @classmethod
     def _failure_summary(cls, report):

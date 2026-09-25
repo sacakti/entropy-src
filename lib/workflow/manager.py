@@ -254,6 +254,10 @@ class WorkflowManager:
         assert self._context.workflow_job_manager is not None
         assert self._context.execution_manager is not None
 
+        assert self._context.session_manager is not None
+
+        session = self._context.session_manager.require()
+
         execution = self._context.execution_manager.create(
             workflow,
         )
@@ -261,6 +265,8 @@ class WorkflowManager:
         job = self._context.workflow_job_manager.create(
             execution_id=execution.id,
             workflow=workflow.name,
+            user_id=session.user_id,
+            username=session.username,
             workspace=execution.context.workspace,
             pid=0,
         )

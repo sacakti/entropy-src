@@ -35,6 +35,47 @@ h3 { margin:0 0 12px; font-size:15px; }
     font-size:12px;
 }
 
+.execution-meta {
+    display:grid;
+    grid-template-columns:minmax(180px, auto) minmax(300px, 1fr);
+    gap:10px;
+    margin:16px 0;
+}
+
+.header-info {
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding:11px 13px;
+    background:#f7f8fa;
+    border:1px solid var(--border);
+    border-radius:8px;
+    min-width:0;
+}
+
+.header-label {
+    font-size:11px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-weight:750;
+}
+
+.identity-id {
+    color:var(--muted);
+    font-size:11px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-weight:500;
+}
+
+.workspace-info code {
+    display:block;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+    font:12px ui-monospace,SFMono-Regular,Menlo,monospace;
+    color:var(--text);
+}
+
 .status {
     padding:8px 14px;
     border-radius:999px;

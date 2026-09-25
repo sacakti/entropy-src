@@ -151,6 +151,8 @@ class WorkflowRunner:
             job = self._jobs.create(
                 execution_id=execution.id,
                 workflow=workflow.name,
+                user_id=session.user_id,
+                username=session.username,
                 workspace=runtime.workspace,
                 pid=os.getpid(),
             )

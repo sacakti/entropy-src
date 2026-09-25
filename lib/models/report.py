@@ -124,28 +124,30 @@ class ExecutionReport:
     """
 
     execution_id: str
+
     workflow: str
+
     status: str
 
+    user_id: int | None = None
+
+    username: str | None = None
+
+    workspace: str | None = None
+
     started_at: datetime | None = None
+
     finished_at: datetime | None = None
+
     duration_ms: int | None = None
 
-    summary: ReportSummary = field(
-        default_factory=ReportSummary,
-    )
+    summary: ReportSummary = field(default_factory=ReportSummary)
 
-    steps: list[StepReport] = field(
-        default_factory=list,
-    )
+    steps: list[StepReport] = field(default_factory=list)
 
-    timeline: list[ReportTimelineEvent] = field(
-        default_factory=list,
-    )
+    timeline: list[ReportTimelineEvent] = field(default_factory=list)
 
-    metadata: dict[str, Any] = field(
-        default_factory=dict,
-    )
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

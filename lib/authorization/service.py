@@ -4,7 +4,7 @@ Authorization service.
 
 from __future__ import annotations
 
-from lib.auth.session import Session
+from lib.models.session import Session
 from lib.authorization.exceptions import AuthorizationRequiredError
 from lib.database.connection import DatabaseConnection
 from lib.models.authorization import PermissionType

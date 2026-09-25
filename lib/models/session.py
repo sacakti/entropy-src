@@ -1,5 +1,5 @@
 """
-Authenticated session.
+Session model.
 """
 
 from __future__ import annotations
@@ -21,13 +21,7 @@ class Session:
 
     expires_at: datetime
 
-    # ------------------------------------------------------------------
-    # Serialization
-    # ------------------------------------------------------------------
-
-    def to_dict(
-        self,
-    ) -> dict:
+    def to_dict(self) -> dict:
 
         return {
             "user_id": self.user_id,
@@ -47,10 +41,6 @@ class Session:
             user_id=data["user_id"],
             username=data["username"],
             token=data["token"],
-            created_at=datetime.fromisoformat(
-                data["created_at"],
-            ),
-            expires_at=datetime.fromisoformat(
-                data["expires_at"],
-            ),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            expires_at=datetime.fromisoformat(data["expires_at"]),
         )

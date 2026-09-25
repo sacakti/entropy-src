@@ -52,9 +52,14 @@ class ExecutionManager:
             workspace,
         )
 
+        assert self._context.session_manager is not None
+
+        session = self._context.session_manager.require()
+
         runtime = ExecutionContext(
             entropy=self._context,
             workspace=workspace,
+            user=session.username,
         )
 
         runtime.start(
@@ -146,9 +151,14 @@ class ExecutionManager:
             workspace,
         )
 
+        assert self._context.session_manager is not None
+
+        session = self._context.session_manager.require()
+
         runtime = ExecutionContext(
             entropy=self._context,
             workspace=workspace,
+            user=session.username,
         )
 
         runtime.start_plugin(

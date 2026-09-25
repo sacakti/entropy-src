@@ -49,6 +49,8 @@ class WorkflowJobRepository(Repository):
                 (
                     execution_id,
                     workflow,
+                    user_id,
+                    username,
                     state,
                     pid,
                     workspace,
@@ -67,12 +69,16 @@ class WorkflowJobRepository(Repository):
                     ?,
                     ?,
                     ?,
+                    ?,
+                    ?,
                     ?
                 )
                 """,
                 (
                     job.execution_id,
                     job.workflow,
+                    job.user_id,
+                    job.username,
                     job.state.value,
                     job.pid,
                     str(job.workspace),
@@ -397,6 +403,8 @@ class WorkflowJobRepository(Repository):
             id=row["id"],
             execution_id=row["execution_id"],
             workflow=row["workflow"],
+            user_id=row["user_id"],
+            username=row["username"],
             state=JobState(
                 row["state"],
             ),

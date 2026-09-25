@@ -65,6 +65,8 @@ class WorkflowJobManager:
         workflow: str,
         workspace: Path,
         pid: int,
+        user_id: int,
+        username: str,
     ) -> WorkflowJob:
         """
         Create a queued workflow job.
@@ -74,6 +76,8 @@ class WorkflowJobManager:
             id=None,
             execution_id=execution_id,
             workflow=workflow,
+            user_id=user_id,
+            username=username,
             state=JobState.QUEUED,
             pid=pid,
             workspace=workspace,

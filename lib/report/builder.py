@@ -33,6 +33,9 @@ class ReportBuilder:
             execution_id=job.execution_id,
             workflow=job.workflow,
             status=self._execution_status(job, ordered),
+            user_id=job.user_id,
+            username=job.username,
+            workspace=str(job.workspace),
             started_at=started,
             finished_at=finished,
             duration_ms=self._duration(started, finished),
@@ -43,7 +46,6 @@ class ReportBuilder:
                 "job_id": job.id,
                 "pid": job.pid,
                 "exit_code": job.exit_code,
-                "workspace": str(job.workspace),
                 "selected_steps": self._selected_steps(ordered),
             },
         )

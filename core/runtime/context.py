@@ -43,6 +43,7 @@ class ExecutionContext:
         self,
         entropy: EntropyContext,
         workspace: Path,
+        user: str,
     ) -> None:
 
         #
@@ -50,6 +51,8 @@ class ExecutionContext:
         #
 
         self._entropy = entropy
+
+        self._user = user
 
         #
         # Execution
@@ -321,10 +324,11 @@ class ExecutionContext:
 
     @property
     def user(self) -> str:
+        """
+        Return the user who initiated this execution.
+        """
 
-        assert self._entropy.session_manager is not None
-
-        return self._entropy.session_manager.require().username
+        return self._user
 
     def enter(
         self,

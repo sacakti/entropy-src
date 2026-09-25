@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 
-from lib.auth.session import Session
+from lib.models.session import Session
 
 
 @dataclass(frozen=True)

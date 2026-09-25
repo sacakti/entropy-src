@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from core.context import EntropyContext
 from lib.auth.exceptions import AuthenticationRequiredError, SessionNotFoundError
 from lib.auth.service import AuthenticationService
-from lib.auth.session import Session
+from lib.models.session import Session
 from lib.executor.linux import LinuxExecutor
 
 
