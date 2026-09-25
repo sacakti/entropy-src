@@ -382,7 +382,7 @@ class WorkflowJobManager:
         job_id: int,
         *,
         after: int | None = None,
-        limit: int = 500,
+        limit: int | None = 500,
     ) -> List[WorkflowEvent]:
         """
         Return persisted events for a job.

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import json
 from typing import Any
 
 from lib.database.repository import Repository
@@ -153,50 +154,55 @@ class WorkflowEventRepository(Repository):
         job_id: int,
         *,
         after: int | None = None,
-        limit: int = 500,
+        limit: int | None = 500,
     ) -> list[WorkflowEvent]:
         """
         Return events for a job.
 
         When ``after`` is supplied, only events with a greater
         event ID are returned.
+
+        When ``limit`` is ``None``, all matching events are returned.
         """
 
         import json
 
         if after is None:
 
-            rows = self.connection.fetchall(
-                """
+            sql = """
                 SELECT *
                 FROM workflow_events
                 WHERE job_id = ?
                 ORDER BY id
-                LIMIT ?
-                """,
-                (
-                    job_id,
-                    limit,
-                ),
-            )
+            """
+
+            parameters: tuple = (job_id,)
 
         else:
 
-            rows = self.connection.fetchall(
-                """
+            sql = """
                 SELECT *
                 FROM workflow_events
                 WHERE job_id = ?
-                  AND id > ?
+                AND id > ?
                 ORDER BY id
-                LIMIT ?
-                """,
-                (
-                    job_id,
-                    after,
-                    limit,
-                ),
+            """
+
+            parameters = (
+                job_id,
+                after,
             )
+
+        if limit is not None:
+
+            sql += "\nLIMIT ?"
+
+            parameters += (limit,)
+
+        rows = self.connection.fetchall(
+            sql,
+            parameters,
+        )
 
         return [
             self._from_row(

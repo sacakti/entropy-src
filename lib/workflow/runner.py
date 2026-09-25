@@ -728,6 +728,7 @@ class WorkflowRunner:
 
         events = self._jobs.events(
             job.require_id(),
+            limit=None,
         )
 
         report = ReportBuilder().build(
