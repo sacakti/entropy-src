@@ -92,8 +92,7 @@ class SpoolScriptBuilder:
         spool_path: Path,
     ) -> Path:
         """
-        Replace the active SPOOL target while preserving
-        SPOOL OFF and all other script content.
+        Replace the active SPOOL target in the original script.
         """
 
         content = script.read_text(
@@ -111,19 +110,12 @@ class SpoolScriptBuilder:
             count=1,
         )
 
-        destination = script.parent / ".entropy" / "sqlplus" / f"{script.stem}_spool.sql"
-
-        destination.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        destination.write_text(
+        script.write_text(
             content,
             encoding="utf-8",
         )
 
-        return destination
+        return script
 
     def build(
         self,
