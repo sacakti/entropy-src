@@ -96,6 +96,8 @@ class WorkflowExecutionOptions:
 
     to_step: str | None = None
 
+    skip_steps: tuple[str, ...] = ()
+
     dry_run: bool = False
 
     variables: dict[str, Any] = field(

@@ -23,8 +23,11 @@ class AuthorizationRequiredError(AuthorizationException):
         permission: str,
     ) -> None:
 
+        # super().__init__(
+        #     f"Permission denied: '{permission}'.",
+        # )
         super().__init__(
-            f"Permission denied: '{permission}'.",
+            f"Unauthorized: '{permission}' permission is required. Contact your administrator to request access.",
         )
 
 

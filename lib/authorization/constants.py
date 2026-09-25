@@ -354,6 +354,18 @@ PERMISSIONS = (
         "write",
         "Manage roles assigned to groups.",
     ),
+    PermissionDefinition(
+        "auth",
+        "auth.switch",
+        "execute",
+        "Switch to an authenticated user session.",
+    ),
+    PermissionDefinition(
+        "auth",
+        "auth.list",
+        "read",
+        "List authenticated user sessions.",
+    ),
 )
 
 

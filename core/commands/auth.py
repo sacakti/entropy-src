@@ -32,9 +32,11 @@ class AuthCommand(BaseCommand):
 
         assert context.session_manager is not None
         assert context.ui is not None
+        assert context.authorization is not None
 
         self._session = context.session_manager
         self._ui = context.ui
+        self._authorization = context.authorization
 
     # ------------------------------------------------------------------
     # Configure
@@ -85,6 +87,54 @@ class AuthCommand(BaseCommand):
             help="Display the current session.",
         )
 
+        switch = subparsers.add_parser(
+            "switch",
+            help="Switch to an authenticated user.",
+        )
+
+        switch.add_argument(
+            "-u",
+            "--user",
+            dest="username",
+            required=True,
+            help="Username.",
+        )
+
+        su = subparsers.add_parser(
+            "su",
+            help="Switch to an authenticated user or authenticate.",
+        )
+
+        su.add_argument(
+            "-u",
+            "--user",
+            dest="username",
+            required=True,
+            help="Username.",
+        )
+
+        su_password_group = su.add_mutually_exclusive_group()
+
+        su_password_group.add_argument(
+            "-p",
+            "--password",
+            dest="password",
+            help=(
+                "Password. Warning: visible in shell history/process arguments."
+            ),
+        )
+
+        su_password_group.add_argument(
+            "--password-stdin",
+            action="store_true",
+            help="Read the password from standard input.",
+        )
+
+        subparsers.add_parser(
+            "list",
+            help="List authenticated users.",
+        )
+
     # ------------------------------------------------------------------
     # Execute
     # ------------------------------------------------------------------
@@ -99,6 +149,9 @@ class AuthCommand(BaseCommand):
             "login": self._login,
             "logout": self._logout,
             "status": self._status,
+            "switch": self._switch,
+            "su": self._su,
+            "list": self._list,
         }[args.action](
             args,
         )
@@ -112,16 +165,6 @@ class AuthCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        session = self._session.current()
-
-        if session is not None:
-
-            self._ui.info(
-                f"Already authenticated as '{session.username}'.",
-            )
-
-            return
-
         username = args.username
 
         if username is None:
@@ -129,6 +172,18 @@ class AuthCommand(BaseCommand):
             username = self._ui.prompt(
                 "Username",
             )
+
+        existing = self._session.find(
+            username,
+        )
+
+        if existing is not None:
+
+            self._session.switch(
+                username,
+            )
+
+            return
 
         if args.password_stdin:
 
@@ -202,4 +257,86 @@ class AuthCommand(BaseCommand):
                 f"Username : {session.username}",
                 f"Expires  : {session.expires_at}",
             ],
+        )
+
+    # Multiple sessions
+    def _switch(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        self._session.switch(
+            args.username,
+        )
+
+    def _su(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        existing = self._session.find(
+            args.username,
+        )
+
+        if existing is not None:
+
+            self._session.switch(
+                args.username,
+            )
+
+            return
+
+        self._login(
+            args,
+        )
+
+    def _list(
+        self,
+        args: Namespace,
+    ) -> None:
+
+        session = self._session.current()
+
+        if session is None:
+
+            self._ui.warning(
+                "Not authenticated.",
+            )
+
+            return
+
+        self._authorization.require(
+            session,
+            "auth.list",
+        )
+
+        sessions = self._session.list()
+
+        if not sessions:
+
+            self._ui.info(
+                "No authenticated users.",
+            )
+
+            return
+
+        current = session
+
+        lines = []
+
+        for authenticated_session in sessions:
+
+            status = (
+                "current"
+                if authenticated_session.token == current.token
+                else ""
+            )
+
+            lines.append(
+                f"{authenticated_session.username:<20} {status}",
+            )
+
+        self._ui.panel(
+            title="Authenticated Users",
+            lines=lines,
         )

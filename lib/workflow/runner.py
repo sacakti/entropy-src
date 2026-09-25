@@ -98,6 +98,14 @@ class WorkflowRunner:
 
         selected_steps = selection.steps
 
+        skip_steps = set(options.skip_steps)
+
+        selected_steps = [
+            step
+            for step in selected_steps
+            if step.name not in skip_steps
+        ]
+
         enabled_steps = [step for step in selected_steps if step.enabled]
 
         if options.dry_run:

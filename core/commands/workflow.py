@@ -225,6 +225,14 @@ class WorkflowCommand(
         )
 
         run.add_argument(
+            "--skip-steps",
+            nargs="+",
+            default=[],
+            metavar="STEP",
+            help="Skip one or more workflow steps.",
+        )
+
+        run.add_argument(
             "--dry-run",
             action="store_true",
             help="Show selected steps without executing them.",
@@ -312,6 +320,14 @@ class WorkflowCommand(
         start.add_argument(
             "--to-step",
             help="Stop execution after this step.",
+        )
+
+        start.add_argument(
+            "--skip-steps",
+            nargs="+",
+            default=[],
+            metavar="STEP",
+            help="Skip one or more workflow steps.",
         )
 
         start.add_argument(
@@ -541,6 +557,7 @@ class WorkflowCommand(
             tags=options.tags,
             from_step=options.from_step,
             to_step=options.to_step,
+            skip_steps=options.skip_steps,
             dry_run=False,
             variables=options.variables,
             step_overrides=options.step_overrides,
@@ -988,6 +1005,11 @@ class WorkflowCommand(
             tags=tags,
             from_step=args.from_step,
             to_step=args.to_step,
+            skip_steps=tuple(
+                step.strip()
+                for step in args.skip_steps
+                if step.strip()
+            ),
             dry_run=args.dry_run,
             variables=variables,
             step_overrides=step_overrides,
@@ -1011,6 +1033,11 @@ class WorkflowCommand(
             tags=tags,
             from_step=args.from_step,
             to_step=args.to_step,
+            skip_steps=tuple(
+                step.strip()
+                for step in args.skip_steps
+                if step.strip()
+            ),
             dry_run=False,
             variables=variables,
             step_overrides=step_overrides,

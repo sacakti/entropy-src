@@ -81,6 +81,8 @@ class UpgradeManager:
                 manifest.application.version,
             )
 
+            self._reconcile_authorization()
+
             transaction.commit()
 
         except Exception:
@@ -127,3 +129,15 @@ class UpgradeManager:
         # Version verification will be added once the installed
         # application's version can be queried independently.
         #
+
+    def _reconcile_authorization(
+        self,
+    ) -> None:
+
+        assert self._context.database_manager is not None
+
+        from lib.authorization import AuthorizationInitializer
+
+        AuthorizationInitializer(
+            self._context.database_manager.connection,
+        ).reconcile()

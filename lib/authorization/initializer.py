@@ -66,6 +66,14 @@ class AuthorizationInitializer:
                 admin_user,
             )
 
+    def reconcile(self) -> None:
+        self._seeder.seed()
+
+        with self._connection.transaction():
+            self._initialize_admin_role()
+            self._initialize_admin_permissions()
+            self._initialize_default_roles()
+
     # ------------------------------------------------------------------
     # Admin role
     # ------------------------------------------------------------------
