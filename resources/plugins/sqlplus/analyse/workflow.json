@@ -1,0 +1,29 @@
+{
+    "name": "AnalysePlugin Workflow",
+    "version": "1.0.0",
+    "description": "Example workflow for sqlplus.analyse.",
+
+    "variables": {
+
+    },
+
+    "steps": [
+        {
+            "name": "Execute AnalysePlugin",
+            "plugin": "sqlplus.analyse",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "analyse"
+            ],
+            "arguments": {
+                "path": "/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts/",
+                "policy": {
+                    "warning": ["insert"],
+                    "error": ["drop", "truncate", "delete"],
+                    "stop": ["hardcoded", "not_endwith_slash", "accept"]
+                }
+            }
+        }
+    ]
+}

@@ -1,7 +1,7 @@
 {
     "name": "invalid_objects_report",
     "namespace": "sqlplus",
-    "version": "1.0.1",
+    "version": "1.3.2",
     "description": "Generate an HTML report of invalid Oracle objects.",
     "author": "",
     "entropy": ">=1.0.0",
