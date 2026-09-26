@@ -1,0 +1,23 @@
+{
+    "name": "PostValidationPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Post-deployment validation for SQLPlus releases.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "Execute PostValidationPlugin",
+            "plugin": "sqlplus.post_validation",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "post_validation"
+            ],
+            "arguments": {
+                "path": "/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts",
+                "json": "/Users/aravinthselvaraj/Documents/entropy/resources/plugins/sqlplus/post_validation/sample_pre_validation.json"
+            }
+        }
+    ]
+}

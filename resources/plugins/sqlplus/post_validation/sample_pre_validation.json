@@ -1,0 +1,93 @@
+{
+  "release": "R2026.09.26",
+  "associates": {
+    "app1": {
+      "display": "APP1",
+      "blocks": 1,
+      "files": [
+        {
+          "path": "DML/insert_users.sql",
+          "jira": "DB-1001",
+          "schema": "APP1",
+          "total_dml": {
+            "INSERT": 1
+          },
+          "total_ddl": {},
+          "direct_dml": {
+            "INSERT": 1
+          },
+          "direct_ddl": {}
+        },
+        {
+          "path": "DML/delete_users.sql",
+          "jira": "DB-1002",
+          "schema": "APP1",
+          "total_dml": {
+            "DELETE": 1
+          },
+          "total_ddl": {},
+          "direct_dml": {
+            "DELETE": 1
+          },
+          "direct_ddl": {}
+        },
+        {
+          "path": "DDL/create_users.sql",
+          "jira": "DB-1003",
+          "schema": "APP1",
+          "total_dml": {},
+          "total_ddl": {
+            "CREATE TABLE": 1
+          },
+          "direct_dml": {},
+          "direct_ddl": {
+            "CREATE TABLE": 1
+          }
+        },
+        {
+          "path": "DDL/create_procedure.sql",
+          "jira": "DB-1004",
+          "schema": "APP1",
+          "total_dml": {},
+          "total_ddl": {
+            "CREATE PROCEDURE": 1
+          },
+          "direct_dml": {},
+          "direct_ddl": {}
+        }
+      ]
+    },
+    "app2": {
+      "display": "APP2",
+      "blocks": 0,
+      "files": [
+        {
+          "path": "DML/update_users.sql",
+          "jira": "DB-2001",
+          "schema": "APP2",
+          "total_dml": {
+            "UPDATE": 1
+          },
+          "total_ddl": {},
+          "direct_dml": {
+            "UPDATE": 1
+          },
+          "direct_ddl": {}
+        },
+        {
+          "path": "DDL/create_index.sql",
+          "jira": "DB-2002",
+          "schema": "APP2",
+          "total_dml": {},
+          "total_ddl": {
+            "CREATE INDEX": 1
+          },
+          "direct_dml": {},
+          "direct_ddl": {
+            "CREATE INDEX": 1
+          }
+        }
+      ]
+    }
+  }
+}

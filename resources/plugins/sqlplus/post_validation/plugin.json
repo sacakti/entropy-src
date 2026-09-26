@@ -1,0 +1,14 @@
+{
+    "name": "post_validation",
+    "namespace": "sqlplus",
+    "version": "1.0.0",
+    "description": "",
+    "author": "",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "tags": [],
+
+    "license": ""
+}

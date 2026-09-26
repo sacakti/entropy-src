@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+<title>
+    R2026.09.26
+    - Post Validation Dashboard
+</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        background: #f4f6f8;
+        color: #202124;
+        font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            Roboto,
+            Arial,
+            sans-serif;
+    }
+
+    .container {
+        width: min(1500px, 96%);
+        margin: 0 auto;
+        padding: 24px 0 48px;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .title {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    .subtitle {
+        margin-top: 6px;
+        color: #667085;
+        font-size: 14px;
+    }
+
+    .status {
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .status.pass {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .status.fail {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .cards {
+        display: grid;
+        grid-template-columns:
+            repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .card {
+        background: white;
+        border: 1px solid #e4e7ec;
+        border-radius: 10px;
+        padding: 16px;
+    }
+
+    .card-label {
+        color: #667085;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .card-value {
+        margin-top: 6px;
+        font-size: 26px;
+        font-weight: 700;
+    }
+
+    .panel {
+        background: white;
+        border: 1px solid #e4e7ec;
+        border-radius: 10px;
+        margin-bottom: 16px;
+        overflow: hidden;
+    }
+
+    .panel-header {
+        padding: 16px 18px;
+        border-bottom: 1px solid #e4e7ec;
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    .associate {
+        border-bottom: 1px solid #e4e7ec;
+    }
+
+    .associate:last-child {
+        border-bottom: 0;
+    }
+
+    .associate-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 18px;
+        cursor: pointer;
+    }
+
+    .associate-name {
+        font-weight: 700;
+    }
+
+    .associate-meta {
+        color: #667085;
+        font-size: 12px;
+        margin-top: 4px;
+    }
+
+    .badge {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 4px 9px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .badge.pass {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge.fail {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .badge.partial {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge.notrun {
+        background: #e5e7eb;
+        color: #374151;
+    }
+
+    .associate-body {
+        padding: 0 18px 18px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    th {
+        background: #f8fafc;
+        color: #475467;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    th,
+    td {
+        border-bottom: 1px solid #eaecf0;
+        padding: 9px 8px;
+        vertical-align: top;
+    }
+
+    tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .muted {
+        color: #667085;
+    }
+
+    .error {
+        color: #991b1b;
+    }
+
+    .warning {
+        color: #92400e;
+    }
+
+    .ok {
+        color: #166534;
+    }
+
+    .section-title {
+        margin: 18px 0 8px;
+        font-size: 14px;
+        font-weight: 700;
+    }
+
+    .empty {
+        padding: 12px 0;
+        color: #667085;
+        font-size: 13px;
+    }
+
+    .log {
+        background: #101828;
+        color: #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        overflow: auto;
+        max-height: 650px;
+        white-space: pre;
+        font: 12px/1.5
+            ui-monospace,
+            SFMono-Regular,
+            Menlo,
+            Monaco,
+            Consolas,
+            monospace;
+    }
+
+    @media (max-width: 800px) {
+        .header {
+            flex-direction: column;
+        }
+
+        .associate-summary {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        table {
+            display: block;
+            overflow-x: auto;
+        }
+    }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+    <div class="header">
+        <div>
+            <h1 class="title">
+                Post Validation Dashboard
+            </h1>
+
+            <div class="subtitle">
+                Release:
+                <strong>R2026.09.26</strong>
+                <br>
+                Log:
+                db.log
+            </div>
+        </div>
+
+        <div class="status pass">
+            PASS
+        </div>
+    </div>
+
+    
+<div class="cards">
+
+    
+<div class="card">
+    <div class="card-label">
+        Associates
+    </div>
+    <div class="card-value">
+        2
+    </div>
+</div>
+
+
+    
+<div class="card">
+    <div class="card-label">
+        Passed
+    </div>
+    <div class="card-value">
+        0
+    </div>
+</div>
+
+
+    
+<div class="card">
+    <div class="card-label">
+        Failed
+    </div>
+    <div class="card-value">
+        0
+    </div>
+</div>
+
+
+    
+<div class="card">
+    <div class="card-label">
+        Partial
+    </div>
+    <div class="card-value">
+        0
+    </div>
+</div>
+
+
+    
+<div class="card">
+    <div class="card-label">
+        Not Run
+    </div>
+    <div class="card-value">
+        2
+    </div>
+</div>
+
+
+    
+<div class="card">
+    <div class="card-label">
+        Errors
+    </div>
+    <div class="card-value">
+        0
+    </div>
+</div>
+
+
+    
+<div class="card">
+    <div class="card-label">
+        Mismatches
+    </div>
+    <div class="card-value">
+        6
+    </div>
+</div>
+
+
+</div>
+
+
+    <div class="panel">
+        <div class="panel-header">
+            Associate Validation
+        </div>
+
+        
+<details class="associate" open>
+    <summary class="associate-summary">
+        <div>
+            <div class="associate-name">
+                APP1
+            </div>
+
+            <div class="associate-meta">
+                Files:
+                4
+                &nbsp;·&nbsp;
+                Errors:
+                0
+                &nbsp;·&nbsp;
+                Mismatches:
+                4
+            </div>
+        </div>
+
+        <span class="badge notrun">
+            notrun
+        </span>
+    </summary>
+
+    <div class="associate-body">
+
+        <div class="section-title">
+            Files
+        </div>
+
+        
+            <table>
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>JIRA</th>
+                        <th>Schema</th>
+                        <th>DML</th>
+                        <th>DDL</th>
+                        <th>Blocks</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+<tr>
+    <td>
+        insert_users.sql
+        <div class="muted">
+            DML
+        </div>
+    </td>
+
+    <td>
+        DB-1001
+    </td>
+
+    <td>
+        APP1
+    </td>
+
+    <td>
+        <span class="error">INSERT: 0/1</span>
+    </td>
+
+    <td>
+        <span class="muted">—</span>
+    </td>
+
+    <td>
+        0/0
+    </td>
+
+    <td>
+        <span class="badge notrun">
+            notrun
+        </span>
+    </td>
+</tr>
+
+
+<tr>
+    <td>
+        delete_users.sql
+        <div class="muted">
+            DML
+        </div>
+    </td>
+
+    <td>
+        DB-1002
+    </td>
+
+    <td>
+        APP1
+    </td>
+
+    <td>
+        <span class="error">DELETE: 0/1</span>
+    </td>
+
+    <td>
+        <span class="muted">—</span>
+    </td>
+
+    <td>
+        0/0
+    </td>
+
+    <td>
+        <span class="badge notrun">
+            notrun
+        </span>
+    </td>
+</tr>
+
+
+<tr>
+    <td>
+        create_users.sql
+        <div class="muted">
+            DDL
+        </div>
+    </td>
+
+    <td>
+        DB-1003
+    </td>
+
+    <td>
+        APP1
+    </td>
+
+    <td>
+        <span class="muted">—</span>
+    </td>
+
+    <td>
+        <span class="error">CREATE TABLE: 0/1</span>
+    </td>
+
+    <td>
+        0/0
+    </td>
+
+    <td>
+        <span class="badge notrun">
+            notrun
+        </span>
+    </td>
+</tr>
+
+
+<tr>
+    <td>
+        create_procedure.sql
+        <div class="muted">
+            DDL
+        </div>
+    </td>
+
+    <td>
+        DB-1004
+    </td>
+
+    <td>
+        APP1
+    </td>
+
+    <td>
+        <span class="muted">—</span>
+    </td>
+
+    <td>
+        <span class="error">CREATE PROCEDURE: 0/1</span>
+    </td>
+
+    <td>
+        0/0
+    </td>
+
+    <td>
+        <span class="badge notrun">
+            notrun
+        </span>
+    </td>
+</tr>
+
+                </tbody>
+            </table>
+            
+
+        
+
+        
+
+    </div>
+</details>
+
+
+<details class="associate" open>
+    <summary class="associate-summary">
+        <div>
+            <div class="associate-name">
+                APP2
+            </div>
+
+            <div class="associate-meta">
+                Files:
+                2
+                &nbsp;·&nbsp;
+                Errors:
+                0
+                &nbsp;·&nbsp;
+                Mismatches:
+                2
+            </div>
+        </div>
+
+        <span class="badge notrun">
+            notrun
+        </span>
+    </summary>
+
+    <div class="associate-body">
+
+        <div class="section-title">
+            Files
+        </div>
+
+        
+            <table>
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>JIRA</th>
+                        <th>Schema</th>
+                        <th>DML</th>
+                        <th>DDL</th>
+                        <th>Blocks</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+<tr>
+    <td>
+        update_users.sql
+        <div class="muted">
+            DML
+        </div>
+    </td>
+
+    <td>
+        DB-2001
+    </td>
+
+    <td>
+        APP2
+    </td>
+
+    <td>
+        <span class="error">UPDATE: 0/1</span>
+    </td>
+
+    <td>
+        <span class="muted">—</span>
+    </td>
+
+    <td>
+        0/0
+    </td>
+
+    <td>
+        <span class="badge notrun">
+            notrun
+        </span>
+    </td>
+</tr>
+
+
+<tr>
+    <td>
+        create_index.sql
+        <div class="muted">
+            DDL
+        </div>
+    </td>
+
+    <td>
+        DB-2002
+    </td>
+
+    <td>
+        APP2
+    </td>
+
+    <td>
+        <span class="muted">—</span>
+    </td>
+
+    <td>
+        <span class="error">CREATE INDEX: 0/1</span>
+    </td>
+
+    <td>
+        0/0
+    </td>
+
+    <td>
+        <span class="badge notrun">
+            notrun
+        </span>
+    </td>
+</tr>
+
+                </tbody>
+            </table>
+            
+
+        
+
+        
+
+    </div>
+</details>
+
+    </div>
+
+    
+<div class="panel">
+    <div class="panel-header">
+        Raw Deployment Log
+    </div>
+
+    <div class="associate-body">
+
+        <p>
+            <a
+                download="db.log"
+                href="data:text/plain;base64,PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KQVBQMSBTY3JpcHQgc3RhcnRzIGhlcmUKPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KCkBAIERNTC9pbnNlcnRfdXNlcnMuc3FsCgpJTlNFUlQgSU5UTyBBUFAxLlVTRVJTIChJRCwgTkFNRSkKVkFMVUVTICgxLCAnSm9obicpOwoKMSByb3cgaW5zZXJ0ZWQuCgpTVUNDRVNTOiBpbnNlcnRfdXNlcnMuc3FsIGNvbXBsZXRlZAoKQEAgRE1ML2RlbGV0ZV91c2Vycy5zcWwKCkRFTEVURSBGUk9NIEFQUDEuVVNFUlMKV0hFUkUgSUQgPSAxOwoKMSByb3cgZGVsZXRlZC4KClNVQ0NFU1M6IGRlbGV0ZV91c2Vycy5zcWwgY29tcGxldGVkCgpAQCBEREwvY3JlYXRlX3VzZXJzLnNxbAoKQ1JFQVRFIFRBQkxFIEFQUDEuVVNFUlMgKAogICAgSUQgTlVNQkVSLAogICAgTkFNRSBWQVJDSEFSMigxMDApCik7Cgp0YWJsZSBjcmVhdGVkLgoKU1VDQ0VTUzogY3JlYXRlX3VzZXJzLnNxbCBjb21wbGV0ZWQKCkBAIERETC9jcmVhdGVfcHJvY2VkdXJlLnNxbAoKQ1JFQVRFIE9SIFJFUExBQ0UgUFJPQ0VEVVJFIEFQUDEuVEVTVF9QUk9DCkFTCkJFR0lOCiAgICBOVUxMOwpFTkQ7Ci8KClBML1NRTCBwcm9jZWR1cmUgc3VjY2Vzc2Z1bGx5IGNvbXBsZXRlZC4KClNVQ0NFU1M6IGNyZWF0ZV9wcm9jZWR1cmUuc3FsIGNvbXBsZXRlZAoKQEAgRERML2Ryb3Bfb2xkX3RhYmxlLnNxbAoKRFJPUCBUQUJMRSBBUFAxLk9MRF9VU0VSUzsKCk9SQS0wMDk0MjogdGFibGUgb3IgdmlldyBkb2VzIG5vdCBleGlzdAoKU1VDQ0VTUzogZHJvcF9vbGRfdGFibGUuc3FsIGNvbXBsZXRlZAoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KQVBQMSBTY3JpcHQgZW5kcyBoZXJlCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCgoKPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KQVBQMiBTY3JpcHQgc3RhcnRzIGhlcmUKPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KCkBAIERNTC91cGRhdGVfdXNlcnMuc3FsCgpVUERBVEUgQVBQMi5VU0VSUwpTRVQgTkFNRSA9ICdVcGRhdGVkJwpXSEVSRSBJRCA9IDEwOwoKMSByb3cgdXBkYXRlZC4KClNVQ0NFU1M6IHVwZGF0ZV91c2Vycy5zcWwgY29tcGxldGVkCgpAQCBEREwvY3JlYXRlX2luZGV4LnNxbAoKQ1JFQVRFIElOREVYIEFQUDIuSURYX1VTRVJTX05BTUUKT04gQVBQMi5VU0VSUyAoTkFNRSk7CgppbmRleCBjcmVhdGVkLgoKU1VDQ0VTUzogY3JlYXRlX2luZGV4LnNxbCBjb21wbGV0ZWQKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkFQUDIgU2NyaXB0IGVuZHMgaGVyZQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ=="
+            >
+                Download log
+            </a>
+        </p>
+
+        <details>
+            <summary>
+                Show embedded log
+            </summary>
+
+            <pre class="log">====================================================================
+APP1 Script starts here
+====================================================================
+
+@@ DML/insert_users.sql
+
+INSERT INTO APP1.USERS (ID, NAME)
+VALUES (1, &#x27;John&#x27;);
+
+1 row inserted.
+
+SUCCESS: insert_users.sql completed
+
+@@ DML/delete_users.sql
+
+DELETE FROM APP1.USERS
+WHERE ID = 1;
+
+1 row deleted.
+
+SUCCESS: delete_users.sql completed
+
+@@ DDL/create_users.sql
+
+CREATE TABLE APP1.USERS (
+    ID NUMBER,
+    NAME VARCHAR2(100)
+);
+
+table created.
+
+SUCCESS: create_users.sql completed
+
+@@ DDL/create_procedure.sql
+
+CREATE OR REPLACE PROCEDURE APP1.TEST_PROC
+AS
+BEGIN
+    NULL;
+END;
+/
+
+PL/SQL procedure successfully completed.
+
+SUCCESS: create_procedure.sql completed
+
+@@ DDL/drop_old_table.sql
+
+DROP TABLE APP1.OLD_USERS;
+
+ORA-00942: table or view does not exist
+
+SUCCESS: drop_old_table.sql completed
+
+--------------------------------------------------------------------
+APP1 Script ends here
+--------------------------------------------------------------------
+
+
+====================================================================
+APP2 Script starts here
+====================================================================
+
+@@ DML/update_users.sql
+
+UPDATE APP2.USERS
+SET NAME = &#x27;Updated&#x27;
+WHERE ID = 10;
+
+1 row updated.
+
+SUCCESS: update_users.sql completed
+
+@@ DDL/create_index.sql
+
+CREATE INDEX APP2.IDX_USERS_NAME
+ON APP2.USERS (NAME);
+
+index created.
+
+SUCCESS: create_index.sql completed
+
+--------------------------------------------------------------------
+APP2 Script ends here
+--------------------------------------------------------------------</pre>
+        </details>
+
+    </div>
+</div>
+
+
+</div>
+</body>
+</html>
