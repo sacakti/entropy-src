@@ -1714,6 +1714,336 @@ The plugin uses the `target_image` supplied by the deployment context.
 
 It does not independently calculate the image tag or image repository.
 
+### env,mounts, and mountvolumes add/update/delete
+Sure buddy. For the documentation, I’d add a single **complete `DeploymentUpdate` example** showing `env`, `mounts`, and `mountvolume` together. The current documentation describes the plugin as image-focused, so this example will make the new operation model much clearer. 
+
+## Complete example — env + mounts + mountvolume
+
+```yaml
+apiVersion: entropy/v1
+kind: DeploymentUpdate
+
+target:
+  kind: Deployment
+  name: app-1
+
+operations:
+
+  # Add an environment variable
+  - action: add
+    field: env
+    container: app
+    value:
+      name: APP_ENV
+      value: SIT
+
+  # Add an environment variable from a Secret
+  - action: add
+    field: env
+    container: app
+    value:
+      name: DATABASE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: database-secret
+          key: password
+
+  # Add an environment variable from a ConfigMap
+  - action: add
+    field: env
+    container: app
+    value:
+      name: DATABASE_HOST
+      valueFrom:
+        configMapKeyRef:
+          name: database-config
+          key: host
+
+  # Add a volume
+  - action: add
+    field: mountvolume
+    value:
+      name: app-config
+      configMap:
+        name: app-config
+
+  # Mount the volume into the container
+  - action: add
+    field: mounts
+    container: app
+    value:
+      name: app-config
+      mountPath: /etc/app
+
+  # Add another volume
+  - action: add
+    field: mountvolume
+    value:
+      name: app-secret
+      secret:
+        secretName: app-secret
+
+  # Mount the Secret volume
+  - action: add
+    field: mounts
+    container: app
+    value:
+      name: app-secret
+      mountPath: /etc/secrets
+      readOnly: true
+```
+
+### Resulting Deployment
+
+The relevant part of the Deployment would become:
+
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          image: quay.io/project1/app-1:1.1.10
+
+          env:
+            - name: APP_ENV
+              value: SIT
+
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-secret
+                  key: password
+
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: database-config
+                  key: host
+
+          volumeMounts:
+            - name: app-config
+              mountPath: /etc/app
+
+            - name: app-secret
+              mountPath: /etc/secrets
+              readOnly: true
+
+      volumes:
+        - name: app-config
+          configMap:
+            name: app-config
+
+        - name: app-secret
+          secret:
+            secretName: app-secret
+```
+
+## Individual operation examples
+
+### Environment variable — simple value
+
+```yaml
+- action: add
+  field: env
+  container: app
+  value:
+    name: LOG_LEVEL
+    value: DEBUG
+```
+
+### Environment variable — Secret
+
+```yaml
+- action: add
+  field: env
+  container: app
+  value:
+    name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: database-secret
+        key: password
+```
+
+### Environment variable — ConfigMap
+
+```yaml
+- action: add
+  field: env
+  container: app
+  value:
+    name: DB_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: database-config
+        key: host
+```
+
+### Environment variable — update
+
+```yaml
+- action: update
+  field: env
+  container: app
+  value:
+    name: LOG_LEVEL
+    value: INFO
+```
+
+`update` replaces the complete environment-variable object.
+
+### Environment variable — delete
+
+```yaml
+- action: delete
+  field: env
+  container: app
+  value:
+    name: LOG_LEVEL
+```
+
+---
+
+## Volume — ConfigMap
+
+```yaml
+- action: add
+  field: mountvolume
+  value:
+    name: application-config
+    configMap:
+      name: application-config
+```
+
+## Volume — Secret
+
+```yaml
+- action: add
+  field: mountvolume
+  value:
+    name: application-secret
+    secret:
+      secretName: application-secret
+```
+
+## Volume — PVC
+
+```yaml
+- action: add
+  field: mountvolume
+  value:
+    name: application-data
+    persistentVolumeClaim:
+      claimName: application-pvc
+```
+
+## Volume — update
+
+```yaml
+- action: update
+  field: mountvolume
+  value:
+    name: application-config
+    configMap:
+      name: application-config-v2
+```
+
+## Volume — delete
+
+```yaml
+- action: delete
+  field: mountvolume
+  value:
+    name: application-config
+```
+
+---
+
+## Volume mount — add
+
+```yaml
+- action: add
+  field: mounts
+  container: app
+  value:
+    name: application-config
+    mountPath: /etc/application
+```
+
+## Volume mount — read-only
+
+```yaml
+- action: add
+  field: mounts
+  container: app
+  value:
+    name: application-secret
+    mountPath: /etc/secrets
+    readOnly: true
+```
+
+## Volume mount — update
+
+```yaml
+- action: update
+  field: mounts
+  container: app
+  value:
+    name: application-config
+    mountPath: /etc/application/config
+    readOnly: true
+```
+
+## Volume mount — delete
+
+```yaml
+- action: delete
+  field: mounts
+  container: app
+  value:
+    name: application-config
+```
+
+### Important relationship
+
+For a volume-backed mount, the two operations are separate:
+
+```text
+mountvolume
+    ↓
+spec.template.spec.volumes
+    ↓
+defines the volume
+
+mounts
+    ↓
+spec.template.spec.containers[].volumeMounts
+    ↓
+mounts that volume into a container
+```
+
+So this:
+
+```yaml
+- action: add
+  field: mountvolume
+  value:
+    name: app-config
+    configMap:
+      name: app-config
+```
+
+should normally be paired with:
+
+```yaml
+- action: add
+  field: mounts
+  container: app
+  value:
+    name: app-config
+    mountPath: /etc/app
+```
 ---
 
 ## Changelog
@@ -1735,5 +2065,9 @@ It does not independently calculate the image tag or image repository.
 * Added filesystem-based Deployment modification.
 * Kept OpenShift cluster operations outside the plugin.
 
+### 1.0.7
+* Added mounts add/update/delete.
+* Added mountVolumes add/update/delete.
+* Added env add/update/delete.
 ```
 ```

@@ -5,7 +5,7 @@
 
     "variables": {
         "tag": "H004",
-        "release": "/Users/aravinthselvaraj/Desktop/releases/H004.zip",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/DP-ENV-1.zip",
         "environment": "UAT",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
         "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
@@ -182,7 +182,7 @@
         {
             "name": "DeploymentYAMLUpdate",
             "plugin": "oc.deployment",
-            "enabled": false,
+            "enabled": true,
             "on_failure": "abort",
             "tags": [
                 "openshift",

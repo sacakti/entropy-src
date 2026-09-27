@@ -18,8 +18,27 @@ class DeploymentUpdateValidator:
     API_VERSION = "entropy/v1"
     KIND = "DeploymentUpdate"
     TARGET_KIND = "Deployment"
+
     ACTIONS = {"add", "update", "delete"}
-    FIELDS = {"image"}
+
+    FIELDS = {
+        "image",
+        "mounts",
+        "mountvolume",
+        "env",
+    }
+
+    CONTAINER_FIELDS = {
+        "image",
+        "mounts",
+        "env",
+    }
+
+    OBJECT_FIELDS = {
+        "mounts",
+        "mountvolume",
+        "env",
+    }
 
     @classmethod
     def parse(cls, value: Any) -> DeploymentUpdate:
@@ -36,17 +55,21 @@ class DeploymentUpdateValidator:
 
         if value.get("kind") != cls.KIND:
             raise DeploymentUpdateDefinitionError(
-                f"Invalid update definition kind '{value.get('kind')}'. " f"Expected '{cls.KIND}'.",
+                f"Invalid update definition kind '{value.get('kind')}'. "
+                f"Expected '{cls.KIND}'.",
             )
 
         target = value.get("target")
         if not isinstance(target, dict):
-            raise DeploymentUpdateDefinitionError("'target' must be an object.")
+            raise DeploymentUpdateDefinitionError(
+                "'target' must be an object.",
+            )
 
         target_kind = target.get("kind")
         if target_kind != cls.TARGET_KIND:
             raise DeploymentUpdateDefinitionError(
-                f"Unsupported target kind '{target_kind}'. " f"Expected '{cls.TARGET_KIND}'.",
+                f"Unsupported target kind '{target_kind}'. "
+                f"Expected '{cls.TARGET_KIND}'.",
             )
 
         name = target.get("name")
@@ -61,7 +84,10 @@ class DeploymentUpdateValidator:
                 "'operations' must be a non-empty array.",
             )
 
-        parsed = [cls._operation(item) for item in operations]
+        parsed = [
+            cls._operation(item)
+            for item in operations
+        ]
 
         return DeploymentUpdate(
             api_version=cls.API_VERSION,
@@ -74,7 +100,10 @@ class DeploymentUpdateValidator:
         )
 
     @classmethod
-    def _operation(cls, value: Any) -> DeploymentUpdateOperation:
+    def _operation(
+        cls,
+        value: Any,
+    ) -> DeploymentUpdateOperation:
         if not isinstance(value, dict):
             raise DeploymentUpdateDefinitionError(
                 "Each operation must be an object.",
@@ -85,44 +114,105 @@ class DeploymentUpdateValidator:
             raise DeploymentUpdateDefinitionError(
                 "Operation 'action' must be a string.",
             )
+
         action = action.strip().lower()
+
         if action not in cls.ACTIONS:
             raise DeploymentUpdateDefinitionError(
                 f"Unsupported operation '{action}'.",
             )
 
         field = value.get("field")
+
         if not isinstance(field, str) or not field.strip():
             raise DeploymentUpdateDefinitionError(
                 "Operation 'field' must be a non-empty string.",
             )
-        field = field.strip()
+
+        field = field.strip().lower()
+
         if field not in cls.FIELDS:
             raise DeploymentUpdateDefinitionError(
                 f"Unsupported Deployment field '{field}'. "
-                f"Supported values: {', '.join(sorted(cls.FIELDS))}.",
+                f"Supported values: "
+                f"{', '.join(sorted(cls.FIELDS))}.",
             )
 
-        container = value.get("container")
-        if not isinstance(container, str) or not container.strip():
-            raise DeploymentUpdateDefinitionError(
-                f"Operation for field '{field}' requires a non-empty 'container'.",
-            )
-        container = container.strip()
+        container = cls._resolve_container(
+            field=field,
+            value=value.get("container"),
+        )
 
-        if action in {"add", "update"}:
-            if not isinstance(value.get("value"), str) or not value["value"].strip():
-                raise DeploymentUpdateDefinitionError(
-                    f"Operation for field '{field}' requires a non-empty string 'value'.",
-                )
-        elif "value" in value:
-            raise DeploymentUpdateDefinitionError(
-                f"Delete operation for field '{field}' cannot specify 'value'.",
-            )
+        operation_value = cls._resolve_value(
+            action=action,
+            field=field,
+            value=value.get("value"),
+        )
 
         return DeploymentUpdateOperation(
             action=action,
             field=field,
             container=container,
-            value=value.get("value"),
+            value=operation_value,
+        )
+
+    @classmethod
+    def _resolve_container(
+        cls,
+        *,
+        field: str,
+        value: Any,
+    ) -> str | None:
+        if field not in cls.CONTAINER_FIELDS:
+            if value is not None:
+                raise DeploymentUpdateDefinitionError(
+                    f"Operation for field '{field}' does not "
+                    f"support 'container'.",
+                )
+
+            return None
+
+        if not isinstance(value, str) or not value.strip():
+            raise DeploymentUpdateDefinitionError(
+                f"Operation for field '{field}' requires "
+                f"a non-empty 'container'.",
+            )
+
+        return value.strip()
+
+    @classmethod
+    def _resolve_value(
+        cls,
+        *,
+        action: str,
+        field: str,
+        value: Any,
+    ) -> Any:
+        if value is None:
+            if action in {"add", "update", "delete"}:
+                raise DeploymentUpdateDefinitionError(
+                    f"Operation for field '{field}' requires "
+                    f"'value'.",
+                )
+
+        if field == "image":
+            if not isinstance(value, str) or not value.strip():
+                raise DeploymentUpdateDefinitionError(
+                    f"Operation for field '{field}' requires "
+                    f"a non-empty string 'value'.",
+                )
+
+            return value.strip()
+
+        if field in cls.OBJECT_FIELDS:
+            if not isinstance(value, dict) or not value:
+                raise DeploymentUpdateDefinitionError(
+                    f"Operation for field '{field}' requires "
+                    f"a non-empty object 'value'.",
+                )
+
+            return value
+
+        raise DeploymentUpdateDefinitionError(
+            f"Unsupported Deployment field '{field}'.",
         )

@@ -31,11 +31,17 @@ class DeploymentUpdateEngine:
                 raise DeploymentUpdateTargetError(
                     f"Unsupported Deployment field '{operation.field}'.",
                 )
+
+            handler_kwargs: dict[str, Any] = {}
+
+            if operation.field == "image":
+                handler_kwargs["target_image"] = target_image
+
             changes.append(
                 handler.apply(
                     document,
                     operation,
-                    target_image=target_image,
+                    **handler_kwargs,
                 ),
             )
         return changes

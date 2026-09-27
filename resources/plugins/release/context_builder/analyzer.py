@@ -444,8 +444,8 @@ class ReleaseAnalyzer:
             "operations": self._empty_operations(),
         }
 
-        if not images:
-            return result
+        # if not images:
+        #     return result
 
         deployments = existing_resources.get(
             "deployments",
@@ -917,27 +917,38 @@ class ReleaseAnalyzer:
                     "kind",
                 )
 
-                if isinstance(kind, str) and kind.casefold() == "configmapsecretupdate":
+                if isinstance(kind, str):
+                    normalized_kind = kind.casefold()
 
-                    self._analyse_cmsecret_document(
-                        document=document,
-                        source=source,
-                        repository=repository,
-                        resources=resources,
-                        operations=operations,
-                        resource_index=resource_index,
-                    )
+                    if normalized_kind == "configmapsecretupdate":
+                        self._analyse_cmsecret_document(
+                            document=document,
+                            source=source,
+                            repository=repository,
+                            resources=resources,
+                            operations=operations,
+                            resource_index=resource_index,
+                        )
 
-                else:
+                    elif normalized_kind == "deploymentupdate":
+                        self._analyse_deployment_update_document(
+                            document=document,
+                            source=source,
+                            repository=repository,
+                            resources=resources,
+                            operations=operations,
+                            resource_index=resource_index,
+                        )
 
-                    self._analyse_openshift_document(
-                        document=document,
-                        source=source,
-                        repository=repository,
-                        resources=resources,
-                        operations=operations,
-                        resource_index=resource_index,
-                    )
+                    else:
+                        self._analyse_openshift_document(
+                            document=document,
+                            source=source,
+                            repository=repository,
+                            resources=resources,
+                            operations=operations,
+                            resource_index=resource_index,
+                        )
 
         return {
             "required": any(
@@ -946,6 +957,105 @@ class ReleaseAnalyzer:
             "resources": resources,
             "operations": operations,
         }
+
+    # ------------------------------------------------------------------
+    # Deployment
+    # ------------------------------------------------------------------
+
+    def _analyse_deployment_update_document(
+        self,
+        *,
+        document: dict[str, Any],
+        source: Path,
+        repository: Path,
+        resources: dict[str, list],
+        operations: dict[str, list[str]],
+        resource_index: dict[str, Any],
+    ) -> None:
+        """Analyse an explicit DeploymentUpdate definition."""
+
+        target = document.get("target")
+
+        if not isinstance(target, dict):
+            self._log.warning(
+                f"DeploymentUpdate '{source}' does not contain a valid target.",
+            )
+            return
+
+        kind = target.get("kind")
+        name = target.get("name")
+
+        if not isinstance(kind, str) or not isinstance(name, str):
+            self._log.warning(
+                f"DeploymentUpdate '{source}' has an invalid target.",
+            )
+            return
+
+        if kind.casefold() not in {
+            "deployment",
+            "deploymentconfig",
+        }:
+            self._log.warning(
+                f"DeploymentUpdate '{source}' targets unsupported "
+                f"kind '{kind}'.",
+            )
+            return
+
+        indexed_resource = self._resource_index.find_resource(
+            resource_index,
+            kind=kind,
+            name=name,
+        )
+
+        if indexed_resource is None:
+            raise ContextBuilderPluginException(
+                f"DeploymentUpdate target '{kind}/{name}' "
+                f"was not found in the resource index.",
+            )
+
+        file = indexed_resource.get("file")
+
+        if not isinstance(file, str) or not file.strip():
+            raise ContextBuilderPluginException(
+                f"DeploymentUpdate target '{kind}/{name}' "
+                f"does not have a valid repository file.",
+            )
+
+        # repository_path = repository / file
+
+        source_operations = document.get(
+            "operations",
+            [],
+        )
+
+        if not isinstance(source_operations, list):
+            raise ContextBuilderPluginException(
+                f"DeploymentUpdate '{source}' has invalid "
+                f"'operations'.",
+            )
+
+        resources["deployments"].append(
+            {
+                "name": name,
+                "kind": kind,
+                "action": "UPDATE",
+                "source": str(source),
+                "repository": str(repository),
+                "file": file,
+                "operations": source_operations,
+                "deployment_update": True,
+            },
+        )
+
+        self._add_operation(
+            operations,
+            "apply",
+            str(repository),
+        )
+
+        self._message.info(
+            f"Deployment update required for '{kind}/{name}'.",
+        )
 
     # ------------------------------------------------------------------
     # ConfigMap / Secret

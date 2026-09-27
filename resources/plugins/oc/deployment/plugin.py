@@ -213,7 +213,6 @@ class DeploymentPlugin(BasePlugin):
                 resource_changes = engine.apply(
                     target.document,
                     definition,
-                    target_image=resource["target_image"],
                 )
 
                 self._write_target_file(target.target_file)
@@ -226,8 +225,7 @@ class DeploymentPlugin(BasePlugin):
                 succeeded += 1
 
                 self.message.info(
-                    f"Updated Deployment/{resource['name']} image to "
-                    f"{resource['target_image']}.",
+                    f"Updated Deployment/{resource['name']}.",
                 )
 
             except Exception as exc:
@@ -293,12 +291,27 @@ class DeploymentPlugin(BasePlugin):
             return
 
         if action == "UPDATE":
-            for key in (
-                "file",
-                "repository",
-                "container",
-                "target_image",
-            ):
+            for key in ("file", "repository"):
+                value = resource.get(key)
+
+                if not isinstance(value, str) or not value.strip():
+                    raise DeploymentPluginException(
+                        f"Deployment UPDATE resource requires '{key}'.",
+                    )
+
+            operations = resource.get("operations")
+
+            if operations is not None:
+                if not isinstance(operations, list) or not operations:
+                    raise DeploymentPluginException(
+                        "Deployment UPDATE resource 'operations' "
+                        "must be a non-empty array.",
+                    )
+
+                return
+
+            # Backward-compatible image context.
+            for key in ("container", "target_image"):
                 value = resource.get(key)
 
                 if not isinstance(value, str) or not value.strip():
@@ -307,10 +320,6 @@ class DeploymentPlugin(BasePlugin):
                     )
 
             return
-
-        raise DeploymentPluginException(
-            f"Unsupported Deployment action '{resource['action']}'.",
-        )
 
     def _required_path(self, name: str) -> Path:
         value = self.arguments.string(name)

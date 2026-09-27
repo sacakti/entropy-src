@@ -1,7 +1,7 @@
 {
     "name": "context_builder",
     "namespace": "release",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
