@@ -1,0 +1,19 @@
+{
+    "name": "sftp",
+    "namespace": "custom",
+    "version": "1.0.0",
+    "description": "",
+    "author": "",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [
+        {
+            "name": "paramiko",
+            "version": "3.0"
+        }
+    ],
+
+    "tags": [],
+
+    "license": ""
+}

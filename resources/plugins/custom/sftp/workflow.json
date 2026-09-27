@@ -1,0 +1,56 @@
+{
+    "name": "SFTP Put Test",
+    "version": "1.0.0",
+    "variables": {
+        "sftp_creds": "${entv:sftp/creds}"
+    },
+    "steps": [
+        {
+            "name": "PrintDeployment",
+            "plugin": "builtin.shell",
+            "suppress_result": false,
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "test"
+            ],
+            "arguments": {
+                "command": "echo SFTP creds: $1",
+                "args": [
+                    "${sftp_creds}"
+                ]
+            }
+        },
+        {
+            "name": "Upload Release",
+            "plugin": "custom.sftp",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "put",
+                "source": "/Users/aravinthselvaraj/Public/test.txt",
+                "destination": "/02-IntellectRelease/test",
+                "archive": {
+                    "enabled": false
+                },
+                "sftp": "${sftp_creds}",
+                "settings": {
+                    "connection": {
+                        "timeout": 30,
+                        "banner_timeout": 30,
+                        "auth_timeout": 30
+                    },
+                    "algorithms": {
+                        "kex": "diffie-hellman-group14-sha1",
+                        "host_key": "ssh-rsa",
+                        "cipher": "aes128-ctr",
+                        "mac": null
+                    },
+                    "host_key": {
+                        "policy": "auto_add"
+                    }
+                }
+            }
+        }
+    ]
+}
