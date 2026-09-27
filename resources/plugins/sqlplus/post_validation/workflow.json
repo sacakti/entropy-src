@@ -16,7 +16,7 @@
             ],
             "arguments": {
                 "path": "/Users/aravinthselvaraj/Desktop/releases/H004/DBScripts",
-                "json": "/Users/aravinthselvaraj/Documents/entropy/resources/plugins/sqlplus/post_validation/sample_pre_validation.json"
+                "archive": true
             }
         }
     ]

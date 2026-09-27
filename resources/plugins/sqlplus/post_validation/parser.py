@@ -21,12 +21,12 @@ class PostValidationLogParser:
     """
 
     _START_MARKER = re.compile(
-        r"-{2,}\s*(.*?)\s+Script starts here",
+        r"[=-]{2,}\s*(.*?)\s+Script starts here",
         re.IGNORECASE,
     )
 
     _END_MARKER = re.compile(
-        r"-{2,}\s*(.*?)\s+Script ends here",
+        r"[=-]{2,}\s*(.*?)\s+Script ends here",
         re.IGNORECASE,
     )
 
@@ -183,9 +183,9 @@ class PostValidationLogParser:
         """
         Parse a deployment log.
 
-        The returned structure is intentionally close to the source
-        tool's intermediate representation. Reconciliation converts
-        it into the plugin's immutable models.
+        The returned structure contains both the original section-based
+        representation used by reconciliation and aggregated values used
+        by log-only analysis.
         """
 
         try:
@@ -198,14 +198,24 @@ class PostValidationLogParser:
                 f"Unable to read deployment log: {path}: {exc}",
             ) from exc
 
-        sections = self.slice_sections(
-            lines,
-        )
+        sections = self.slice_sections(lines)
 
         sections_map: dict[str, dict[str, Any]] = {}
 
-        for name, start, end in sections:
+        aggregate: dict[str, Any] = {
+            "actual_dml": Counter(),
+            "actual_ddl": Counter(),
+            "blocks_ok": 0,
+            "blocks_clean": 0,
+            "success": 0,
+            "errors": [],
+            "notes": [],
+            "per_file": defaultdict(
+                self._new_file_bucket,
+            ),
+        }
 
+        for name, start, end in sections:
             parsed = self._analyse_section(
                 lines,
                 start,
@@ -222,9 +232,22 @@ class PostValidationLogParser:
             else:
                 sections_map[key] = parsed
 
+            self._merge_sections(
+                aggregate,
+                parsed,
+            )
+
         return {
             "sections": sections,
             "sections_map": sections_map,
+            "actual_dml": aggregate["actual_dml"],
+            "actual_ddl": aggregate["actual_ddl"],
+            "blocks_ok": aggregate["blocks_ok"],
+            "blocks_clean": aggregate["blocks_clean"],
+            "success": aggregate["success"],
+            "errors": aggregate["errors"],
+            "notes": aggregate["notes"],
+            "per_file": dict(aggregate["per_file"]),
         }
 
     # ------------------------------------------------------------------
@@ -379,11 +402,16 @@ class PostValidationLogParser:
 
             if dml_match:
 
-                verb = self._DML_VERBS[
-                    dml_match.group(
-                        2,
-                    ).casefold(),
-                ]
+                verb_name = dml_match.group(
+                    2,
+                ).strip().casefold()
+
+                verb = self._DML_VERBS.get(
+                    verb_name,
+                )
+
+                if verb is None:
+                    continue
 
                 actual_dml[verb] += 1
                 per_file[current_file]["dml"][verb] += 1
@@ -408,11 +436,16 @@ class PostValidationLogParser:
                     else object_phrase.split()[0]
                 )
 
-                verb = self._DDL_VERBS[
-                    ddl_match.group(
-                        2,
-                    ).casefold(),
-                ]
+                verb_name = ddl_match.group(
+                    2,
+                ).strip().casefold()
+
+                verb = self._DDL_VERBS.get(
+                    verb_name,
+                )
+
+                if verb is None:
+                    continue
 
                 key = f"{verb} {object_type}"
 

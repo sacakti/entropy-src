@@ -1,8 +1,8 @@
 {
-  "release": "R2026.09.26",
+  "release": "R2026.09.27",
   "associates": {
-    "app1": {
-      "display": "APP1",
+    "Aravinthan": {
+      "display": "Aravinthan",
       "blocks": 1,
       "files": [
         {
@@ -57,8 +57,8 @@
         }
       ]
     },
-    "app2": {
-      "display": "APP2",
+    "Pravin": {
+      "display": "Pravin",
       "blocks": 0,
       "files": [
         {

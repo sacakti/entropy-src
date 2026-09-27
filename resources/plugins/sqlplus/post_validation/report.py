@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import html
 from pathlib import Path
+from typing import Any
 
 from .model import (
     OperationCount,
@@ -39,6 +40,40 @@ class PostValidationReportBuilder:
 
         document = self._render(
             result=result,
+            embed_log=embed_log,
+        )
+
+        output.write_text(
+            document,
+            encoding="utf-8",
+        )
+
+        return output
+
+    def build_log_analysis(
+        self,
+        *,
+        log_path: Path,
+        analysis: dict[str, Any],
+        output: Path,
+        release: str,
+        embed_log: bool = True,
+    ) -> Path:
+        """
+        Build an HTML report from deployment-log analysis only.
+
+        No expected operation counts are inferred in this mode.
+        """
+
+        output.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        document = self._render_log_analysis(
+            log_path=log_path,
+            analysis=analysis,
+            release=release,
             embed_log=embed_log,
         )
 
@@ -370,6 +405,360 @@ class PostValidationReportBuilder:
         </div>
 
         {associates}
+    </div>
+
+    {embedded_log}
+
+</div>
+</body>
+</html>
+"""
+
+    # ------------------------------------------------------------------
+    # Log-only analysis
+    # ------------------------------------------------------------------
+
+    def _render_log_analysis(
+        self,
+        *,
+        log_path: Path,
+        analysis: dict[str, Any],
+        release: str,
+        embed_log: bool,
+    ) -> str:
+        per_file = analysis.get(
+            "per_file",
+            {},
+        )
+
+        errors = analysis.get(
+            "errors",
+            [],
+        )
+
+        notes = analysis.get(
+            "notes",
+            [],
+        )
+
+        files_scanned = len(per_file)
+
+        status = (
+            "FAIL"
+            if errors
+            else "ANALYZED"
+        )
+
+        file_rows = "\n".join(
+            self._render_log_analysis_file(
+                file_name=file_name,
+                data=data,
+            )
+            for file_name, data in sorted(
+                per_file.items(),
+                key=lambda item: str(item[0]).casefold(),
+            )
+        )
+
+        embedded_log = (
+            self._render_log(
+                log_path,
+            )
+            if embed_log
+            else ""
+        )
+
+        error_section = self._render_log_analysis_messages(
+            title="Errors",
+            messages=errors,
+            css_class="error",
+        )
+
+        note_section = self._render_log_analysis_messages(
+            title="Advisory Notes",
+            messages=notes,
+            css_class="warning",
+        )
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>
+    {self._escape(release)}
+    - Post Validation Log Analysis
+</title>
+
+<style>
+    * {{
+        box-sizing: border-box;
+    }}
+
+    body {{
+        margin: 0;
+        padding: 0;
+        background: #f4f6f8;
+        color: #202124;
+        font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            Roboto,
+            Arial,
+            sans-serif;
+    }}
+
+    .container {{
+        width: min(1500px, 96%);
+        margin: 0 auto;
+        padding: 24px 0 48px;
+    }}
+
+    .header {{
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 24px;
+        margin-bottom: 24px;
+    }}
+
+    .title {{
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+    }}
+
+    .subtitle {{
+        margin-top: 6px;
+        color: #667085;
+        font-size: 14px;
+    }}
+
+    .status {{
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-weight: 700;
+        font-size: 13px;
+    }}
+
+    .status.analyzed {{
+        background: #e0f2fe;
+        color: #075985;
+    }}
+
+    .status.fail {{
+        background: #fee2e2;
+        color: #991b1b;
+    }}
+
+    .cards {{
+        display: grid;
+        grid-template-columns:
+            repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }}
+
+    .card {{
+        background: white;
+        border: 1px solid #e4e7ec;
+        border-radius: 10px;
+        padding: 16px;
+    }}
+
+    .card-label {{
+        color: #667085;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }}
+
+    .card-value {{
+        margin-top: 6px;
+        font-size: 26px;
+        font-weight: 700;
+    }}
+
+    .panel {{
+        background: white;
+        border: 1px solid #e4e7ec;
+        border-radius: 10px;
+        margin-bottom: 16px;
+        overflow: hidden;
+    }}
+
+    .panel-header {{
+        padding: 16px 18px;
+        border-bottom: 1px solid #e4e7ec;
+        font-size: 16px;
+        font-weight: 700;
+    }}
+
+    .panel-body {{
+        padding: 18px;
+    }}
+
+    table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }}
+
+    th {{
+        background: #f8fafc;
+        color: #475467;
+        text-align: left;
+        font-weight: 600;
+    }}
+
+    th,
+    td {{
+        border-bottom: 1px solid #eaecf0;
+        padding: 9px 8px;
+        vertical-align: top;
+    }}
+
+    tr:last-child td {{
+        border-bottom: 0;
+    }}
+
+    .muted {{
+        color: #667085;
+    }}
+
+    .error {{
+        color: #991b1b;
+    }}
+
+    .warning {{
+        color: #92400e;
+    }}
+
+    .ok {{
+        color: #166534;
+    }}
+
+    .section-title {{
+        margin: 18px 0 8px;
+        font-size: 14px;
+        font-weight: 700;
+    }}
+
+    .empty {{
+        padding: 12px 0;
+        color: #667085;
+        font-size: 13px;
+    }}
+
+    .log {{
+        background: #101828;
+        color: #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        overflow: auto;
+        max-height: 650px;
+        white-space: pre;
+        font: 12px/1.5
+            ui-monospace,
+            SFMono-Regular,
+            Menlo,
+            Monaco,
+            Consolas,
+            monospace;
+    }}
+
+    @media (max-width: 800px) {{
+        .header {{
+            flex-direction: column;
+        }}
+
+        table {{
+            display: block;
+            overflow-x: auto;
+        }}
+    }}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+    <div class="header">
+        <div>
+            <h1 class="title">
+                Post Validation Log Analysis
+            </h1>
+
+            <div class="subtitle">
+                Application:
+                <strong>{self._escape(release)}</strong>
+                <br>
+                Log:
+                {self._escape(log_path.name)}
+                <br>
+                Mode:
+                <strong>Log-only analysis</strong>
+            </div>
+        </div>
+
+        <div class="status {status.lower()}">
+            {status}
+        </div>
+    </div>
+
+    <div class="cards">
+        {self._card(
+            "Files Analyzed",
+            files_scanned,
+        )}
+
+        {self._card(
+            "Errors",
+            len(errors),
+        )}
+
+        {self._card(
+            "Advisory Notes",
+            len(notes),
+        )}
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            Script Analysis
+        </div>
+
+        <div class="panel-body">
+
+            {
+                f'''
+                <table>
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>DML</th>
+                            <th>DDL</th>
+                            <th>Blocks</th>
+                            <th>Success</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {file_rows}
+                    </tbody>
+                </table>
+                '''
+                if file_rows
+                else '<div class="empty">No script activity found in the log.</div>'
+            }
+
+            {error_section}
+
+            {note_section}
+
+        </div>
     </div>
 
     {embedded_log}
@@ -774,3 +1163,147 @@ class PostValidationReportBuilder:
             str(value),
             quote=True,
         )
+
+    def _render_log_analysis_file(
+        self,
+        *,
+        file_name: str,
+        data: dict[str, Any],
+    ) -> str:
+        dml = self._format_log_counts(
+            data.get("dml"),
+        )
+
+        ddl = self._format_log_counts(
+            data.get("ddl"),
+        )
+
+        blocks_completed = data.get(
+            "blocks_ok",
+            0,
+        )
+
+        blocks_clean = data.get(
+            "blocks_clean",
+            0,
+        )
+
+        success = data.get(
+            "success",
+            0,
+        )
+
+        blocks = str(
+            blocks_completed,
+        )
+
+        if blocks_completed:
+            blocks += (
+                f" "
+                f"(clean: {blocks_clean})"
+            )
+
+        return f"""
+<tr>
+    <td>
+        {self._escape(file_name)}
+    </td>
+
+    <td>
+        {dml}
+    </td>
+
+    <td>
+        {ddl}
+    </td>
+
+    <td>
+        {self._escape(blocks)}
+    </td>
+
+    <td>
+        {
+            '<span class="ok">Yes</span>'
+            if success
+            else '<span class="muted">—</span>'
+        }
+    </td>
+</tr>
+"""
+
+    @staticmethod
+    def _format_log_counts(
+        counts: Any,
+    ) -> str:
+        if not counts:
+            return '<span class="muted">—</span>'
+
+        if hasattr(
+            counts,
+            "items",
+        ):
+            values = counts.items()
+        else:
+            values = counts
+
+        rendered: list[str] = []
+
+        for operation, count in values:
+            rendered.append(
+                f"{html.escape(str(operation))}: "
+                f"{html.escape(str(count))}"
+            )
+
+        return "<br>".join(rendered)
+
+    def _render_log_analysis_messages(
+        self,
+        *,
+        title: str,
+        messages: Any,
+        css_class: str,
+    ) -> str:
+        if not messages:
+            return ""
+
+        rows: list[str] = []
+
+        for message in messages:
+            if hasattr(
+                message,
+                "file",
+            ):
+                file_name = message.file
+                line = message.line
+                text = message.message
+
+                rows.append(
+                    f"""
+<li class="{css_class}">
+    {self._escape(file_name)}
+    :
+    line {line}
+    —
+    {self._escape(text)}
+</li>
+"""
+                )
+
+            else:
+                rows.append(
+                    f"""
+<li class="{css_class}">
+    {self._escape(message)}
+</li>
+"""
+                )
+
+        return f"""
+<div class="section-title">
+    {self._escape(title)}
+</div>
+
+<ul>
+    {"".join(rows)}
+</ul>
+"""

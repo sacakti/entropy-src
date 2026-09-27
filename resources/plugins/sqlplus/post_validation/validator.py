@@ -5,6 +5,7 @@ Post-deployment SQLPlus validation orchestration.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from .model import ValidationResult
 from .parser import PostValidationLogParser
@@ -39,6 +40,10 @@ class PostValidationValidator:
             or PostValidationReportBuilder()
         )
 
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+
     def validate(
         self,
         *,
@@ -46,7 +51,8 @@ class PostValidationValidator:
         log_path: Path,
     ) -> ValidationResult:
         """
-        Parse and reconcile a deployment log.
+        Parse and reconcile a deployment log against pre-validation
+        expectations.
         """
 
         self._validate_input(
@@ -69,6 +75,37 @@ class PostValidationValidator:
             parsed_log=parsed_log,
         )
 
+    # ------------------------------------------------------------------
+    # Log-only analysis
+    # ------------------------------------------------------------------
+
+    def analyze(
+        self,
+        *,
+        log_path: Path,
+    ) -> dict[str, Any]:
+        """
+        Parse a deployment log without pre-validation expectations.
+
+        This mode intentionally performs no expected-versus-actual
+        reconciliation. The returned structure is the parser's
+        application/file analysis and is consumed by the log-only
+        report builder.
+        """
+
+        self._validate_input(
+            log_path,
+            "deployment log",
+        )
+
+        return self._parser.parse(
+            log_path,
+        )
+
+    # ------------------------------------------------------------------
+    # Validation report
+    # ------------------------------------------------------------------
+
     def build_dashboard(
         self,
         *,
@@ -86,6 +123,10 @@ class PostValidationValidator:
             embed_log=embed_log,
         )
 
+    # ------------------------------------------------------------------
+    # Input validation
+    # ------------------------------------------------------------------
+
     @staticmethod
     def _validate_input(
         path: Path,
@@ -102,3 +143,24 @@ class PostValidationValidator:
                 f"{description.capitalize()} "
                 f"is not a file: {path}",
             )
+
+    def build_log_analysis(
+        self,
+        *,
+        log_path: Path,
+        analysis: dict[str, Any],
+        output: Path,
+        release: str,
+        embed_log: bool = True,
+    ) -> Path:
+        """
+        Build an HTML report for log-only analysis.
+        """
+
+        return self._report_builder.build_log_analysis(
+            log_path=log_path,
+            analysis=analysis,
+            output=output,
+            release=release,
+            embed_log=embed_log,
+        )
