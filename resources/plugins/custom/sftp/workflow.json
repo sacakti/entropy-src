@@ -2,7 +2,8 @@
     "name": "SFTP Put Test",
     "version": "1.0.0",
     "variables": {
-        "sftp_creds": "${entv:sftp/creds}"
+        "sftp_creds": "${entv:sftp/creds}",
+        "name" : "aravinthan"
     },
     "steps": [
         {
@@ -31,7 +32,8 @@
                 "source": "/Users/aravinthselvaraj/Public/test.txt",
                 "destination": "/02-IntellectRelease/test",
                 "archive": {
-                    "enabled": false
+                    "enabled": true,
+                    "filename_policy": "TEST_${name}"
                 },
                 "sftp": "${sftp_creds}",
                 "settings": {

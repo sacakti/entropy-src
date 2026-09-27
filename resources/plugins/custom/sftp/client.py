@@ -58,6 +58,8 @@ class SftpClient:
             "port": self._credentials.port,
             "username": self._credentials.user,
             "transport_factory": self._transport_factory,
+            "look_for_keys": False,
+            "allow_agent": False,
         }
 
         if self._credentials.password is not None:
