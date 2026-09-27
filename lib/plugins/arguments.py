@@ -30,6 +30,16 @@ class PluginArguments:
     # ------------------------------------------------------------------
     # Generic
     # ------------------------------------------------------------------
+    def as_dict(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Return all plugin arguments.
+        """
+
+        return dict(
+            self._arguments,
+        )
 
     def get(
         self,

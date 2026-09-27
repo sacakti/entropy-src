@@ -5,14 +5,16 @@ Entropy bootstrap.
 import sys
 from pathlib import Path
 
-PACKAGE_DIR = Path.home() / ".entropy" / "site-packages"
+PACKAGE_DIRS = (
+    Path.home() / ".entropy" / "site-packages",
+    Path.home() / ".entropy" / "extensions" / "site-packages",
+)
 
 
-def bootstrap():
+def bootstrap() -> None:
+    for package_dir in PACKAGE_DIRS:
 
-    if PACKAGE_DIR.exists():
-
-        path = str(PACKAGE_DIR)
+        path = str(package_dir)
 
         if path not in sys.path:
 
