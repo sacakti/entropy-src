@@ -35,7 +35,7 @@
                     "override": false,
                     "infile_replace": false,
                     "create_if_not_exists": true,
-                    "name_placeholder": "%execution_path/%release_%schema_%date.log",
+                    "name_placeholder": "%execution_path/%release_%application_%schema_%date.log",
                     "wrappers_before": [
                         "SET ECHO ON",
                         "SET FEEDBACK ON",

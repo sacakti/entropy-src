@@ -19,6 +19,7 @@ class SqlPlusExecution:
     port: int
     sid: str
     schema: str
+    application: str
     username: str
     password: str
     script: Path

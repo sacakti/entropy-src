@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from datetime import datetime
 
 from ..exceptions import GenericPluginError
 from ..model import SpoolSettings
@@ -136,6 +137,7 @@ class SpoolSettingsResolver:
         *,
         execution_path: Path,
         release: str,
+        application: str,
         schema: str,
     ) -> Path:
 
@@ -144,10 +146,9 @@ class SpoolSettingsResolver:
         replacements = {
             "%execution_path": str(execution_path),
             "%release": release,
+            "%application": application,
             "%schema": schema,
         }
-
-        from datetime import datetime
 
         replacements["%date"] = datetime.now().strftime(
             "%Y-%m-%d",

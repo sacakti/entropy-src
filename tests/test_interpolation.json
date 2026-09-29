@@ -5,7 +5,7 @@
 
     "variables": {
         "tag": "H004",
-        "release": "/Users/aravinthselvaraj/Desktop/releases/H008.zip",
+        "release": "/Users/aravinthselvaraj/Desktop/releases/H008_DB.zip",
         "environment": "UAT",
         "docker_repository": "/Users/aravinthselvaraj/Desktop/repo",
         "yaml_repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
@@ -236,18 +236,36 @@
         {
             "name": "SQLPlus Plan",
             "plugin": "sqlplus.generic",
-            "enabled": false,
-            "on_failure": "abort",
+            "enabled": true,
+            "on_failure": "continue",
             "tags": [
                 "sqlplus",
                 "plan"
             ],
             "arguments": {
+                "sqlhome": "/Users/aravinthselvaraj/Desktop/ORACLE_HOME",
                 "mode": "plan",
                 "on_error": "continue",
                 "connection": "${connection}",
                 "schemas": "${schemas}",
-                "execution" : "${steps.BuildReleaseContext.outputs.database}"
+                "execution": "${steps.BuildReleaseContext.outputs.database}",
+                "spool": {
+                    "enabled": true,
+                    "override": true,
+                    "infile_replace": true,
+                    "create_if_not_exists": true,
+                    "name_placeholder": "%execution_path/%release_%application_%schema_%date.log",
+                    "wrappers_before": [
+                        "SET ECHO ON",
+                        "SET FEEDBACK ON",
+                        "SET HEADING ON",
+                        "SET SERVEROUTPUT ON"
+                    ],
+                    "wrappers_after": [
+                        "SPOOL OFF",
+                        "EXIT"
+                    ]
+                }
             }
         },
         {

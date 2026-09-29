@@ -163,6 +163,7 @@ class SqlPlusResolver:
                     ip=connection_data["ip"],
                     port=connection_data["port"],
                     sid=connection_data["sid"],
+                    application=application,
                     schema=schema,
                     username=username,
                     password=password,
@@ -430,12 +431,15 @@ class SqlPlusResolver:
                 f"{context}: SQL script does not exist: " f"{script_path}",
             )
 
+        application=script_path.stem
+
         return SqlPlusExecution(
             ip=ip.strip(),
             port=port,
             sid=sid.strip(),
             schema=schema.strip(),
             username=username,
+            application=application,
             password=password,
             script=script_path.resolve(),
         )

@@ -153,6 +153,7 @@ class SqlPlusExecutor:
                 settings.name_placeholder,
                 execution_path=execution_path,
                 release=release,
+                application=execution.application,
                 schema=execution.schema,
             )
 
@@ -187,7 +188,9 @@ class SqlPlusExecutor:
                 else:
 
                     wrapper = wrapper_directory / (
-                        f"{execution.script.stem}_" f"{execution.schema}_spool.sql"
+                        f"{execution.script.stem}_"
+                        f"{execution.application}_"
+                        f"{execution.schema}_spool.sql"
                     )
 
                     script = self._spool_builder.build(
