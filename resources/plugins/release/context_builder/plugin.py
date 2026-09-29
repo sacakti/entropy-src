@@ -141,6 +141,8 @@ class ContextBuilderPlugin(
             structure=structure,
         )
 
+        context["workspace"] = str(self.workspace)
+
         self.outputs.update(
             context,
         )

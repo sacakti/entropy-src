@@ -209,6 +209,7 @@ class ReleaseAnalyzer:
     ) -> dict[str, Any]:
 
         return {
+            "workspace": None,
             "release": {
                 "package": str(release),
                 "root": str(release_root),
@@ -223,6 +224,7 @@ class ReleaseAnalyzer:
             },
             "common_paths": [],
             "database": {
+                "dir": None,
                 "scripts": [],
                 "execution_plan": None,
             },
@@ -1446,6 +1448,7 @@ class ReleaseAnalyzer:
             )
 
         return {
+            "dir": str(database_root),
             "scripts": scripts,
             "execution_plan": execution_plan,
         }
