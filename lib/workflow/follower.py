@@ -14,7 +14,7 @@ from lib.workflow.jobs.manager import WorkflowJobManager
 from .renderer import WorkflowEventRenderer
 
 if TYPE_CHECKING:
-    from lib.workflow.jobs.model import WorkflowJob
+    from lib.models.workflow_jobs import WorkflowJob
 
 
 class WorkflowFollower:

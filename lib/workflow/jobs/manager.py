@@ -24,7 +24,7 @@ from .events import (
     WorkflowEvent,
     WorkflowEventRepository,
 )
-from .model import WorkflowJob
+from lib.models.workflow_jobs import WorkflowJob
 from .state import JobState
 
 
@@ -67,6 +67,7 @@ class WorkflowJobManager:
         pid: int,
         user_id: int,
         username: str,
+        full_name: str | None,
     ) -> WorkflowJob:
         """
         Create a queued workflow job.
@@ -78,6 +79,7 @@ class WorkflowJobManager:
             workflow=workflow,
             user_id=user_id,
             username=username,
+            full_name=full_name,
             state=JobState.QUEUED,
             pid=pid,
             workspace=workspace,

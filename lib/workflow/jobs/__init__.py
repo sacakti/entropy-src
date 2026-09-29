@@ -8,7 +8,7 @@ from .events import (
     WorkflowEvent,
     WorkflowEventRepository,
 )
-from .model import WorkflowJob
+from lib.models.workflow_jobs import WorkflowJob
 from .sink import WorkflowEventSink
 from .state import JobState
 

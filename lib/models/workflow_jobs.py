@@ -10,7 +10,7 @@ from pathlib import Path
 
 from lib.workflow.exceptions import WorkflowJobIDRequiredError
 
-from .state import JobState
+from ..workflow.jobs.state import JobState
 
 
 @dataclass
@@ -28,6 +28,8 @@ class WorkflowJob:
     user_id: int | None
 
     username: str | None
+
+    full_name: str | None
 
     state: JobState
 

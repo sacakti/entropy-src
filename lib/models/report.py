@@ -133,6 +133,8 @@ class ExecutionReport:
 
     username: str | None = None
 
+    full_name: str | None = None
+
     workspace: str | None = None
 
     started_at: datetime | None = None

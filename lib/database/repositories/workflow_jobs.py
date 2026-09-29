@@ -11,7 +11,7 @@ from typing import List
 from lib.database.connection import DatabaseConnection
 from lib.database.repository import Repository
 from lib.workflow.exceptions import WorkflowInvalidTerminalError, WorkflowJobIDRequiredError
-from lib.workflow.jobs.model import WorkflowJob
+from lib.models.workflow_jobs import WorkflowJob
 from lib.workflow.jobs.state import JobState
 
 
@@ -51,6 +51,7 @@ class WorkflowJobRepository(Repository):
                     workflow,
                     user_id,
                     username,
+                    full_name,
                     state,
                     pid,
                     workspace,
@@ -71,6 +72,7 @@ class WorkflowJobRepository(Repository):
                     ?,
                     ?,
                     ?,
+                    ?,
                     ?
                 )
                 """,
@@ -79,6 +81,7 @@ class WorkflowJobRepository(Repository):
                     job.workflow,
                     job.user_id,
                     job.username,
+                    job.full_name,
                     job.state.value,
                     job.pid,
                     str(job.workspace),
@@ -405,6 +408,7 @@ class WorkflowJobRepository(Repository):
             workflow=row["workflow"],
             user_id=row["user_id"],
             username=row["username"],
+            full_name=row["full_name"],
             state=JobState(
                 row["state"],
             ),

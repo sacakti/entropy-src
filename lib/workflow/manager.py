@@ -17,7 +17,7 @@ from lib.workflow.exceptions import (
     WorkflowNotMatchError,
     WorkflowTooManyFilesError,
 )
-from lib.workflow.jobs.model import WorkflowJob
+from lib.models.workflow_jobs import WorkflowJob
 
 from .follower import WorkflowFollower
 from .loader import WorkflowLoader
@@ -271,11 +271,12 @@ class WorkflowManager:
             variables=variables,
         )
 
-        job = self._context.workflow_job_manager.create(
+        job = self._jobs.create(
             execution_id=execution.id,
             workflow=workflow.name,
             user_id=session.user_id,
             username=session.username,
+            full_name=session.full_name,
             workspace=execution.context.workspace,
             pid=0,
         )

@@ -101,6 +101,7 @@ class SessionManager:
             + timedelta(
                 hours=self._session_timeout,
             ),
+            full_name=user.full_name,
         )
 
         self._save(

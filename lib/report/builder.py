@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from lib.workflow.jobs.events import WorkflowEvent
-from lib.workflow.jobs.model import WorkflowJob
+from lib.models.workflow_jobs import WorkflowJob
 
 from ..models.report import (
     ActivityReport,
@@ -35,6 +35,7 @@ class ReportBuilder:
             status=self._execution_status(job, ordered),
             user_id=job.user_id,
             username=job.username,
+            full_name=job.full_name,
             workspace=str(job.workspace),
             started_at=started,
             finished_at=finished,

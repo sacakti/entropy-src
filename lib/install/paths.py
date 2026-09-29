@@ -45,6 +45,8 @@ class InstallerPathManager:
 
         self.staging = Path.home() / ".entropy.tmp"
 
+        self.backup = Path.home() / ".entropy.backup"
+
         #
         # Persistent Entropy directories
         #
@@ -98,43 +100,79 @@ class InstallerPathManager:
     # ------------------------------------------------------------------
 
     def commit(self) -> None:
+        """
+        Promote the staged Entropy home to the active home directory.
 
-        if self.home.exists():
-            shutil.rmtree(self.home)
+        The existing installation is preserved until the staged installation
+        has been successfully promoted.
+        """
 
-        self.staging.rename(
-            self.home,
-        )
+        if not self.staging.exists():
+            raise RuntimeError(
+                f"Staging directory does not exist: {self.staging}",
+            )
+
+        if not self.staging.is_dir():
+            raise RuntimeError(
+                f"Staging path is not a directory: {self.staging}",
+            )
+
+        backup_created = False
+
+        try:
+            if self.backup.exists():
+                shutil.rmtree(self.backup)
+
+            if self.home.exists():
+                self.home.rename(self.backup)
+                backup_created = True
+
+            try:
+                self.staging.rename(self.home)
+            except Exception:
+                if backup_created and not self.home.exists():
+                    self.backup.rename(self.home)
+
+                raise
+
+            if self.backup.exists():
+                shutil.rmtree(self.backup)
+
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to commit Entropy installation: {exc}",
+            ) from exc
 
     def rollback(self) -> None:
+        """
+        Remove staging data and restore the previous Entropy installation
+        when a backup exists.
+        """
 
         if self.staging.exists():
+            shutil.rmtree(self.staging)
 
-            shutil.rmtree(
-                self.staging,
-            )
+        if self.backup.exists() and not self.home.exists():
+            self.backup.rename(self.home)
 
     def commit_application(self) -> None:
         """
         Promote the staged application to the active application root.
+
+        The existing application is preserved until the staged application
+        has been successfully promoted.
         """
 
         if not self.application_staging.exists():
-
             raise RuntimeError(
-                "Application staging directory does not exist: " f"{self.application_staging}",
+                "Application staging directory does not exist: "
+                f"{self.application_staging}",
             )
 
         if not self.application_staging.is_dir():
-
             raise RuntimeError(
-                "Application staging path is not a directory: " f"{self.application_staging}",
-            )
-
-        if self.application_directory.exists():
-
-            raise RuntimeError(
-                "Application directory already exists: " f"{self.application_directory}",
+                "Application staging path is not a directory: "
+                f"{self.application_staging}",
             )
 
         self.application_directory.parent.mkdir(
@@ -142,17 +180,55 @@ class InstallerPathManager:
             exist_ok=True,
         )
 
-        self.application_staging.rename(
-            self.application_directory,
-        )
+        backup_path = self.application_root / "application.backup"
+
+        backup_created = False
+
+        try:
+            if backup_path.exists():
+                shutil.rmtree(backup_path)
+
+            if self.application_directory.exists():
+                self.application_directory.rename(backup_path)
+                backup_created = True
+
+            try:
+                self.application_staging.rename(
+                    self.application_directory,
+                )
+            except Exception:
+                if (
+                    backup_created
+                    and not self.application_directory.exists()
+                ):
+                    backup_path.rename(
+                        self.application_directory,
+                    )
+
+                raise
+
+            if backup_path.exists():
+                shutil.rmtree(backup_path)
+
+        except Exception as exc:
+            raise RuntimeError(
+                "Failed to commit application installation: "
+                f"{exc}",
+            ) from exc
 
     def rollback_application(self) -> None:
+        """
+        Remove application staging data and restore the previous application
+        when a backup exists.
+        """
 
         if self.application_staging.exists():
+            shutil.rmtree(self.application_staging)
 
-            shutil.rmtree(
-                self.application_staging,
-            )
+        backup_path = self.application_root / "application.backup"
+
+        if backup_path.exists() and not self.application_directory.exists():
+            backup_path.rename(self.application_directory)
 
     # ------------------------------------------------------------------
     # Collections

@@ -42,7 +42,6 @@ class HtmlReportRenderer:
 {self._header(report)}
 {self._failure_summary(report)}
 {self._summary(report)}
-{self._steps(report)}
 {self._performance(report)}
 {self._timeline(report)}
 </div>
@@ -78,12 +77,16 @@ class HtmlReportRenderer:
 
     @staticmethod
     def _header(report):
-        user = (
-            f"{html.escape(report.username or '—')}"
-            f" <span class=\"identity-id\">(ID: "
-            f"{html.escape(str(report.user_id)) if report.user_id is not None else '—'})"
-            f"</span>"
-        )
+        full_name = (report.full_name or "").strip()
+        username = (report.username or "").strip()
+
+        if full_name:
+            user = (
+                f"{html.escape(full_name)} "
+                f"<span class=\"identity-id\">({html.escape(username or '—')})</span>"
+            )
+        else:
+            user = html.escape(username or "—")
 
         workspace = html.escape(report.workspace or "—")
 
@@ -193,63 +196,6 @@ class HtmlReportRenderer:
         )
         return f'<section class="section"><div class="section-title"><h2>Execution summary</h2></div><div class="cards">{cards}</div></section>'
 
-    def _steps(self, report):
-        cards = "".join(self._step(i, step) for i, step in enumerate(report.steps))
-        return f"""
-<section class="section">
-  <div class="section-title">
-    <h2>Steps</h2>
-    <div class="filters">
-      <button class="filter active" data-filter="all">All</button>
-      <button class="filter" data-filter="success">Success</button>
-      <button class="filter" data-filter="failed">Failed</button>
-      <button class="filter" data-filter="changed">Changed</button>
-      <button class="filter" data-filter="warnings">Warnings</button>
-      <button class="filter" data-filter="errors">Errors</button>
-    </div>
-  </div>
-  <div class="search"><input id="report-search" type="search" placeholder="Search execution..."></div>
-  {cards or '<div class="muted">No steps executed.</div>'}
-</section>"""
-
-    def _step(self, index, step):
-        messages = self._all_messages(step)
-        warnings = any(self._level(m.level) == "WARNING" for m in messages)
-        errors = any(self._level(m.level) in {"ERROR", "CRITICAL"} for m in messages)
-        search = " ".join(
-            [step.name, step.plugin, step.status, *(m.message or "" for m in messages)]
-        ).lower()
-        result_button = (
-            f'<button class="action" data-result-index="{index}" type="button">View result</button>'
-            if step.result is not None
-            else ""
-        )
-        return f"""
-<article class="step" data-status="{html.escape(step.status)}" data-changed="{str(step.changed).lower()}"
- data-warnings="{str(warnings).lower()}" data-errors="{str(errors).lower()}" data-search="{html.escape(search)}">
-  <div class="step-header" onclick="toggleStep(this)">
-    <div class="step-title">
-      <span class="step-index">{step.index if step.index is not None else index + 1}</span>
-      <span>{html.escape(step.name)}</span>
-    </div>
-    <div class="step-meta">
-      <span class="status status-{html.escape(step.status.lower())}">{html.escape(step.status)}</span>
-      <span>{self._duration(step.duration_ms)}</span>
-      {result_button}
-    </div>
-  </div>
-  <div class="step-body">
-    <div class="step-info">
-      <div><span>Plugin</span><strong>{html.escape(step.plugin or "—")}</strong></div>
-      <div><span>Duration</span><strong>{self._duration(step.duration_ms)}</strong></div>
-      <div><span>Changed</span><strong>{"Yes" if step.changed else "No"}</strong></div>
-    </div>
-    {self._step_failure(step)}
-    {self._messages(step)}
-    {self._tree(step)}
-  </div>
-</article>"""
-
     def _step_failure(self, step):
         if not step.failure:
             return ""
@@ -351,28 +297,167 @@ class HtmlReportRenderer:
             f"</section>"
         )
 
-    @staticmethod
-    def _timeline(report):
-        items = "".join(
-            f'<div class="timeline-item">'
-            f'<div class="timeline-time">'
-            f"{html.escape(HtmlReportRenderer._date(e.timestamp))}"
-            f"</div>"
-            f"<div><strong>{html.escape(e.event_type)}</strong></div>"
-            f'<div>{html.escape(e.message or e.node_name or "")}</div>'
-            f"</div>"
-            for e in report.timeline
-            if e.message or e.node_name
-        )
+    def _timeline(self, report):
+        if not report.steps:
+            return (
+                '<section class="section">'
+                '<div class="section-title">'
+                '<h2>Execution timeline</h2>'
+                '</div>'
+                '<div class="muted">No execution steps.</div>'
+                '</section>'
+            )
 
-        if not items:
-            items = '<div class="muted">No timeline events.</div>'
+        items = []
+
+        for position, step in enumerate(report.steps):
+            status = (step.status or "UNKNOWN").lower()
+
+            start = self._date(step.started_at)
+            finish = self._date(step.finished_at)
+            duration = self._duration(step.duration_ms)
+
+            messages = self._all_messages(step)
+
+            warnings = any(
+                self._level(message.level) == "WARNING"
+                for message in messages
+            )
+
+            errors = any(
+                self._level(message.level) in {"ERROR", "CRITICAL"}
+                for message in messages
+            )
+
+            search = " ".join(
+                [
+                    step.name,
+                    step.plugin,
+                    step.status,
+                    *(message.message or "" for message in messages),
+                ]
+            ).lower()
+
+            result_button = (
+                f'<button class="action timeline-result" '
+                f'data-result-index="{position}" type="button">'
+                f'Plugin Result'
+                f'</button>'
+            )
+
+            body = f"""
+            <div class="step-body">
+            <div class="step-info">
+                <div>
+                <span>Plugin</span>
+                <strong>{html.escape(step.plugin or "—")}</strong>
+                </div>
+                <div>
+                <span>Duration</span>
+                <strong>{html.escape(duration)}</strong>
+                </div>
+                <div>
+                <span>Changed</span>
+                <strong>{"Yes" if step.changed else "No"}</strong>
+                </div>
+            </div>
+
+            {self._step_failure(step)}
+            {self._messages(step)}
+            {self._tree(step)}
+            </div>
+            """
+
+            items.append(
+                f"""
+                <article
+                    class="timeline-node step {html.escape(status)}"
+                    data-status="{html.escape(step.status)}"
+                    data-changed="{str(step.changed).lower()}"
+                    data-warnings="{str(warnings).lower()}"
+                    data-errors="{str(errors).lower()}"
+                    data-search="{html.escape(search)}"
+                >
+                <div class="timeline-marker">
+                    <span class="timeline-dot"></span>
+                    {
+                        '<span class="timeline-line"></span>'
+                        if position < len(report.steps) - 1
+                        else ''
+                    }
+                </div>
+
+                <div class="timeline-card">
+                    <div
+                        class="timeline-card-header step-header"
+                        onclick="toggleStep(this)"
+                    >
+                    <div class="timeline-step">
+                        <span class="timeline-index">
+                        {step.index if step.index is not None else position + 1}
+                        </span>
+
+                        <div>
+                        <strong>{html.escape(step.name)}</strong>
+
+                        <div class="timeline-plugin">
+                            {html.escape(step.plugin or "Plugin unavailable")}
+                        </div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-header-actions">
+                        <span class="timeline-status">
+                        {html.escape(step.status)}
+                        </span>
+
+                        {result_button}
+                    </div>
+                    </div>
+
+                    <div class="timeline-duration">
+                    <div class="timeline-metric">
+                        <span>Started</span>
+                        <strong>{html.escape(start)}</strong>
+                    </div>
+
+                    <div class="timeline-duration-value">
+                        <span class="timeline-duration-line"></span>
+                        <strong>{html.escape(duration)}</strong>
+                    </div>
+
+                    <div class="timeline-metric">
+                        <span>Finished</span>
+                        <strong>{html.escape(finish)}</strong>
+                    </div>
+                    </div>
+
+                    {body}
+                </div>
+                </article>
+                """
+            )
 
         return (
-            f'<section class="section">'
-            f'<div class="section-title"><h2>Execution timeline</h2></div>'
-            f'<div class="timeline">{items}</div>'
-            f"</section>"
+            '<section class="section">'
+            '<div class="section-title">'
+            '<h2>Execution timeline</h2>'
+            '<div class="filters">'
+            '<button class="filter active" data-filter="all">All</button>'
+            '<button class="filter" data-filter="success">Success</button>'
+            '<button class="filter" data-filter="failed">Failed</button>'
+            '<button class="filter" data-filter="skipped">Skipped</button>'
+            '<button class="filter" data-filter="running">Running</button>'
+            '<button class="filter" data-filter="changed">Changed</button>'
+            '<button class="filter" data-filter="warnings">Warnings</button>'
+            '<button class="filter" data-filter="errors">Errors</button>'
+            '</div>'
+            '</div>'
+            '<div class="search">'
+            '<input id="report-search" type="search" placeholder="Search execution...">'
+            '</div>'
+            f'<div class="execution-timeline">{"".join(items)}</div>'
+            '</section>'
         )
 
     @staticmethod

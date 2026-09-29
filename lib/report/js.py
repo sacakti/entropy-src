@@ -103,13 +103,29 @@ function renderValue(value){
 
 function openResult(index){
     const report=reportData(), step=report?.steps?.[index];
-    if(!step?.result)return;
+    if(!step)return;
+
+    const result=step.result;
+
     document.getElementById("result-title").textContent=`${step.name} — Plugin Result`;
-    document.getElementById("result-pretty").innerHTML=renderValue(step.result);
-    document.getElementById("result-raw-content").textContent=JSON.stringify(step.result,null,2);
+
+    if(result===null||result===undefined){
+        document.getElementById("result-pretty").innerHTML=
+            '<div class="result-empty">No plugin result available.</div>';
+        document.getElementById("result-raw-content").textContent="No plugin result available.";
+    }else{
+        document.getElementById("result-pretty").innerHTML=renderValue(result);
+        document.getElementById("result-raw-content").textContent=
+            JSON.stringify(result,null,2);
+    }
+
     document.getElementById("result-pretty").style.display="block";
     document.getElementById("result-raw").style.display="none";
-    document.querySelectorAll(".result-tab").forEach(b=>b.classList.toggle("active",b.dataset.view==="pretty"));
+
+    document.querySelectorAll(".result-tab").forEach(
+        b=>b.classList.toggle("active",b.dataset.view==="pretty")
+    );
+
     document.getElementById("result-modal").classList.add("open");
 }
 function closeResult(){document.getElementById("result-modal")?.classList.remove("open")}
@@ -122,6 +138,11 @@ function matches(step,filter){
     if(filter==="all")return true;
     if(filter==="success")return step.dataset.status==="COMPLETED";
     if(filter==="failed")return step.dataset.status==="FAILED";
+    if(filter==="skipped"){
+        return step.dataset.status==="SKIPPED" ||
+               step.dataset.status==="CANCELLED";
+    }
+    if(filter==="running")return step.dataset.status==="RUNNING";
     if(filter==="changed")return step.dataset.changed==="true";
     if(filter==="warnings")return step.dataset.warnings==="true";
     if(filter==="errors")return step.dataset.errors==="true";

@@ -21,11 +21,14 @@ class Session:
 
     expires_at: datetime
 
+    full_name: str | None = None
+
     def to_dict(self) -> dict:
 
         return {
             "user_id": self.user_id,
             "username": self.username,
+            "full_name": self.full_name,
             "token": self.token,
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat(),
@@ -40,6 +43,7 @@ class Session:
         return cls(
             user_id=data["user_id"],
             username=data["username"],
+            full_name=data.get("full_name"),
             token=data["token"],
             created_at=datetime.fromisoformat(data["created_at"]),
             expires_at=datetime.fromisoformat(data["expires_at"]),

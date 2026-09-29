@@ -220,16 +220,319 @@ h3 { margin:0 0 12px; font-size:15px; }
 }
 .activity { padding:7px 0 0 12px; font-size:13px; }
 
-.timeline {
-    border-left:2px solid #dfe4e9; margin-left:8px;
+/* Execution Timeline */
+
+.execution-timeline {
+    position:relative;
+    padding:8px 0 4px;
 }
-.timeline-item {
-    display:grid; grid-template-columns:180px 150px 1fr;
-    gap:12px; padding:0 0 16px 18px;
+
+/*
+ * The generic .step rule is also used by the timeline nodes.  Reset the
+ * properties that belong to the old step-card layout so the timeline node
+ * itself stays transparent and only .timeline-card is rendered as a card.
+ */
+.timeline-node.step {
+    display:grid;
+    grid-template-columns:32px minmax(0, 1fr);
+    gap:16px;
+    align-items:stretch;
+    margin:0 0 16px;
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    box-shadow:none;
+    overflow:visible;
 }
-.timeline-time {
-    font:12px ui-monospace,SFMono-Regular,Menlo,monospace;
+
+.timeline-marker {
+    position:relative;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    min-height:100%;
+}
+
+.timeline-dot {
+    position:relative;
+    z-index:3;
+    width:22px;
+    height:22px;
+    margin-top:17px;
+    border-radius:50%;
+    border:2px solid var(--success);
+    background:#fff;
+    box-sizing:border-box;
+    flex:0 0 22px;
+}
+
+.timeline-dot::after {
+    content:"";
+    position:absolute;
+    width:8px;
+    height:8px;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:var(--success);
+}
+
+/* Inner status dot */
+.timeline-dot::after {
+    content:"";
+    position:absolute;
+    width:8px;
+    height:8px;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:var(--success);
+}
+
+/* Vertical connector */
+.timeline-line {
+    position:absolute;
+    z-index:1;
+    top:39px;
+    bottom:-14px;
+    left:50%;
+    width:3px;
+    transform:translateX(-50%);
+    background:#d9dee5;
+}
+
+.timeline-card {
+    min-width:0;
+    border:1px solid #d9dee5;
+    border-radius:12px;
+    background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+    overflow:hidden;
+}
+
+.timeline-card-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+    min-height:68px;
+    padding:14px 20px;
+    cursor:pointer;
+}
+
+.timeline-header-actions {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    flex:0 0 auto;
+}
+
+.timeline-step {
+    display:flex;
+    align-items:center;
+    gap:11px;
+    min-width:0;
+    flex:1 1 auto;
+}
+
+.timeline-step > div:last-child {
+    min-width:0;
+}
+
+.timeline-index {
+    width:30px;
+    height:30px;
+    display:grid;
+    place-items:center;
+    flex:0 0 30px;
+    border-radius:50%;
+    background:#edf0f3;
+    color:var(--text);
+    font-size:11px;
+    font-weight:800;
+}
+
+.timeline-plugin {
+    margin-top:3px;
     color:var(--muted);
+    font-size:11px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    overflow-wrap:anywhere;
+}
+
+.timeline-status {
+    flex:0 0 auto;
+    padding:5px 9px;
+    border-radius:999px;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.04em;
+    white-space:nowrap;
+}
+
+.timeline-result {
+    flex:0 0 auto;
+    white-space:nowrap;
+}
+
+.timeline-result:hover {
+    background:#f4f6f8;
+}
+
+.timeline-duration {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+    align-items:center;
+    column-gap:24px;
+    min-height:58px;
+    padding:12px 20px 14px;
+    border-top:1px solid #e5e7eb;
+}
+
+.timeline-metric {
+    min-width:0;
+}
+
+.timeline-metric:last-child {
+    text-align:left;
+}
+
+.timeline-metric span {
+    display:block;
+    margin-bottom:3px;
+    color:var(--muted);
+    font-size:10px;
+    line-height:1.2;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-weight:750;
+}
+
+.timeline-metric strong {
+    display:block;
+    color:var(--text);
+    font:12px ui-monospace,SFMono-Regular,Menlo,monospace;
+    white-space:nowrap;
+}
+
+.timeline-duration-value {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    min-width:110px;
+    white-space:nowrap;
+}
+
+.timeline-duration-value strong {
+    color:#155a91;
+    white-space:nowrap;
+    font-size:13px;
+}
+
+.timeline-duration-line {
+    width:40px;
+    height:2px;
+    flex:0 0 40px;
+    background:var(--info);
+    border-radius:2px;
+}
+
+.timeline-summary {
+    color:var(--muted);
+    font-size:12px;
+}
+
+/* Expanded timeline content */
+
+.timeline-card .step-body {
+    display:none;
+    padding:0 20px 20px;
+    border-top:1px solid #edf0f3;
+}
+
+.timeline-card .step.open .step-body,
+.timeline-node.step.open .step-body {
+    display:block;
+}
+
+.timeline-card .step-info {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:10px;
+    padding:16px 0 4px;
+}
+
+.timeline-card .step-info > div {
+    min-width:0;
+    background:#f7f8fa;
+    padding:10px;
+    border-radius:7px;
+}
+
+/* Timeline status states */
+
+/* Completed */
+.timeline-node.completed .timeline-dot {
+    border-color:var(--success);
+}
+
+.timeline-node.completed .timeline-dot::after {
+    background:var(--success);
+}
+
+.timeline-node.completed .timeline-status {
+    color:var(--success);
+    background:#e7f5ed;
+}
+
+/* Failed */
+.timeline-node.failed .timeline-dot {
+    border-color:var(--danger);
+}
+
+.timeline-node.failed .timeline-dot::after {
+    background:var(--danger);
+}
+
+.timeline-node.failed .timeline-status {
+    color:var(--danger);
+    background:#fdeaea;
+}
+
+/* Skipped / Cancelled */
+.timeline-node.cancelled .timeline-dot,
+.timeline-node.skipped .timeline-dot {
+    border-color:var(--warning);
+}
+
+.timeline-node.cancelled .timeline-dot::after,
+.timeline-node.skipped .timeline-dot::after {
+    background:var(--warning);
+}
+
+.timeline-node.cancelled .timeline-status,
+.timeline-node.skipped .timeline-status {
+    color:var(--warning);
+    background:#fff3df;
+}
+
+/* Running */
+.timeline-node.running .timeline-dot {
+    border-color:var(--info);
+}
+
+.timeline-node.running .timeline-dot::after {
+    background:var(--info);
+}
+
+.timeline-node.running .timeline-status {
+    color:var(--info);
+    background:#e8f2fb;
 }
 
 .modal-backdrop {
@@ -403,10 +706,67 @@ h3 { margin:0 0 12px; font-size:15px; }
 
 @media(max-width:700px) {
     #app { padding:18px; }
-    .page-header { flex-direction:column; }
-    .timeline-item { grid-template-columns:1fr; gap:3px; }
-    .step-header { align-items:flex-start; flex-direction:column; }
-    .step-meta { width:100%; justify-content:flex-start; flex-wrap:wrap; }
+
+    .page-header {
+        flex-direction:column;
+    }
+
+    .timeline-node.step {
+        grid-template-columns:26px minmax(0,1fr);
+        gap:10px;
+    }
+
+    .timeline-marker {
+        min-width:26px;
+    }
+
+    .timeline-card-header {
+        flex-direction:column;
+        align-items:stretch;
+        gap:10px;
+    }
+
+    .timeline-header-actions {
+        width:100%;
+        justify-content:flex-start;
+        flex-wrap:wrap;
+    }
+
+    .timeline-duration {
+        grid-template-columns:1fr;
+        gap:10px;
+        padding:12px 16px 14px;
+    }
+
+    .timeline-duration-value {
+        justify-content:flex-start;
+        order:3;
+    }
+
+    .timeline-duration-line {
+        display:none;
+    }
+
+    .timeline-card .step-body {
+        padding-left:16px;
+        padding-right:16px;
+    }
+
+    .timeline-card .step-info {
+        grid-template-columns:1fr;
+    }
+
+    .step-header {
+        align-items:flex-start;
+        flex-direction:column;
+    }
+
+    .step-meta {
+        width:100%;
+        justify-content:flex-start;
+        flex-wrap:wrap;
+    }
+
     .result-field {
         grid-template-columns:1fr;
     }
