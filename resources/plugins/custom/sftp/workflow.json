@@ -7,30 +7,14 @@
     },
     "steps": [
         {
-            "name": "PrintDeployment",
-            "plugin": "builtin.shell",
-            "suppress_result": false,
-            "enabled": true,
-            "on_failure": "abort",
-            "tags": [
-                "test"
-            ],
-            "arguments": {
-                "command": "echo SFTP creds: $1",
-                "args": [
-                    "${sftp_creds}"
-                ]
-            }
-        },
-        {
             "name": "Upload Release",
             "plugin": "custom.sftp",
             "enabled": true,
             "on_failure": "abort",
             "arguments": {
                 "operation": "put",
-                "source": "/Users/aravinthselvaraj/Public/test.txt",
-                "destination": "/02-IntellectRelease/test",
+                "source": "/Users/aravinthselvaraj/Documents/entropy/build/entropy.1.3.4.epkg",
+                "destination": "/02-IntellectRelease/TRADE",
                 "archive": {
                     "enabled": true,
                     "filename_policy": "TEST_${name}"
@@ -52,7 +36,40 @@
                         "policy": "auto_add"
                     }
                 }
-            }
+            },
+            "tags" : [
+                "put"
+            ]
+        },
+        {
+            "name": "List Folder",
+            "plugin": "custom.sftp",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "operation": "list",
+                "source": "/02-IntellectRelease/TRADE",
+                "sftp": "${sftp_creds}",
+                "settings": {
+                    "connection": {
+                        "timeout": 30,
+                        "banner_timeout": 30,
+                        "auth_timeout": 30
+                    },
+                    "algorithms": {
+                        "kex": "diffie-hellman-group14-sha1",
+                        "host_key": "ssh-rsa",
+                        "cipher": "aes128-ctr",
+                        "mac": null
+                    },
+                    "host_key": {
+                        "policy": "auto_add"
+                    }
+                }
+            },
+            "tags" : [
+                "list"
+            ]
         }
     ]
 }
