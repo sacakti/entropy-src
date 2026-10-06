@@ -130,6 +130,13 @@ class InvalidObjectsReportPlugin(
             ),
         )
 
+        report_settings = InvalidObjectsReportResolver.report(
+            self.arguments.dictionary(
+                "report",
+                None,
+            ),
+        )
+
         sqlhome = self.arguments.path(
             "sqlhome",
             None,
@@ -149,7 +156,7 @@ class InvalidObjectsReportPlugin(
                 f"Checking invalid objects for schema '{schema}'.",
             )
 
-            report = self._inspect_schema(
+            schema_report = self._inspect_schema(
                 executor=executor,
                 sqlhome=sqlhome,
                 connection=connection,
@@ -157,11 +164,12 @@ class InvalidObjectsReportPlugin(
                 credentials=credentials,
             )
 
-            reports.append(report)
+            reports.append(schema_report)
 
         report_path = self._write_report(
             connection=connection,
             reports=reports,
+            report_settings=report_settings,
         )
 
         self.artifacts["invalid_objects_report"] = report_path
@@ -176,20 +184,20 @@ class InvalidObjectsReportPlugin(
                 },
                 "schemas": len(reports),
                 "clean": sum(
-                    report.status == "clean"
-                    for report in reports
+                    schema_report.status == "clean"
+                    for schema_report in reports
                 ),
                 "attention_required": sum(
-                    report.status == "attention"
-                    for report in reports
+                    schema_report.status == "attention"
+                    for schema_report in reports
                 ),
                 "errors": sum(
-                    report.status == "error"
-                    for report in reports
+                    schema_report.status == "error"
+                    for schema_report in reports
                 ),
                 "invalid_objects": sum(
-                    len(report.invalid_objects)
-                    for report in reports
+                    len(schema_report.invalid_objects)
+                    for schema_report in reports
                 ),
             },
         )
@@ -218,6 +226,7 @@ class InvalidObjectsReportPlugin(
             username=credentials["username"],
             password=credentials["password"],
             script=script,
+            application="invalid_objects"
         )
 
         result = executor.execute(
@@ -301,7 +310,7 @@ class InvalidObjectsReportPlugin(
         schema: str,
     ) -> Path:
 
-        directory = self.workspace / ".entropy" / "invalid_objects"
+        directory = self.workspace / "invalid_objects_scripts"
 
         directory.mkdir(
             parents=True,
@@ -323,7 +332,7 @@ SET PAGESIZE 0
 SET LINESIZE 32767
 SET VERIFY OFF
 SET ECHO OFF
-SET TERMOUT OFF
+SET TERMOUT ON
 SET TRIMSPOOL ON
 SET TAB OFF
 
@@ -464,6 +473,7 @@ EXIT
         *,
         connection: dict[str, Any],
         reports: list[SchemaReport],
+        report_settings: dict[str, Any],
     ) -> Path:
 
         generated_at = datetime.now(
@@ -475,8 +485,19 @@ EXIT
         )
 
         report_name = (
-            f"invalid_objects_{timestamp}.html"
+            f"invalid_objects_{timestamp}"
         )
+
+        if report_settings["add_text"]:
+
+            text = report_settings["text"]
+
+            if report_settings["position"] == "before":
+                report_name = f"{text}_{report_name}"
+            else:
+                report_name = f"{report_name}_{text}"
+
+        report_name = f"{report_name}.html"
 
         report_path = (
             self.workspace / report_name
@@ -486,8 +507,8 @@ EXIT
 
         html_schemas = tuple(
             HtmlReportSchema(
-                name=report.schema,
-                status=report.status,
+                name=schema_report.schema,
+                status=schema_report.status,
                 invalid_objects=tuple(
                     HtmlReportObject(
                         name=obj.name,
@@ -495,13 +516,13 @@ EXIT
                         status=obj.status,
                         errors=obj.errors,
                     )
-                    for obj in report.invalid_objects
+                    for obj in schema_report.invalid_objects
                 ),
-                error_type=report.error_type,
-                error_message=report.error_message,
-                stderr=report.stderr,
+                error_type=schema_report.error_type,
+                error_message=schema_report.error_message,
+                stderr=schema_report.stderr,
             )
-            for report in reports
+            for schema_report in reports
         )
 
         html = InvalidObjectsHtmlReport().render(
