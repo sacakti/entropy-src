@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Health endpoint for the Entropy web application."""
 
 from fastapi import APIRouter, Request
