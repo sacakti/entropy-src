@@ -1,3 +1,4 @@
+
 """
 Database connection.
 """
@@ -7,56 +8,99 @@ from __future__ import annotations
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from sqlite3 import Cursor, Row
-from typing import Iterator
+from threading import RLock
+from typing import Iterator, Optional
+
+
+class _LockedCursor:
+    """Serialize cursor operations against the shared SQLite connection."""
+
+    def __init__(self, cursor: sqlite3.Cursor, lock: RLock) -> None:
+        self._cursor = cursor
+        self._lock = lock
+
+    def fetchone(self):
+        with self._lock:
+            return self._cursor.fetchone()
+
+    def fetchmany(self, size: Optional[int] = None):
+        with self._lock:
+            if size is None:
+                return self._cursor.fetchmany()
+            return self._cursor.fetchmany(size)
+
+    def fetchall(self):
+        with self._lock:
+            return self._cursor.fetchall()
+
+    def close(self) -> None:
+        with self._lock:
+            self._cursor.close()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        with self._lock:
+            return next(self._cursor)
+
+    @property
+    def description(self):
+        return self._cursor.description
+
+    @property
+    def rowcount(self) -> int:
+        return self._cursor.rowcount
+
+    @property
+    def lastrowid(self):
+        return self._cursor.lastrowid
+
+    @property
+    def arraysize(self) -> int:
+        return self._cursor.arraysize
 
 
 class DatabaseConnection:
     """
-    SQLite database connection.
+    SQLite database connection shared across application threads.
 
-    This class owns the underlying SQLite connection and exposes
-    common database operations used throughout the framework.
+    Operations are serialized using a reentrant lock. Transactions hold
+    the lock for their complete duration so another thread cannot execute
+    statements inside the active transaction.
     """
 
-    def __init__(
-        self,
-        database: Path,
-    ) -> None:
-
+    def __init__(self, database: Path) -> None:
         self._database = database
-
-        self._connection: sqlite3.Connection | None = None
+        self._connection: Optional[sqlite3.Connection] = None
+        self._lock = RLock()
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     def open(self) -> None:
-        """
-        Open the database connection.
-        """
+        """Open the database connection if it is not already open."""
 
-        if self._connection is not None:
-            return
+        with self._lock:
+            if self._connection is not None:
+                return
 
-        self._connection = sqlite3.connect(
-            self._database,
-        )
-
-        self._connection.row_factory = Row
+            self._connection = sqlite3.connect(
+                self._database,
+                check_same_thread=False,
+            )
+            self._connection.row_factory = sqlite3.Row
 
     def close(self) -> None:
-        """
-        Close the database connection.
-        """
+        """Close the database connection."""
 
-        if self._connection is None:
-            return
+        with self._lock:
+            if self._connection is None:
+                return
 
-        self._connection.close()
-
-        self._connection = None
+            self._connection.close()
+            self._connection = None
 
     # ------------------------------------------------------------------
     # Execute
@@ -66,67 +110,47 @@ class DatabaseConnection:
         self,
         sql: str,
         parameters: tuple = (),
-    ) -> Cursor:
-        """
-        Execute a SQL statement.
-        """
+    ) -> _LockedCursor:
+        """Execute SQL and return a synchronized cursor."""
 
-        return self.connection.execute(
-            sql,
-            parameters,
-        )
+        with self._lock:
+            cursor = self.connection.execute(sql, parameters)
+            return _LockedCursor(cursor, self._lock)
 
-    def executescript(
-        self,
-        script: str,
-    ) -> Cursor:
-        """
-        Execute multiple SQL statements.
-        """
+    def executescript(self, script: str) -> _LockedCursor:
+        """Execute multiple SQL statements."""
 
-        return self.connection.executescript(
-            script,
-        )
+        with self._lock:
+            cursor = self.connection.executescript(script)
+            return _LockedCursor(cursor, self._lock)
 
     # ------------------------------------------------------------------
     # Transaction
     # ------------------------------------------------------------------
 
     @contextmanager
-    def transaction(
-        self,
-    ) -> Iterator[DatabaseConnection]:
-        """
-        Execute operations inside a transaction.
+    def transaction(self) -> Iterator[DatabaseConnection]:
+        """Commit on success and roll back on failure."""
 
-        Commits on success and rolls back on failure.
-        """
-
-        try:
-
-            yield self
-
-            self.commit()
-
-        except Exception:
-
-            self.rollback()
-
-            raise
+        with self._lock:
+            try:
+                yield self
+                self.commit()
+            except Exception:
+                self.rollback()
+                raise
 
     def commit(self) -> None:
-        """
-        Commit the active transaction.
-        """
+        """Commit the active transaction."""
 
-        self.connection.commit()
+        with self._lock:
+            self.connection.commit()
 
     def rollback(self) -> None:
-        """
-        Roll back the active transaction.
-        """
+        """Roll back the active transaction."""
 
-        self.connection.rollback()
+        with self._lock:
+            self.connection.rollback()
 
     # ------------------------------------------------------------------
     # Properties
@@ -134,25 +158,18 @@ class DatabaseConnection:
 
     @property
     def connection(self) -> sqlite3.Connection:
-        """
-        Return the active SQLite connection.
+        """Return the underlying active SQLite connection."""
 
-        The connection is opened lazily on first access.
-        """
+        with self._lock:
+            if self._connection is None:
+                self.open()
 
-        if self._connection is None:
-
-            self.open()
-
-        assert self._connection is not None
-
-        return self._connection
+            assert self._connection is not None
+            return self._connection
 
     @property
     def database(self) -> Path:
-        """
-        Database file.
-        """
+        """Return the database file path."""
 
         return self._database
 
@@ -160,49 +177,32 @@ class DatabaseConnection:
     # Query
     # ------------------------------------------------------------------
 
-    def fetchone(
-        self,
-        sql: str,
-        parameters: tuple = (),
-    ):
-        """
-        Execute a query and return a single row.
-        """
+    def fetchone(self, sql: str, parameters: tuple = ()):
+        """Execute a query and return one row."""
 
-        cursor = self.execute(
-            sql,
-            parameters,
-        )
+        with self._lock:
+            cursor = self.execute(sql, parameters)
+            try:
+                return cursor.fetchone()
+            finally:
+                cursor.close()
 
-        return cursor.fetchone()
+    def fetchall(self, sql: str, parameters: tuple = ()):
+        """Execute a query and return all rows."""
 
-    def fetchall(
-        self,
-        sql: str,
-        parameters: tuple = (),
-    ):
-        """
-        Execute a query and return all rows.
-        """
-
-        cursor = self.execute(
-            sql,
-            parameters,
-        )
-
-        return cursor.fetchall()
+        with self._lock:
+            cursor = self.execute(sql, parameters)
+            try:
+                return cursor.fetchall()
+            finally:
+                cursor.close()
 
     # ------------------------------------------------------------------
     # Schema
     # ------------------------------------------------------------------
 
-    def table_exists(
-        self,
-        table: str,
-    ) -> bool:
-        """
-        Return True if a table exists.
-        """
+    def table_exists(self, table: str) -> bool:
+        """Return True if a table exists."""
 
         return (
             self.fetchone(
