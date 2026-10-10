@@ -6,6 +6,8 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
+import pkgutil
+import importlib
 
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -13,9 +15,7 @@ from fastapi.responses import HTMLResponse
 
 from core.context import EntropyContext
 from core.context_factory import ContextFactory
-from core.web.routes.auth import router as auth_router
-from core.web.routes.health import router as health_router
-from core.web.routes.workflow import router as workflow_router
+from core.web import routes
 from core.web.session_store import WebSessionStore
 
 
@@ -28,6 +28,29 @@ def _close_context(context: EntropyContext) -> None:
     if callable(close):
         close()
 
+def register_routes(app: FastAPI) -> None:
+    """Register routers discovered in the routes package."""
+
+    module_names = sorted(
+        module_name
+        for _, module_name, _ in pkgutil.iter_modules(routes.__path__)
+    )
+
+    for module_name in module_names:
+        module = importlib.import_module(
+            f"{routes.__package__}.{module_name}",
+        )
+
+        router = getattr(
+            module,
+            "router",
+            None,
+        )
+
+        if router is not None:
+            app.include_router(
+                router,
+            )
 
 def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
     """Create the web app without initializing Entropy until server startup."""
@@ -69,9 +92,9 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
 
     app.state.web_cookie_secure = secure_setting == "true"
 
-    app.include_router(health_router)
-    app.include_router(auth_router)
-    app.include_router(workflow_router)
+    register_routes(
+        app,
+    )
 
     @app.get("/docs", include_in_schema=False)
     async def custom_swagger_ui() -> HTMLResponse:

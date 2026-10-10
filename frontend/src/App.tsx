@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { login, getCurrentUser, logout } from './api'
+import { login, getCurrentUser, logout } from './services/auth'
 import './App.css'
 import EntropyShell from './EntropyShell'
 

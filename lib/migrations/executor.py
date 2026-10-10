@@ -102,6 +102,9 @@ class MigrationExecutor:
                 )
 
         except Exception as exc:
+            import traceback
+
+            traceback.print_exc()
 
             self._error(
                 f"Migration {migration.VERSION:03d} failed.",

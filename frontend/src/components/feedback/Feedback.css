@@ -1,0 +1,346 @@
+
+/* =========================================================
+   Entropy — Shared notifications and modal dialogs
+   ========================================================= */
+
+.entropy-toast-container,
+.entropy-modal-backdrop,
+.entropy-modal {
+  box-sizing: border-box;
+}
+
+.entropy-toast-container *,
+.entropy-toast-container *::before,
+.entropy-toast-container *::after,
+.entropy-modal-backdrop *,
+.entropy-modal-backdrop *::before,
+.entropy-modal-backdrop *::after {
+  box-sizing: border-box;
+}
+
+/* Side notifications */
+
+.entropy-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(390px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.entropy-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 15px 13px;
+  color: var(--app-text, #e8edf5);
+  background: var(--app-surface, #101722);
+  border: 1px solid var(--app-line, #293444);
+  border-left: 3px solid var(--toast-color, #8ba7ff);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 28%);
+  pointer-events: auto;
+  animation: entropy-toast-enter 180ms ease-out;
+}
+
+.entropy-toast-success {
+  --toast-color: #42c98a;
+}
+
+.entropy-toast-info {
+  --toast-color: #6da7ff;
+}
+
+.entropy-toast-warning {
+  --toast-color: #f0b84b;
+}
+
+.entropy-toast-error {
+  --toast-color: #f06b72;
+}
+
+.entropy-toast-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--toast-color);
+}
+
+.entropy-toast-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.entropy-toast-title {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.entropy-toast-body p {
+  margin: 0;
+  color: var(--app-muted, #9aa7b8);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.entropy-toast-close,
+.entropy-modal-close {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--app-muted, #9aa7b8);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.entropy-toast-close:hover,
+.entropy-modal-close:hover:not(:disabled) {
+  color: var(--app-text, #e8edf5);
+  background: var(--app-hover, rgb(255 255 255 / 6%));
+  border-color: var(--app-line, #293444);
+}
+
+.entropy-toast-close:focus-visible,
+.entropy-modal button:focus-visible {
+  outline: 2px solid var(--app-accent, #d7ff63);
+  outline-offset: 2px;
+}
+
+@keyframes entropy-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Full-screen modal */
+
+.entropy-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  background: rgb(0 0 0 / 66%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: entropy-backdrop-enter 140ms ease-out;
+}
+
+.entropy-modal {
+  width: min(460px, 100%);
+  max-height: min(760px, calc(100dvh - 48px));
+  padding: 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: var(--app-text, #e8edf5);
+  background: var(--app-surface, #101722);
+  border: 1px solid var(--app-line, #293444);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 42%);
+  animation: entropy-modal-enter 160ms ease-out;
+}
+
+.entropy-modal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.entropy-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--app-accent, #d7ff63);
+  background: color-mix(
+    in srgb,
+    var(--app-accent, #d7ff63) 10%,
+    transparent
+  );
+  border: 1px solid color-mix(
+    in srgb,
+    var(--app-accent, #d7ff63) 24%,
+    transparent
+  );
+  border-radius: 12px;
+}
+
+.entropy-modal h2 {
+  margin: 0;
+  color: var(--app-text, #e8edf5);
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.entropy-modal-message {
+  margin: 12px 0 0;
+  color: var(--app-muted, #9aa7b8);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.entropy-modal-content {
+  min-width: 0;
+  margin-top: 16px;
+}
+
+.entropy-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.entropy-modal-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 88px;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid var(--app-line, #293444);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.entropy-button-secondary {
+  color: var(--app-text, #e8edf5);
+  background: transparent;
+}
+
+.entropy-button-secondary:hover {
+  background: var(--app-hover, rgb(255 255 255 / 6%));
+  border-color: var(--app-muted, #9aa7b8);
+}
+
+.entropy-button-primary {
+  color: #101509;
+  background: var(--app-accent, #d7ff63);
+  border-color: var(--app-accent, #d7ff63) !important;
+}
+
+.entropy-button-primary:hover {
+  filter: brightness(0.94);
+}
+
+.entropy-button-primary.is-destructive {
+  color: #fff;
+  background: #c83e49;
+  border-color: #c83e49 !important;
+}
+
+.entropy-button-primary.is-destructive:hover {
+  background: #ad303b;
+}
+
+.entropy-modal button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@keyframes entropy-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes entropy-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .entropy-toast,
+  .entropy-modal-backdrop,
+  .entropy-modal {
+    animation: none;
+  }
+}
+
+/* Narrow screens */
+
+@media (max-width: 560px) {
+  .entropy-toast-container {
+    top: 12px;
+    right: 12px;
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .entropy-modal-backdrop {
+    align-items: center;
+    padding: 14px;
+  }
+
+  .entropy-modal {
+    max-height: calc(100dvh - 28px);
+    padding: 20px;
+    border-radius: 12px;
+  }
+
+  .entropy-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .entropy-modal-actions button {
+    width: 100%;
+  }
+}
+
+.entropy-modal-backdrop,
+.entropy-modal,
+.entropy-modal *,
+.entropy-toast-container,
+.entropy-toast-container * {
+  font-family: var(--entropy-font-family, sans-serif);
+}

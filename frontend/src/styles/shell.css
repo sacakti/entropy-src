@@ -1,0 +1,1220 @@
+
+/* =========================================================
+   Entropy — Application Shell
+   File: src/EntropyShell.css
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   1. Theme tokens and application root
+   --------------------------------------------------------- */
+
+.entropy-app {
+    --app-bg: #090b0f;
+    --app-surface: #11151b;
+    --app-surface-hover: #191f27;
+    --app-text: #f2f4f7;
+    --app-muted: #9ba5b3;
+    --app-subtle: #687382;
+    --app-line: rgb(255 255 255 / 9%);
+    --app-accent: #d7ff63;
+    --app-accent-text: #090b0f;
+    --app-background-image: none;
+    --app-background-fit: cover;
+    --app-background-opacity: 0.35;
+    --app-background-overlay: transparent;
+    --app-button-bg: var(--app-accent);
+    --app-button-text: var(--app-accent-text);
+
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    color: var(--app-text);
+    background-color: var(--app-bg);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+}
+
+.entropy-app *,
+.entropy-app *::before,
+.entropy-app *::after {
+    box-sizing: border-box;
+}
+
+.entropy-app button,
+.entropy-app input,
+.entropy-app select,
+.entropy-app textarea {
+    font: inherit;
+}
+
+.entropy-app button {
+    color: inherit;
+}
+
+.entropy-app button:focus-visible,
+.entropy-app a:focus-visible,
+.entropy-app input:focus-visible,
+.entropy-app select:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 3px;
+}
+
+/* Light theme */
+
+.entropy-app.theme-light {
+    --app-bg: #f5f6f3;
+    --app-surface: #ffffff;
+    --app-surface-hover: #eef0e9;
+    --app-text: #171b15;
+    --app-muted: #697166;
+    --app-subtle: #858c80;
+    --app-line: rgb(23 27 21 / 12%);
+    --app-accent: #b7e93b;
+    --app-accent-text: #090b0f;
+}
+
+/* ---------------------------------------------------------
+   2. Sidebar
+   --------------------------------------------------------- */
+
+.entropy-app .entropy-sidebar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex: 0 0 258px;
+    flex-direction: column;
+    width: 258px;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 20px 13px 15px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--app-surface);
+    border-right: 1px solid var(--app-line);
+    transition:
+        width 0.2s ease,
+        flex-basis 0.2s ease;
+}
+
+.entropy-app .entropy-sidebar.collapsed {
+    flex-basis: 76px;
+    width: 76px;
+    padding-right: 10px;
+    padding-left: 10px;
+}
+
+.entropy-app .entropy-sidebar-brand {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 11px;
+    min-height: 45px;
+    padding: 0 8px;
+    overflow: hidden;
+}
+
+.entropy-app .entropy-sidebar-brand img {
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+    border-radius: 10px;
+}
+
+.entropy-app .entropy-brand-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.entropy-app .entropy-brand-copy strong {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.8px;
+}
+
+.entropy-app .entropy-brand-copy span {
+    color: var(--app-subtle);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+}
+
+.entropy-app .sidebar-collapse {
+    display: flex;
+    flex: 0 0 34px;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-end;
+    width: 34px;
+    height: 34px;
+    margin: 23px 3px 24px 0;
+    padding: 0;
+    color: var(--app-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .sidebar-collapse:hover {
+    color: var(--app-text);
+    background: var(--app-surface-hover);
+    border-color: var(--app-line);
+}
+
+.entropy-app .collapsed .sidebar-collapse {
+    align-self: center;
+    margin-right: 0;
+}
+
+.entropy-app .sidebar-section-label {
+    flex: 0 0 auto;
+    min-height: 30px;
+    padding: 0 12px;
+    color: var(--app-subtle);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.14em;
+    white-space: nowrap;
+}
+
+.entropy-app .entropy-navigation {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.entropy-app .nav-item {
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 43px;
+    padding: 0 12px;
+    overflow: hidden;
+    color: var(--app-muted);
+    text-align: left;
+    white-space: nowrap;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition:
+        color 0.15s ease,
+        background 0.15s ease;
+}
+
+.entropy-app .nav-item > svg {
+    flex: 0 0 19px;
+}
+
+.entropy-app .nav-item span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.entropy-app .nav-item:hover {
+    color: var(--app-text);
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .nav-item.active {
+    color: var(--app-accent);
+    background: color-mix(in srgb, var(--app-accent) 8%, transparent);
+    border-color: color-mix(in srgb, var(--app-accent) 14%, transparent);
+}
+
+.entropy-app .nav-item.active::before {
+    position: absolute;
+    top: 9px;
+    bottom: 9px;
+    left: -1px;
+    width: 3px;
+    background: var(--app-accent);
+    border-radius: 0 3px 3px 0;
+    content: "";
+}
+
+.entropy-app .collapsed .nav-item {
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+}
+
+.entropy-app .collapsed .nav-item.active::before {
+    left: -1px;
+}
+
+.entropy-app .collapsed .sidebar-section-label {
+    min-height: 30px;
+}
+
+.entropy-app .sidebar-bottom {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .sidebar-version {
+    padding: 0 12px;
+    color: var(--app-subtle);
+    font-size: 9px;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------
+   3. Main workspace and topbar
+   --------------------------------------------------------- */
+
+.entropy-app .entropy-main {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    width: 0;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background-color: var(--app-bg);
+}
+
+/* Workspace background image is decorative and non-interactive. */
+.entropy-app .entropy-main::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    pointer-events: none;
+    background-image: var(--app-background-image, none);
+    background-position: center;
+    background-size: var(--app-background-fit, cover);
+    background-repeat: no-repeat;
+    opacity: var(--app-background-opacity, 0.35);
+    content: "";
+}
+
+.entropy-app .entropy-topbar {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    flex: 0 0 70px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    height: 70px;
+    min-width: 0;
+    min-height: 70px;
+    padding: 0 32px;
+    background: var(--app-bg);
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .topbar-context,
+.entropy-app .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.entropy-app .topbar-context {
+    color: var(--app-subtle);
+    font-size: 12px;
+}
+
+.entropy-app .topbar-section {
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.14em;
+}
+
+.entropy-app .topbar-current {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--app-text);
+    font-size: 13px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .topbar-actions {
+    flex: 0 0 auto;
+    gap: 18px;
+}
+
+.entropy-app .icon-button {
+    display: flex;
+    flex: 0 0 36px;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: var(--app-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.entropy-app .icon-button:hover {
+    color: var(--app-text);
+    background: var(--app-surface-hover);
+    border-color: var(--app-line);
+}
+
+/* ---------------------------------------------------------
+   4. Profile menu
+   --------------------------------------------------------- */
+
+.entropy-app .profile-container {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.entropy-app .profile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 240px;
+    min-height: 42px;
+    padding: 4px 9px 4px 5px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    cursor: pointer;
+}
+
+.entropy-app .profile-trigger:hover {
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .profile-avatar {
+    display: flex;
+    flex: 0 0 30px;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    color: var(--app-accent-text);
+    background: var(--app-accent);
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.entropy-app .profile-name {
+    max-width: 135px;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .profile-trigger > svg {
+    flex: 0 0 auto;
+    color: var(--app-muted);
+}
+
+.entropy-app .profile-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 20;
+    width: 228px;
+    padding: 8px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 11px;
+    box-shadow: 0 18px 45px rgb(0 0 0 / 28%);
+}
+
+.entropy-app .profile-menu-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    overflow: hidden;
+}
+
+.entropy-app .profile-menu-label {
+    color: var(--app-subtle);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+}
+
+.entropy-app .profile-menu-heading strong {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .profile-menu-divider {
+    height: 1px;
+    margin: 5px 0;
+    background: var(--app-line);
+}
+
+.entropy-app .profile-menu > button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 39px;
+    padding: 0 10px;
+    color: var(--app-muted);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .profile-menu > button:hover {
+    color: var(--app-text);
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .profile-menu > button.profile-logout {
+    color: #ff9d93;
+}
+
+/* ---------------------------------------------------------
+   5. Page content
+   --------------------------------------------------------- */
+
+.entropy-app .entropy-content {
+    display: block;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    margin: 0 auto;
+    padding: 40px 36px 56px;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Preferences has a bounded viewport-height content region. */
+.entropy-app .entropy-content-preferences {
+    display: flex;
+    flex-direction: column;
+    padding: 24px 28px;
+    overflow: hidden;
+}
+
+.entropy-app .entropy-content-preferences > .preferences-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------------
+   6. Dashboard welcome
+   --------------------------------------------------------- */
+
+.entropy-app .dashboard-welcome {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 300px;
+    padding: 42px;
+    overflow: hidden;
+    background:
+        radial-gradient(
+            ellipse at 90% 20%,
+            color-mix(in srgb, var(--app-accent) 7%, transparent),
+            transparent 42%
+        ),
+        color-mix(in srgb, var(--app-bg) 48%, transparent);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    border: 1px solid var(--app-line);
+    border-radius: 15px;
+}
+
+.entropy-app .dashboard-welcome-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 560px;
+}
+
+.entropy-app .welcome-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-bottom: 30px;
+    color: var(--app-accent);
+    background: color-mix(in srgb, var(--app-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--app-accent) 17%, transparent);
+    border-radius: 10px;
+}
+
+.entropy-app .page-eyebrow {
+    margin: 0 0 10px;
+    color: var(--app-subtle);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.15em;
+}
+
+.entropy-app .dashboard-welcome h2 {
+    margin: 0;
+    font-size: clamp(30px, 4vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -1.7px;
+}
+
+.entropy-app .dashboard-welcome-copy > p:last-child {
+    max-width: 440px;
+    margin: 16px 0 0;
+    color: var(--app-muted);
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+.entropy-app .dashboard-welcome-art {
+    position: relative;
+    display: flex;
+    flex: 0 0 230px;
+    align-items: center;
+    justify-content: center;
+    width: 230px;
+    height: 230px;
+}
+
+.entropy-app .dashboard-welcome-art img {
+    position: relative;
+    z-index: 1;
+    width: 74px;
+    height: 74px;
+    object-fit: contain;
+    border-radius: 17px;
+    box-shadow: 0 0 65px color-mix(in srgb, var(--app-accent) 8%, transparent);
+}
+
+.entropy-app .art-ring {
+    position: absolute;
+    border: 1px solid color-mix(in srgb, var(--app-accent) 13%, transparent);
+    border-radius: 50%;
+}
+
+.entropy-app .art-ring-one {
+    width: 170px;
+    height: 170px;
+}
+
+.entropy-app .art-ring-two {
+    width: 230px;
+    height: 230px;
+}
+
+/* ---------------------------------------------------------
+   7. Shared content panels
+   --------------------------------------------------------- */
+
+.entropy-app .content-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 32px;
+    background: color-mix(in srgb, var(--app-surface) 88%, transparent);
+    border: 1px solid var(--app-line);
+    border-radius: 13px;
+}
+
+.entropy-app .placeholder-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 22px;
+    color: var(--app-accent);
+    background: color-mix(in srgb, var(--app-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--app-accent) 15%, transparent);
+    border-radius: 10px;
+}
+
+.entropy-app .placeholder-panel h2,
+.entropy-app .about-panel h2 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+}
+
+.entropy-app .placeholder-panel > p,
+.entropy-app .about-panel > p {
+    margin: 10px 0 0;
+    color: var(--app-muted);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.entropy-app .placeholder-status {
+    margin-top: 28px;
+    padding: 9px 11px;
+    color: var(--app-subtle);
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+}
+
+.entropy-app .about-panel {
+    align-items: center;
+    padding: 55px 24px;
+    text-align: center;
+}
+
+.entropy-app .about-panel > img {
+    width: 58px;
+    height: 58px;
+    margin-bottom: 20px;
+    object-fit: contain;
+    border-radius: 13px;
+}
+
+.entropy-app .about-version {
+    margin-top: 25px;
+    padding: 8px 12px;
+    color: var(--app-muted);
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+/* ---------------------------------------------------------
+   8. Shared heading and theme utility styles
+   --------------------------------------------------------- */
+
+.entropy-app .preferences-panel h2 {
+    margin: 0;
+    color: var(--app-text);
+    font-size: 20px;
+}
+
+.entropy-app .preferences-panel > p {
+    margin: 10px 0 24px;
+    color: var(--app-muted);
+    line-height: 1.6;
+}
+
+.entropy-app .theme-options {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 14px;
+    width: 100%;
+}
+
+.entropy-app .theme-option {
+    display: flex;
+    flex: 1 1 180px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 240px;
+    min-width: 0;
+    min-height: 130px;
+    padding: 20px;
+    color: var(--app-text);
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.entropy-app .theme-option span {
+    font-weight: 650;
+}
+
+.entropy-app .theme-option small {
+    color: var(--app-muted);
+}
+
+.entropy-app .theme-option.selected {
+    border-color: var(--app-accent);
+    box-shadow: inset 0 0 0 1px var(--app-accent);
+}
+
+/* Keep generic appearance-control styling available. */
+.entropy-app .appearance-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    width: 100%;
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .appearance-control {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+}
+
+.entropy-app .appearance-control > label {
+    color: var(--app-text);
+    font-weight: 600;
+}
+
+.entropy-app .color-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--app-muted);
+}
+
+.entropy-app .color-control input[type="color"] {
+    width: 42px;
+    height: 36px;
+    padding: 3px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .appearance-control > button {
+    padding: 8px 12px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.entropy-app .appearance-control > button:hover {
+    background: var(--app-surface-hover);
+    border-color: var(--app-accent);
+}
+
+.entropy-app .appearance-control > button:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+.entropy-app .primary-button {
+    color: var(--app-accent-text);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
+}
+
+/* ---------------------------------------------------------
+   9. Responsive layout
+   --------------------------------------------------------- */
+
+@media (max-width: 1000px) {
+    .entropy-app .entropy-sidebar {
+        flex-basis: 230px;
+        width: 230px;
+    }
+
+    .entropy-app .entropy-content {
+        padding: 32px 24px 44px;
+    }
+
+    .entropy-app .entropy-content-preferences {
+        padding: 20px;
+    }
+
+    .entropy-app .entropy-topbar {
+        padding: 0 24px;
+    }
+
+    .entropy-app .dashboard-welcome {
+        padding: 30px;
+    }
+
+    .entropy-app .dashboard-welcome-art {
+        flex-basis: 160px;
+        width: 160px;
+        height: 180px;
+    }
+
+    .entropy-app .art-ring-one {
+        width: 130px;
+        height: 130px;
+    }
+
+    .entropy-app .art-ring-two {
+        width: 170px;
+        height: 170px;
+    }
+}
+
+@media (max-width: 700px) {
+    .entropy-app .entropy-sidebar {
+        flex-basis: 68px;
+        width: 68px;
+        padding-right: 8px;
+        padding-left: 8px;
+    }
+
+    .entropy-app .entropy-sidebar .entropy-sidebar-brand {
+        justify-content: center;
+        padding: 0;
+    }
+
+    .entropy-app .entropy-sidebar-brand img {
+        flex-basis: 36px;
+        width: 36px;
+        height: 36px;
+    }
+
+    .entropy-app .entropy-sidebar .entropy-brand-copy,
+    .entropy-app .entropy-sidebar .sidebar-section-label,
+    .entropy-app .entropy-sidebar .nav-item span,
+    .entropy-app .entropy-sidebar .sidebar-version {
+        display: none;
+    }
+
+    .entropy-app .entropy-sidebar .sidebar-collapse {
+        align-self: center;
+        margin: 18px 0 24px;
+    }
+
+    .entropy-app .entropy-sidebar .nav-item {
+        justify-content: center;
+        padding: 0;
+    }
+
+    .entropy-app .entropy-topbar {
+        flex-basis: 62px;
+        height: 62px;
+        min-height: 62px;
+        padding: 0 14px;
+    }
+
+    .entropy-app .topbar-context {
+        gap: 6px;
+    }
+
+    .entropy-app .topbar-section {
+        display: none;
+    }
+
+    .entropy-app .topbar-actions {
+        gap: 7px;
+    }
+
+    .entropy-app .profile-trigger {
+        gap: 6px;
+        padding-right: 6px;
+    }
+
+    .entropy-app .profile-name {
+        max-width: 70px;
+    }
+
+    .entropy-app .entropy-content {
+        padding: 26px 16px 36px;
+    }
+
+    .entropy-app .entropy-content-preferences {
+        padding: 14px;
+        overflow-y: auto;
+    }
+
+    .entropy-app .entropy-content-preferences > .preferences-panel {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+    }
+
+    .entropy-app .dashboard-welcome {
+        min-height: 250px;
+        padding: 25px;
+    }
+
+    .entropy-app .dashboard-welcome-art {
+        display: none;
+    }
+
+    .entropy-app .content-panel {
+        padding: 25px;
+    }
+
+    .entropy-app .theme-option {
+        flex-basis: calc(50% - 7px);
+        min-height: 110px;
+        padding: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .entropy-sidebar,
+    .entropy-app .nav-item,
+    .entropy-app .icon-button {
+        transition: none;
+    }
+}
+
+:root {
+  --entropy-font-family: Calibri, sans-serif;
+}
+
+.entropy-app {
+  font-family: var(--entropy-font-family);
+}
+
+
+/* Notification center */
+.notification-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.notification-trigger {
+    position: relative;
+}
+
+.notification-badge {
+    position: absolute;
+    top: 2px;
+    right: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border: 2px solid var(--topbar-bg, var(--surface-color, #1b1d23));
+    border-radius: 999px;
+    background: var(--danger-color, #dc4545);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.notification-menu {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    width: min(390px, calc(100vw - 24px));
+    max-height: min(520px, calc(100vh - 100px));
+    overflow: hidden;
+    border: 1px solid var(--border-color, #343741);
+    border-radius: 12px;
+    background: var(--panel-bg, var(--surface-color, #202229));
+    color: var(--text-color, inherit);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 24%);
+    font-family: inherit;
+}
+
+.notification-menu-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+}
+
+.notification-menu-heading > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.notification-menu-heading strong {
+    font-size: 14px;
+}
+
+.notification-menu-heading span {
+    color: var(--muted-text, #9296a3);
+    font-size: 12px;
+}
+
+.notification-mark-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px;
+    border: 0;
+    background: transparent;
+    color: var(--accent-color, #7c8cff);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.notification-menu-divider {
+    height: 1px;
+    flex: 0 0 auto;
+    background: var(--border-color, #343741);
+}
+
+.notification-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 36px 16px;
+    color: var(--muted-text, #9296a3);
+    text-align: center;
+}
+
+.notification-empty strong {
+    color: var(--text-color, inherit);
+    font-size: 13px;
+}
+
+.notification-empty span {
+    font-size: 12px;
+}
+
+.notification-list {
+    overflow-y: auto;
+}
+
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color, #343741);
+}
+
+.notification-item:last-child {
+    border-bottom: 0;
+}
+
+.notification-item.is-unread {
+    background: var(--notification-unread-bg, rgb(124 140 255 / 7%));
+}
+
+.notification-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-item-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+}
+
+.notification-item-title strong {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.notification-unread-dot {
+    width: 7px;
+    height: 7px;
+    margin-top: 4px;
+    flex: 0 0 7px;
+    border-radius: 50%;
+    background: var(--accent-color, #7c8cff);
+}
+
+.notification-item-content p {
+    margin: 6px 0;
+    color: var(--muted-text, #a0a3af);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.notification-item-content time {
+    color: var(--muted-text, #858995);
+    font-size: 10px;
+}
+
+.notification-item-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.notification-item-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted-text, #a0a3af);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.notification-item-actions button:hover,
+.notification-mark-all:hover {
+    color: var(--accent-color, #7c8cff);
+}
+
+.notification-item-actions .notification-clear:hover {
+    color: var(--danger-color, #dc4545);
+}
+
+.notification-trigger:focus-visible,
+.notification-menu button:focus-visible {
+    outline: 2px solid var(--accent-color, #7c8cff);
+    outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+    .notification-menu {
+        position: fixed;
+        top: 64px;
+        right: 12px;
+        max-height: calc(100vh - 80px);
+    }
+}
