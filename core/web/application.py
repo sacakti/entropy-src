@@ -15,7 +15,7 @@ from core.web.routes.health import router as health_router
 def _close_context(context: EntropyContext) -> None:
     """Close context-owned resources when their managers expose close()."""
 
-    database_manager = context.database_manager
+    database_manager = getattr(context, "database_manager", None)
     close = getattr(database_manager, "close", None)
 
     if callable(close):
