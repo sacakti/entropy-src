@@ -93,3 +93,73 @@ class InvalidObjectsReportResolver:
                 )
 
         return value
+
+    @staticmethod
+    def report(
+        value: Any,
+    ) -> dict[str, Any]:
+        if value is None:
+            return {
+                "add_text": False,
+                "position": "after",
+                "text": "",
+            }
+
+        if not isinstance(value, dict):
+            raise InvalidObjectsReportPluginException(
+                "'report' must be an object.",
+            )
+
+        add_text = value.get(
+            "add_text",
+            False,
+        )
+
+        if not isinstance(add_text, bool):
+            raise InvalidObjectsReportPluginException(
+                "'report.add_text' must be a boolean.",
+            )
+
+        position = value.get(
+            "position",
+            "after",
+        )
+
+        if not isinstance(position, str):
+            raise InvalidObjectsReportPluginException(
+                "'report.position' must be either 'before' or 'after'.",
+            )
+
+        position = position.strip().casefold()
+
+        if position not in {
+            "before",
+            "after",
+        }:
+            raise InvalidObjectsReportPluginException(
+                "'report.position' must be either 'before' or 'after'.",
+            )
+
+        text = value.get(
+            "text",
+            "",
+        )
+
+        if not isinstance(text, str):
+            raise InvalidObjectsReportPluginException(
+                "'report.text' must be a string.",
+            )
+
+        text = text.strip()
+
+        if add_text and not text:
+            raise InvalidObjectsReportPluginException(
+                "'report.text' must not be empty when "
+                "'report.add_text' is true.",
+            )
+
+        return {
+            "add_text": add_text,
+            "position": position,
+            "text": text,
+        }
