@@ -30,11 +30,11 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         context = factory.build()
-        factory.discover()
         app.state.entropy_context = context
         app.state.context_factory = factory
 
         try:
+            factory.discover()
             yield
         finally:
             _close_context(context)
