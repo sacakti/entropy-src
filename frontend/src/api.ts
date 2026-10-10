@@ -1,5 +1,14 @@
 export interface AuthUser {
+  id: number
   username: string
+  full_name: string
+  email: string | null
+}
+
+interface CurrentUserResponse {
+  user: AuthUser
+  permissions: string[]
+  expires_at: string
 }
 
 interface CsrfResponse {
@@ -42,7 +51,7 @@ export async function login(
   }
 }
 
-export async function getCurrentUser(): Promise<AuthUser> {
+export async function getCurrentUser(): Promise<CurrentUserResponse> {
   const response = await fetch('/api/auth/me', {
     method: 'GET',
     credentials: 'same-origin',
