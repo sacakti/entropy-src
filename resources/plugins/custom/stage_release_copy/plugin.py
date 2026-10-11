@@ -28,6 +28,16 @@ class StageReleaseCopyPlugin(
     TIMESTAMP_HOURS = "hours"
     TIMESTAMP_DAYS = "days"
 
+    ARTIFACT_REPLACE = "replace"
+    ARTIFACT_MOVE = "move"
+
+    ATTRIBUTE_SOURCE = "source"
+    ATTRIBUTE_DESTINATION = "destination"
+    ATTRIBUTE_PRESERVE = "preserve"
+
+    PERMISSION_SOURCE = "source"
+    PERMISSION_DESTINATION = "destination"
+
     def execute(
         self,
     ) -> PluginResult:
@@ -88,6 +98,15 @@ class StageReleaseCopyPlugin(
         copy_type = self.arguments.string(
             "copy_type",
             default="single",
+        )
+
+        artifact_matching = self.arguments.get(
+            "artifact_matching",
+            {},
+        )
+
+        artifact_matching = self._validate_artifact_matching(
+            artifact_matching,
         )
 
         backup = self.arguments.boolean(
@@ -238,10 +257,12 @@ class StageReleaseCopyPlugin(
             )
 
         total_files = 0
+        backup_paths: list[str] = []
+        rotation_results: list[dict[str, object]] = []
 
         for mapping in mappings:
 
-            total_files += self._copy_mapping(
+            copied_count, backup_root, rotation = self._copy_mapping(
                 source=mapping["source"],
                 destination=mapping["destination"],
                 backup=backup,
@@ -249,6 +270,21 @@ class StageReleaseCopyPlugin(
                 max_files=max_files,
                 max_timestamp=max_timestamp,
                 max_timestamp_unit=max_timestamp_unit,
+                artifact_matching=artifact_matching,
+            )
+
+            total_files += copied_count
+
+            if backup_root is not None:
+                backup_paths.append(
+                    str(backup_root),
+                )
+
+            rotation_results.append(
+                {
+                    "destination": str(mapping["destination"]),
+                    **rotation,
+                },
             )
 
         self.outputs.update(
@@ -262,6 +298,11 @@ class StageReleaseCopyPlugin(
                     for mapping in mappings
                 ],
                 "files_copied": total_files,
+                "backup": {
+                    "enabled": backup,
+                    "paths": backup_paths,
+                },
+                "rotation": rotation_results
             },
         )
 
@@ -331,6 +372,94 @@ class StageReleaseCopyPlugin(
                 "Expected 'hours' or 'days'.",
             )
 
+    def _validate_artifact_matching(
+        self,
+        value: object,
+    ) -> dict[str, object]:
+        """
+        Validate artifact matching configuration.
+        """
+
+        if value is None:
+            return {
+                "enabled": False,
+                "patterns": [],
+                "rule": self.ARTIFACT_MOVE,
+            }
+
+        if not isinstance(value, dict):
+            raise StageReleaseCopyError(
+                "'artifact_matching' must be an object.",
+            )
+
+        enabled = value.get(
+            "enabled",
+            False,
+        )
+
+        if not isinstance(enabled, bool):
+            raise StageReleaseCopyError(
+                "'artifact_matching.enabled' must be a boolean.",
+            )
+
+        patterns = value.get(
+            "patterns",
+            [],
+        )
+
+        if not isinstance(patterns, list):
+            raise StageReleaseCopyError(
+                "'artifact_matching.patterns' must be a list.",
+            )
+
+        normalized_patterns: list[str] = []
+
+        for index, pattern in enumerate(patterns, start=1):
+
+            if not isinstance(pattern, str) or not pattern.strip():
+                raise StageReleaseCopyError(
+                    f"Artifact matching pattern {index} "
+                    "must be a non-empty string.",
+                )
+
+            normalized_patterns.append(
+                pattern.strip(),
+            )
+
+        rule = value.get(
+            "rule",
+            self.ARTIFACT_MOVE,
+        )
+
+        if not isinstance(rule, str):
+            raise StageReleaseCopyError(
+                "'artifact_matching.rule' must be a string.",
+            )
+
+        rule = rule.strip().lower()
+
+        if rule not in {
+            self.ARTIFACT_REPLACE,
+            self.ARTIFACT_MOVE,
+        }:
+            raise StageReleaseCopyError(
+                "Invalid artifact matching rule: "
+                f"{rule}. Expected 'replace' or 'move'.",
+            )
+
+        if enabled and not normalized_patterns:
+            raise StageReleaseCopyError(
+                "'artifact_matching.patterns' must contain "
+                "at least one pattern when artifact matching "
+                "is enabled.",
+            )
+
+        return {
+            "enabled": enabled,
+            "patterns": normalized_patterns,
+            "rule": rule,
+        }
+
     # ------------------------------------------------------------------
     # Copy
     # ------------------------------------------------------------------
@@ -345,7 +474,8 @@ class StageReleaseCopyPlugin(
         max_files: int,
         max_timestamp: int,
         max_timestamp_unit: str,
-    ) -> int:
+        artifact_matching: dict[str, object],
+    ) -> tuple[int, Path | None, dict[str, object]]:
         """
         Copy one source directory into one destination.
         """
@@ -374,11 +504,18 @@ class StageReleaseCopyPlugin(
             destination=destination,
             backup_root=backup_root,
             backup_enabled=backup,
+            artifact_matching=artifact_matching,
         )
+
+        rotation = {
+            "required": False,
+            "type": rotate_backup_type,
+            "removed": [],
+        }
 
         if backup:
 
-            self._rotate_backups(
+            rotation = self._rotate_backups(
                 destination_path=destination,
                 rotate_backup_type=rotate_backup_type,
                 max_files=max_files,
@@ -395,8 +532,8 @@ class StageReleaseCopyPlugin(
         self.message.info(
             f"Copied {len(copied_files)} file(s) " f"from '{source}' to '{destination}'.",
         )
-
-        return len(copied_files)
+            
+        return len(copied_files), backup_root, rotation
 
     def _copy_directory(
         self,
@@ -405,6 +542,7 @@ class StageReleaseCopyPlugin(
         destination: Path,
         backup_root: Path | None,
         backup_enabled: bool,
+        artifact_matching: dict[str, object],
     ) -> list[Path]:
         """
         Recursively copy source contents into destination.
@@ -423,7 +561,6 @@ class StageReleaseCopyPlugin(
             if not self.filesystem.is_file(
                 source_file,
             ):
-
                 continue
 
             relative = source_file.relative_to(
@@ -440,7 +577,23 @@ class StageReleaseCopyPlugin(
                     destination_file.parent,
                 )
 
-                if self.filesystem.exists(
+                artifact_enabled = bool(
+                    artifact_matching["enabled"],
+                )
+
+                if artifact_enabled:
+
+                    destination_file = self._handle_artifact_matching(
+                        source_file=source_file,
+                        destination_file=destination_file,
+                        destination_root=destination,
+                        backup_root=backup_root,
+                        backup_enabled=backup_enabled,
+                        patterns=artifact_matching["patterns"],
+                        rule=artifact_matching["rule"],
+                    )
+
+                elif self.filesystem.exists(
                     destination_file,
                 ):
 
@@ -474,6 +627,202 @@ class StageReleaseCopyPlugin(
             )
 
         return copied_files
+
+    # ------------------------------------------------------------------
+    # Artifacts Copy - *.jar / *.war
+    # ------------------------------------------------------------------ 
+    def _handle_artifact_matching(
+        self,
+        *,
+        source_file: Path,
+        destination_file: Path,
+        destination_root: Path,
+        backup_root: Path | None,
+        backup_enabled: bool,
+        patterns: object,
+        rule: object,
+    ) -> Path:
+        """
+        Handle replacement of versioned artifacts.
+        """
+
+        if not isinstance(patterns, list):
+            raise StageReleaseCopyError(
+                "Artifact matching patterns are invalid.",
+            )
+
+        if not isinstance(rule, str):
+            raise StageReleaseCopyError(
+                "Artifact matching rule is invalid.",
+            )
+
+        matching_files = self._find_matching_artifacts(
+            destination_directory=destination_file.parent,
+            source_file=source_file,
+            patterns=patterns,
+        )
+
+        # No artifact with the configured pattern exists.
+        if not matching_files:
+
+            if self.filesystem.exists(
+                destination_file,
+            ):
+
+                if not backup_enabled:
+                    raise FileExistsError(
+                        "Destination file already exists "
+                        "and backup is disabled: "
+                        f"{destination_file}",
+                    )
+
+                if backup_root is None:
+                    raise RuntimeError(
+                        "Backup root is unavailable.",
+                    )
+
+                self._backup_existing_file(
+                    destination=destination_file,
+                    destination_root=destination_root,
+                    backup_root=backup_root,
+                )
+
+            return destination_file
+
+        if rule == self.ARTIFACT_REPLACE:
+
+            if len(matching_files) > 1:
+
+                raise StageReleaseCopyError(
+                    "Multiple matching artifacts found for "
+                    f"'{source_file.name}': "
+                    + ", ".join(
+                        str(path)
+                        for path in matching_files
+                    )
+                    + ". Use a more specific artifact "
+                    "matching pattern.",
+                )
+
+            existing = matching_files[0]
+
+            if backup_enabled:
+
+                if backup_root is None:
+                    raise RuntimeError(
+                        "Backup root is unavailable.",
+                    )
+
+                self._backup_existing_file(
+                    destination=existing,
+                    destination_root=destination_root,
+                    backup_root=backup_root,
+                )
+
+            else:
+
+                self.filesystem.remove(
+                    existing,
+                )
+
+            self.log.info(
+                f"Replacing artifact '{existing.name}' "
+                f"with '{source_file.name}'.",
+            )
+
+            return existing
+
+        if rule == self.ARTIFACT_MOVE:
+
+            for existing in matching_files:
+
+                if backup_enabled:
+
+                    if backup_root is None:
+                        raise RuntimeError(
+                            "Backup root is unavailable.",
+                        )
+
+                    self._backup_existing_file(
+                        destination=existing,
+                        destination_root=destination_root,
+                        backup_root=backup_root,
+                    )
+
+                else:
+
+                    self.filesystem.remove(
+                        existing,
+                    )
+
+                self.log.info(
+                    f"Removed existing artifact "
+                    f"'{existing}'.",
+                )
+
+            return destination_file
+
+        raise StageReleaseCopyError(
+            f"Unsupported artifact matching rule: {rule}",
+        )
+
+    def _find_matching_artifacts(
+        self,
+        *,
+        destination_directory: Path,
+        source_file: Path,
+        patterns: list[object],
+    ) -> list[Path]:
+        """
+        Find existing destination artifacts matching the source
+        artifact type.
+
+        A source artifact is matched against only the configured
+        pattern(s) that match its filename.
+
+        For example:
+
+            myapp-1.0.2.jar -> *.jar
+            myext-1.0.2.war -> *.war
+        """
+
+        source_patterns = [
+            pattern
+            for pattern in patterns
+            if isinstance(pattern, str)
+            and source_file.match(pattern)
+        ]
+
+        if not source_patterns:
+            return []
+
+        matching_files: list[Path] = []
+
+        existing_files = self.filesystem.find(
+            destination_directory,
+            pattern="*",
+            recursive=False,
+        )
+
+        for existing_file in existing_files:
+
+            if not self.filesystem.is_file(
+                existing_file,
+            ):
+                continue
+
+            if existing_file.name == source_file.name:
+                continue
+
+            if any(
+                existing_file.match(pattern)
+                for pattern in source_patterns
+            ):
+                matching_files.append(
+                    existing_file,
+                )
+
+        return matching_files
 
     # ------------------------------------------------------------------
     # Backup
@@ -547,18 +896,29 @@ class StageReleaseCopyPlugin(
         max_files: int,
         max_timestamp: int,
         max_timestamp_unit: str,
-    ) -> None:
+    ) -> dict[str, object]:
         """
         Rotate backup directories.
+
+        Rotation only operates on the destination .backup directory.
+
+        The newest backup is always retained.
         """
 
-        backup_directory = destination_path / self.BACKUP_DIRECTORY
+        backup_directory = (
+            destination_path / self.BACKUP_DIRECTORY
+        )
+
+        result: dict[str, object] = {
+            "required": False,
+            "type": rotate_backup_type,
+            "removed": [],
+        }
 
         if not self.filesystem.exists(
             backup_directory,
         ):
-
-            return
+            return result
 
         backups = [
             path
@@ -577,46 +937,75 @@ class StageReleaseCopyPlugin(
             reverse=True,
         )
 
+        # Nothing to rotate.
+        if len(backups) <= 1:
+            return result
+
+        stale: list[Path] = []
+
         if rotate_backup_type == self.ROTATE_MAX_FILES:
 
+            # Always retain the newest backup.
             stale = backups[max_files:]
 
-            for backup in stale:
+        elif rotate_backup_type == self.ROTATE_MAX_TIMESTAMP:
 
-                self.filesystem.remove(
+            now = datetime.now()
+
+            if max_timestamp_unit == self.TIMESTAMP_HOURS:
+                cutoff = now - timedelta(
+                    hours=max_timestamp,
+                )
+            else:
+                cutoff = now - timedelta(
+                    days=max_timestamp,
+                )
+
+            # Never remove the newest backup.
+            for backup in backups[1:]:
+
+                created_at = self._backup_timestamp(
                     backup,
                 )
 
-            return
+                if created_at is None:
+                    continue
 
-        now = datetime.now()
-
-        if max_timestamp_unit == self.TIMESTAMP_HOURS:
-
-            cutoff = now - timedelta(
-                hours=max_timestamp,
-            )
+                if created_at < cutoff:
+                    stale.append(
+                        backup,
+                    )
 
         else:
 
-            cutoff = now - timedelta(
-                days=max_timestamp,
+            raise StageReleaseCopyError(
+                f"Unsupported backup rotation type: "
+                f"{rotate_backup_type}",
             )
 
-        for backup in backups:
+        if not stale:
+            return result
 
-            created_at = self._backup_timestamp(
+        removed: list[str] = []
+
+        for backup in stale:
+
+            self.filesystem.remove(
                 backup,
             )
 
-            if created_at is None:
-                continue
+            removed.append(
+                str(backup),
+            )
 
-            if created_at < cutoff:
+            self.log.info(
+                f"Removed rotated backup '{backup}'.",
+            )
 
-                self.filesystem.remove(
-                    backup,
-                )
+        result["required"] = True
+        result["removed"] = removed
+
+        return result
 
     @staticmethod
     def _backup_timestamp(
@@ -627,16 +1016,14 @@ class StageReleaseCopyPlugin(
         """
 
         try:
-
             return datetime.strptime(
                 backup.name,
                 "%Y%m%d_%H%M%S_%f",
             )
 
-        except StageReleaseCopyError:
-
+        except ValueError:
             return None
-
+ 
     # ------------------------------------------------------------------
     # Result
     # ------------------------------------------------------------------
