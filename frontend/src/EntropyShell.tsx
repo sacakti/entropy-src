@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 
 import {
     Activity,
@@ -6,21 +7,19 @@ import {
     Code2,
     KeyRound,
     Server,
-    Settings,
     ShieldCheck,
     Workflow,
 } from 'lucide-react'
 
 import './EntropyShell.css'
 import { getApplicationVersion } from './api/version'
-import Sidebar from './components/layout/Sidebar'
-import Topbar, { type TopbarNotification } from './components/layout/Topbar'
-import ChangePasswordForm from './features/settings/ChangePasswordForm'
-
 import { useAppearance } from './features/preferences/useAppearance'
+import Topbar, { type TopbarNotification } from './components/layout/Topbar'
+import Sidebar from './components/layout/Sidebar'
+import ChangePasswordForm from './features/settings/ChangePasswordForm'
+import Dashboard from './features/dashboard/Dashboard'
 import Preferences from './features/preferences/Preferences'
 import Permissions from './features/permissions/Permissions'
-
 
 import {
     pageDescriptions,
@@ -150,30 +149,17 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
                     }`}
                 >
                     {activePage === 'dashboard' ? (
-                        <section className="dashboard-welcome">
-                            <div className="dashboard-welcome-copy">
-                                <span className="welcome-mark">
-                                    <Code2 size={21} />
-                                </span>
-                                <p className="page-eyebrow">DEPLOYMENT WORKSPACE</p>
-                                <h2>Build what matters.</h2>
-                                <p>
-                                    Your Entropy workspace is ready. Select a section from the
-                                    sidebar to get started.
-                                </p>
-                            </div>
-                            <div className="dashboard-welcome-art" aria-hidden="true">
-                                <div className="art-ring art-ring-one" />
-                                <div className="art-ring art-ring-two" />
-                                <img src="/entropy-logo.svg" alt="" />
-                            </div>
-                        </section>
+                        <Dashboard
+                            onNavigate={setActivePage}
+                        />
                     ) : activePage === 'about' ? (
                         <section className="content-panel about-panel">
                             <img src="/entropy-logo.svg" alt="Entropy logo" />
                             <h2>Entropy</h2>
                             <p>Deployment Management Platform</p>
-                            <div className="about-version">Version not configured</div>
+                            <div className="about-version">
+                                Version {appVersion || 'Unavailable'}
+                            </div>
                         </section>
                     ) : activePage === 'preferences' ? (
                         <Preferences {...appearance} />

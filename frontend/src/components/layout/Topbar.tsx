@@ -8,7 +8,6 @@ import {
     ChevronRight,
     LogOut,
     Moon,
-    Settings,
     ShieldCheck,
     Sun,
     Trash2,
@@ -255,13 +254,6 @@ export default function Topbar({
 
                             <div className="profile-menu-divider" />
 
-                            {/* <button
-                                type="button"
-                                onClick={() => navigateTo('settings')}
-                            >
-                                <Settings size={16} />
-                                Settings
-                            </button> */}
                             <button
                                 type="button"
                                 onClick={() => navigateTo('settings')}
