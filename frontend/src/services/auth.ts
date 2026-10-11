@@ -1,3 +1,5 @@
+import { apiRequest } from "./api"
+
 export interface AuthUser {
   id: number
   username: string
@@ -78,4 +80,27 @@ export async function logout(): Promise<void> {
   if (!response.ok) {
     throw new Error('Logout failed.')
   }
+}
+
+interface ChangePasswordResponse {
+    message: string
+}
+
+export async function changePassword(
+    currentPassword: string,
+    newPassword: string,
+): Promise<ChangePasswordResponse> {
+    return apiRequest<ChangePasswordResponse>(
+        '/api/auth/change-password',
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                current_password: currentPassword,
+                new_password: newPassword,
+            }),
+        },
+    )
 }

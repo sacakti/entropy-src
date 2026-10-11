@@ -8,7 +8,11 @@ from dataclasses import dataclass
 from typing import cast
 
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import (
+    InvalidHashError,
+    VerificationError,
+    VerifyMismatchError,
+)
 
 from lib.users.exceptions import WeakPasswordError
 
@@ -53,28 +57,24 @@ class PasswordService:
         password: str,
         password_hash: str,
     ) -> PasswordVerification:
-
         try:
-
-            self._hasher.verify(
-                password_hash,
-                password,
-            )
-
-            return PasswordVerification(
-                valid=True,
-                needs_rehash=cast(
-                    bool,
-                    self._hasher.check_needs_rehash(password_hash),
-                ),
-            )
+            self._hasher.verify(password_hash, password)
 
         except VerifyMismatchError:
-
             return PasswordVerification(
                 valid=False,
                 needs_rehash=False,
             )
+
+        except (InvalidHashError, VerificationError):
+            # Do not expose stored-hash details to the caller.
+            # Log the failure in your application's logging layer.
+            raise
+
+        return PasswordVerification(
+            valid=True,
+            needs_rehash=self._hasher.check_needs_rehash(password_hash),
+        )
 
     # ------------------------------------------------------------------
     # Validate

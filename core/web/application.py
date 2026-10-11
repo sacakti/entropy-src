@@ -15,9 +15,9 @@ from fastapi.responses import HTMLResponse
 
 from core.context import EntropyContext
 from core.context_factory import ContextFactory
+from core.bootstrap import bootstrap
 from core.web import routes
 from core.web.session_store import WebSessionStore
-
 
 def _close_context(context: EntropyContext) -> None:
     """Close context-owned resources when their managers expose close()."""
@@ -161,5 +161,6 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
 
     return app
 
+bootstrap()
 
 app = create_app()

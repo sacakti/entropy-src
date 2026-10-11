@@ -9,12 +9,12 @@ import secrets
 from typing import Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 
 from lib.auth.exceptions import AuthenticationRequiredError
 from lib.models.session import Session
 from lib.models.users import User
-from lib.users.exceptions import AuthenticationError, UserInactiveError
+from lib.users.exceptions import AuthenticationError, CurrentPasswordMismatchError, PasswordReuseError, UserInactiveError, WeakPasswordError
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
@@ -26,6 +26,11 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
 
 def _cookie_options(request: Request) -> dict:
     return {
@@ -189,3 +194,39 @@ async def logout(
     response.headers["Cache-Control"] = "no-store"
 
     return {"authenticated": False}
+
+
+@router.post("/change-password")
+async def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    _: None = Depends(verify_csrf),
+    record: Tuple[Session, str, User] = Depends(_current_session),
+) -> dict:
+    _, _, user = record
+
+    context = request.app.state.entropy_context
+
+    try:
+        context.user_manager.change_password(
+            user=user,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+        )
+    except CurrentPasswordMismatchError:
+        raise HTTPException(
+            status_code=400,
+            detail="Current password is incorrect.",
+        ) from None
+    except PasswordReuseError:
+        raise HTTPException(
+            status_code=400,
+            detail="Choose a password different from your current password.",
+        ) from None
+    except WeakPasswordError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from None
+
+    return {"message": "Password changed successfully."}

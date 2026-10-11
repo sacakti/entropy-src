@@ -14,9 +14,11 @@ import {
 import './EntropyShell.css'
 import Sidebar from './components/layout/Sidebar'
 import Topbar, { type TopbarNotification } from './components/layout/Topbar'
+import ChangePasswordForm from './features/settings/ChangePasswordForm'
 
 import { useAppearance } from './features/preferences/useAppearance'
 import Preferences from './features/preferences/Preferences'
+
 
 import {
     pageDescriptions,
@@ -151,6 +153,10 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
                         </section>
                     ) : activePage === 'preferences' ? (
                         <Preferences {...appearance} />
+                    ) : activePage === 'settings' ? (
+                        <section className="content-panel settings-panel">
+                            <ChangePasswordForm />
+                        </section>
                     ) : (
                         <section className="content-panel placeholder-panel">
                             <span className="placeholder-icon">

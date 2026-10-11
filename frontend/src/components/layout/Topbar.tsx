@@ -12,6 +12,7 @@ import {
     ShieldCheck,
     Sun,
     Trash2,
+    KeyRound,
 } from 'lucide-react'
 
 import type { PageId } from '../../types/navigation'
@@ -254,12 +255,19 @@ export default function Topbar({
 
                             <div className="profile-menu-divider" />
 
-                            <button
+                            {/* <button
                                 type="button"
                                 onClick={() => navigateTo('settings')}
                             >
                                 <Settings size={16} />
                                 Settings
+                            </button> */}
+                            <button
+                                type="button"
+                                onClick={() => navigateTo('settings')}
+                            >
+                                <KeyRound size={16} />
+                                Change password
                             </button>
 
                             <button

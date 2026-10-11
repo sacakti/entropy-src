@@ -1,0 +1,332 @@
+
+/* Change password settings */
+
+.entropy-app .password-settings-panel {
+    width: 100%;
+    max-width: 720px;
+    gap: 0;
+}
+
+.entropy-app .password-settings-heading {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+    margin-bottom: 22px;
+}
+
+.entropy-app .password-settings-heading .placeholder-icon {
+    flex: 0 0 48px;
+    margin: 0;
+}
+
+.entropy-app .password-settings-heading h2 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.entropy-app .password-settings-heading p {
+    margin: 7px 0 0;
+    color: var(--app-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.entropy-app .password-security-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 26px;
+    padding: 13px 15px;
+    color: var(--app-muted);
+    background: color-mix(
+        in srgb,
+        var(--app-accent) 5%,
+        var(--app-bg)
+    );
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.entropy-app .password-security-note svg {
+    flex: 0 0 18px;
+    margin-top: 1px;
+    color: var(--app-accent);
+}
+
+.entropy-app .password-change-form {
+    display: flex;
+    flex-direction: column;
+    gap: 19px;
+    width: 100%;
+}
+
+.entropy-app .password-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.entropy-app .password-field > label {
+    color: var(--app-text);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.entropy-app .password-input-wrap {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 45px;
+    padding-right: 7px;
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    transition: border-color 0.15s ease;
+}
+
+.entropy-app .password-input-wrap:focus-within {
+    border-color: var(--app-accent);
+}
+
+.entropy-app .password-input-wrap input {
+    flex: 1;
+    width: 0;
+    min-width: 0;
+    min-height: 43px;
+    padding: 0 13px;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    outline: none;
+    font-size: 13px;
+}
+
+.entropy-app .password-input-wrap input::placeholder {
+    color: var(--app-subtle);
+}
+
+.entropy-app .password-input-wrap input:focus-visible {
+    outline: none;
+}
+
+.entropy-app .password-input-wrap input:disabled {
+    opacity: 0.65;
+}
+
+.entropy-app .password-visibility {
+    display: flex;
+    flex: 0 0 34px;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.entropy-app .password-visibility:hover {
+    color: var(--app-text);
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .password-visibility:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.entropy-app .password-hint {
+    margin: -5px 0 0;
+    color: var(--app-subtle);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.entropy-app .password-feedback {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 12px 13px;
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .password-feedback.is-error {
+    color: #ff9d93;
+    background: rgb(220 69 69 / 8%);
+    border-color: rgb(220 69 69 / 25%);
+}
+
+.entropy-app .password-feedback.is-success {
+    color: var(--app-text);
+    background: color-mix(
+        in srgb,
+        var(--app-accent) 7%,
+        var(--app-bg)
+    );
+    border-color: color-mix(
+        in srgb,
+        var(--app-accent) 30%,
+        var(--app-line)
+    );
+}
+
+.entropy-app .password-feedback.is-success svg {
+    flex: 0 0 17px;
+    margin-top: 1px;
+    color: var(--app-accent);
+}
+
+.entropy-app .password-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    width: 100%;
+    margin-top: 5px;
+    padding-top: 20px;
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .password-form-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 15px;
+    border: 1px solid var(--app-line);
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.entropy-app .password-cancel-button {
+    color: var(--app-text);
+    background: var(--app-bg);
+}
+
+.entropy-app .password-cancel-button:hover {
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .password-submit-button {
+    color: var(--app-button-text);
+    background: var(--app-button-bg);
+    border-color: var(--app-button-bg) !important;
+}
+
+.entropy-app .password-submit-button:hover {
+    filter: brightness(0.94);
+}
+
+.entropy-app .password-form-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.entropy-app .password-spinner {
+    animation: entropy-password-spin 0.8s linear infinite;
+}
+
+@keyframes entropy-password-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 480px) {
+    .entropy-app .password-settings-panel {
+        padding: 20px;
+    }
+
+    .entropy-app .password-settings-heading {
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .entropy-app .password-settings-heading .placeholder-icon {
+        flex-basis: 42px;
+        width: 42px;
+        height: 42px;
+    }
+
+    .entropy-app .password-form-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .entropy-app .password-form-actions button {
+        padding: 0 8px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .password-spinner {
+        animation: none;
+    }
+}
+
+/* Change password settings — centered and responsive */
+
+.entropy-app .password-settings-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 720px;
+    min-width: 0;
+    margin: 0 auto;
+    padding: clamp(20px, 4vw, 36px);
+    box-sizing: border-box;
+    gap: 0;
+}
+
+/* Ensure the panel stays inside the available viewport area */
+.entropy-app .entropy-content:has(.password-settings-panel) {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* Keep the form content within the panel */
+.entropy-app .password-settings-panel > * {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* Responsive layout */
+@media (max-width: 480px) {
+    .entropy-app .password-settings-panel {
+        padding: 20px 16px;
+    }
+
+    .entropy-app .password-form-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .entropy-app .password-form-actions button {
+        min-width: 0;
+        padding: 0 8px;
+    }
+}
