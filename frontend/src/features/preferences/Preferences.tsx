@@ -11,8 +11,7 @@ import {
 import type { BackgroundImage } from '../../api/backgrounds.api'
 import type { UserPreferences } from '../../api/preferences.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
-
-import './Preferences.css'
+import '../../styles/Preferences.css'
 
 export interface PreferencesProps {
     theme: UserPreferences['theme']

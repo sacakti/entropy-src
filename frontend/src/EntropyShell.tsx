@@ -18,6 +18,7 @@ import ChangePasswordForm from './features/settings/ChangePasswordForm'
 
 import { useAppearance } from './features/preferences/useAppearance'
 import Preferences from './features/preferences/Preferences'
+import Permissions from './features/permissions/Permissions'
 
 
 import {
@@ -154,9 +155,9 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
                     ) : activePage === 'preferences' ? (
                         <Preferences {...appearance} />
                     ) : activePage === 'settings' ? (
-                        <section className="content-panel settings-panel">
                             <ChangePasswordForm />
-                        </section>
+                    ) : activePage === 'permissions' ? (
+                        <Permissions />
                     ) : (
                         <section className="content-panel placeholder-panel">
                             <span className="placeholder-icon">
@@ -166,8 +167,8 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
                                 {activePage === 'nodes' && <Server size={25} />}
                                 {activePage === 'schedulers' && <Activity size={25} />}
                                 {activePage === 'administration' && <ShieldCheck size={25} />}
-                                {activePage === 'settings' && <Settings size={25} />}
-                                {activePage === 'permissions' && <ShieldCheck size={25} />}
+                                {/* {activePage === 'settings' && <Settings size={25} />}
+                                {activePage === 'permissions' && <ShieldCheck size={25} />} */}
                             </span>
                             <h2>{pageTitle}</h2>
                             <p>{pageDescriptions[activePage]}</p>

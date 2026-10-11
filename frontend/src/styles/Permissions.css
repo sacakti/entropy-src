@@ -1,0 +1,368 @@
+/* Entropy — Permissions page
+   Scoped to the permission screen; uses shell theme tokens. */
+
+.entropy-app .permissions-page {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    gap: 24px;
+}
+
+.entropy-app .permissions-header,
+.entropy-app .permissions-heading,
+.entropy-app .permissions-toolbar,
+.entropy-app .permissions-group-header {
+    display: flex;
+    align-items: center;
+}
+
+.entropy-app .permissions-header {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+}
+
+.entropy-app .permissions-heading {
+    flex: 0 1 auto;
+    gap: 14px;
+    min-width: 0;
+}
+
+.entropy-app .permissions-heading-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 46px;
+    width: 46px;
+    height: 46px;
+    color: var(--app-accent);
+    background: color-mix(in srgb, var(--app-accent) 11%, transparent);
+    border: 1px solid color-mix(in srgb, var(--app-accent) 25%, transparent);
+    border-radius: 12px;
+}
+
+.entropy-app .permissions-heading-copy { min-width: 0; }
+
+.entropy-app .permissions-eyebrow {
+    margin: 0 0 4px;
+    color: var(--app-accent);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .12em;
+}
+
+.entropy-app .permissions-heading h2 {
+    margin: 0;
+    font-size: clamp(21px, 2vw, 25px);
+    font-weight: 650;
+    letter-spacing: -.025em;
+    line-height: 1.2;
+}
+
+.entropy-app .permissions-description {
+    margin: 6px 0 0;
+    color: var(--app-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.entropy-app .permissions-refresh,
+.entropy-app .permissions-retry {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 8px 12px;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease;
+}
+
+.entropy-app .permissions-refresh:hover,
+.entropy-app .permissions-retry:hover {
+    background: var(--app-surface-hover);
+    border-color: color-mix(in srgb, var(--app-text) 24%, var(--app-line));
+}
+
+.entropy-app .permissions-refresh:disabled,
+.entropy-app .permissions-retry:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+}
+
+.entropy-app .permissions-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+}
+
+.entropy-app .permissions-summary-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    padding: 16px 18px;
+    background: color-mix(in srgb, var(--app-surface) 76%, transparent);
+    border: 1px solid var(--app-line);
+    border-radius: 11px;
+}
+
+.entropy-app .permissions-summary-label {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .permissions-summary-card strong {
+    color: var(--app-text);
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .permissions-summary-caption {
+    color: var(--app-muted);
+    font-size: 11px;
+}
+
+.entropy-app .permissions-toolbar {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.entropy-app .permissions-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(100%, 440px);
+    min-height: 40px;
+    padding: 0 12px;
+    color: var(--app-muted);
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+}
+
+.entropy-app .permissions-search:focus-within {
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 13%, transparent);
+}
+
+.entropy-app .permissions-search > svg { flex: 0 0 auto; }
+
+.entropy-app .permissions-search input {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 0;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 12px;
+    background: transparent;
+    border: 0;
+    outline: 0;
+}
+
+.entropy-app .permissions-search input::placeholder { color: var(--app-muted); }
+
+.entropy-app .permissions-result-count {
+    flex: 0 0 auto;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .permissions-groups {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: start;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+}
+
+.entropy-app .permissions-group {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--app-surface) 52%, transparent);
+}
+
+.entropy-app .permissions-group-header {
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 56px;
+    padding: 12px 14px;
+    background: color-mix(in srgb, var(--app-surface) 65%, transparent);
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .permissions-group-heading { min-width: 0; }
+
+.entropy-app .permissions-group-header h3 {
+    margin: 0;
+    color: var(--app-text);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.entropy-app .permissions-group-key {
+    display: block;
+    margin-top: 3px;
+    color: var(--app-muted);
+    font-size: 10px;
+}
+
+.entropy-app .permissions-group-count {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    min-width: 25px;
+    height: 24px;
+    padding: 0 6px;
+    color: var(--app-accent);
+    background: color-mix(in srgb, var(--app-accent) 12%, transparent);
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .permissions-list {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 0 14px;
+}
+
+.entropy-app .permissions-item {
+    display: grid;
+    grid-template-columns: 19px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    min-width: 0;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .permissions-item:last-child { border-bottom: 0; }
+
+.entropy-app .permissions-item-check {
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    color: var(--app-accent);
+    background: color-mix(in srgb, var(--app-accent) 12%, transparent);
+    border-radius: 6px;
+}
+
+.entropy-app .permissions-item-name {
+    min-width: 0;
+    color: var(--app-text);
+    font-size: 11px;
+    font-weight: 550;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .permissions-item code {
+    grid-column: 2;
+    min-width: 0;
+    color: var(--app-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .permissions-message,
+.entropy-app .permissions-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 30px 20px;
+    color: var(--app-muted);
+    text-align: center;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .permissions-loading { min-height: 140px; }
+
+.entropy-app .permissions-error {
+    justify-content: flex-start;
+    align-items: flex-start;
+    color: #e87979;
+    text-align: left;
+}
+
+.entropy-app .permissions-message-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.entropy-app .permissions-message-content p {
+    margin: 0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .permissions-empty {
+    flex-direction: column;
+    min-height: 180px;
+}
+
+.entropy-app .permissions-empty h3 {
+    margin: 0;
+    color: var(--app-text);
+    font-size: 14px;
+}
+
+.entropy-app .permissions-empty p {
+    max-width: 420px;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.entropy-app .permissions-spinning { animation: permissions-spin .9s linear infinite; }
+
+@keyframes permissions-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1400px) {
+    .entropy-app .permissions-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1050px) {
+    .entropy-app .permissions-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+    .entropy-app .permissions-page { gap: 18px; }
+    .entropy-app .permissions-header { align-items: flex-start; }
+    .entropy-app .permissions-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .entropy-app .permissions-summary-card { padding: 12px; }
+    .entropy-app .permissions-summary-card strong { font-size: 21px; }
+    .entropy-app .permissions-groups { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+}
+
+@media (max-width: 420px) {
+    .entropy-app .permissions-summary { grid-template-columns: minmax(0, 1fr); }
+    .entropy-app .permissions-toolbar { align-items: stretch; flex-direction: column; }
+    .entropy-app .permissions-search { width: 100%; }
+}

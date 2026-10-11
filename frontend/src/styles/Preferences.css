@@ -748,3 +748,15 @@
     min-height: 0;
   }
 }
+
+/* Keep Preferences consistent with the shared workspace backdrop. */
+.entropy-app .entropy-content-preferences > .content-panel,
+.entropy-app .entropy-content-preferences .preferences-panel {
+    background: color-mix(
+        in srgb,
+        var(--app-bg) 48%,
+        transparent
+    );
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}

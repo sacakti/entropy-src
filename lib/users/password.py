@@ -9,7 +9,7 @@ from typing import cast
 
 from argon2 import PasswordHasher
 from argon2.exceptions import (
-    InvalidHashError,
+    InvalidHash,
     VerificationError,
     VerifyMismatchError,
 )
@@ -19,18 +19,12 @@ from lib.users.exceptions import WeakPasswordError
 
 @dataclass(frozen=True)
 class PasswordVerification:
-
     valid: bool
-
     needs_rehash: bool
 
 
 class PasswordService:
-
-    def __init__(
-        self,
-    ) -> None:
-
+    def __init__(self) -> None:
         self._hasher = PasswordHasher(
             time_cost=3,
             memory_cost=65536,
@@ -41,11 +35,7 @@ class PasswordService:
     # Hash
     # ------------------------------------------------------------------
 
-    def hash(
-        self,
-        password: str,
-    ) -> str:
-
+    def hash(self, password: str) -> str:
         return cast(str, self._hasher.hash(password))
 
     # ------------------------------------------------------------------
@@ -66,7 +56,7 @@ class PasswordService:
                 needs_rehash=False,
             )
 
-        except (InvalidHashError, VerificationError):
+        except (InvalidHash, VerificationError):
             # Do not expose stored-hash details to the caller.
             # Log the failure in your application's logging layer.
             raise
@@ -80,63 +70,53 @@ class PasswordService:
     # Validate
     # ------------------------------------------------------------------
 
-    def validate(
-        self,
-        password: str,
-    ) -> None:
-        """
-        Validate password strength.
-        """
+    def validate(self, password: str) -> None:
+        """Validate password strength."""
 
         if not password:
-
             raise WeakPasswordError("Password is required.")
 
         if len(password) < 8:
-
-            raise WeakPasswordError("Password must contain at least 8 characters.")
+            raise WeakPasswordError(
+                "Password must contain at least 8 characters."
+            )
 
         if password.isspace():
-
-            raise WeakPasswordError("Password cannot contain only whitespace.")
+            raise WeakPasswordError(
+                "Password cannot contain only whitespace."
+            )
 
         if password.lower() in {
             "password",
             "password123",
             "admin123",
         }:
-
             raise WeakPasswordError(
-                "Password is too common and must contain " "at least 8 characters.",
+                "Password is too common and must contain at least 8 characters."
             )
 
     # ------------------------------------------------------------------
     # Generate
     # ------------------------------------------------------------------
 
-    def generate(
-        self,
-        length: int = 20,
-    ) -> str:
+    def generate(self, length: int = 20) -> str:
         """
         Generate a temporary password that satisfies
         the current password policy.
         """
 
+        if length < 8:
+            raise ValueError("Password length must be at least 8 characters.")
+
         alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
 
         while True:
-
-            password = "".join(secrets.choice(alphabet) for _ in range(length))
+            password = "".join(
+                secrets.choice(alphabet) for _ in range(length)
+            )
 
             try:
-
-                self.validate(
-                    password,
-                )
-
+                self.validate(password)
                 return password
-
             except WeakPasswordError:
-
                 continue
