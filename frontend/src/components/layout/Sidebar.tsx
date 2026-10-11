@@ -14,6 +14,7 @@ interface SidebarProps {
     collapsed: boolean
     onPageChange: (page: PageId) => void
     onToggleCollapse: () => void
+    version: string
 }
 
 export default function Sidebar({
@@ -21,6 +22,7 @@ export default function Sidebar({
     collapsed,
     onPageChange,
     onToggleCollapse,
+    version,
 }: SidebarProps) {
     return (
         <aside
@@ -86,7 +88,7 @@ export default function Sidebar({
 
                 {!collapsed && (
                     <span className="sidebar-version">
-                        VERSION — NOT CONFIGURED
+                        VERSION {version || 'Unavailable'}
                     </span>
                 )}
             </div>

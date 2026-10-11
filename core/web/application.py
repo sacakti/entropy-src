@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse
 from core.context import EntropyContext
 from core.context_factory import ContextFactory
 from core.bootstrap import bootstrap
+from core.version import VERSION
 from core.web import routes
 from core.web.session_store import WebSessionStore
 
@@ -75,7 +76,7 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
     app = FastAPI(
         title="Entropy",
         description="Entropy deployment framework web API",
-        version="1.0.2",
+        version=VERSION,
         docs_url=None,
         lifespan=lifespan,
     )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import {
     Activity,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import './EntropyShell.css'
+import { getApplicationVersion } from './api/version'
 import Sidebar from './components/layout/Sidebar'
 import Topbar, { type TopbarNotification } from './components/layout/Topbar'
 import ChangePasswordForm from './features/settings/ChangePasswordForm'
@@ -51,6 +52,27 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
     }
     const pageTitle = pageTitles[activePage]
     const [notifications, setNotifications] = useState<TopbarNotification[]>([])
+    const [appVersion, setAppVersion] = useState('')
+
+    useEffect(() => {
+        let active = true
+
+        getApplicationVersion()
+            .then((data) => {
+                if (active) {
+                    setAppVersion(data.version)
+                }
+            })
+            .catch(() => {
+                if (active) {
+                    setAppVersion('')
+                }
+            })
+
+        return () => {
+            active = false
+        }
+    }, [])
 
     function markNotificationRead(id: string) {
         setNotifications((current) =>
@@ -98,6 +120,7 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
                 collapsed={collapsed}
                 onPageChange={setActivePage}
                 onToggleCollapse={() => setCollapsed((value) => !value)}
+                version={appVersion}
             />
             <div className="entropy-main">
                 <Topbar
