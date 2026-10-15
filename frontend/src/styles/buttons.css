@@ -1,0 +1,174 @@
+
+/* Entropy — shared button system */
+
+.entropy-app {
+    --button-radius: 9px;
+    --button-height: 38px;
+    --button-padding-x: 15px;
+    --button-font-size: 12px;
+    --button-font-weight: 600;
+    --button-transition: 160ms ease;
+
+    --button-primary-bg: var(--app-accent);
+    --button-primary-text: var(--app-accent-text);
+
+    --button-secondary-bg: var(--app-surface);
+    --button-secondary-text: var(--app-text);
+    --button-secondary-border: var(--app-line);
+
+    --button-danger-bg: #dc2626;
+    --button-danger-hover: #b91c1c;
+    --button-danger-text: #ffffff;
+
+    --button-disabled-opacity: 0.5;
+}
+
+/* Base */
+.entropy-app .entropy-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    min-height: var(--button-height);
+    padding: 0 var(--button-padding-x);
+
+    border: 1px solid transparent;
+    border-radius: var(--button-radius);
+
+    font: inherit;
+    font-size: var(--button-font-size);
+    font-weight: var(--button-font-weight);
+    line-height: 1.2;
+    white-space: nowrap;
+
+    cursor: pointer;
+    transition:
+        background-color var(--button-transition),
+        border-color var(--button-transition),
+        color var(--button-transition),
+        box-shadow var(--button-transition),
+        transform var(--button-transition);
+}
+
+.entropy-app .entropy-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.entropy-app .entropy-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.entropy-app .entropy-button:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 3px;
+}
+
+.entropy-app .entropy-button:disabled {
+    opacity: var(--button-disabled-opacity);
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Primary actions: Save, Apply, Confirm */
+.entropy-app .entropy-button-primary {
+    color: var(--button-primary-text);
+    background: var(--button-primary-bg);
+    border-color: var(--button-primary-bg);
+}
+
+.entropy-app .entropy-button-primary:hover:not(:disabled) {
+    filter: brightness(0.94);
+}
+
+/* Secondary actions: Cancel, Close, Back */
+.entropy-app .entropy-button-secondary {
+    color: var(--button-secondary-text);
+    background: var(--button-secondary-bg);
+    border-color: var(--button-secondary-border);
+}
+
+.entropy-app .entropy-button-secondary:hover:not(:disabled) {
+    background: var(--app-surface-hover);
+    border-color: var(--app-muted);
+}
+
+/* Destructive actions: Delete, Reset to defaults */
+.entropy-app .entropy-button-danger {
+    color: var(--button-danger-text);
+    background: var(--button-danger-bg);
+    border-color: var(--button-danger-bg);
+}
+
+.entropy-app .entropy-button-danger:hover:not(:disabled) {
+    background: var(--button-danger-hover);
+    border-color: var(--button-danger-hover);
+}
+
+/* Low-emphasis actions: Refresh, View details */
+.entropy-app .entropy-button-ghost {
+    color: var(--app-text);
+    background: transparent;
+    border-color: transparent;
+}
+
+.entropy-app .entropy-button-ghost:hover:not(:disabled) {
+    background: var(--app-surface-hover);
+    border-color: var(--app-line);
+}
+
+/* Compact variant */
+.entropy-app .entropy-button-sm {
+    min-height: 30px;
+    padding: 0 11px;
+    font-size: 11px;
+}
+
+/* Full-width variant for narrow layouts */
+.entropy-app .entropy-button-block {
+    width: 100%;
+}
+
+
+/* Shared Entropy dropdown */
+.entropy-app .entropy-select {
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 34px 0 12px;
+
+    color: var(--app-text);
+    background-color: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: var(--button-radius);
+
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+
+    cursor: pointer;
+    transition:
+        border-color var(--button-transition),
+        box-shadow var(--button-transition);
+}
+
+.entropy-app .entropy-select:hover {
+    border-color: var(--app-muted);
+}
+
+.entropy-app .entropy-select:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+.entropy-app .entropy-select:disabled {
+    opacity: var(--button-disabled-opacity);
+    cursor: not-allowed;
+}
+
+.entropy-app .entropy-select option {
+    color: var(--app-text);
+    background: var(--app-surface);
+}

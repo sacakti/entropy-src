@@ -1,0 +1,866 @@
+/* Responsive rules retained in original cascade order. */
+@media (max-width: 1000px) {
+
+    .entropy-app .entropy-sidebar {
+
+        flex-basis: 230px;
+
+        width: 230px;
+
+    }
+
+
+
+    .entropy-app .entropy-content {
+
+        padding: 32px 24px 44px;
+
+    }
+
+
+
+    .entropy-app .entropy-content-preferences {
+
+        padding: 20px;
+
+    }
+
+
+
+    .entropy-app .entropy-topbar {
+
+        padding: 0 24px;
+
+    }
+
+
+
+    .entropy-app .dashboard-welcome {
+
+        padding: 30px;
+
+    }
+
+
+
+    .entropy-app .dashboard-welcome-art {
+
+        flex-basis: 160px;
+
+        width: 160px;
+
+        height: 180px;
+
+    }
+
+
+
+    .entropy-app .art-ring-one {
+
+        width: 130px;
+
+        height: 130px;
+
+    }
+
+
+
+    .entropy-app .art-ring-two {
+
+        width: 170px;
+
+        height: 170px;
+
+    }
+
+}
+
+
+
+@media (max-width: 700px) {
+
+    .entropy-app .entropy-sidebar {
+
+        flex-basis: 68px;
+
+        width: 68px;
+
+        padding-right: 8px;
+
+        padding-left: 8px;
+
+    }
+
+
+
+    .entropy-app .entropy-sidebar .entropy-sidebar-brand {
+
+        justify-content: center;
+
+        padding: 0;
+
+    }
+
+
+
+    .entropy-app .entropy-sidebar-brand img {
+
+        flex-basis: 36px;
+
+        width: 36px;
+
+        height: 36px;
+
+    }
+
+
+
+    .entropy-app .entropy-sidebar .entropy-brand-copy,
+
+    .entropy-app .entropy-sidebar .sidebar-section-label,
+
+    .entropy-app .entropy-sidebar .nav-item span,
+
+    .entropy-app .entropy-sidebar .sidebar-version {
+
+        display: none;
+
+    }
+
+
+
+    .entropy-app .entropy-sidebar .sidebar-collapse {
+
+        align-self: center;
+
+        margin: 18px 0 24px;
+
+    }
+
+
+
+    .entropy-app .entropy-sidebar .nav-item {
+
+        justify-content: center;
+
+        padding: 0;
+
+    }
+
+
+
+    .entropy-app .entropy-topbar {
+
+        flex-basis: 62px;
+
+        height: 62px;
+
+        min-height: 62px;
+
+        padding: 0 14px;
+
+    }
+
+
+
+    .entropy-app .topbar-context {
+
+        gap: 6px;
+
+    }
+
+
+
+    .entropy-app .topbar-section {
+
+        display: none;
+
+    }
+
+
+
+    .entropy-app .topbar-actions {
+
+        gap: 7px;
+
+    }
+
+
+
+    .entropy-app .profile-trigger {
+
+        gap: 6px;
+
+        padding-right: 6px;
+
+    }
+
+
+
+    .entropy-app .profile-name {
+
+        max-width: 70px;
+
+    }
+
+
+
+    .entropy-app .entropy-content {
+
+        padding: 26px 16px 36px;
+
+    }
+
+
+
+    .entropy-app .entropy-content-preferences {
+
+        padding: 14px;
+
+        overflow-y: auto;
+
+    }
+
+
+
+    .entropy-app .entropy-content-preferences > .preferences-panel {
+
+        height: auto;
+
+        min-height: 0;
+
+        overflow: visible;
+
+    }
+
+
+
+    .entropy-app .dashboard-welcome {
+
+        min-height: 250px;
+
+        padding: 25px;
+
+    }
+
+
+
+    .entropy-app .dashboard-welcome-art {
+
+        display: none;
+
+    }
+
+
+
+    .entropy-app .content-panel {
+
+        padding: 25px;
+
+    }
+
+
+
+    .entropy-app .theme-option {
+
+        flex-basis: calc(50% - 7px);
+
+        min-height: 110px;
+
+        padding: 14px;
+
+    }
+
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+
+    .entropy-app .entropy-sidebar,
+
+    .entropy-app .nav-item,
+
+    .entropy-app .icon-button {
+
+        transition: none;
+
+    }
+
+}
+
+
+
+:root {
+
+  --entropy-font-family: Calibri, sans-serif;
+
+}
+
+
+
+.entropy-app {
+
+  font-family: var(--entropy-font-family);
+
+}
+
+
+
+
+
+/* Notification center */
+
+.notification-container {
+
+    position: relative;
+
+    display: flex;
+
+    align-items: center;
+
+}
+
+
+
+.notification-trigger {
+
+    position: relative;
+
+}
+
+
+
+.notification-badge {
+
+    position: absolute;
+
+    top: 2px;
+
+    right: 1px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    min-width: 16px;
+
+    height: 16px;
+
+    padding: 0 4px;
+
+    border: 2px solid var(--topbar-bg, var(--surface-color, #1b1d23));
+
+    border-radius: 999px;
+
+    background: var(--danger-color, #dc4545);
+
+    color: #fff;
+
+    font-size: 10px;
+
+    font-weight: 700;
+
+    line-height: 1;
+
+}
+
+
+
+.notification-menu {
+
+    position: absolute;
+
+    top: calc(100% + 12px);
+
+    right: 0;
+
+    z-index: 1000;
+
+    display: flex;
+
+    flex-direction: column;
+
+    width: min(390px, calc(100vw - 24px));
+
+    max-height: min(520px, calc(100vh - 100px));
+
+    overflow: hidden;
+
+    border: 1px solid var(--border-color, #343741);
+
+    border-radius: 12px;
+
+    background: var(--panel-bg, var(--surface-color, #202229));
+
+    color: var(--text-color, inherit);
+
+    box-shadow: 0 12px 36px rgb(0 0 0 / 24%);
+
+    font-family: inherit;
+
+}
+
+
+
+.notification-menu-heading {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding: 16px;
+
+}
+
+
+
+.notification-menu-heading > div {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+}
+
+
+
+.notification-menu-heading strong {
+
+    font-size: 14px;
+
+}
+
+
+
+.notification-menu-heading span {
+
+    color: var(--muted-text, #9296a3);
+
+    font-size: 12px;
+
+}
+
+
+
+.notification-mark-all {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 5px;
+
+    padding: 6px;
+
+    border: 0;
+
+    background: transparent;
+
+    color: var(--accent-color, #7c8cff);
+
+    font: inherit;
+
+    font-size: 11px;
+
+    cursor: pointer;
+
+    white-space: nowrap;
+
+}
+
+
+
+.notification-menu-divider {
+
+    height: 1px;
+
+    flex: 0 0 auto;
+
+    background: var(--border-color, #343741);
+
+}
+
+
+
+.notification-empty {
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 36px 16px;
+
+    color: var(--muted-text, #9296a3);
+
+    text-align: center;
+
+}
+
+
+
+.notification-empty strong {
+
+    color: var(--text-color, inherit);
+
+    font-size: 13px;
+
+}
+
+
+
+.notification-empty span {
+
+    font-size: 12px;
+
+}
+
+
+
+.notification-list {
+
+    overflow-y: auto;
+
+}
+
+
+
+.notification-item {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 12px;
+
+    padding: 14px 16px;
+
+    border-bottom: 1px solid var(--border-color, #343741);
+
+}
+
+
+
+.notification-item:last-child {
+
+    border-bottom: 0;
+
+}
+
+
+
+.notification-item.is-unread {
+
+    background: var(--notification-unread-bg, rgb(124 140 255 / 7%));
+
+}
+
+
+
+.notification-item-content {
+
+    flex: 1;
+
+    min-width: 0;
+
+}
+
+
+
+.notification-item-title {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 7px;
+
+}
+
+
+
+.notification-item-title strong {
+
+    font-size: 12px;
+
+    overflow-wrap: anywhere;
+
+}
+
+
+
+.notification-unread-dot {
+
+    width: 7px;
+
+    height: 7px;
+
+    margin-top: 4px;
+
+    flex: 0 0 7px;
+
+    border-radius: 50%;
+
+    background: var(--accent-color, #7c8cff);
+
+}
+
+
+
+.notification-item-content p {
+
+    margin: 6px 0;
+
+    color: var(--muted-text, #a0a3af);
+
+    font-size: 12px;
+
+    line-height: 1.5;
+
+    overflow-wrap: anywhere;
+
+}
+
+
+
+.notification-item-content time {
+
+    color: var(--muted-text, #858995);
+
+    font-size: 10px;
+
+}
+
+
+
+.notification-item-actions {
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-end;
+
+    gap: 8px;
+
+}
+
+
+
+.notification-item-actions button {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 4px;
+
+    padding: 3px 0;
+
+    border: 0;
+
+    background: transparent;
+
+    color: var(--muted-text, #a0a3af);
+
+    font: inherit;
+
+    font-size: 11px;
+
+    cursor: pointer;
+
+    white-space: nowrap;
+
+}
+
+
+
+.notification-item-actions button:hover,
+
+.notification-mark-all:hover {
+
+    color: var(--accent-color, #7c8cff);
+
+}
+
+
+
+.notification-item-actions .notification-clear:hover {
+
+    color: var(--danger-color, #dc4545);
+
+}
+
+
+
+.notification-trigger:focus-visible,
+
+.notification-menu button:focus-visible {
+
+    outline: 2px solid var(--accent-color, #7c8cff);
+
+    outline-offset: 2px;
+
+}
+
+
+
+@media (max-width: 480px) {
+
+    .notification-menu {
+
+        position: fixed;
+
+        top: 64px;
+
+        right: 12px;
+
+        max-height: calc(100vh - 80px);
+
+    }
+
+}
+
+
+
+
+
+/* ---------------------------------------------------------
+
+   Shared content sizing — keep page-specific layouts intact.
+
+   --------------------------------------------------------- */
+
+
+
+.entropy-app {
+
+    --entropy-font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+    font-family: var(--entropy-font-family);
+
+}
+
+
+
+.entropy-app .entropy-content {
+
+    min-width: 0;
+
+    min-height: 0;
+
+    padding: clamp(20px, 2.2vw, 32px);
+
+}
+
+
+
+.entropy-app .entropy-content:has(.password-settings-panel) > .content-panel {
+
+    align-items: center;
+
+}
+
+
+
+.entropy-app .entropy-content:has(.password-settings-panel) .password-settings-panel {
+
+    width: 100%;
+
+    max-width: 720px;
+
+    margin-inline: auto;
+
+}
+
+
+
+@media (max-width: 700px) {
+
+    .entropy-app .entropy-content {
+
+        padding: 16px;
+
+    }
+
+
+
+    .entropy-app .content-panel {
+
+        padding: 20px;
+
+    }
+
+}
+
+
+
+.entropy-app .entropy-content:has(> .password-settings-panel) {
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: flex-start;
+
+}
+
+
+
+.entropy-app .entropy-content > .password-settings-panel {
+
+    flex: 0 1 720px;
+
+    width: 100%;
+
+    max-width: 720px;
+
+    margin: 0 auto;
+
+}
+
+
+
+
+
+/* Keep the open profile dropdown above page-level controls. */
+
+.entropy-app .entropy-topbar {
+
+    position: relative;
+
+    z-index: 50;
+
+}
+
+
+
+.entropy-app .profile-container {
+
+    position: relative;
+
+    z-index: 51;
+
+}
+
+
+
+.entropy-app .profile-menu {
+
+    z-index: 52;
+
+}

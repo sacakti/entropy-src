@@ -35,6 +35,7 @@ class PreferencesUpdate(BaseModel):
     background_image_id: Optional[int] = None
     background_fit: Literal["cover", "contain", "fill"] = "cover"
     background_opacity: int = Field(default=35, ge=0, le=100)
+    modal_backdrop_opacity: int = Field(default=48, ge=0, le=80)
 
     @classmethod
     def validate_opacity(cls, value: int) -> int:
@@ -160,4 +161,5 @@ def update_preferences(
         background_image_id=payload.background_image_id,
         background_fit=payload.background_fit,
         background_opacity=payload.background_opacity,
+        modal_backdrop_opacity=payload.modal_backdrop_opacity,
     )

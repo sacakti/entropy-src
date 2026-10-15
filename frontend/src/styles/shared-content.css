@@ -1,0 +1,172 @@
+/* Shared page panels and placeholder/about components. */
+.entropy-app .content-panel {
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    min-width: 0;
+
+    padding: clamp(20px, 2.2vw, 32px);
+
+
+
+    /* Match the dashboard's translucent workspace surface. */
+
+    background:
+
+        radial-gradient(
+
+            ellipse at 90% 20%,
+
+            color-mix(in srgb, var(--app-accent) 7%, transparent),
+
+            transparent 42%
+
+        ),
+
+        color-mix(in srgb, var(--app-bg) 48%, transparent);
+
+
+
+    border: 1px solid var(--app-line);
+
+    border-radius: 15px;
+
+
+
+    backdrop-filter: blur(3px);
+
+    -webkit-backdrop-filter: blur(3px);
+
+}
+
+
+
+.entropy-app .placeholder-icon {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 48px;
+
+    height: 48px;
+
+    margin-bottom: 22px;
+
+    color: var(--app-accent);
+
+    background: color-mix(in srgb, var(--app-accent) 8%, transparent);
+
+    border: 1px solid color-mix(in srgb, var(--app-accent) 15%, transparent);
+
+    border-radius: 10px;
+
+}
+
+
+
+.entropy-app .placeholder-panel h2,
+
+.entropy-app .about-panel h2 {
+
+    margin: 0;
+
+    font-size: 22px;
+
+    letter-spacing: -0.5px;
+
+}
+
+
+
+.entropy-app .placeholder-panel > p,
+
+.entropy-app .about-panel > p {
+
+    margin: 10px 0 0;
+
+    color: var(--app-muted);
+
+    font-size: 13px;
+
+    line-height: 1.7;
+
+}
+
+
+
+.entropy-app .placeholder-status {
+
+    margin-top: 28px;
+
+    padding: 9px 11px;
+
+    color: var(--app-subtle);
+
+    background: var(--app-bg);
+
+    border: 1px solid var(--app-line);
+
+    border-radius: 6px;
+
+    font-size: 9px;
+
+    font-weight: 750;
+
+    letter-spacing: 0.08em;
+
+}
+
+
+
+.entropy-app .about-panel {
+
+    align-items: center;
+
+    padding: 55px 24px;
+
+    text-align: center;
+
+}
+
+
+
+.entropy-app .about-panel > img {
+
+    width: 58px;
+
+    height: 58px;
+
+    margin-bottom: 20px;
+
+    object-fit: contain;
+
+    border-radius: 13px;
+
+}
+
+
+
+.entropy-app .about-version {
+
+    margin-top: 25px;
+
+    padding: 8px 12px;
+
+    color: var(--app-muted);
+
+    background: var(--app-bg);
+
+    border: 1px solid var(--app-line);
+
+    border-radius: 6px;
+
+    font-size: 11px;
+
+}

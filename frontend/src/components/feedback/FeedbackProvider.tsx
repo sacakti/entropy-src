@@ -18,7 +18,6 @@ import {
   X,
   XCircle,
 } from 'lucide-react'
-import '../../styles/Feedback.css'
 
 export type NotificationType =
   | 'success'

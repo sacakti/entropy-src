@@ -1,0 +1,108 @@
+/* Global design tokens. Authenticated theme tokens remain scoped to .entropy-app. */
+ :root {
+  --entropy-bg: #090b0f;
+  --entropy-surface: #11151b;
+  --entropy-text: #f2f4f7;
+  --entropy-muted: #9ba5b3;
+  --entropy-line: rgba(255, 255, 255, 0.1);
+  --entropy-accent: #d7ff63;
+  --app-font-family: Calibri, "Segoe UI", Arial, sans-serif;
+  font-family: var(--app-font-family);
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--app-font-family);
+}
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { width: 100%; min-height: 100%; margin: 0; }
+
+#root { min-height: 100vh; }
+
+.entropy-app {
+  --app-bg: #090b0f;
+  --app-surface: #11151b;
+  --app-surface-hover: #191f27;
+  --app-text: #f2f4f7;
+  --app-muted: #9ba5b3;
+  --app-subtle: #687382;
+  --app-line: rgb(255 255 255 / 9%);
+  --app-accent: #d7ff63;
+  --app-accent-text: #090b0f;
+  --app-background-image: none;
+  --app-background-fit: cover;
+  --app-background-opacity: 0.35;
+  --app-background-overlay: transparent;
+  --app-button-bg: var(--app-accent);
+  --app-button-text: var(--app-accent-text);
+}
+
+.entropy-app.theme-light {
+  --app-bg: #F4F6EE;
+  --app-surface: #FFFFFF;
+  --app-surface-hover: #EDF1E3;
+
+  --app-text: #171B15;
+  --app-muted: #697166;
+  --app-subtle: #858C80;
+  --app-line: rgb(23 27 21 / 12%);
+
+  --app-accent: #658A12;
+  --app-accent-text: #FFFFFF;
+}
+
+/* Global accent treatments — shared by every page */
+
+/* ==========================================================
+   Global surfaces and interaction tokens
+   ========================================================== */
+
+.entropy-app {
+  --app-accent-soft: color-mix(
+    in srgb,
+    var(--app-accent) 14%,
+    var(--app-surface)
+  );
+
+  --app-accent-border: color-mix(
+    in srgb,
+    var(--app-accent) 38%,
+    var(--app-line)
+  );
+
+  --app-hover-opacity: 8%;
+
+  --app-hover-bg: color-mix(
+    in srgb,
+    var(--app-accent) var(--app-hover-opacity),
+    var(--app-surface)
+  );
+
+  --app-panel-bg: color-mix(
+    in srgb,
+    var(--app-surface) 88%,
+    transparent
+  );
+
+  --app-panel-hover: color-mix(
+    in srgb,
+    var(--app-accent) var(--app-hover-opacity),
+    var(--app-panel-bg)
+  );
+
+  --app-hover-border: color-mix(
+    in srgb,
+    var(--app-accent) 35%,
+    var(--app-line)
+  );
+
+  --app-focus-ring: color-mix(
+    in srgb,
+    var(--app-accent) 22%,
+    transparent
+  );
+}

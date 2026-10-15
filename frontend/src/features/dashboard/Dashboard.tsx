@@ -1,12 +1,14 @@
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
     Activity,
     AlertCircle,
     ArrowRight,
+    Ban,
     CheckCircle2,
     Clock3,
     LoaderCircle,
+    PlayCircle,
     RefreshCw,
     Workflow,
     XCircle,
@@ -19,8 +21,6 @@ import {
     type DashboardExecution,
     type WorkflowJobState,
 } from '../../api/dashboard.api'
-
-import '../../styles/Dashboard.css'
 
 interface DashboardProps {
     onNavigate: (page: PageId) => void
@@ -98,6 +98,10 @@ function ExecutionRow({
                     <XCircle size={18} />
                 ) : execution.state === 'completed' ? (
                     <CheckCircle2 size={18} />
+                ) : execution.state === 'cancelled' ? (
+                    <Ban size={18} />
+                ) : execution.state === 'running' ? (
+                    <PlayCircle size={18} />
                 ) : (
                     <Workflow size={18} />
                 )}
@@ -148,8 +152,31 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [refreshMode, setRefreshMode] = useState('2000')
+    const [customInterval, setCustomInterval] = useState('10')
+    const requestInProgress = useRef(false)
+
+
+    const parsedCustomInterval = Number(customInterval)
+
+    const validCustomInterval =
+        customInterval.trim() !== '' &&
+        Number.isInteger(parsedCustomInterval) &&
+        parsedCustomInterval >= 1 &&
+        parsedCustomInterval <= 86400
+
+    const refreshIntervalMs =
+        refreshMode === 'custom'
+            ? validCustomInterval
+                ? parsedCustomInterval * 1000
+                : 0
+            : Number(refreshMode)
 
     const loadDashboard = useCallback(async (manual = false) => {
+        if (requestInProgress.current) return
+
+        requestInProgress.current = true
+
         if (manual) {
             setRefreshing(true)
         } else {
@@ -166,6 +193,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         } finally {
             setLoading(false)
             setRefreshing(false)
+            requestInProgress.current = false
         }
     }, [])
 
@@ -173,31 +201,89 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         void loadDashboard()
     }, [loadDashboard])
 
+    useEffect(() => {
+        if (refreshMode === 'off') return
+
+        if (
+            !Number.isFinite(refreshIntervalMs) ||
+            refreshIntervalMs < 1000
+        ) {
+            return
+        }
+
+        const timer = window.setInterval(() => {
+            void loadDashboard(true)
+        }, refreshIntervalMs)
+
+        return () => window.clearInterval(timer)
+    }, [refreshMode, refreshIntervalMs, loadDashboard])
+
     const summary = data?.summary
 
     return (
         <section className="dashboard-page">
             <header className="dashboard-heading">
                 <div>
-                    <p className="dashboard-eyebrow">DEPLOYMENT WORKSPACE</p>
+                    <p className="dashboard-eyebrow">
+                        DEPLOYMENT WORKSPACE
+                    </p>
                     <h1>Dashboard</h1>
                     <p className="dashboard-subtitle">
                         Monitor workflow execution and deployment activity.
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    className="dashboard-refresh"
-                    onClick={() => void loadDashboard(true)}
-                    disabled={loading || refreshing}
-                >
-                    <RefreshCw
-                        size={16}
-                        className={refreshing ? 'dashboard-spin' : ''}
-                    />
-                    Refresh
-                </button>
+                <div className="dashboard-refresh-controls">
+                    {/* <label
+                        className="dashboard-refresh-label"
+                        htmlFor="dashboard-refresh-mode"
+                    >
+                        Auto-refresh
+                    </label> */}
+
+                    <select
+                        id="dashboard-refresh-mode"
+                        className="dashboard-refresh-select"
+                        value={refreshMode}
+                        onChange={(event) => setRefreshMode(event.target.value)}
+                    >
+                        <option value="2000">Auto (2s)</option>
+                        <option value="5000">Every 5 seconds</option>
+                        <option value="30000">Every 30 seconds</option>
+                        <option value="custom">Custom</option>
+                        <option value="off">Off</option>
+                    </select>
+
+                    {refreshMode === 'custom' && (
+                        <label className="dashboard-custom-interval">
+                            <input
+                                type="number"
+                                min="1"
+                                max="86400"
+                                step="1"
+                                value={customInterval}
+                                onChange={(event) =>
+                                    setCustomInterval(event.target.value)
+                                }
+                                aria-label="Custom refresh interval in seconds"
+                            />
+                            <span>sec</span>
+                        </label>
+                    )}
+
+                    <button
+                        type="button"
+                        className="dashboard-refresh"
+                        onClick={() => void loadDashboard(true)}
+                        disabled={loading || refreshing}
+                    >
+                        <RefreshCw
+                            size={16}
+                            className={refreshing ? 'dashboard-spin' : ''}
+                        />
+                        Refresh
+                    </button>
+                </div>
             </header>
 
             {error && (

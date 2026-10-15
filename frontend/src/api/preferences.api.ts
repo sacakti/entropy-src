@@ -9,6 +9,7 @@ export interface UserPreferences {
     background_image_id: number | null
     background_fit: BackgroundFit
     background_opacity: number
+    modal_backdrop_opacity: number
 }
 
 export async function getPreferences(): Promise<UserPreferences> {

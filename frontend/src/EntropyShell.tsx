@@ -20,6 +20,8 @@ import ChangePasswordForm from './features/settings/ChangePasswordForm'
 import Dashboard from './features/dashboard/Dashboard'
 import Preferences from './features/preferences/Preferences'
 import Permissions from './features/permissions/Permissions'
+import Vault from './features/vault/Vault'
+import Workflows from './features/workflows/Workflows'
 
 import {
     pageDescriptions,
@@ -167,12 +169,16 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
                             <ChangePasswordForm />
                     ) : activePage === 'permissions' ? (
                         <Permissions />
-                    ) : (
-                        <section className="content-panel placeholder-panel">
+                    ) : activePage === 'vault' ? (
+                        <Vault />
+                    ) : activePage === 'workflows' ? (
+                    <Workflows />
+                ) : (
+                    <section className="content-panel placeholder-panel">
                             <span className="placeholder-icon">
                                 {activePage === 'plugins' && <Blocks size={25} />}
-                                {activePage === 'workflows' && <Workflow size={25} />}
-                                {activePage === 'vault' && <KeyRound size={25} />}
+                                {/* {activePage === 'workflows' && <Workflow size={25} />} */}
+                                {/* {activePage === 'vault' && <KeyRound size={25} />} */}
                                 {activePage === 'nodes' && <Server size={25} />}
                                 {activePage === 'schedulers' && <Activity size={25} />}
                                 {activePage === 'administration' && <ShieldCheck size={25} />}

@@ -1,39 +1,283 @@
 
-/* =========================================================
-   Entropy — Shared notifications and modal dialogs
-   ========================================================= */
+/* ==========================================================
+   Entropy Feedback Styles
+   Notification center, toast notifications, and dialogs.
+
+   Design principles:
+   - Reuse global theme tokens.
+   - Reuse buttons.css for shared button variants.
+   - Do not depend on .entropy-app ancestry.
+   - Keep component-specific layout in this file.
+   ========================================================== */
+
+/* ----------------------------------------------------------
+   Notification center
+   ---------------------------------------------------------- */
+
+.notification-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.notification-trigger {
+  position: relative;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border: 2px solid var(--topbar-bg, var(--surface-color, #1b1d23));
+  border-radius: 999px;
+  background: var(--danger-color, #dc4545);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.notification-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  width: min(390px, calc(100vw - 24px));
+  max-height: min(520px, calc(100vh - 100px));
+  overflow: hidden;
+  border: 1px solid var(--border-color, #343741);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--panel-bg, var(--surface-color, #202229));
+  color: var(--text-color, inherit);
+  box-shadow: var(--shadow-lg, 0 12px 36px rgb(0 0 0 / 24%));
+  font-family: inherit;
+}
+
+.notification-menu-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+}
+
+.notification-menu-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notification-menu-heading strong {
+  font-size: 14px;
+}
+
+.notification-menu-heading span {
+  color: var(--muted-text, #9296a3);
+  font-size: 12px;
+}
+
+.notification-mark-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--accent-color, #7c8cff);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.notification-menu-divider {
+  flex: 0 0 auto;
+  height: 1px;
+  background: var(--border-color, #343741);
+}
+
+.notification-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 16px;
+  color: var(--muted-text, #9296a3);
+  text-align: center;
+}
+
+.notification-empty strong {
+  color: var(--text-color, inherit);
+  font-size: 13px;
+}
+
+.notification-empty span {
+  font-size: 12px;
+}
+
+.notification-list {
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color, #343741);
+}
+
+.notification-item:last-child {
+  border-bottom: 0;
+}
+
+.notification-item.is-unread {
+  background: var(--notification-unread-bg, rgb(124 140 255 / 7%));
+}
+
+.notification-item-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notification-item-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.notification-item-title strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.notification-unread-dot {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--accent-color, #7c8cff);
+}
+
+.notification-item-content p {
+  margin: 6px 0;
+  color: var(--muted-text, #a0a3af);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.notification-item-content time {
+  color: var(--muted-text, #858995);
+  font-size: 10px;
+}
+
+.notification-item-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.notification-item-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--muted-text, #a0a3af);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.notification-item-actions button:hover,
+.notification-mark-all:hover {
+  color: var(--accent-color, #7c8cff);
+}
+
+.notification-item-actions .notification-clear:hover {
+  color: var(--danger-color, #dc4545);
+}
+
+.notification-trigger:focus-visible,
+.notification-menu button:focus-visible {
+  outline: 2px solid var(--accent-color, #7c8cff);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------
+   Feedback theme tokens
+
+   These local defaults also work when the provider is mounted
+   outside .entropy-app. Global theme variables take priority.
+   ---------------------------------------------------------- */
 
 .entropy-toast-container,
-.entropy-modal-backdrop,
-.entropy-modal {
-  box-sizing: border-box;
+.entropy-modal-backdrop {
+  --feedback-success: var(--success-color, #239b67);
+  --feedback-info: var(--info-color, #3985df);
+  --feedback-warning: var(--warning-color, #d99120);
+  --feedback-danger: var(--danger-color, #dc4545);
+
+  --feedback-surface: var(
+    --app-surface,
+    var(--panel-bg, var(--surface-color, #11151b))
+  );
+  --feedback-text: var(
+    --app-text,
+    var(--text-color, #f2f4f7)
+  );
+  --feedback-muted: var(
+    --app-muted,
+    var(--muted-text, #9ba5b3)
+  );
+  --feedback-border: var(
+    --app-line,
+    var(--border-color, rgb(255 255 255 / 12%))
+  );
+  --feedback-accent: var(
+    --app-accent,
+    var(--accent-color, #7c8cff)
+  );
+  --feedback-hover: var(
+    --app-surface-hover,
+    var(--surface-hover, rgb(255 255 255 / 6%))
+  );
 }
 
-.entropy-toast-container *,
-.entropy-toast-container *::before,
-.entropy-toast-container *::after,
-.entropy-modal-backdrop *,
-.entropy-modal-backdrop *::before,
-.entropy-modal-backdrop *::after {
-  box-sizing: border-box;
-}
-
-/* Side notifications */
+/* ----------------------------------------------------------
+   Toast notifications
+   ---------------------------------------------------------- */
 
 .entropy-toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 10000;
+  top: 78px;
+  right: 24px;
+  z-index: 12000;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
+  align-items: flex-end;
+  gap: 12px;
   width: min(390px, calc(100vw - 32px));
-  max-height: calc(100dvh - 40px);
-  overflow-x: hidden;
-  overflow-y: auto;
+  max-height: calc(100vh - 100px);
+  overflow: visible;
   pointer-events: none;
+  font-family: inherit;
+  color: var(--feedback-text);
 }
 
 .entropy-toast {
@@ -41,37 +285,52 @@
   align-items: flex-start;
   gap: 12px;
   width: 100%;
-  padding: 15px 13px;
-  color: var(--app-text, #e8edf5);
-  background: var(--app-surface, #101722);
-  border: 1px solid var(--app-line, #293444);
-  border-left: 3px solid var(--toast-color, #8ba7ff);
-  border-radius: 10px;
-  box-shadow: 0 12px 32px rgb(0 0 0 / 28%);
+  padding: 15px;
+  color: var(--feedback-text);
+  background: var(--feedback-surface);
+  border: 1px solid var(--feedback-border);
+  border-left: 4px solid var(--feedback-info);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-lg, 0 12px 36px rgb(0 0 0 / 24%));
   pointer-events: auto;
   animation: entropy-toast-enter 180ms ease-out;
 }
 
 .entropy-toast-success {
-  --toast-color: #42c98a;
+  border-left-color: var(--feedback-success);
 }
 
 .entropy-toast-info {
-  --toast-color: #6da7ff;
+  border-left-color: var(--feedback-info);
 }
 
 .entropy-toast-warning {
-  --toast-color: #f0b84b;
+  border-left-color: var(--feedback-warning);
 }
 
 .entropy-toast-error {
-  --toast-color: #f06b72;
+  border-left-color: var(--feedback-danger);
 }
 
 .entropy-toast-icon {
   flex: 0 0 auto;
   margin-top: 1px;
-  color: var(--toast-color);
+}
+
+.entropy-toast-success .entropy-toast-icon {
+  color: var(--feedback-success);
+}
+
+.entropy-toast-info .entropy-toast-icon {
+  color: var(--feedback-info);
+}
+
+.entropy-toast-warning .entropy-toast-icon {
+  color: var(--feedback-warning);
+}
+
+.entropy-toast-error .entropy-toast-icon {
+  color: var(--feedback-danger);
 }
 
 .entropy-toast-body {
@@ -81,214 +340,232 @@
 
 .entropy-toast-title {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
+  color: var(--feedback-text);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .entropy-toast-body p {
   margin: 0;
-  color: var(--app-muted, #9aa7b8);
+  color: var(--feedback-muted);
   font-size: 12px;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
+/* Close controls use component styles, not global button variants. */
+
 .entropy-toast-close,
 .entropy-modal-close {
-  display: inline-flex;
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
+  place-items: center;
   padding: 0;
-  color: var(--app-muted, #9aa7b8);
+  color: var(--feedback-muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 7px;
+  font: inherit;
+  line-height: 1;
   cursor: pointer;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
 
-.entropy-toast-close:hover,
+.entropy-toast-close {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm, 7px);
+}
+
+.entropy-toast-close:hover:not(:disabled),
 .entropy-modal-close:hover:not(:disabled) {
-  color: var(--app-text, #e8edf5);
-  background: var(--app-hover, rgb(255 255 255 / 6%));
-  border-color: var(--app-line, #293444);
+  color: var(--feedback-text);
+  background: var(--feedback-hover);
+  border-color: var(--feedback-border);
 }
 
 .entropy-toast-close:focus-visible,
-.entropy-modal button:focus-visible {
-  outline: 2px solid var(--app-accent, #d7ff63);
+.entropy-modal-close:focus-visible {
+  outline: 2px solid var(--feedback-accent);
   outline-offset: 2px;
 }
 
-@keyframes entropy-toast-enter {
-  from {
-    opacity: 0;
-    transform: translateX(14px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+.entropy-toast-close:disabled,
+.entropy-modal-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-/* Full-screen modal */
+/* ----------------------------------------------------------
+   Modal backdrop
+   ---------------------------------------------------------- */
 
 .entropy-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 11000;
+  z-index: 13000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   overflow-y: auto;
-  background: rgb(0 0 0 / var(--app-modal-backdrop-opacity, 0.66));
-  backdrop-filter: blur(4px);
+  color: var(--feedback-text);
+  background: rgb(
+    0 0 0 / var(--app-modal-backdrop-opacity, 0.48)
+  );
   -webkit-backdrop-filter: blur(4px);
-  animation: entropy-backdrop-enter 140ms ease-out;
+  backdrop-filter: blur(4px);
+  animation: entropy-backdrop-enter 160ms ease-out;
+  font-family: inherit;
 }
 
+/* ----------------------------------------------------------
+   Confirmation and alert dialog
+   ---------------------------------------------------------- */
+
 .entropy-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(460px, 100%);
-  max-height: min(760px, calc(100dvh - 48px));
+  max-height: min(720px, calc(100vh - 48px));
   padding: 24px;
-  overflow-x: hidden;
   overflow-y: auto;
-  color: var(--app-text, #e8edf5);
-  background: var(--app-surface, #101722);
-  border: 1px solid var(--app-line, #293444);
-  border-radius: 14px;
-  box-shadow: 0 24px 80px rgb(0 0 0 / 42%);
-  animation: entropy-modal-enter 160ms ease-out;
+  color: var(--feedback-text);
+  background: var(--feedback-surface);
+  border: 1px solid var(--feedback-border);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-xl, 0 24px 80px rgb(0 0 0 / 32%));
+  font-family: inherit;
+  animation: entropy-modal-enter 180ms ease-out;
 }
 
 .entropy-modal-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 18px;
 }
 
 .entropy-modal-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
   width: 44px;
   height: 44px;
-  color: var(--app-accent, #d7ff63);
+  color: var(--feedback-accent);
   background: color-mix(
     in srgb,
-    var(--app-accent, #d7ff63) 10%,
-    transparent
+    var(--feedback-accent) 12%,
+    var(--feedback-surface)
   );
   border: 1px solid color-mix(
     in srgb,
-    var(--app-accent, #d7ff63) 24%,
+    var(--feedback-accent) 25%,
     transparent
   );
-  border-radius: 12px;
+  border-radius: var(--radius-md, 12px);
 }
 
 .entropy-modal h2 {
-  margin: 0;
-  color: var(--app-text, #e8edf5);
-  font-size: 18px;
-  font-weight: 650;
-  line-height: 1.4;
+  margin: 0 0 10px;
+  color: var(--feedback-text);
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .entropy-modal-message {
-  margin: 12px 0 0;
-  color: var(--app-muted, #9aa7b8);
+  margin: 0;
+  color: var(--feedback-muted);
+  font-family: inherit;
   font-size: 13px;
-  line-height: 1.7;
-  white-space: pre-line;
+  line-height: 1.65;
   overflow-wrap: anywhere;
 }
 
 .entropy-modal-content {
-  min-width: 0;
   margin-top: 16px;
+  min-width: 0;
+}
+
+.entropy-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md, 8px);
 }
 
 .entropy-modal-actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 26px;
-}
-
-.entropy-modal-actions button {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-width: 88px;
-  min-height: 38px;
-  padding: 0 15px;
-  border: 1px solid var(--app-line, #293444);
-  border-radius: 8px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 650;
-  cursor: pointer;
-  transition:
-    background 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
 }
 
-.entropy-button-secondary {
-  color: var(--app-text, #e8edf5);
-  background: transparent;
+/*
+ * Shared button visuals belong to buttons.css.
+ * This rule only establishes modal-specific sizing.
+ */
+.entropy-modal-actions button {
+  min-width: 90px;
+  font-family: inherit;
 }
 
-.entropy-button-secondary:hover {
-  background: var(--app-hover, rgb(255 255 255 / 6%));
-  border-color: var(--app-muted, #9aa7b8);
+/* Destructive actions reuse the shared danger palette. */
+
+.entropy-modal-actions .entropy-button-primary.is-destructive {
+  color: var(--button-danger-text, #fff);
+  background: var(--button-danger-bg, var(--feedback-danger));
+  border-color: var(--button-danger-bg, var(--feedback-danger));
 }
 
-.entropy-button-primary {
-  color: #101509;
-  background: var(--app-accent, #d7ff63);
-  border-color: var(--app-accent, #d7ff63) !important;
+.entropy-modal-actions
+  .entropy-button-primary.is-destructive:hover:not(:disabled) {
+  background: var(--button-danger-hover, #b91c1c);
+  border-color: var(--button-danger-hover, #b91c1c);
 }
 
-.entropy-button-primary:hover {
-  filter: brightness(0.94);
-}
+/* ----------------------------------------------------------
+   Motion
+   ---------------------------------------------------------- */
 
-.entropy-button-primary.is-destructive {
-  color: #fff;
-  background: #c83e49;
-  border-color: #c83e49 !important;
-}
+@keyframes entropy-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 
-.entropy-button-primary.is-destructive:hover {
-  background: #ad303b;
-}
-
-.entropy-modal button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes entropy-backdrop-enter {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes entropy-modal-enter {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.99);
+    transform: translateY(8px) scale(0.985);
   }
 
   to {
@@ -297,39 +574,30 @@
   }
 }
 
-/* Reduced motion */
+/* ----------------------------------------------------------
+   Responsive layout
+   ---------------------------------------------------------- */
 
-@media (prefers-reduced-motion: reduce) {
-  .entropy-toast,
-  .entropy-modal-backdrop,
-  .entropy-modal {
-    animation: none;
-  }
-}
-
-/* Narrow screens */
-
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   .entropy-toast-container {
-    top: 12px;
+    top: 68px;
     right: 12px;
     width: calc(100vw - 24px);
-    max-height: calc(100dvh - 24px);
   }
 
   .entropy-modal-backdrop {
     align-items: center;
-    padding: 14px;
+    padding: 12px;
   }
 
   .entropy-modal {
-    max-height: calc(100dvh - 28px);
     padding: 20px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg, 13px);
   }
 
   .entropy-modal-actions {
     flex-direction: column-reverse;
+    align-items: stretch;
   }
 
   .entropy-modal-actions button {
@@ -337,10 +605,117 @@
   }
 }
 
-.entropy-modal-backdrop,
+@media (max-width: 480px) {
+  .notification-menu {
+    position: fixed;
+    top: 64px;
+    right: 12px;
+    max-height: calc(100vh - 80px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entropy-toast,
+  .entropy-modal-backdrop,
+  .entropy-modal {
+    animation: none;
+  }
+
+  .entropy-toast-close,
+  .entropy-modal-close {
+    transition: none;
+  }
+}
+
+
+/* Feedback controls: normalize browser defaults and inherit Entropy typography. */
 .entropy-modal,
-.entropy-modal *,
-.entropy-toast-container,
-.entropy-toast-container * {
-  font-family: var(--entropy-font-family, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+.entropy-modal button,
+.entropy-toast,
+.entropy-toast button {
+  font-family: inherit;
+}
+
+.entropy-modal-actions button {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid var(--app-line, var(--border-color, #343741));
+  border-radius: var(--button-radius, 8px);
+  font: inherit;
+  font-size: var(--button-font-size, 12px);
+  font-weight: var(--button-font-weight, 600);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.entropy-modal-actions .entropy-button-primary {
+  color: var(--button-primary-text, #10130a);
+  background: var(--button-primary-bg, var(--app-accent, #d7ff63));
+  border-color: var(--button-primary-bg, var(--app-accent, #d7ff63));
+}
+
+.entropy-modal-actions .entropy-button-primary:hover:not(:disabled) {
+  background: var(--button-primary-hover, #c5ed55);
+  border-color: var(--button-primary-hover, #c5ed55);
+}
+
+.entropy-modal-actions .entropy-button-secondary {
+  color: var(--app-text, var(--text-color, #f2f4f7));
+  background: var(--app-surface, var(--surface-color, #11151b));
+  border-color: var(--app-line, var(--border-color, #343741));
+}
+
+.entropy-modal-actions .entropy-button-secondary:hover:not(:disabled) {
+  background: var(--app-surface-hover, rgb(255 255 255 / 6%));
+  border-color: var(--app-accent, var(--accent-color, #d7ff63));
+}
+
+.entropy-modal-actions button:focus-visible {
+  outline: 2px solid var(--app-accent, var(--accent-color, #d7ff63));
+  outline-offset: 2px;
+}
+
+.entropy-modal-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.entropy-modal-actions .entropy-button-primary.is-destructive {
+  color: #fff;
+  background: var(--button-danger-bg, var(--danger-color, #dc4545));
+  border-color: var(--button-danger-bg, var(--danger-color, #dc4545));
+}
+
+.entropy-modal-actions
+  .entropy-button-primary.is-destructive:hover:not(:disabled) {
+  background: var(--button-danger-hover, #b91c1c);
+  border-color: var(--button-danger-hover, #b91c1c);
+}
+
+.notification-menu {
+  /* Keep all existing layout and positioning declarations. */
+
+  background: var(
+    --app-surface,
+    var(--panel-bg, var(--surface-color, #ffffff))
+  );
+
+  color: var(
+    --app-text,
+    var(--text-color, #1b1d23)
+  );
+
+  border-color: var(
+    --app-line,
+    var(--border-color, #dfe3e8)
+  );
 }

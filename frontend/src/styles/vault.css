@@ -1,0 +1,1140 @@
+
+/* =========================================================
+   Entropy Vault
+   Page layout and component-specific styling only.
+   Theme tokens and standard button styling belong to the
+   shared Entropy design system.
+   ========================================================= */
+
+/* Base layout */
+
+.entropy-app .vault-page,
+.entropy-app .vault-page * {
+  box-sizing: border-box;
+}
+
+.entropy-app .vault-page {
+  --vault-danger: var(--app-danger, #c62828);
+
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 24px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  color: var(--app-text);
+  font-family: inherit;
+}
+
+.entropy-app .vault-page button,
+.entropy-app .vault-page input,
+.entropy-app .vault-page select,
+.entropy-app .vault-page textarea {
+  font: inherit;
+}
+
+.entropy-app .vault-page button {
+  cursor: pointer;
+}
+
+.entropy-app .vault-page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.entropy-app .vault-page button:focus-visible,
+.entropy-app .vault-page input:focus-visible,
+.entropy-app .vault-page select:focus-visible,
+.entropy-app .vault-page textarea:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+/* Shared button integration.
+   Backgrounds and borders are provided by the shared
+   button stylesheet; this page only adjusts contrast. */
+
+.entropy-app .vault-page .entropy-button {
+  flex-shrink: 0;
+  text-shadow: none;
+}
+
+.entropy-app .vault-page .entropy-button-primary {
+  color: #182400;
+}
+
+.entropy-app .vault-page .entropy-button-primary:hover:not(:disabled) {
+  color: #111b00;
+}
+
+.entropy-app .vault-page .entropy-button-secondary {
+  color: var(--app-text);
+  background: var(--app-surface);
+  border-color: var(--app-line);
+}
+
+.entropy-app .vault-page .entropy-button-secondary:hover:not(:disabled) {
+  background: var(--app-surface-hover);
+}
+
+.entropy-app .vault-page .entropy-button-danger {
+  color: #ffffff;
+  background: #c62828;
+  border-color: #c62828;
+}
+
+.entropy-app .vault-page .entropy-button-danger:hover:not(:disabled) {
+  color: #ffffff;
+  background: #a61f1f;
+  border-color: #a61f1f;
+}
+
+.entropy-app .vault-page .entropy-button-ghost {
+  color: var(--app-text);
+  background: var(--app-surface);
+  border-color: var(--app-line);
+}
+
+.entropy-app .vault-page .entropy-button-ghost:hover:not(:disabled) {
+  background: var(--app-surface-hover);
+}
+
+/* Shared flex layouts */
+
+.entropy-app .vault-header,
+.entropy-app .vault-heading,
+.entropy-app .vault-header-actions,
+.entropy-app .vault-topbar,
+.entropy-app .vault-current,
+.entropy-app .vault-current-title,
+.entropy-app .vault-section-header,
+.entropy-app .vault-tabs,
+.entropy-app .vault-row-actions,
+.entropy-app .vault-hidden-value,
+.entropy-app .vault-user-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Page header */
+
+.entropy-app .vault-header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+.entropy-app .vault-heading {
+  gap: 14px;
+}
+
+.entropy-app .vault-heading-icon {
+  display: grid;
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  color: var(--app-accent);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 12px;
+}
+
+.entropy-app .vault-heading h1 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: clamp(21px, 2vw, 25px);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.entropy-app .vault-heading p,
+.entropy-app .vault-current p,
+.entropy-app .vault-section-header p,
+.entropy-app .vault-modal-header p {
+  margin: 6px 0 0;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.entropy-app .vault-eyebrow,
+.entropy-app .vault-muted {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.entropy-app .vault-header-actions {
+  gap: 8px;
+}
+
+/* Namespace toolbar */
+
+.entropy-app .vault-topbar {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+}
+
+.entropy-app .vault-namespace-selector {
+  width: min(360px, 100%);
+  min-width: 0;
+}
+
+.entropy-app .vault-namespace-selector label {
+  display: block;
+  margin: 0 0 7px;
+  color: var(--app-text);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.entropy-app .vault-create-menu {
+  position: relative;
+  z-index: 5;
+  flex: 0 0 auto;
+}
+
+.entropy-app .vault-create-menu-items {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(310px, calc(100vw - 32px));
+  padding: 6px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 11px;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 18%);
+}
+
+.entropy-app .vault-create-menu-items button {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 10px;
+  color: var(--app-text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+}
+
+.entropy-app .vault-create-menu-items button > svg {
+  margin-top: 2px;
+  color: var(--app-muted);
+}
+
+.entropy-app .vault-create-menu-items button span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.entropy-app .vault-create-menu-items strong {
+  color: var(--app-text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.entropy-app .vault-create-menu-items small {
+  color: var(--app-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.entropy-app .vault-create-menu-items button:hover:not(:disabled) {
+  background: var(--app-surface-hover);
+}
+
+.entropy-app .vault-create-menu-items button:disabled {
+  opacity: 0.45;
+}
+
+/* Form controls */
+
+.entropy-app .vault-page input:not([type="checkbox"]),
+.entropy-app .vault-page select,
+.entropy-app .vault-page textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.entropy-app .vault-page select {
+  color-scheme: inherit;
+}
+
+.entropy-app .vault-page input::placeholder,
+.entropy-app .vault-page textarea::placeholder {
+  color: var(--app-muted);
+  opacity: 0.85;
+}
+
+.entropy-app .vault-page input:focus,
+.entropy-app .vault-page select:focus,
+.entropy-app .vault-page textarea:focus {
+  border-color: var(--app-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--app-accent) 16%, transparent);
+}
+
+.entropy-app .vault-page textarea {
+  min-height: 100px;
+  resize: vertical;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+  line-height: 1.55;
+}
+
+.entropy-app .vault-page label {
+  color: var(--app-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Icon-only and inline actions */
+
+.entropy-app .vault-icon-button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.entropy-app .vault-icon-button:hover:not(:disabled) {
+  background: var(--app-surface-hover);
+  border-color: color-mix(
+    in srgb,
+    var(--app-text) 20%,
+    var(--app-line)
+  );
+}
+
+.entropy-app .vault-icon-button.vault-danger,
+.entropy-app .vault-icon-button.vault-icon-danger {
+  color: var(--vault-danger);
+}
+
+.entropy-app .vault-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 0;
+  color: var(--app-accent);
+  background: transparent;
+  border: 0;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.entropy-app .vault-text-button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.entropy-app .vault-value-preview {
+  display: block;
+  max-width: 320px;
+  padding: 0;
+  color: var(--app-text);
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.entropy-app .vault-value-preview.clickable {
+  cursor: pointer;
+}
+
+.entropy-app .vault-value-preview.clickable:hover {
+  color: var(--app-accent);
+  text-decoration: underline;
+}
+
+/* Alerts and loading */
+
+.entropy-app .vault-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.entropy-app .vault-alert-error {
+  color: var(--vault-danger);
+  border-color: color-mix(
+    in srgb,
+    var(--vault-danger) 35%,
+    var(--app-line)
+  );
+}
+
+.entropy-app .vault-alert-success {
+  border-color: color-mix(
+    in srgb,
+    var(--app-accent) 35%,
+    var(--app-line)
+  );
+}
+
+.entropy-app .vault-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 180px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.entropy-app .vault-spin {
+  animation: vault-spin 0.9s linear infinite;
+}
+
+@keyframes vault-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Empty states */
+
+.entropy-app .vault-empty-state,
+.entropy-app .vault-empty-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 36px 20px;
+  color: var(--app-text);
+  text-align: center;
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 12px;
+}
+
+.entropy-app .vault-empty-state {
+  min-height: 260px;
+}
+
+.entropy-app .vault-empty-inline {
+  min-height: 190px;
+  margin-top: 14px;
+}
+
+.entropy-app .vault-empty-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  color: var(--app-accent);
+  background: var(--app-surface-hover);
+  border: 1px solid var(--app-line);
+  border-radius: 14px;
+}
+
+.entropy-app .vault-empty-state h2,
+.entropy-app .vault-empty-inline h3 {
+  margin: 2px 0 0;
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.entropy-app .vault-empty-state p,
+.entropy-app .vault-empty-inline p {
+  max-width: 420px;
+  margin: 0 0 6px;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Current namespace */
+
+.entropy-app .vault-current {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 18px 20px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 11px;
+}
+
+.entropy-app .vault-current-title {
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.entropy-app .vault-current h2 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.entropy-app .vault-current p {
+  margin-top: 5px;
+}
+
+/* Tabs */
+
+.entropy-app .vault-tabs {
+  gap: 20px;
+  border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .vault-tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 10px 11px;
+  color: var(--app-muted);
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.entropy-app .vault-tabs button::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: transparent;
+  content: "";
+}
+
+.entropy-app .vault-tabs button:hover {
+  color: var(--app-text);
+}
+
+.entropy-app .vault-tabs button.active {
+  color: var(--app-text);
+}
+
+.entropy-app .vault-tabs button.active::after {
+  background: var(--app-accent);
+}
+
+.entropy-app .vault-tab-count {
+  display: inline-grid;
+  min-width: 21px;
+  height: 21px;
+  place-items: center;
+  padding: 0 5px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 6px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .vault-tabs button.active .vault-tab-count {
+  color: var(--app-text);
+  border-color: var(--app-accent);
+}
+
+/* Content sections */
+
+.entropy-app .vault-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.entropy-app .vault-section-header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+
+.entropy-app .vault-section-header h3 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.entropy-app .vault-section-header p {
+  margin-top: 5px;
+}
+
+/* Tables */
+
+.entropy-app .vault-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 10px;
+}
+
+.entropy-app .vault-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--app-text);
+  background: var(--app-surface);
+  font-size: 12px;
+  text-align: left;
+}
+
+.entropy-app .vault-table th {
+  padding: 11px 13px;
+  color: var(--app-muted);
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-line);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.entropy-app .vault-table td {
+  max-width: 360px;
+  padding: 11px 13px;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-line);
+  vertical-align: middle;
+}
+
+.entropy-app .vault-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.entropy-app .vault-table tbody tr:hover td {
+  background: var(--app-surface-hover);
+}
+
+.entropy-app .vault-key-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 130px;
+  color: var(--app-text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.entropy-app .vault-key-cell svg {
+  flex: 0 0 auto;
+  color: var(--app-muted);
+}
+
+.entropy-app .vault-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 7px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.entropy-app .vault-storage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 1px solid var(--app-line);
+  border-radius: 6px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.entropy-app .vault-storage-encrypted {
+  color: var(--app-text);
+  background: var(--app-surface);
+  border-color: var(--app-line);
+}
+
+.entropy-app .vault-storage-plain {
+  color: var(--app-text);
+  background: var(--app-surface);
+}
+
+.entropy-app .vault-value-cell {
+  min-width: 160px;
+}
+
+.entropy-app .vault-hidden-value {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.entropy-app .vault-hidden-value > span {
+  color: var(--app-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.05em;
+}
+
+.entropy-app .vault-row-actions {
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.entropy-app .vault-actions-heading {
+  text-align: right;
+}
+
+.entropy-app .vault-user-cell {
+  gap: 9px;
+  overflow-wrap: anywhere;
+}
+
+.entropy-app .vault-user-avatar {
+  display: grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+}
+
+.entropy-app .vault-access-badge {
+  display: inline-flex;
+  padding: 5px 8px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+/* Access form */
+
+.entropy-app .vault-access-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.65fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.entropy-app .vault-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.entropy-app .vault-form-field label {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.entropy-app .vault-access-form > .entropy-button {
+  align-self: end;
+}
+
+.entropy-app .vault-access-note {
+  margin-top: -6px;
+  color: var(--app-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.entropy-app .vault-access-list-header {
+  margin-top: 10px;
+}
+
+/* Modal overlay and dialog */
+
+.entropy-app .vault-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  background: rgb(0 0 0 / var(--app-modal-backdrop-opacity, 0.55));
+  backdrop-filter: blur(3px);
+}
+
+.entropy-app .vault-modal {
+  width: min(100%, 480px);
+  max-height: min(820px, calc(100dvh - 48px));
+  overflow: auto;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 28%);
+}
+
+.entropy-app .vault-modal-wide {
+  width: min(100%, 650px);
+}
+
+.entropy-app .vault-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .vault-modal-header h2 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.entropy-app .vault-modal-header p {
+  margin-top: 5px;
+}
+
+.entropy-app .vault-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px;
+}
+
+.entropy-app .vault-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 15px 22px 20px;
+  border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .vault-modal form .vault-modal-body {
+  padding-bottom: 20px;
+}
+
+/* Entry form */
+
+.entropy-app .vault-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 14px;
+}
+
+.entropy-app .vault-field-help {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.entropy-app .vault-checkbox-row {
+  display: grid;
+  grid-template-columns: 16px 34px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 13px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.entropy-app .vault-checkbox-row > input {
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+  accent-color: var(--app-accent);
+}
+
+.entropy-app .vault-checkbox-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: var(--app-text);
+  background: var(--app-surface-hover);
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+}
+
+.entropy-app .vault-checkbox-row > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.entropy-app .vault-checkbox-row strong {
+  color: var(--app-text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.entropy-app .vault-checkbox-row small {
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Secret detail */
+
+.entropy-app .vault-detail-value {
+  min-width: 0;
+  overflow: hidden;
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 9px;
+}
+
+.entropy-app .vault-detail-value-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-line);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.entropy-app .vault-detail-value pre {
+  max-height: 48vh;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  color: var(--app-text);
+  background: var(--app-bg);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Responsive layout */
+
+@media (max-width: 900px) {
+  .entropy-app .vault-access-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .entropy-app .vault-access-form > .entropy-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .entropy-app .vault-page {
+    gap: 18px;
+  }
+
+  .entropy-app .vault-header {
+    align-items: flex-start;
+  }
+
+  .entropy-app .vault-topbar {
+    align-items: stretch;
+  }
+
+  .entropy-app .vault-namespace-selector {
+    width: 100%;
+  }
+
+  .entropy-app .vault-create-menu {
+    align-self: flex-start;
+  }
+
+  .entropy-app .vault-current {
+    align-items: flex-start;
+    padding: 15px;
+  }
+
+  .entropy-app .vault-tabs {
+    gap: 10px;
+  }
+
+  .entropy-app .vault-tabs button {
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .entropy-app .vault-access-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .entropy-app .vault-access-form > .entropy-button {
+    grid-column: auto;
+    justify-self: start;
+  }
+
+  .entropy-app .vault-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .entropy-app .vault-modal-backdrop {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .entropy-app .vault-modal {
+    max-height: calc(100dvh - 20px);
+    border-radius: 13px;
+  }
+
+  .entropy-app .vault-modal-header,
+  .entropy-app .vault-modal-body {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .entropy-app .vault-modal-footer {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .entropy-app .vault-table {
+    min-width: 720px;
+  }
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .entropy-app .vault-page *,
+  .entropy-app .vault-page *::before,
+  .entropy-app .vault-page *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* Compact accent tag button — View value / View full value */
+.entropy-app .vault-page button.vault-text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 3px 9px;
+
+  border: 1px solid var(--accent-color, #6366f1);
+  border-radius: 6px;
+  background: color-mix(
+    in srgb,
+    var(--accent-color, #6366f1) 12%,
+    transparent
+  );
+
+  color: var(--accent-color, #6366f1);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+/* Prevent underline on hover, focus, and active states */
+.entropy-app .vault-page button.vault-text-button:hover,
+.entropy-app .vault-page button.vault-text-button:focus,
+.entropy-app .vault-page button.vault-text-button:active {
+  color: var(--accent-color, #6366f1);
+  text-decoration: none;
+}
+
+.entropy-app .vault-page button.vault-text-button:hover {
+  background: color-mix(
+    in srgb,
+    var(--accent-color, #6366f1) 22%,
+    transparent
+  );
+  border-color: var(--accent-color, #6366f1);
+}
+
+.entropy-app .vault-page button.vault-text-button:focus-visible {
+  outline: 2px solid var(--accent-color, #6366f1);
+  outline-offset: 2px;
+}
+
+.entropy-app .vault-page button.vault-text-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

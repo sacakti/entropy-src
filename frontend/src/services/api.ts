@@ -1,44 +1,3 @@
-// export async function apiRequest<T>(
-//     url: string,
-//     init: RequestInit = {},
-// ): Promise<T> {
-//     const method = (init.method ?? 'GET').toUpperCase()
-//     const headers = new Headers(init.headers)
-
-//     if (method !== 'GET' && method !== 'HEAD') {
-//         const csrfResponse = await fetch('/api/auth/csrf', {
-//             credentials: 'same-origin',
-//             cache: 'no-store',
-//         })
-
-//         if (!csrfResponse.ok) {
-//             throw new Error('Unable to obtain a CSRF token.')
-//         }
-
-//         const csrfData: { csrf_token: string } =
-//             await csrfResponse.json()
-
-//         headers.set('X-CSRF-Token', csrfData.csrf_token)
-//     }
-
-//     const response = await fetch(url, {
-//         ...init,
-//         method,
-//         headers,
-//         credentials: 'same-origin',
-//         cache: 'no-store',
-//     })
-
-//     if (!response.ok) {
-//         const detail = await response.text()
-//         throw new Error(
-//             detail || `Request failed (${response.status}).`,
-//         )
-//     }
-
-//     return response.json() as Promise<T>
-// }
-
 interface ApiErrorResponse {
     detail?: string
     message?: string
@@ -104,5 +63,14 @@ export async function apiRequest<T>(
         throw new Error(await getErrorMessage(response))
     }
 
+    // DELETE endpoints may return 204 No Content.
+    if (
+        response.status === 204 ||
+        method === 'HEAD'
+    ) {
+        return undefined as T
+    }
+
+    // Preserve support for successful JSON responses.
     return response.json() as Promise<T>
 }

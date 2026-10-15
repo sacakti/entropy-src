@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 
 import { getCurrentUser } from '../../services/auth'
-import '../../styles/Permissions.css'
 
 interface PermissionGroup {
     name: string
@@ -138,7 +137,8 @@ function Permissions() {
     )
 
     return (
-        <section className="content-panel permissions-page">
+        // <section className="content-panel permissions-page">
+        <section className="permissions-page">
             <header className="permissions-header">
                 <div className="permissions-heading">
                     <span className="permissions-heading-icon">
@@ -156,9 +156,9 @@ function Permissions() {
                     </div>
                 </div>
 
-                <button
+                {/* <button
                     type="button"
-                    className="permissions-refresh"
+                    className="entropy-button-secondary"
                     onClick={() => void loadPermissions()}
                     disabled={loading}
                     aria-label="Refresh permissions"
@@ -169,7 +169,7 @@ function Permissions() {
                         className={loading ? 'permissions-spinning' : ''}
                     />
                     <span>Refresh</span>
-                </button>
+                </button> */}
             </header>
 
             {error ? (
@@ -180,7 +180,7 @@ function Permissions() {
                         <p>{error}</p>
                         <button
                             type="button"
-                            className="permissions-retry"
+                            className="entropy-button-secondary"
                             onClick={() => void loadPermissions()}
                             disabled={loading}
                         >

@@ -1,595 +1,192 @@
 
-/* =========================================================
-   Entropy — Preferences / Appearance
-   Complete drop-in stylesheet
-   ========================================================= */
+/* ==========================================================
+   Preferences / Appearance
+   Theme tokens: theme.css
+   Workspace and wallpaper rendering: shell.css
+   ========================================================== */
 
-/* Preferences panel: size to its content without an artificial minimum. */
-.entropy-app .preferences-panel {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  padding: 24px 28px 18px;
-  box-sizing: border-box;
-  overflow: hidden;
+.entropy-app .entropy-content-preferences {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 24px;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
-.entropy-app .preferences-panel *,
-.entropy-app .preferences-panel *::before,
-.entropy-app .preferences-panel *::after {
+.entropy-app .entropy-content-preferences > .preferences-panel {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 28px;
+    color: var(--app-text);
+    background: color-mix(in srgb, var(--app-surface) 84%, transparent);
+    border: 1px solid var(--app-line);
+    border-radius: 14px;
+}
+
+.entropy-app .preferences-panel,
+.entropy-app .preferences-panel * {
     box-sizing: border-box;
 }
 
-/* Heading */
-
-.entropy-app .preferences-panel .preferences-heading {
-    flex: 0 0 auto;
-    margin-bottom: 18px;
-}
-
-.entropy-app .preferences-panel .preferences-heading h2 {
-    margin: 0 0 6px;
-    color: var(--app-text);
-    font-size: 18px;
-    font-weight: 650;
-}
-
-.entropy-app .preferences-panel .preferences-heading p {
+.entropy-app .preferences-heading h2 {
     margin: 0;
+    color: var(--app-text);
+    font-size: 22px;
+    font-weight: 750;
+}
+
+.entropy-app .preferences-heading p {
+    margin: 7px 0 0;
     color: var(--app-muted);
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
-/* Theme choices */
-
-.entropy-app .preferences-panel .theme-options {
+.entropy-app .settings-section {
     display: flex;
-    flex: 0 0 auto;
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+    padding: 22px;
+    background: color-mix(in srgb, var(--app-surface) 88%, transparent);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
 }
 
-.entropy-app .preferences-panel .theme-option {
+.entropy-app .settings-section-heading h3 {
+    margin: 0;
+    color: var(--app-text);
+    font-size: 16px;
+    font-weight: 750;
+}
+
+.entropy-app .settings-section-heading p {
+    margin: 6px 0 0;
+    color: var(--app-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+/* Theme */
+
+.entropy-app .theme-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 216px));
+    gap: 14px;
+}
+
+.entropy-app .theme-option {
+    position: relative;
     display: flex;
-    flex: 0 1 176px;
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
-    min-width: 140px;
-    min-height: 106px;
-    padding: 14px;
-    color: var(--app-text);
-    text-align: left;
-    background: var(--app-surface);
-    border: 1px solid var(--app-line);
-    border-radius: 10px;
-    cursor: pointer;
-    transition:
-        border-color 150ms ease,
-        background 150ms ease,
-        box-shadow 150ms ease;
-}
-
-.entropy-app .preferences-panel .theme-option:hover:not(:disabled) {
-    border-color: var(--app-accent);
-}
-
-.entropy-app .preferences-panel .theme-option.selected {
-    border-color: var(--app-accent);
-    box-shadow: 0 0 0 1px var(--app-accent);
-}
-
-.entropy-app .preferences-panel .theme-option > svg {
-    flex: 0 0 auto;
-}
-
-.entropy-app .preferences-panel .theme-option span {
-    font-size: 13px;
-    font-weight: 650;
-}
-
-.entropy-app .preferences-panel .theme-option small {
-    color: var(--app-muted);
-    font-size: 11px;
-    line-height: 1.4;
-}
-
-/* Shared button states */
-
-.entropy-app .preferences-panel button:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-}
-
-.entropy-app .preferences-panel button:focus-visible,
-.entropy-app .preferences-panel input:focus-visible,
-.entropy-app .preferences-panel select:focus-visible {
-    outline: 2px solid var(--app-accent);
-    outline-offset: 3px;
-}
-
-/* =========================================================
-   Main appearance layout
-   The controls have a real minimum height instead of relying
-   on a zero-basis flex child inside a constrained parent.
-   ========================================================= */
-
-/* Gallery and controls. */
-.entropy-app .preferences-panel .appearance-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(230px, 0.8fr);
-  align-items: stretch;
-  flex: 1 1 auto;
-  gap: 24px;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--app-line);
-}
-
-.entropy-app .preferences-panel .appearance-control {
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-    min-width: 0;
-}
-
-.entropy-app .preferences-panel .appearance-control > label,
-.entropy-app .preferences-panel .background-heading > label {
-    color: var(--app-text);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-/* =========================================================
-   Background gallery
-   ========================================================= */
-
-/* Background gallery: use the available vertical space */
-.entropy-app .preferences-panel .background-control {
-  display: grid;
-  grid-template-rows: auto 66px minmax(0, 1fr);
-  gap: 0;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-
-.entropy-app .preferences-panel .background-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 10px;
     min-width: 0;
-    margin-bottom: 10px;
-}
-
-.entropy-app .preferences-panel .background-heading > label {
-    margin: 0;
-}
-
-.entropy-app .preferences-panel .background-count {
-    flex: 0 0 auto;
-    color: var(--app-muted);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-/* Upload / drag-and-drop area */
-
-/* The upload area occupies its grid row without extra margin. */
-.entropy-app .preferences-panel .background-dropzone {
-    position: relative;
-    display: flex;
-    flex: none;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 3px 12px;
-    width: 100%;
-    height: 66px;
-    min-height: 66px;
-    margin: 0;
-    padding: 8px 12px;
-    overflow: hidden;
-    cursor: pointer;
-    background: color-mix(
-        in srgb,
-        var(--app-surface) 70%,
-        transparent
-    );
-    border: 1px dashed var(--app-line);
-    border-radius: 10px;
-    transition:
-        border-color 150ms ease,
-        background 150ms ease,
-        opacity 150ms ease;
-}
-
-.entropy-app .preferences-panel .background-dropzone:focus-visible {
-    outline: 2px solid var(--app-accent);
-    outline-offset: 3px;
-}
-
-.entropy-app .preferences-panel .background-dropzone[aria-disabled="true"] {
-    cursor: not-allowed;
-}
-
-.entropy-app .preferences-panel .background-dropzone:hover,
-.entropy-app .preferences-panel .background-dropzone.drag-active {
-    border-color: var(--app-accent);
-    background: color-mix(
-        in srgb,
-        var(--app-accent) 8%,
-        transparent
-    );
-}
-
-.entropy-app .preferences-panel .background-dropzone.uploading {
-    opacity: 0.7;
-}
-
-.entropy-app .preferences-panel .background-upload-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-}
-
-.entropy-app .preferences-panel .background-upload-icon {
-    display: inline-flex;
-    flex: 0 0 42px;
-    align-items: center;
-    justify-content: center;
-    width: 42px;
-    height: 42px;
-    margin: 0;
-    padding: 0;
-    color: var(--app-accent);
-    background: color-mix(
-        in srgb,
-        var(--app-accent) 10%,
-        transparent
-    );
-    border: 1px solid color-mix(
-        in srgb,
-        var(--app-accent) 35%,
-        transparent
-    );
-    border-radius: 9px;
-    cursor: pointer;
-    transition: background 150ms ease;
-}
-
-.entropy-app .preferences-panel .background-upload-icon:hover {
-    background: color-mix(
-        in srgb,
-        var(--app-accent) 18%,
-        transparent
-    );
-}
-
-.entropy-app .preferences-panel
-.background-upload-input:focus-visible
-+ .background-upload-icon {
-    outline: 2px solid var(--app-accent);
-    outline-offset: 3px;
-}
-
-.entropy-app .preferences-panel .background-upload-hint {
-    min-width: 0;
+    min-height: 116px;
+    padding: 18px;
     color: var(--app-text);
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.4;
-}
-
-.entropy-app .preferences-panel .background-upload-formats {
-    flex-basis: 100%;
-    padding-left: 54px;
-    color: var(--app-muted);
-    font-size: 10px;
-    line-height: 1.2;
-}
-
-/* Image gallery: fill the available grid row and scroll internally */
-.entropy-app .preferences-panel .background-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-auto-rows: 124px;
-  align-content: start;
-  align-items: start;
-  gap: 10px;
-
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-
-  margin-top: 0;
-  padding: 2px 5px 8px 2px;
-
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  scrollbar-gutter: stable;
-}
-
-.entropy-app .preferences-panel .background-options > button,
-.entropy-app .preferences-panel .background-options > .background-option {
-    position: relative;
-    width: 100%;
-    height: 124px;
-    min-width: 0;
-    min-height: 124px;
-    max-height: 124px;
-    margin: 0;
-}
-
-/* Shared gallery card styling */
-
-.entropy-app .preferences-panel .background-options button {
-    color: var(--app-text);
+    text-align: left;
     background: var(--app-surface);
     border: 1px solid var(--app-line);
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
-    transition:
-        border-color 150ms ease,
-        box-shadow 150ms ease;
+    transition: border-color 150ms ease, background 150ms ease;
 }
 
-.entropy-app .preferences-panel
-.background-options button:hover:not(:disabled) {
+.entropy-app .theme-option:hover:not(:disabled) {
     border-color: var(--app-accent);
 }
 
-.entropy-app .preferences-panel
-.background-options button.selected {
-    border-color: var(--app-accent);
-    box-shadow: 0 0 0 1px var(--app-accent);
+.entropy-app .theme-option.selected {
+    border: 2px solid var(--app-accent);
+    padding: 17px;
+    background: color-mix(in srgb, var(--app-accent) 7%, var(--app-surface));
 }
 
-.entropy-app .preferences-panel
-.background-options button:focus-visible {
-    outline: 2px solid var(--app-accent);
-    outline-offset: 2px;
-}
-
-/* No-background card */
-
-.entropy-app .preferences-panel .background-none-option {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px;
-    overflow: hidden;
-    text-align: center;
-}
-
-.entropy-app .preferences-panel .background-none-option span {
-    font-size: 12px;
-    line-height: 1.4;
-    overflow-wrap: anywhere;
-}
-
-/* Image card wrapper */
-
-.entropy-app .preferences-panel .background-option {
-    overflow: hidden;
-    border-radius: 8px;
-}
-
-/* Image selection button */
-
-.entropy-app .preferences-panel .background-thumbnail {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: 5px;
-    width: 100%;
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
-    padding: 7px;
-    overflow: hidden;
-    text-align: left;
-}
-
-.entropy-app .preferences-panel .background-thumbnail img,
-.entropy-app .preferences-panel .background-thumbnail .background-image {
-    display: block;
-    flex: 0 0 82px;
-    width: 100%;
-    height: 82px;
-    min-width: 0;
-    min-height: 82px;
-    max-height: 82px;
-    margin: 0;
-    object-fit: cover;
-    object-position: center;
-    border-radius: 5px;
-}
-
-.entropy-app .preferences-panel .background-thumbnail span {
-    display: block;
-    flex: 0 0 20px;
-    width: 100%;
-    min-width: 0;
-    height: 20px;
-    margin: 0;
-    overflow: hidden;
+.entropy-app .theme-option > svg {
     color: var(--app-text);
+}
+
+.entropy-app .theme-option > span {
+    color: var(--app-text);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.entropy-app .theme-option small {
+    color: var(--app-muted);
     font-size: 11px;
-    line-height: 20px;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-/* Delete uploaded images */
-
-.entropy-app .preferences-panel .background-delete-icon {
+.entropy-app .theme-option .theme-check {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 27px;
-    height: 27px;
-    padding: 0;
-    color: #ff7777;
-    background: rgb(8 10 13 / 90%);
-    border: 1px solid rgb(255 119 119 / 55%);
-    border-radius: 7px;
-    cursor: pointer;
+    top: 16px;
+    right: 16px;
+    color: var(--app-accent);
 }
 
-.entropy-app .preferences-panel
-.background-delete-icon:hover:not(:disabled) {
-    color: #fff;
-    background: #b42323;
+/* Three aligned appearance controls */
+
+.entropy-app .appearance-settings-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 24px;
 }
 
-.entropy-app .preferences-panel .background-delete-icon:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-}
-
-/* =========================================================
-   Right-side appearance controls
-   ========================================================= */
-
-.entropy-app .preferences-panel .appearance-side-controls {
+.entropy-app .appearance-setting {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
-    gap: 22px;
+    gap: 12px;
     min-width: 0;
-    min-height: 0;
-    padding-left: 22px;
-    border-left: 1px solid var(--app-line);
 }
 
-.entropy-app .preferences-panel
-.appearance-side-controls .appearance-control {
-    width: 100%;
-}
-
-.entropy-app .preferences-panel
-.appearance-side-controls label {
+.entropy-app .appearance-setting > label {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    width: 100%;
-}
-
-.entropy-app .preferences-panel #background-fit {
-    appearance: none;
-    width: 100%;
-    min-width: 0;
-    min-height: 42px;
-    padding: 0 36px 0 12px;
     color: var(--app-text);
-    background-color: var(--app-surface);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ba5b3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    border: 1px solid var(--app-line);
-    border-radius: 8px;
-    font: inherit;
     font-size: 12px;
-    cursor: pointer;
+    font-weight: 650;
 }
 
-.entropy-app .preferences-panel #background-fit:hover {
-    border-color: var(--app-accent);
-}
-
-.entropy-app .preferences-panel #background-fit option {
-    color: var(--app-text);
-    background: var(--app-surface);
-}
-
-/* Opacity slider */
-
-.entropy-app .preferences-panel .opacity-value {
+.entropy-app .appearance-setting > label strong {
+    color: var(--app-muted);
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
 
-.entropy-app .preferences-panel .background-opacity-slider {
-    display: block;
+.entropy-app .appearance-setting > input[type="range"] {
     width: 100%;
-    min-width: 0;
-    height: 8px;
-    margin: 10px 0;
-    padding: 0;
-    appearance: none;
-    background: var(--app-line);
-    border-radius: 999px;
+    margin: 4px 0;
     accent-color: var(--app-accent);
     cursor: pointer;
 }
 
-.entropy-app .preferences-panel
-.background-opacity-slider::-webkit-slider-thumb {
-    width: 18px;
-    height: 18px;
-    appearance: none;
-    background: var(--app-accent);
-    border: 3px solid var(--app-surface);
-    border-radius: 50%;
-    box-shadow: 0 0 0 1px var(--app-accent);
-}
-
-.entropy-app .preferences-panel
-.background-opacity-slider::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    background: var(--app-accent);
-    border: 3px solid var(--app-surface);
-    border-radius: 50%;
-    box-shadow: 0 0 0 1px var(--app-accent);
-}
-
-.entropy-app .preferences-panel .appearance-control small {
+.entropy-app .appearance-setting > small {
     color: var(--app-muted);
     font-size: 11px;
-    line-height: 1.45;
+    line-height: 1.55;
 }
 
-/* Accent color */
-
-.entropy-app .preferences-panel .color-control {
+.entropy-app .accent-color-control {
     display: flex;
     align-items: center;
     gap: 12px;
-    width: 100%;
-    min-width: 0;
+    min-height: 28px;
 }
 
-.entropy-app .preferences-panel
-.color-control input[type="color"] {
-    flex: 0 0 44px;
-    width: 44px;
+.entropy-app .accent-color-control input[type="color"] {
+    width: 46px;
     height: 38px;
     padding: 3px;
     background: var(--app-surface);
@@ -598,32 +195,309 @@
     cursor: pointer;
 }
 
-.entropy-app .preferences-panel .color-control span {
-    min-width: 0;
-    overflow: hidden;
+.entropy-app .accent-color-control span {
     color: var(--app-muted);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
+}
+
+/* Background upload */
+
+.entropy-app .background-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 170px;
+    padding: 28px;
+    color: var(--app-muted);
+    text-align: center;
+    background: color-mix(in srgb, var(--app-surface) 72%, transparent);
+    border: 1px dashed var(--app-line);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 150ms ease, background 150ms ease;
+}
+
+.entropy-app .background-dropzone:hover,
+.entropy-app .background-dropzone.drag-active {
+    background: color-mix(in srgb, var(--app-accent) 7%, var(--app-surface));
+    border-color: var(--app-accent);
+}
+
+.entropy-app .background-dropzone > svg {
+    color: var(--app-accent);
+}
+
+.entropy-app .background-dropzone strong {
+    color: var(--app-text);
+    font-size: 14px;
+}
+
+.entropy-app .background-dropzone span {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .background-dropzone small {
+    color: var(--app-subtle);
+    font-size: 11px;
+}
+
+.entropy-app .background-upload-input {
+    display: none;
+}
+
+/* Background library toolbar */
+
+.entropy-app .background-library-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-width: 0;
+}
+
+.entropy-app .background-library-toolbar h4 {
+    margin: 0;
+    color: var(--app-text);
+    font-size: 14px;
+    font-weight: 750;
+}
+
+.entropy-app .background-library-toolbar p {
+    margin: 5px 0 0;
+    color: var(--app-muted);
+    font-size: 11px;
+}
+
+.entropy-app .background-fit-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.entropy-app .background-fit-control label {
+    color: var(--app-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.entropy-app .background-fit-control select {
+    min-width: 130px;
+    padding: 8px 10px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 7px;
+}
+
+/* No-background choice */
+
+.entropy-app .background-none-option {
+    align-self: flex-start;
+    padding: 9px 12px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.entropy-app .background-none-option:hover {
+    border-color: var(--app-accent);
+}
+
+.entropy-app .background-none-option.selected {
+    color: var(--app-text);
+    background: color-mix(in srgb, var(--app-accent) 9%, var(--app-surface));
+    border-color: var(--app-accent);
+}
+
+/* Six-image gallery page */
+
+.entropy-app .background-gallery {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    min-width: 0;
+}
+
+.entropy-app .background-card {
+    position: relative;
+    min-width: 0;
+}
+
+.entropy-app .background-thumbnail {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    padding: 8px;
+    overflow: hidden;
+    color: var(--app-text);
+    text-align: left;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 150ms ease, background 150ms ease;
+}
+
+.entropy-app .background-thumbnail:hover {
+    border-color: var(--app-accent);
+}
+
+.entropy-app .background-thumbnail.selected {
+    border: 2px solid var(--app-accent);
+    padding: 7px;
+}
+
+.entropy-app .background-thumbnail > img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: var(--app-bg);
+    border-radius: 6px;
+}
+
+.entropy-app .background-card-name {
+    display: block;
+    width: 100%;
+    margin-top: 9px;
+    overflow: hidden;
+    color: var(--app-text);
+    font-size: 12px;
+    font-weight: 650;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* =========================================================
-   Footer, reset and feedback
-   ========================================================= */
+.entropy-app .background-thumbnail > small {
+    margin-top: 5px;
+    color: var(--app-muted);
+    font-size: 10px;
+}
 
-.entropy-app .preferences-panel .appearance-actions {
+.entropy-app .background-selected-mark {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: grid;
+    width: 27px;
+    height: 27px;
+    place-items: center;
+    color: var(--app-accent-text);
+    background: var(--app-accent);
+    border-radius: 50%;
+}
+
+.entropy-app .background-delete-icon {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    color: #fff;
+    background: rgb(20 20 20 / 78%);
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .background-delete-icon:hover {
+    background: #c93838;
+}
+
+.entropy-app .background-empty {
     display: flex;
-    flex: 0 0 auto;
+    flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
-    width: 100%;
-    margin-top: 18px;
-    padding-top: 12px;
+    gap: 10px;
+    padding: 44px 20px;
+    color: var(--app-muted);
+    text-align: center;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .background-empty strong {
+    color: var(--app-text);
+    font-size: 13px;
+}
+
+.entropy-app .background-empty span {
+    font-size: 12px;
+}
+
+/* Gallery pagination */
+
+.entropy-app .gallery-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 16px;
     border-top: 1px solid var(--app-line);
 }
 
-.entropy-app .preferences-panel .appearance-reset-button {
+.entropy-app .gallery-pagination > span {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .gallery-pagination-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.entropy-app .gallery-pagination-actions button {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .gallery-pagination-actions button:hover:not(:disabled) {
+    border-color: var(--app-accent);
+}
+
+.entropy-app .gallery-pagination-actions button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.entropy-app .gallery-page-count {
+    padding: 0 8px;
+    color: var(--app-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* Footer and feedback */
+
+.entropy-app .appearance-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.entropy-app .appearance-reset-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -636,127 +510,634 @@
     border-radius: 8px;
     font: inherit;
     font-size: 12px;
-    font-weight: 600;
     cursor: pointer;
-    transition:
-        border-color 150ms ease,
-        background 150ms ease;
 }
 
-.entropy-app .preferences-panel
-.appearance-reset-button:hover:not(:disabled) {
+.entropy-app .appearance-reset-button:hover:not(:disabled) {
     border-color: var(--app-accent);
 }
 
-.entropy-app .preferences-panel .preferences-status,
-.entropy-app .preferences-panel .preferences-error {
-    flex: 0 0 auto;
-    margin: 8px 0 0;
+.entropy-app .preferences-status,
+.entropy-app .preferences-error {
     font-size: 12px;
-    line-height: 1.5;
 }
 
-.entropy-app .preferences-panel .preferences-status {
+.entropy-app .preferences-status {
     color: var(--app-muted);
 }
 
-.entropy-app .preferences-panel .preferences-error {
-    color: #e57373;
+.entropy-app .preferences-error {
+    color: #dc4545;
 }
 
-/* =========================================================
-   Light theme
-   ========================================================= */
+/* Preview modal: separate from the shared workspace background */
 
-.entropy-app.theme-light .preferences-panel {
-    background: color-mix(
-        in srgb,
-        var(--app-surface) 90%,
-        transparent
-    );
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+.entropy-app .wallpaper-preview-backdrop {
+    position: fixed;
+    z-index: 10000;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgb(0 0 0 / var(--app-modal-backdrop-opacity, 0.65));
+    backdrop-filter: blur(5px);
 }
 
-.entropy-app.theme-light .preferences-panel .theme-option {
-    background: color-mix(
-        in srgb,
-        var(--app-surface) 92%,
-        transparent
-    );
+.entropy-app .wallpaper-preview-dialog {
+    display: flex;
+    flex-direction: column;
+    width: min(1200px, 100%);
+    height: min(850px, 100%);
+    min-width: 0;
+    overflow: hidden;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 14px;
+    box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
 }
 
-.entropy-app.theme-light .preferences-panel .background-dropzone {
-    background: color-mix(
-        in srgb,
-        var(--app-surface) 82%,
-        transparent
-    );
+.entropy-app .wallpaper-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--app-line);
 }
 
-.entropy-app.theme-light .preferences-panel .background-options button {
-    background: color-mix(
-        in srgb,
-        var(--app-surface) 92%,
-        transparent
-    );
+.entropy-app .wallpaper-preview-header > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
 }
 
-.entropy-app.theme-light .preferences-panel
-.background-options button.selected {
+.entropy-app .wallpaper-preview-header strong {
+    overflow: hidden;
+    color: var(--app-text);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .wallpaper-preview-header span {
+    color: var(--app-muted);
+    font-size: 11px;
+}
+
+.entropy-app .wallpaper-preview-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.entropy-app .wallpaper-preview-tools button,
+.entropy-app .wallpaper-preview-footer button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 0 9px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .wallpaper-preview-tools button:hover:not(:disabled),
+.entropy-app .wallpaper-preview-footer button:hover:not(:disabled) {
     border-color: var(--app-accent);
 }
 
-/* =========================================================
-   Responsive layout
-   ========================================================= */
-
-@media (max-width: 1000px) {
-  .entropy-app .preferences-panel .appearance-controls {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .entropy-app .preferences-panel .background-control {
-    height: auto;
-    min-height: 0;
-  }
+.entropy-app .wallpaper-preview-tools button:disabled,
+.entropy-app .wallpaper-preview-footer button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
 }
 
-@media (max-width: 700px) {
-  .entropy-app .entropy-content-preferences {
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  .entropy-app .preferences-panel {
-    height: auto;
-    min-height: 0;
-    overflow: visible;
-  }
-
-  .entropy-app .preferences-panel .appearance-controls {
-    flex: 0 0 auto;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .entropy-app .preferences-panel .background-control {
-    height: 340px;
-    min-height: 340px;
-  }
-
-  .entropy-app .preferences-panel .background-options {
-    min-height: 0;
-  }
+.entropy-app .wallpaper-preview-tools > span {
+    min-width: 42px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Keep Preferences consistent with the shared workspace backdrop. */
-.entropy-app .entropy-content-preferences > .content-panel,
-.entropy-app .entropy-content-preferences .preferences-panel {
+.entropy-app .wallpaper-preview-stage {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--app-bg);
+}
+
+.entropy-app .wallpaper-preview-image-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+}
+
+.entropy-app .wallpaper-preview-image-wrap img {
+    display: block;
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+    transform-origin: center;
+    transition: transform 120ms ease;
+}
+
+.entropy-app .wallpaper-preview-nav {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+}
+
+.entropy-app .wallpaper-preview-nav.previous {
+    left: 16px;
+}
+
+.entropy-app .wallpaper-preview-nav.next {
+    right: 16px;
+}
+
+.entropy-app .wallpaper-preview-nav:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.entropy-app .wallpaper-preview-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .wallpaper-preview-footer .wallpaper-preview-select {
+    color: var(--app-button-text);
+    background: var(--app-button-bg);
+    border-color: transparent;
+    font-weight: 700;
+}
+
+/* Responsive */
+
+@media (max-width: 900px) {
+    .entropy-app .appearance-settings-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+    }
+
+    .entropy-app .background-gallery {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .entropy-app .entropy-content-preferences {
+        padding: 12px;
+    }
+
+    .entropy-app .entropy-content-preferences > .preferences-panel {
+        gap: 18px;
+        padding: 14px;
+    }
+
+    .entropy-app .settings-section {
+        padding: 16px;
+    }
+
+    .entropy-app .theme-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .entropy-app .theme-option {
+        min-height: 105px;
+        padding: 12px;
+    }
+
+    .entropy-app .theme-option.selected {
+        padding: 11px;
+    }
+
+    .entropy-app .background-library-toolbar,
+    .entropy-app .gallery-pagination {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .entropy-app .wallpaper-preview-backdrop {
+        padding: 8px;
+    }
+
+    .entropy-app .wallpaper-preview-dialog {
+        height: 100%;
+    }
+
+    .entropy-app .wallpaper-preview-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .entropy-app .wallpaper-preview-tools {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .entropy-app .wallpaper-preview-footer {
+        flex-wrap: wrap;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .theme-option,
+    .entropy-app .background-dropzone,
+    .entropy-app .background-thumbnail,
+    .entropy-app .wallpaper-preview-image-wrap img {
+        transition: none;
+    }
+}
+
+
+/* Theme and Appearance share the available workspace width. */
+.entropy-app .preferences-top-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.5fr);
+    align-items: start;
+    gap: 24px;
+    min-width: 0;
+}
+
+.entropy-app .preferences-top-grid > .settings-section {
+    min-width: 0;
+    height: 100%;
+}
+
+/* Keep the three appearance controls aligned. */
+.entropy-app .appearance-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 22px;
+}
+
+/* Background remains full-width below both sections. */
+.entropy-app .background-section {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Responsive layout */
+@media (max-width: 1100px) {
+    .entropy-app .preferences-top-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .preferences-top-grid > .settings-section {
+        height: auto;
+    }
+}
+
+@media (max-width: 760px) {
+    .entropy-app .appearance-settings-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+
+/* Appearance controls: three distinct, consistently aligned cards */
+.entropy-app .appearance-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 14px;
+}
+
+.entropy-app .appearance-setting {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    min-width: 0;
+    min-height: 148px;
+    padding: 16px;
     background: color-mix(
         in srgb,
-        var(--app-bg) 48%,
-        transparent
+        var(--app-bg) 22%,
+        var(--app-surface)
     );
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+/* Reserve equal space for each control's heading and description. */
+.entropy-app .appearance-setting > label {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 34px;
+    margin: 0;
+    line-height: 1.45;
+}
+
+.entropy-app .appearance-setting > label > span {
+    min-width: 0;
+}
+
+.entropy-app .appearance-setting > label > strong {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* Keep sliders and color picker at a consistent vertical position. */
+.entropy-app .appearance-setting > input[type="range"],
+.entropy-app .appearance-setting > .accent-color-control {
+    min-height: 38px;
+    margin: 0;
+}
+
+.entropy-app .appearance-setting > input[type="range"] {
+    width: 100%;
+}
+
+.entropy-app .appearance-setting > small {
+    display: block;
+    min-height: 32px;
+    margin-top: auto;
+    color: var(--app-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* Keep the accent picker vertically centered in its control area. */
+.entropy-app .accent-color-control {
+    align-items: center;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+    .entropy-app .appearance-settings-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .entropy-app .appearance-settings-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .appearance-setting {
+        min-height: 132px;
+    }
+}
+
+
+/* Make Theme and Appearance fill the top-row grid consistently */
+.entropy-app .preferences-top-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.5fr);
+    align-items: stretch;
+    gap: 20px;
+    width: 100%;
+}
+
+.entropy-app .preferences-top-grid > .settings-section {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+}
+
+/* Use the full width of the Appearance container */
+.entropy-app .appearance-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 12px;
+    width: 100%;
+}
+
+.entropy-app .appearance-setting {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Stack sections on smaller screens */
+@media (max-width: 1100px) {
+    .entropy-app .preferences-top-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 760px) {
+    .entropy-app .appearance-settings-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Preferences toolbar */
+.entropy-app .preferences-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    width: 100%;
+    margin: 0 0 12px;
+}
+
+/* Destructive action */
+.entropy-app .liquid-button-danger {
+    color: #fff;
+    background: #dc2626;
+    border: 1px solid #b91c1c;
+}
+
+.entropy-app .liquid-button-danger:hover {
+    background: #b91c1c;
+}
+
+.entropy-app .liquid-button-danger:focus-visible {
+    outline: 2px solid #dc2626;
+    outline-offset: 3px;
+}
+
+
+.entropy-app .wallpaper-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    width: 100%;
+    margin: 0 0 16px;
+}
+
+.entropy-app .wallpaper-fit-control {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .wallpaper-fit-control label {
+    color: var(--app-muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.entropy-app .wallpaper-fit-control .entropy-select {
+    width: 140px;
+}
+
+@media (max-width: 560px) {
+    .entropy-app .wallpaper-toolbar {
+        align-items: stretch;
+    }
+
+    .entropy-app .wallpaper-fit-control {
+        justify-content: space-between;
+    }
+
+    .entropy-app .wallpaper-fit-control .entropy-select {
+        flex: 1;
+        width: auto;
+    }
+}
+
+.entropy-app .background-library-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-width: 0;
+}
+
+.entropy-app .background-none-option {
+    align-self: auto;
+    white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    .entropy-app .background-library-actions {
+        justify-content: space-between;
+        width: 100%;
+    }
+}
+
+/* Wallpaper preview: image loading failure */
+.entropy-app .wallpaper-preview-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    color: var(--app-muted);
+    text-align: center;
+}
+
+.entropy-app .wallpaper-preview-error strong {
+    color: var(--app-text);
+}
+
+.entropy-app .wallpaper-preview-error span {
+    font-size: 12px;
+}
+
+/* Fullscreen wallpaper preview */
+.entropy-app .wallpaper-preview-dialog.fullscreen {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+}
+
+.entropy-app .wallpaper-preview-backdrop:has(
+    .wallpaper-preview-dialog.fullscreen
+) {
+    padding: 0;
+}
+
+/* Zoomed image should remain navigable */
+.entropy-app .wallpaper-preview-image-wrap {
+    overflow: auto;
+}
+
+.entropy-app .wallpaper-preview-image-wrap img {
+    display: block;
+    flex: 0 0 auto;
+    width: auto;
+    height: auto;
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+    transform-origin: center;
+    transition: transform 120ms ease;
+}
+
+/* Keep toolbar controls visually consistent */
+.entropy-app .wallpaper-preview-tools button:focus-visible,
+.entropy-app .wallpaper-preview-footer button:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+.entropy-app .preferences-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    width: 100%;
+    margin-bottom: 28px;
+}
+
+.entropy-app .preferences-page-header > div {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.entropy-app .preferences-page-header > button {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.entropy-app .preferences-page-header h1 {
+    margin: 0;
+}
+
+.entropy-app .preferences-page-header p {
+    margin: 8px 0 0;
+}
+
+.entropy-app .preferences-page-header > button {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 600px) {
+    .entropy-app .preferences-page-header {
+        align-items: flex-end;
+        flex-direction: column;
+        gap: 16px;
+    }
 }

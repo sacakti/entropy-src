@@ -1,0 +1,447 @@
+/* Workspace header, profile menu, and actions. */
+.entropy-app .entropy-main {
+
+    position: relative;
+
+    isolation: isolate;
+
+    display: flex;
+
+    flex: 1 1 0;
+
+    flex-direction: column;
+
+    width: 0;
+
+    height: 100%;
+
+    min-width: 0;
+
+    min-height: 0;
+
+    overflow: hidden;
+
+    background-color: var(--app-bg);
+
+}
+
+
+
+/* Workspace background image is decorative and non-interactive. */
+
+.entropy-app .entropy-main::before {
+
+    position: absolute;
+
+    z-index: -1;
+
+    inset: 0;
+
+    pointer-events: none;
+
+    background-image: var(--app-background-image, none);
+
+    background-position: center;
+
+    background-size: var(--app-background-fit, cover);
+
+    background-repeat: no-repeat;
+
+    opacity: var(--app-background-opacity, 0.35);
+
+    content: "";
+
+}
+
+
+
+.entropy-app .entropy-topbar {
+
+    position: relative;
+
+    z-index: 5;
+
+    display: flex;
+
+    flex: 0 0 70px;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 16px;
+
+    width: 100%;
+
+    height: 70px;
+
+    min-width: 0;
+
+    min-height: 70px;
+
+    padding: 0 32px;
+
+    background: var(--app-bg);
+
+    border-bottom: 1px solid var(--app-line);
+
+}
+
+
+
+.entropy-app .topbar-context,
+
+.entropy-app .topbar-actions {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    min-width: 0;
+
+}
+
+
+
+.entropy-app .topbar-context {
+
+    color: var(--app-subtle);
+
+    font-size: 12px;
+
+}
+
+
+
+.entropy-app .topbar-section {
+
+    font-size: 10px;
+
+    font-weight: 750;
+
+    letter-spacing: 0.14em;
+
+}
+
+
+
+.entropy-app .topbar-current {
+
+    min-width: 0;
+
+    overflow: hidden;
+
+    color: var(--app-text);
+
+    font-size: 13px;
+
+    font-weight: 650;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+
+}
+
+
+
+.entropy-app .topbar-actions {
+
+    flex: 0 0 auto;
+
+    gap: 18px;
+
+}
+
+
+
+.entropy-app .icon-button {
+
+    display: flex;
+
+    flex: 0 0 36px;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 36px;
+
+    height: 36px;
+
+    padding: 0;
+
+    color: var(--app-muted);
+
+    background: transparent;
+
+    border: 1px solid transparent;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+}
+
+
+
+.entropy-app .icon-button:hover {
+
+    color: var(--app-text);
+
+    background: var(--app-surface-hover);
+
+    border-color: var(--app-line);
+
+}
+
+.entropy-app .profile-container {
+
+    position: relative;
+
+    flex: 0 0 auto;
+
+}
+
+
+
+.entropy-app .profile-trigger {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    max-width: 240px;
+
+    min-height: 42px;
+
+    padding: 4px 9px 4px 5px;
+
+    color: var(--app-text);
+
+    background: var(--app-surface);
+
+    border: 1px solid var(--app-line);
+
+    border-radius: 9px;
+
+    cursor: pointer;
+
+}
+
+
+
+.entropy-app .profile-trigger:hover {
+
+    background: var(--app-surface-hover);
+
+}
+
+
+
+.entropy-app .profile-avatar {
+
+    display: flex;
+
+    flex: 0 0 30px;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 30px;
+
+    height: 30px;
+
+    color: var(--app-accent-text);
+
+    background: var(--app-accent);
+
+    border-radius: 7px;
+
+    font-size: 12px;
+
+    font-weight: 800;
+
+}
+
+
+
+.entropy-app .profile-name {
+
+    max-width: 135px;
+
+    overflow: hidden;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+
+}
+
+
+
+.entropy-app .profile-trigger > svg {
+
+    flex: 0 0 auto;
+
+    color: var(--app-muted);
+
+}
+
+
+
+.entropy-app .profile-menu {
+
+    position: absolute;
+
+    top: calc(100% + 10px);
+
+    right: 0;
+
+    z-index: 20;
+
+    width: 228px;
+
+    padding: 8px;
+
+    background: var(--app-surface);
+
+    border: 1px solid var(--app-line);
+
+    border-radius: 11px;
+
+    box-shadow: 0 18px 45px rgb(0 0 0 / 28%);
+
+}
+
+
+
+.entropy-app .profile-menu-heading {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 6px;
+
+    padding: 10px;
+
+    overflow: hidden;
+
+}
+
+
+
+.entropy-app .profile-menu-label {
+
+    color: var(--app-subtle);
+
+    font-size: 9px;
+
+    font-weight: 750;
+
+    letter-spacing: 0.12em;
+
+}
+
+
+
+.entropy-app .profile-menu-heading strong {
+
+    overflow: hidden;
+
+    font-size: 13px;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+
+}
+
+
+
+.entropy-app .profile-menu-divider {
+
+    height: 1px;
+
+    margin: 5px 0;
+
+    background: var(--app-line);
+
+}
+
+
+
+.entropy-app .profile-menu > button {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    width: 100%;
+
+    min-height: 39px;
+
+    padding: 0 10px;
+
+    color: var(--app-muted);
+
+    text-align: left;
+
+    background: transparent;
+
+    border: 0;
+
+    border-radius: 7px;
+
+    cursor: pointer;
+
+}
+
+
+
+.entropy-app .profile-menu > button:hover {
+
+    color: var(--app-text);
+
+    background: var(--app-surface-hover);
+
+}
+
+
+
+.entropy-app .profile-menu > button.profile-logout {
+
+    color: #ff9d93;
+
+}
+
+
+/* Light theme: user profile avatar */
+.entropy-app.theme-light .profile-avatar {
+    color: #26351A;
+    background: #B7E93B;
+    border: 1px solid #A3D12A;
+}
+
+.entropy-app.theme-light .profile-trigger {
+    color: #30382A;
+    background: #FFFFFF;
+    border-color: #DDE2D5;
+}
+
+.entropy-app.theme-light .profile-trigger:hover {
+    background: #F2F7E6;
+    border-color: #C9DDA0;
+}

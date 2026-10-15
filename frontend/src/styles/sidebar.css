@@ -1,0 +1,419 @@
+/* Sidebar navigation and collapse behavior. */
+.entropy-app .entropy-sidebar {
+
+    position: relative;
+
+    z-index: 10;
+
+    display: flex;
+
+    flex: 0 0 258px;
+
+    flex-direction: column;
+
+    width: 258px;
+
+    height: 100%;
+
+    min-width: 0;
+
+    min-height: 0;
+
+    padding: 20px 13px 15px;
+
+    overflow-x: hidden;
+
+    overflow-y: auto;
+
+    background: var(--app-surface);
+
+    border-right: 1px solid var(--app-line);
+
+    transition:
+
+        width 0.2s ease,
+
+        flex-basis 0.2s ease;
+
+}
+
+
+
+.entropy-app .entropy-sidebar.collapsed {
+
+    flex-basis: 76px;
+
+    width: 76px;
+
+    padding-right: 10px;
+
+    padding-left: 10px;
+
+}
+
+
+
+.entropy-app .entropy-sidebar-brand {
+
+    display: flex;
+
+    flex: 0 0 auto;
+
+    align-items: center;
+
+    gap: 11px;
+
+    min-height: 45px;
+
+    padding: 0 8px;
+
+    overflow: hidden;
+
+}
+
+
+
+.entropy-app .entropy-sidebar-brand img {
+
+    flex: 0 0 38px;
+
+    width: 38px;
+
+    height: 38px;
+
+    object-fit: contain;
+
+    border-radius: 10px;
+
+}
+
+
+
+.entropy-app .entropy-brand-copy {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+    min-width: 0;
+
+    white-space: nowrap;
+
+}
+
+
+
+.entropy-app .entropy-brand-copy strong {
+
+    font-size: 19px;
+
+    font-weight: 800;
+
+    letter-spacing: -0.8px;
+
+}
+
+
+
+.entropy-app .entropy-brand-copy span {
+
+    color: var(--app-subtle);
+
+    font-size: 8px;
+
+    font-weight: 700;
+
+    letter-spacing: 0.11em;
+
+}
+
+
+
+.entropy-app .sidebar-collapse {
+
+    display: flex;
+
+    flex: 0 0 34px;
+
+    align-items: center;
+
+    justify-content: center;
+
+    align-self: flex-end;
+
+    width: 34px;
+
+    height: 34px;
+
+    margin: 23px 3px 24px 0;
+
+    padding: 0;
+
+    color: var(--app-muted);
+
+    background: transparent;
+
+    border: 1px solid transparent;
+
+    border-radius: 7px;
+
+    cursor: pointer;
+
+}
+
+
+
+.entropy-app .sidebar-collapse:hover {
+
+    color: var(--app-text);
+
+    background: var(--app-surface-hover);
+
+    border-color: var(--app-line);
+
+}
+
+
+
+.entropy-app .collapsed .sidebar-collapse {
+
+    align-self: center;
+
+    margin-right: 0;
+
+}
+
+
+
+.entropy-app .sidebar-section-label {
+
+    flex: 0 0 auto;
+
+    min-height: 30px;
+
+    padding: 0 12px;
+
+    color: var(--app-subtle);
+
+    font-size: 10px;
+
+    font-weight: 750;
+
+    letter-spacing: 0.14em;
+
+    white-space: nowrap;
+
+}
+
+
+
+.entropy-app .entropy-navigation {
+
+    display: flex;
+
+    flex: 0 0 auto;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+}
+
+
+
+.entropy-app .nav-item {
+
+    position: relative;
+
+    display: flex;
+
+    flex: 0 0 auto;
+
+    align-items: center;
+
+    gap: 12px;
+
+    width: 100%;
+
+    min-height: 43px;
+
+    padding: 0 12px;
+
+    overflow: hidden;
+
+    color: var(--app-muted);
+
+    text-align: left;
+
+    white-space: nowrap;
+
+    background: transparent;
+
+    border: 1px solid transparent;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    transition:
+
+        color 0.15s ease,
+
+        background 0.15s ease;
+
+}
+
+
+
+.entropy-app .nav-item > svg {
+
+    flex: 0 0 19px;
+
+}
+
+
+
+.entropy-app .nav-item span {
+
+    min-width: 0;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+}
+
+
+
+.entropy-app .nav-item:hover {
+
+    color: var(--app-text);
+
+    background: var(--app-surface-hover);
+
+}
+
+
+
+.entropy-app .nav-item.active {
+
+    color: var(--app-accent);
+
+    background: color-mix(in srgb, var(--app-accent) 8%, transparent);
+
+    border-color: color-mix(in srgb, var(--app-accent) 14%, transparent);
+
+}
+
+
+
+.entropy-app .nav-item.active::before {
+
+    position: absolute;
+
+    top: 9px;
+
+    bottom: 9px;
+
+    left: -1px;
+
+    width: 3px;
+
+    background: var(--app-accent);
+
+    border-radius: 0 3px 3px 0;
+
+    content: "";
+
+}
+
+
+
+.entropy-app .collapsed .nav-item {
+
+    justify-content: center;
+
+    gap: 0;
+
+    padding: 0;
+
+}
+
+
+
+.entropy-app .collapsed .nav-item.active::before {
+
+    left: -1px;
+
+}
+
+
+
+.entropy-app .collapsed .sidebar-section-label {
+
+    min-height: 30px;
+
+}
+
+
+
+.entropy-app .sidebar-bottom {
+
+    display: flex;
+
+    flex: 0 0 auto;
+
+    flex-direction: column;
+
+    gap: 10px;
+
+    margin-top: auto;
+
+    padding-top: 16px;
+
+    border-top: 1px solid var(--app-line);
+
+}
+
+
+
+.entropy-app .sidebar-version {
+
+    padding: 0 12px;
+
+    color: var(--app-subtle);
+
+    font-size: 9px;
+
+    letter-spacing: 0.07em;
+
+    white-space: nowrap;
+
+}
+
+
+/* Light theme: sidebar text contrast */
+.entropy-app.theme-light .entropy-sidebar {
+    color: #30382A;
+}
+
+.entropy-app.theme-light .entropy-sidebar .nav-section-title,
+.entropy-app.theme-light .entropy-sidebar .sidebar-section-title {
+    color: #68745D;
+}
+
+.entropy-app.theme-light .entropy-sidebar .nav-item {
+    color: #46513F;
+}
+
+.entropy-app.theme-light .entropy-sidebar .nav-item:hover {
+    color: #26351A;
+}
+
+.entropy-app.theme-light .entropy-sidebar .nav-item.active {
+    color: #527510;
+    background: #F2F7E6;
+    border-color: #DDEABF;
+}

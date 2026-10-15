@@ -18,6 +18,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     background_image_id: null,
     background_fit: 'cover',
     background_opacity: 35,
+    modal_backdrop_opacity: 48,
 }
 
 export function useAppearance() {
@@ -36,6 +37,9 @@ export function useAppearance() {
     const [backgroundOpacity, setBackgroundOpacity] = useState(
         DEFAULT_PREFERENCES.background_opacity,
     )
+    const [modalBackdropOpacity, setModalBackdropOpacity] = useState(
+        DEFAULT_PREFERENCES.modal_backdrop_opacity,
+    )
 
     const applyPreferences = useCallback((saved: UserPreferences) => {
         setTheme(saved.theme)
@@ -43,7 +47,19 @@ export function useAppearance() {
         setBackgroundImageId(saved.background_image_id)
         setBackgroundFit(saved.background_fit ?? DEFAULT_PREFERENCES.background_fit)
         setBackgroundOpacity(saved.background_opacity ?? DEFAULT_PREFERENCES.background_opacity)
+        setModalBackdropOpacity(
+            saved.modal_backdrop_opacity ?? DEFAULT_PREFERENCES.modal_backdrop_opacity,
+        )
     }, [])
+
+    // Set the value on the document root because shared dialogs/toasts may render
+    // through a portal outside .entropy-app.
+    useEffect(() => {
+        document.documentElement.style.setProperty(
+            '--app-modal-backdrop-opacity',
+            String(modalBackdropOpacity / 100),
+        )
+    }, [modalBackdropOpacity])
 
     const refreshBackgrounds = useCallback(async () => {
         setBackgrounds(await getBackgrounds())
@@ -88,6 +104,7 @@ export function useAppearance() {
         nextBackgroundImageId: number | null,
         nextBackgroundFit: UserPreferences['background_fit'] = backgroundFit,
         nextBackgroundOpacity: number = backgroundOpacity,
+        nextModalBackdropOpacity: number = modalBackdropOpacity,
     ) => {
         setPreferencesSaving(true)
         setPreferencesError('')
@@ -99,6 +116,7 @@ export function useAppearance() {
                 background_image_id: nextBackgroundImageId,
                 background_fit: nextBackgroundFit,
                 background_opacity: nextBackgroundOpacity,
+                modal_backdrop_opacity: nextModalBackdropOpacity,
             })
             applyPreferences(saved)
         } catch (error) {
@@ -107,10 +125,11 @@ export function useAppearance() {
                     ? error.message
                     : 'Unable to save appearance preferences.',
             )
+            throw error
         } finally {
             setPreferencesSaving(false)
         }
-    }, [applyPreferences, backgroundFit, backgroundOpacity])
+    }, [applyPreferences, backgroundFit, backgroundOpacity, modalBackdropOpacity])
 
     const uploadBackground = useCallback(async (file: File) => {
         setPreferencesError('')
@@ -125,6 +144,7 @@ export function useAppearance() {
                     ? error.message
                     : 'Unable to upload background image.',
             )
+            throw error
         } finally {
             setBackgroundUploading(false)
         }
@@ -133,14 +153,10 @@ export function useAppearance() {
     const removeBackground = useCallback(async (background: BackgroundImage) => {
         if (background.source !== 'upload') return
 
-        // const confirmed = window.confirm(`Remove the background image "${background.name}"?`)
-        // if (!confirmed) return
-
         setPreferencesError('')
         setBackgroundDeletingId(background.id)
 
         try {
-            // Clear the preference before deleting the image currently in use.
             if (backgroundImageId === background.id) {
                 const saved = await updatePreferences({
                     theme,
@@ -148,6 +164,7 @@ export function useAppearance() {
                     background_image_id: null,
                     background_fit: backgroundFit,
                     background_opacity: backgroundOpacity,
+                    modal_backdrop_opacity: modalBackdropOpacity,
                 })
                 applyPreferences(saved)
             }
@@ -160,10 +177,20 @@ export function useAppearance() {
                     ? error.message
                     : 'Unable to remove background image.',
             )
+            throw error
         } finally {
             setBackgroundDeletingId(null)
         }
-    }, [accentColor, applyPreferences, backgroundFit, backgroundImageId, backgroundOpacity, refreshBackgrounds, theme])
+    }, [
+        accentColor,
+        applyPreferences,
+        backgroundFit,
+        backgroundImageId,
+        backgroundOpacity,
+        modalBackdropOpacity,
+        refreshBackgrounds,
+        theme,
+    ])
 
     const resetAppearance = useCallback(() => saveAppearance(
         DEFAULT_PREFERENCES.theme,
@@ -171,6 +198,7 @@ export function useAppearance() {
         DEFAULT_PREFERENCES.background_image_id,
         DEFAULT_PREFERENCES.background_fit,
         DEFAULT_PREFERENCES.background_opacity,
+        DEFAULT_PREFERENCES.modal_backdrop_opacity,
     ), [saveAppearance])
 
     return {
@@ -183,6 +211,8 @@ export function useAppearance() {
         setBackgroundFit,
         backgroundOpacity,
         setBackgroundOpacity,
+        modalBackdropOpacity,
+        setModalBackdropOpacity,
         backgrounds,
         preferencesLoaded,
         preferencesError,

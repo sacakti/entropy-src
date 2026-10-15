@@ -30,6 +30,9 @@ class UserPreferencesTable(DatabaseObject):
                 background_opacity   INTEGER NOT NULL DEFAULT 35
                     CHECK (background_opacity BETWEEN 0 AND 100),
 
+                modal_backdrop_opacity INTEGER NOT NULL DEFAULT 48
+                    CHECK (modal_backdrop_opacity BETWEEN 0 AND 80),
+
                 created_at            TEXT NOT NULL,
                 updated_at            TEXT NOT NULL,
 

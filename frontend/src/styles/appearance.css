@@ -1,0 +1,240 @@
+/* Appearance and preference controls. */
+.entropy-app .preferences-panel h2 {
+
+    margin: 0;
+
+    color: var(--app-text);
+
+    font-size: 20px;
+
+}
+
+
+
+.entropy-app .preferences-panel > p {
+
+    margin: 10px 0 24px;
+
+    color: var(--app-muted);
+
+    line-height: 1.6;
+
+}
+
+
+
+.entropy-app .theme-options {
+
+    display: flex;
+
+    flex: 0 0 auto;
+
+    flex-wrap: wrap;
+
+    gap: 14px;
+
+    width: 100%;
+
+}
+
+
+
+.entropy-app .theme-option {
+
+    display: flex;
+
+    flex: 1 1 180px;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 12px;
+
+    max-width: 240px;
+
+    min-width: 0;
+
+    min-height: 130px;
+
+    padding: 20px;
+
+    color: var(--app-text);
+
+    background: var(--app-bg);
+
+    border: 1px solid var(--app-line);
+
+    border-radius: 10px;
+
+    cursor: pointer;
+
+}
+
+
+
+.entropy-app .theme-option span {
+
+    font-weight: 650;
+
+}
+
+
+
+.entropy-app .theme-option small {
+
+    color: var(--app-muted);
+
+}
+
+
+
+.entropy-app .theme-option.selected {
+
+    border-color: var(--app-accent);
+
+    box-shadow: inset 0 0 0 1px var(--app-accent);
+
+}
+
+
+
+/* Keep generic appearance-control styling available. */
+
+.entropy-app .appearance-controls {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+
+    gap: 20px;
+
+    width: 100%;
+
+    margin-top: 28px;
+
+    padding-top: 24px;
+
+    border-top: 1px solid var(--app-line);
+
+}
+
+
+
+.entropy-app .appearance-control {
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 12px;
+
+    min-width: 0;
+
+}
+
+
+
+.entropy-app .appearance-control > label {
+
+    color: var(--app-text);
+
+    font-weight: 600;
+
+}
+
+
+
+.entropy-app .color-control {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    color: var(--app-muted);
+
+}
+
+
+
+.entropy-app .color-control input[type="color"] {
+
+    width: 42px;
+
+    height: 36px;
+
+    padding: 3px;
+
+    background: var(--app-surface);
+
+    border: 1px solid var(--app-line);
+
+    border-radius: 7px;
+
+    cursor: pointer;
+
+}
+
+
+
+.entropy-app .appearance-control > button {
+
+    padding: 8px 12px;
+
+    color: var(--app-text);
+
+    background: var(--app-surface);
+
+    border: 1px solid var(--app-line);
+
+    border-radius: 7px;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+
+        background 0.15s ease,
+
+        border-color 0.15s ease;
+
+}
+
+
+
+.entropy-app .appearance-control > button:hover {
+
+    background: var(--app-surface-hover);
+
+    border-color: var(--app-accent);
+
+}
+
+
+
+.entropy-app .appearance-control > button:focus-visible {
+
+    outline: 2px solid var(--app-accent);
+
+    outline-offset: 2px;
+
+}
+
+
+
+.entropy-app .primary-button {
+
+    color: var(--app-accent-text);
+
+    background-color: var(--app-accent);
+
+    border-color: var(--app-accent);
+
+}

@@ -17,15 +17,13 @@ class UserPreferencesRepository(Repository):
     DEFAULT_ACCENT_COLOR = "#d7ff63"
     DEFAULT_BACKGROUND_FIT = "cover"
     DEFAULT_BACKGROUND_OPACITY = 35
+    DEFAULT_MODAL_BACKDROP_OPACITY = 48
 
     def __init__(
         self,
         connection: DatabaseConnection,
     ) -> None:
-
-        super().__init__(
-            connection,
-        )
+        super().__init__(connection)
 
     # ------------------------------------------------------------------
     # Get
@@ -42,7 +40,6 @@ class UserPreferencesRepository(Repository):
         """
 
         with self.connection.transaction():
-
             self.execute(
                 """
                 INSERT OR IGNORE INTO user_preferences
@@ -51,6 +48,9 @@ class UserPreferencesRepository(Repository):
                     theme,
                     accent_color,
                     background_image_id,
+                    background_fit,
+                    background_opacity,
+                    modal_backdrop_opacity,
                     created_at,
                     updated_at
                 )
@@ -60,6 +60,9 @@ class UserPreferencesRepository(Repository):
                     ?,
                     ?,
                     NULL,
+                    ?,
+                    ?,
+                    ?,
                     datetime('now'),
                     datetime('now')
                 )
@@ -68,6 +71,9 @@ class UserPreferencesRepository(Repository):
                     user_id,
                     self.DEFAULT_THEME,
                     self.DEFAULT_ACCENT_COLOR,
+                    self.DEFAULT_BACKGROUND_FIT,
+                    self.DEFAULT_BACKGROUND_OPACITY,
+                    self.DEFAULT_MODAL_BACKDROP_OPACITY,
                 ),
             )
 
@@ -80,14 +86,13 @@ class UserPreferencesRepository(Repository):
                 background_image_id,
                 background_fit,
                 background_opacity,
+                modal_backdrop_opacity,
                 created_at,
                 updated_at
             FROM user_preferences
             WHERE user_id = ?
             """,
-            (
-                user_id,
-            ),
+            (user_id,),
         )
 
         if row is None:
@@ -109,10 +114,16 @@ class UserPreferencesRepository(Repository):
         background_image_id: int | None,
         background_fit: str = DEFAULT_BACKGROUND_FIT,
         background_opacity: int = DEFAULT_BACKGROUND_OPACITY,
+        modal_backdrop_opacity: int = DEFAULT_MODAL_BACKDROP_OPACITY,
     ) -> dict:
         """
         Update preferences for a user.
         """
+
+        if not 0 <= modal_backdrop_opacity <= 80:
+            raise ValueError(
+                "modal_backdrop_opacity must be between 0 and 80.",
+            )
 
         with self.connection.transaction():
             self.execute(
@@ -125,11 +136,13 @@ class UserPreferencesRepository(Repository):
                     background_image_id,
                     background_fit,
                     background_opacity,
+                    modal_backdrop_opacity,
                     created_at,
                     updated_at
                 )
                 VALUES
                 (
+                    ?,
                     ?,
                     ?,
                     ?,
@@ -146,6 +159,8 @@ class UserPreferencesRepository(Repository):
                     background_image_id = excluded.background_image_id,
                     background_fit = excluded.background_fit,
                     background_opacity = excluded.background_opacity,
+                    modal_backdrop_opacity =
+                        excluded.modal_backdrop_opacity,
                     updated_at = datetime('now')
                 """,
                 (
@@ -155,8 +170,8 @@ class UserPreferencesRepository(Repository):
                     background_image_id,
                     background_fit,
                     background_opacity,
+                    modal_backdrop_opacity,
                 ),
             )
 
         return self.get(user_id)
-

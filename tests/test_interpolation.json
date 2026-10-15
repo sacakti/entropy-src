@@ -23,6 +23,21 @@
 
     "steps": [
         {
+            "name": "Sleep",
+            "plugin": "builtin.shell",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "shell"
+            ],
+            "arguments": {
+                "command": "echo \"Hello Lets sleep for $1\"; sleep $1",
+                "args": [
+                    "300"
+                ]
+            }
+        },
+        {
             "name": "BuildReleaseContext",
             "plugin": "release.context_builder",
             "enabled": true,
