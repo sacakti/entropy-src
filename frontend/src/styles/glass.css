@@ -99,7 +99,7 @@
         .entropy-app .notification-menu,
         .entropy-toast
     ) {
-    position: relative;
+    /* Only paint: these keep their own positioning (menus are absolute). */
     background:
         linear-gradient(160deg, var(--glass-tint-strong), transparent 40%),
         var(--glass-pane);
