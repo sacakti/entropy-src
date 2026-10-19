@@ -218,14 +218,14 @@ function SaveMenu({
         >
             <button
                 type="button"
-                className="plugin-ide-save-button"
+                className="entropy-button entropy-button-primary"
                 disabled={disabled}
                 aria-haspopup="menu"
                 aria-expanded={open}
                 onClick={() => setOpen((value) => !value)}
             >
                 {saving ? (
-                    <LoaderCircle size={16} className="plugins-spin" />
+                    <LoaderCircle size={16} className="entropy-spin" />
                 ) : (
                     <Save size={16} />
                 )}
@@ -627,7 +627,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
             <header className="plugin-ide-topbar">
                 <button
                     type="button"
-                    className="plugin-ide-cancel"
+                    className="entropy-button entropy-button-secondary"
                     onClick={() => void cancel()}
                     disabled={saving}
                 >
@@ -658,14 +658,14 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
 
             {loading ? (
                 <div className="plugin-ide-state">
-                    <LoaderCircle size={22} className="plugins-spin" />
+                    <LoaderCircle size={22} className="entropy-spin" />
                     <span>Opening {qualifiedName}…</span>
                 </div>
             ) : loadError ? (
                 <div className="plugin-ide-state" role="alert">
                     <AlertCircle size={22} />
                     <span>{loadError}</span>
-                    <button type="button" className="plugins-refresh" onClick={onClose}>
+                    <button type="button" className="entropy-button entropy-button-secondary" onClick={onClose}>
                         Close
                     </button>
                 </div>
@@ -838,7 +838,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                                     Problems
                                     <span className="plugin-ide-badge">{diagnostics.length}</span>
                                     {validating && (
-                                        <LoaderCircle size={13} className="plugins-spin" />
+                                        <LoaderCircle size={13} className="entropy-spin" />
                                     )}
                                 </button>
 
@@ -932,7 +932,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                                     </div>
                                     <button
                                         type="button"
-                                        className="plugins-refresh"
+                                        className="entropy-button entropy-button-secondary"
                                         onClick={() => setSideBySide((value) => !value)}
                                     >
                                         {sideBySide ? <Rows2 size={15} /> : <Columns2 size={15} />}
@@ -967,7 +967,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                                 <footer className="plugin-ide-review-footer">
                                     <button
                                         type="button"
-                                        className="plugins-refresh"
+                                        className="entropy-button entropy-button-secondary"
                                         onClick={() => setMode('edit')}
                                         disabled={saving}
                                     >
@@ -976,12 +976,12 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                                     </button>
                                     <button
                                         type="button"
-                                        className="plugin-ide-save-button"
+                                        className="entropy-button entropy-button-primary"
                                         onClick={() => void save()}
                                         disabled={saving || !dirty || reviewErrors.length > 0}
                                     >
                                         {saving ? (
-                                            <LoaderCircle size={16} className="plugins-spin" />
+                                            <LoaderCircle size={16} className="entropy-spin" />
                                         ) : (
                                             <Save size={16} />
                                         )}

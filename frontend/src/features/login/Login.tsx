@@ -58,7 +58,7 @@ export default function Login({ onLogin }: LoginProps) {
           <div className="form-field"><label htmlFor="username">Username</label><input id="username" name="username" type="text" placeholder="Enter your username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /></div>
           <div className="form-field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /></div>
           {error && <p className="login-error" role="alert">{error}</p>}
-          <button className="login-button" type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
+          <button className="entropy-button entropy-button-primary entropy-button-block login-button" type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
         </form>
         <p className="login-footer">Secure access to your deployment workspace</p>
       </section>

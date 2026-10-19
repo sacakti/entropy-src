@@ -1,392 +1,293 @@
-.workflows-page {
+/*
+ * ==========================================================
+ * Entropy — Workflows
+ *
+ * Responsibilities:
+ * - Workflow list and definition editor layout
+ *
+ * Global ownership:
+ * - theme.css: theme tokens
+ * - buttons.css: buttons and selects
+ * - shared-content.css: page heading, search, count, alerts
+ * ==========================================================
+ */
+
+.entropy-app .workflows-page {
     display: flex;
     flex-direction: column;
     gap: 20px;
     min-width: 0;
-    color: var(--app-text, inherit);
+    color: var(--app-text);
 }
 
-.workflows-header,
-.workflow-editor-heading,
-.workflow-list-heading,
-.workflow-editor-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-}
-
-.workflows-header h1,
-.workflow-editor-heading h2,
-.workflow-list-heading h2 {
-    margin: 0;
-}
-
-.workflows-header h1 {
-    font-size: 24px;
-    font-weight: 650;
-}
-
-.workflows-header p,
-.workflow-editor-heading p {
-    margin: 6px 0 0;
-    color: var(--app-muted, #858b98);
-    font-size: 13px;
-}
-
-.workflow-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 36px;
-    padding: 8px 13px;
-    border: 1px solid var(--app-border, #d8dce3);
-    border-radius: 7px;
-    background: var(--app-surface, #fff);
-    color: var(--app-text, #252936);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 550;
-    cursor: pointer;
-    transition: background 140ms ease, border-color 140ms ease;
-}
-
-.workflow-button:hover:not(:disabled) {
-    background: var(--app-hover, #f2f4f7);
-}
-
-.workflow-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-}
-
-.workflow-button-primary {
-    border-color: var(--app-accent, #5b5bd6);
-    background: var(--app-accent, #5b5bd6);
-    color: #fff;
-}
-
-.workflow-button-primary:hover:not(:disabled) {
-    filter: brightness(0.94);
-    background: var(--app-accent, #5b5bd6);
-}
-
-.workflow-button-danger {
-    color: var(--app-danger, #c43535);
-}
-
-.workflow-alert {
-    padding: 11px 14px;
-    border: 1px solid var(--app-border, #d8dce3);
-    border-radius: 7px;
-    font-size: 13px;
-    overflow-wrap: anywhere;
-}
-
-.workflow-alert-error {
-    border-color: #e6aaaa;
-    background: #fff4f4;
-    color: #9b2525;
-}
-
-.workflow-alert-success {
-    border-color: #a9d8bc;
-    background: #f0faf3;
-    color: #21683b;
-}
-
-.workflows-layout {
+.entropy-app .workflows-layout {
     display: grid;
     grid-template-columns: minmax(240px, 0.78fr) minmax(0, 2fr);
-    align-items: stretch;
+    align-items: start;
     gap: 18px;
     min-width: 0;
 }
 
-.workflow-list-panel,
-.workflow-editor-panel {
-    min-width: 0;
-    overflow: hidden;
-    border: 1px solid var(--app-border, #d8dce3);
-    border-radius: 10px;
-    background: var(--app-surface, #fff);
-}
-
-.workflow-list-panel {
+.entropy-app .workflow-list-panel,
+.entropy-app .workflow-editor-panel {
     display: flex;
     flex-direction: column;
-    padding: 16px;
+    min-width: 0;
+    padding: 18px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 14px;
 }
 
-.workflow-list-heading {
+/* List */
+
+.entropy-app .workflow-list-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     margin-bottom: 14px;
 }
 
-.workflow-list-heading h2 {
+.entropy-app .workflow-list-heading h2 {
+    margin: 0;
+    color: var(--app-text);
     font-size: 14px;
     font-weight: 650;
 }
 
-.workflow-list-heading > span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 25px;
-    height: 25px;
-    padding: 0 7px;
-    border-radius: 6px;
-    background: var(--app-subtle, #f0f1f5);
-    color: var(--app-muted, #656b78);
-    font-size: 12px;
-}
-
-.workflow-search {
-    box-sizing: border-box;
-    width: 100%;
-    min-height: 37px;
+.entropy-app .workflow-search {
     margin-bottom: 12px;
-    padding: 8px 10px;
-    border: 1px solid var(--app-border, #d8dce3);
-    border-radius: 7px;
-    background: var(--app-input-background, var(--app-surface, #fff));
-    color: var(--app-text, inherit);
-    font: inherit;
-    font-size: 13px;
 }
 
-.workflow-search:focus,
-.workflow-format-control select:focus,
-.workflow-definition-editor:focus {
-    outline: 2px solid var(--app-accent, #5b5bd6);
-    outline-offset: 1px;
-}
-
-.workflow-list {
+.entropy-app .workflow-list {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
 }
 
-.workflow-list-item {
+.entropy-app .workflow-list-item {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 5px;
+    gap: 4px;
     width: 100%;
-    padding: 11px;
-    border: 1px solid transparent;
-    border-radius: 7px;
+    padding: 10px 11px;
+    color: var(--app-text);
     background: transparent;
-    color: var(--app-text, inherit);
+    border: 1px solid transparent;
+    border-radius: 9px;
     text-align: left;
     cursor: pointer;
 }
 
-.workflow-list-item:hover {
-    background: var(--app-hover, #f5f6f8);
+.entropy-app .workflow-list-item:hover {
+    background: var(--app-hover-bg);
 }
 
-.workflow-list-item.is-selected {
-    border-color: var(--app-accent, #5b5bd6);
-    background: var(--app-accent-subtle, #f1f0ff);
+.entropy-app .workflow-list-item.is-selected {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
 }
 
-.workflow-list-item strong {
+.entropy-app .workflow-list-item strong {
     max-width: 100%;
     font-size: 13px;
     overflow-wrap: anywhere;
 }
 
-.workflow-list-item span,
-.workflow-list-item small {
-    color: var(--app-muted, #858b98);
+.entropy-app .workflow-list-item span,
+.entropy-app .workflow-list-item small {
+    color: var(--app-muted);
     font-size: 12px;
     overflow-wrap: anywhere;
 }
 
-.workflow-empty {
+.entropy-app .workflow-empty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin: 14px 0;
-    color: var(--app-muted, #858b98);
+    color: var(--app-muted);
     font-size: 13px;
     line-height: 1.6;
 }
 
-.workflow-editor-panel {
+/* Editor */
+
+.entropy-app .workflow-editor-heading {
     display: flex;
-    flex-direction: column;
-    padding: 20px;
-}
-
-.workflow-editor-heading {
     align-items: flex-start;
-    margin-bottom: 18px;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
-.workflow-editor-heading h2 {
+.entropy-app .workflow-editor-heading h2 {
+    margin: 0;
+    color: var(--app-text);
     font-size: 17px;
     font-weight: 650;
     overflow-wrap: anywhere;
 }
 
-.workflow-format-control {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    flex-shrink: 0;
-}
-
-.workflow-format-control span,
-.workflow-definition-label {
-    color: var(--app-muted, #737987);
-    font-size: 12px;
-    font-weight: 550;
-}
-
-.workflow-format-control select {
-    min-height: 35px;
-    padding: 6px 9px;
-    border: 1px solid var(--app-border, #d8dce3);
-    border-radius: 7px;
-    background: var(--app-surface, #fff);
-    color: var(--app-text, inherit);
-    font: inherit;
+.entropy-app .workflow-editor-heading p {
+    margin: 6px 0 0;
+    color: var(--app-muted);
     font-size: 13px;
 }
 
-.workflow-metadata {
+.entropy-app .workflow-format-control {
+    display: flex;
+    flex: 0 0 140px;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.entropy-app .workflow-format-control span,
+.entropy-app .workflow-definition-label {
+    color: var(--app-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .workflow-metadata {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
-    margin-bottom: 18px;
-    padding: 13px;
-    border: 1px solid var(--app-border, #d8dce3);
-    border-radius: 7px;
-    background: var(--app-subtle, #f8f9fb);
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
 }
 
-.workflow-metadata > div {
+.entropy-app .workflow-metadata > div {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     min-width: 0;
 }
 
-.workflow-metadata span {
-    color: var(--app-muted, #858b98);
+.entropy-app .workflow-metadata dt {
+    color: var(--app-muted);
     font-size: 11px;
 }
 
-.workflow-metadata strong {
-    font-size: 12px;
-    font-weight: 550;
+.entropy-app .workflow-metadata dd {
+    margin: 0;
+    color: var(--app-text);
+    font-size: 13px;
+    font-weight: 600;
     overflow-wrap: anywhere;
 }
 
-.workflow-definition-label {
+.entropy-app .workflow-definition-label {
     display: block;
     margin-bottom: 8px;
 }
 
-.workflow-definition-editor {
-    box-sizing: border-box;
+.entropy-app .workflow-definition-editor {
     width: 100%;
-    min-height: 400px;
+    min-height: 420px;
     padding: 14px;
     resize: vertical;
-    border: 1px solid var(--app-border, #d8dce3);
-    border-radius: 8px;
-    background: var(--app-editor-background, var(--app-background, #fafbfc));
-    color: var(--app-text, #252936);
+    color: var(--app-text);
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 12px;
+    font-size: 12.5px;
     line-height: 1.65;
-    tab-size: 2;
+    tab-size: 4;
 }
 
-.workflow-editor-footer {
+.entropy-app .workflow-definition-editor:focus-visible {
+    border-color: var(--app-accent);
+    outline: 2px solid var(--app-focus-ring);
+    outline-offset: 0;
+}
+
+.entropy-app .workflow-editor-panel > .entropy-alert {
+    margin-top: 12px;
+}
+
+.entropy-app .workflow-editor-footer {
+    display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     margin-top: 14px;
 }
 
-.workflow-editor-footer > span {
-    color: var(--app-muted, #858b98);
-    font-size: 11px;
+.entropy-app .workflow-editor-footer > span {
+    color: var(--app-muted);
+    font-size: 12px;
 }
 
-.workflow-editor-actions {
+.entropy-app .workflow-editor-actions {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
 }
 
-.workflow-editor-empty {
+.entropy-app .workflow-editor-empty {
     display: grid;
-    flex: 1;
-    align-content: center;
     justify-items: center;
-    min-height: 250px;
+    align-content: center;
+    min-height: 320px;
     text-align: center;
 }
 
-.workflow-editor-empty h3 {
+.entropy-app .workflow-editor-empty .placeholder-icon {
+    margin-bottom: 14px;
+}
+
+.entropy-app .workflow-editor-empty h3 {
     margin: 0 0 6px;
+    color: var(--app-text);
     font-size: 15px;
 }
 
-.workflow-editor-empty p {
+.entropy-app .workflow-editor-empty p {
     margin: 0;
-    color: var(--app-muted, #858b98);
+    color: var(--app-muted);
     font-size: 13px;
 }
 
 @media (max-width: 900px) {
-    .workflows-layout {
+    .entropy-app .workflows-layout {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .workflow-list-panel {
+    .entropy-app .workflow-list-panel {
         max-height: 340px;
         overflow-y: auto;
     }
 
-    .workflow-definition-editor {
+    .entropy-app .workflow-definition-editor {
         min-height: 320px;
     }
 }
 
 @media (max-width: 560px) {
-    .workflows-header,
-    .workflow-editor-heading {
-        align-items: stretch;
+    .entropy-app .workflow-editor-heading {
         flex-direction: column;
+        align-items: stretch;
     }
 
-    .workflows-header {
-        gap: 12px;
+    .entropy-app .workflow-format-control {
+        flex-basis: auto;
     }
 
-    .workflows-header .workflow-button {
-        align-self: flex-start;
-    }
-
-    .workflow-format-control {
-        align-self: flex-start;
-    }
-
-    .workflow-metadata {
+    .entropy-app .workflow-metadata {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .workflow-editor-panel {
-        padding: 14px;
-    }
-
-    .workflow-editor-actions {
+    .entropy-app .workflow-editor-actions,
+    .entropy-app .workflow-editor-actions .entropy-button {
         width: 100%;
-    }
-
-    .workflow-editor-actions .workflow-button {
-        flex: 1;
     }
 }

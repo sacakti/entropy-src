@@ -10,7 +10,9 @@ export interface WorkflowSummary {
     updated_at: string
 }
 
-export interface WorkflowDetail extends WorkflowSummary {
+// The detail endpoint returns no timestamps; use the list entry for those.
+export interface WorkflowDetail
+    extends Omit<WorkflowSummary, 'created_at' | 'updated_at'> {
     step_count: number
     format: WorkflowFormat
     definition: string

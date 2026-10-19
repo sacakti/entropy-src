@@ -222,13 +222,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
     return (
         <section className="dashboard-page">
-            <header className="dashboard-heading">
+            <header className="page-heading">
                 <div>
-                    <p className="dashboard-eyebrow">
+                    <p className="page-eyebrow">
                         DEPLOYMENT WORKSPACE
                     </p>
                     <h1>Dashboard</h1>
-                    <p className="dashboard-subtitle">
+                    <p className="page-subtitle">
                         Monitor workflow execution and deployment activity.
                     </p>
                 </div>
@@ -273,13 +273,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
                     <button
                         type="button"
-                        className="dashboard-refresh"
+                        className="entropy-button entropy-button-secondary"
                         onClick={() => void loadDashboard(true)}
                         disabled={loading || refreshing}
                     >
                         <RefreshCw
                             size={16}
-                            className={refreshing ? 'dashboard-spin' : ''}
+                            className={refreshing ? 'entropy-spin' : ''}
                         />
                         Refresh
                     </button>
@@ -292,6 +292,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     <span>{error}</span>
                     <button
                         type="button"
+                        className="entropy-button entropy-button-secondary entropy-button-sm"
                         onClick={() => void loadDashboard()}
                     >
                         Retry
@@ -337,7 +338,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
             {loading && !data ? (
                 <div className="dashboard-loading" role="status">
-                    <LoaderCircle size={22} className="dashboard-spin" />
+                    <LoaderCircle size={22} className="entropy-spin" />
                     <span>Loading workflow activity…</span>
                 </div>
             ) : data ? (
@@ -353,7 +354,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             </div>
                             <button
                                 type="button"
-                                className="dashboard-link"
+                                className="entropy-button entropy-button-secondary entropy-button-sm"
                                 onClick={() => onNavigate('workflows')}
                             >
                                 View workflows
@@ -389,7 +390,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             </div>
                             <button
                                 type="button"
-                                className="dashboard-link"
+                                className="entropy-button entropy-button-secondary entropy-button-sm"
                                 onClick={() => onNavigate('workflows')}
                             >
                                 View history

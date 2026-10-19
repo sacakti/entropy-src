@@ -252,7 +252,7 @@ export default function ChangePasswordForm() {
                 <div className="password-form-actions">
                     <button
                         type="button"
-                        className="password-cancel-button"
+                        className="entropy-button entropy-button-secondary"
                         disabled={loading}
                         onClick={() => {
                             setFields(initialFields)
@@ -265,7 +265,7 @@ export default function ChangePasswordForm() {
 
                     <button
                         type="submit"
-                        className="password-submit-button"
+                        className="entropy-button entropy-button-primary"
                         disabled={loading}
                     >
                         {loading ? (

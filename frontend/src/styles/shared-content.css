@@ -59,7 +59,7 @@
 
     margin-bottom: 22px;
 
-    color: var(--app-accent);
+    color: var(--app-accent-fg);
 
     background: color-mix(in srgb, var(--app-accent) 8%, transparent);
 
@@ -169,4 +169,174 @@
 
     font-size: 11px;
 
+}
+
+
+/* ==========================================================
+   Shared page primitives — use these instead of page copies
+   ========================================================== */
+
+/* Page heading: eyebrow, title, subtitle, actions on the right. */
+.entropy-app .page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  min-width: 0;
+}
+
+.entropy-app .page-heading > div {
+  min-width: 0;
+}
+
+.entropy-app .page-eyebrow {
+  margin: 0 0 10px;
+  color: var(--app-accent-fg);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+}
+
+.entropy-app .page-heading h1 {
+  margin: 0;
+  color: var(--app-text);
+  font-family: inherit;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -0.8px;
+}
+
+.entropy-app .page-subtitle {
+  margin: 10px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.entropy-app .page-heading-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.entropy-app .entropy-spin {
+    animation: entropy-spin 0.9s linear infinite;
+}
+
+@keyframes entropy-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Count badge next to a section title. */
+.entropy-app .entropy-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 22px;
+    padding: 0 8px;
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* Search field with a leading icon. */
+.entropy-app .entropy-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0 11px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: var(--button-radius, 9px);
+}
+
+.entropy-app .entropy-search:focus-within {
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 3px var(--app-focus-ring);
+}
+
+.entropy-app .entropy-search input {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    padding: 0;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    outline: none;
+    font-size: 13px;
+}
+
+.entropy-app .entropy-search input::placeholder {
+    color: var(--app-subtle);
+}
+
+/* Inline status messages. */
+.entropy-app .entropy-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 11px 14px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .entropy-alert > svg {
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.entropy-app .entropy-alert-error {
+    color: var(--app-danger-text);
+    background: var(--app-danger-soft);
+    border-color: var(--app-danger-border);
+}
+
+.entropy-app .entropy-alert-success {
+    color: var(--app-success-text);
+    background: var(--app-success-soft);
+    border-color: var(--app-success-border);
+}
+
+.entropy-app .entropy-alert-warning {
+    color: var(--app-warning-text);
+    background: var(--app-warning-soft);
+    border-color: var(--app-warning-border);
+}
+
+@media (max-width: 560px) {
+    .entropy-app .page-heading {
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .entropy-app .page-heading-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .entropy-spin {
+        animation-duration: 2.5s;
+    }
 }

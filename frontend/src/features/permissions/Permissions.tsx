@@ -3,7 +3,6 @@ import {
     AlertCircle,
     Check,
     LoaderCircle,
-    RefreshCw,
     Search,
     ShieldCheck,
 } from 'lucide-react'
@@ -139,37 +138,14 @@ function Permissions() {
     return (
         // <section className="content-panel permissions-page">
         <section className="permissions-page">
-            <header className="permissions-header">
-                <div className="permissions-heading">
-                    <span className="permissions-heading-icon">
-                        <ShieldCheck size={23} />
-                    </span>
-
-                    <div>
-                        <p className="permissions-eyebrow">
-                            ACCESS CONTROL
-                        </p>
-                        <h2>Permissions</h2>
-                        <p className="permissions-description">
-                            Review the permissions assigned to your account.
-                        </p>
-                    </div>
+            <header className="page-heading">
+                <div>
+                    <p className="page-eyebrow">ACCESS CONTROL</p>
+                    <h1>Permissions</h1>
+                    <p className="page-subtitle">
+                        Review the permissions assigned to your account.
+                    </p>
                 </div>
-
-                {/* <button
-                    type="button"
-                    className="entropy-button-secondary"
-                    onClick={() => void loadPermissions()}
-                    disabled={loading}
-                    aria-label="Refresh permissions"
-                    title="Refresh permissions"
-                >
-                    <RefreshCw
-                        size={16}
-                        className={loading ? 'permissions-spinning' : ''}
-                    />
-                    <span>Refresh</span>
-                </button> */}
             </header>
 
             {error ? (
@@ -180,7 +156,7 @@ function Permissions() {
                         <p>{error}</p>
                         <button
                             type="button"
-                            className="entropy-button-secondary"
+                            className="entropy-button entropy-button-secondary"
                             onClick={() => void loadPermissions()}
                             disabled={loading}
                         >
@@ -271,7 +247,7 @@ function Permissions() {
                             </p>
                             <button
                                 type="button"
-                                className="permissions-retry"
+                                className="entropy-button entropy-button-secondary entropy-button-sm"
                                 onClick={() => setSearch('')}
                             >
                                 Clear search

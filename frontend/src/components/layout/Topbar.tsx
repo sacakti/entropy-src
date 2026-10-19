@@ -74,7 +74,7 @@ export default function Topbar({
             <div className="topbar-actions">
                 <button
                     type="button"
-                    className="icon-button theme-toggle"
+                    className="entropy-button entropy-button-ghost entropy-button-icon theme-toggle"
                     onClick={onToggleTheme}
                     aria-label={`Switch to ${
                         theme === 'dark' ? 'light' : 'dark'
@@ -91,7 +91,7 @@ export default function Topbar({
                 <div className="notification-container">
                     <button
                         type="button"
-                        className="icon-button notification-trigger"
+                        className="entropy-button entropy-button-ghost entropy-button-icon notification-trigger"
                         onClick={() => {
                             setNotificationsOpen((open) => !open)
                             setProfileOpen(false)
@@ -132,7 +132,7 @@ export default function Topbar({
                                 {unreadCount > 0 && (
                                     <button
                                         type="button"
-                                        className="notification-mark-all"
+                                        className="entropy-button entropy-button-link notification-mark-all"
                                         onClick={onMarkAllNotificationsRead}
                                     >
                                         <CheckCheck size={14} />
@@ -203,7 +203,7 @@ export default function Topbar({
 
                                                 <button
                                                     type="button"
-                                                    className="notification-clear"
+                                                    className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm notification-clear"
                                                     title="Clear notification"
                                                     aria-label={`Clear "${notification.title}"`}
                                                     onClick={() =>

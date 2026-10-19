@@ -2,14 +2,14 @@
 @import "./styles/sidebar.css";
 @import "./styles/topbar.css";
 @import "./styles/shell.css";
-@import "./styles/dashboard.css";
+@import "./styles/Dashboard.css";
 @import "./styles/shared-content.css";
 @import "./styles/appearance.css";
 @import "./styles/responsive.css";
-@import "./styles/feedback.css";
+@import "./styles/Feedback.css";
 @import "./styles/overrides.css";
 @import "./styles/buttons.css";
-@import "./styles/permissions.css";
+@import "./styles/Permissions.css";
 @import "./styles/vault.css";
 @import "./styles/workflows.css";
 @import "./styles/plugins.css";

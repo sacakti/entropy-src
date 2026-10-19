@@ -228,69 +228,10 @@
 
 
 .login-button {
-
-  width: 100%;
-
   min-height: 48px;
-
   margin-top: 5px;
-
-  padding: 13px 18px;
-
-  color: #090b0f;
-
-  background: var(--entropy-accent);
-
-  border: 1px solid var(--entropy-accent);
-
-  border-radius: 7px;
-
-  font: inherit;
-
   font-size: 14px;
-
   font-weight: 750;
-
-  cursor: pointer;
-
-  transition: opacity 0.2s, transform 0.2s;
-
-}
-
-
-
-.login-button:hover {
-
-  opacity: 0.9;
-
-}
-
-
-
-.login-button:active {
-
-  transform: translateY(1px);
-
-}
-
-
-
-.login-button:focus-visible {
-
-  outline: 2px solid var(--entropy-text);
-
-  outline-offset: 3px;
-
-}
-
-
-
-.login-button:disabled {
-
-  opacity: 0.55;
-
-  cursor: not-allowed;
-
 }
 
 

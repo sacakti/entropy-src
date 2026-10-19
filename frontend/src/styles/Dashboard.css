@@ -43,45 +43,6 @@
    Page heading
    ---------------------------------------------------------- */
 
-.entropy-app .dashboard-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  width: 100%;
-  min-width: 0;
-}
-
-.entropy-app .dashboard-heading > div {
-  min-width: 0;
-}
-
-.entropy-app .dashboard-eyebrow {
-  margin: 0 0 10px;
-  color: var(--app-accent);
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 0.14em;
-  line-height: 1.5;
-}
-
-.entropy-app .dashboard-heading h1 {
-  margin: 0;
-  color: var(--app-text);
-  font-family: inherit;
-  font-size: clamp(26px, 3vw, 34px);
-  font-weight: 750;
-  line-height: 1.2;
-  letter-spacing: -0.8px;
-}
-
-.entropy-app .dashboard-subtitle {
-  margin: 10px 0 0;
-  color: var(--app-muted);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
 /* ----------------------------------------------------------
    Refresh controls
 
@@ -133,7 +94,6 @@
   width: 82px;
 }
 
-.entropy-app .dashboard-refresh,
 .entropy-app .dashboard-error > button {
   display: inline-flex;
   align-items: center;
@@ -155,15 +115,9 @@
     opacity 0.15s ease;
 }
 
-.entropy-app .dashboard-refresh:hover:not(:disabled),
 .entropy-app .dashboard-error > button:hover {
   background: var(--app-surface-hover);
   border-color: var(--app-accent);
-}
-
-.entropy-app .dashboard-refresh:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 /* ----------------------------------------------------------
@@ -211,7 +165,7 @@
   justify-content: center;
   width: 42px;
   height: 42px;
-  color: var(--app-accent);
+  color: var(--app-accent-fg);
   background: var(--app-accent-soft);
   border: 1px solid var(--app-accent-border);
   border-radius: 10px;
@@ -282,47 +236,6 @@
   color: var(--app-muted);
   font-size: 12px;
   line-height: 1.65;
-}
-
-/* ----------------------------------------------------------
-   Section navigation links
-   ---------------------------------------------------------- */
-
-.entropy-app .dashboard-link {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 0 10px;
-  color: var(--app-accent);
-  background: transparent;
-  border: 1px solid var(--app-line);
-  border-radius: 7px;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 650;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.entropy-app .dashboard-link:hover {
-  color: var(--app-accent);
-  background: color-mix(
-    in srgb,
-    var(--app-accent) 8%,
-    transparent
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--app-accent) 35%,
-    var(--app-line)
-  );
 }
 
 /* ----------------------------------------------------------
@@ -444,19 +357,19 @@
 .entropy-app .dashboard-state-queued,
 .entropy-app .dashboard-state-starting,
 .entropy-app .dashboard-state-paused {
-  color: #d9b56d;
+  color: var(--app-warning);
 }
 
 .entropy-app .dashboard-state-running {
-  color: #66b8ff;
+  color: var(--app-info);
 }
 
 .entropy-app .dashboard-state-completed {
-  color: #73d6a0;
+  color: var(--app-success);
 }
 
 .entropy-app .dashboard-state-failed {
-  color: #ff8989;
+  color: var(--app-danger);
 }
 
 .entropy-app .dashboard-state-cancelled {
@@ -469,7 +382,7 @@
 
 .entropy-app .dashboard-execution:has(.dashboard-state-completed)
 .dashboard-execution-icon {
-  color: #22a66a;
+  color: var(--app-success);
   background: color-mix(
     in srgb,
     #22a66a 10%,
@@ -484,7 +397,7 @@
 
 .entropy-app .dashboard-execution:has(.dashboard-state-failed)
 .dashboard-execution-icon {
-  color: #e5484d;
+  color: var(--app-danger);
   background: color-mix(
     in srgb,
     #e5484d 10%,
@@ -506,7 +419,7 @@
 
 .entropy-app .dashboard-execution:has(.dashboard-state-running)
 .dashboard-execution-icon {
-  color: #2584e8;
+  color: var(--app-info);
   background: color-mix(
     in srgb,
     #2584e8 10%,
@@ -579,7 +492,7 @@
   width: 100%;
   min-width: 0;
   padding: 14px 16px;
-  color: #ff8989;
+  color: var(--app-danger);
   background: color-mix(
     in srgb,
     #ff4545 8%,
@@ -601,22 +514,6 @@
   overflow-wrap: anywhere;
 }
 
-/* ----------------------------------------------------------
-   Animation and accessibility
-   ---------------------------------------------------------- */
-
-.entropy-app .dashboard-spin {
-  animation: dashboard-spin 1s linear infinite;
-}
-
-@keyframes dashboard-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.entropy-app .dashboard-refresh:focus-visible,
-.entropy-app .dashboard-link:focus-visible,
 .entropy-app .dashboard-refresh-select:focus-visible,
 .entropy-app .dashboard-custom-interval input:focus-visible,
 .entropy-app .dashboard-error > button:focus-visible {
@@ -625,14 +522,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .entropy-app .dashboard-spin {
-    animation: none;
-  }
 
   .entropy-app .dashboard-summary-card,
-  .entropy-app .dashboard-refresh,
-  .entropy-app .dashboard-link,
-  .entropy-app .dashboard-execution {
+.entropy-app .dashboard-execution {
     transition: none;
   }
 }
@@ -704,15 +596,6 @@
 }
 
 @media (max-width: 480px) {
-  .entropy-app .dashboard-heading {
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .entropy-app .dashboard-refresh {
-    align-self: flex-start;
-  }
-
   .entropy-app .dashboard-summary {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -729,10 +612,6 @@
   .entropy-app .dashboard-section-heading {
     flex-direction: column;
     gap: 12px;
-  }
-
-  .entropy-app .dashboard-link {
-    align-self: flex-start;
   }
 
   .entropy-app .dashboard-execution-duration {
@@ -756,18 +635,12 @@
   border-color: var(--app-hover-border);
 }
 
-.entropy-app .dashboard-link:hover {
-  color: var(--app-accent);
-  background: var(--app-accent-soft);
-  border-color: var(--app-hover-border);
-}
-
 .entropy-app .dashboard-summary-icon svg {
   display: block !important;
   width: 22px !important;
   height: 22px !important;
-  color: var(--app-accent) !important;
-  stroke: var(--app-accent) !important;
+  color: var(--app-accent-fg) !important;
+  stroke: var(--app-accent-fg) !important;
   opacity: 1 !important;
   visibility: visible !important;
 }

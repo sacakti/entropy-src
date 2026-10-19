@@ -72,22 +72,6 @@
     background: var(--ide-panel);
 }
 
-.entropy-app .plugin-ide-cancel {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 34px;
-    padding: 0 12px;
-    border: 1px solid var(--ide-line);
-    border-radius: 8px;
-    background: transparent;
-    cursor: pointer;
-}
-
-.entropy-app .plugin-ide-cancel:hover:not(:disabled) {
-    background: var(--ide-panel-2);
-}
-
 .entropy-app .plugin-ide-title {
     display: flex;
     align-items: center;
@@ -123,25 +107,6 @@
 
 .entropy-app .plugin-ide-save {
     position: relative;
-}
-
-.entropy-app .plugin-ide-save-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    height: 34px;
-    padding: 0 14px;
-    border: 0;
-    border-radius: 8px;
-    background: var(--app-button-bg, var(--app-accent));
-    color: var(--app-button-text, var(--app-accent-text)) !important;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.entropy-app .plugin-ide-save-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
 }
 
 .entropy-app .plugin-ide-save-menu {

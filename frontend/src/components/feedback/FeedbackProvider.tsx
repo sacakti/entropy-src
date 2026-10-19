@@ -10,10 +10,8 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  AlertCircle,
   CheckCircle2,
   Info,
-  LoaderCircle,
   TriangleAlert,
   X,
   XCircle,
@@ -368,7 +366,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
               {activeModal.kind === 'confirm' && (
                 <button
                   type="button"
-                  className="entropy-button-secondary"
+                  className="entropy-button entropy-button-secondary"
                   data-modal-secondary
                   onClick={() => closeModal(false)}
                 >
@@ -378,8 +376,10 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
 
               <button
                 type="button"
-                className={`entropy-button-primary${
-                  activeModal.destructive ? ' is-destructive' : ''
+                className={`entropy-button ${
+                  activeModal.destructive
+                    ? 'entropy-button-danger'
+                    : 'entropy-button-primary'
                 }`}
                 data-modal-primary
                 onClick={() => closeModal(true)}

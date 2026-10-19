@@ -26,7 +26,6 @@
 }
 
 
-
 /* Workspace background image is decorative and non-interactive. */
 
 .entropy-app .entropy-main::before {
@@ -52,7 +51,6 @@
     content: "";
 
 }
-
 
 
 .entropy-app .entropy-topbar {
@@ -88,7 +86,6 @@
 }
 
 
-
 .entropy-app .topbar-context,
 
 .entropy-app .topbar-actions {
@@ -104,7 +101,6 @@
 }
 
 
-
 .entropy-app .topbar-context {
 
     color: var(--app-subtle);
@@ -112,7 +108,6 @@
     font-size: 12px;
 
 }
-
 
 
 .entropy-app .topbar-section {
@@ -124,7 +119,6 @@
     letter-spacing: 0.14em;
 
 }
-
 
 
 .entropy-app .topbar-current {
@@ -146,54 +140,11 @@
 }
 
 
-
 .entropy-app .topbar-actions {
 
     flex: 0 0 auto;
 
     gap: 18px;
-
-}
-
-
-
-.entropy-app .icon-button {
-
-    display: flex;
-
-    flex: 0 0 36px;
-
-    align-items: center;
-
-    justify-content: center;
-
-    width: 36px;
-
-    height: 36px;
-
-    padding: 0;
-
-    color: var(--app-muted);
-
-    background: transparent;
-
-    border: 1px solid transparent;
-
-    border-radius: 8px;
-
-    cursor: pointer;
-
-}
-
-
-
-.entropy-app .icon-button:hover {
-
-    color: var(--app-text);
-
-    background: var(--app-surface-hover);
-
-    border-color: var(--app-line);
 
 }
 
@@ -204,7 +155,6 @@
     flex: 0 0 auto;
 
 }
-
 
 
 .entropy-app .profile-trigger {
@@ -234,13 +184,11 @@
 }
 
 
-
 .entropy-app .profile-trigger:hover {
 
     background: var(--app-surface-hover);
 
 }
-
 
 
 .entropy-app .profile-avatar {
@@ -270,7 +218,6 @@
 }
 
 
-
 .entropy-app .profile-name {
 
     max-width: 135px;
@@ -288,7 +235,6 @@
 }
 
 
-
 .entropy-app .profile-trigger > svg {
 
     flex: 0 0 auto;
@@ -296,7 +242,6 @@
     color: var(--app-muted);
 
 }
-
 
 
 .entropy-app .profile-menu {
@@ -324,7 +269,6 @@
 }
 
 
-
 .entropy-app .profile-menu-heading {
 
     display: flex;
@@ -340,7 +284,6 @@
 }
 
 
-
 .entropy-app .profile-menu-label {
 
     color: var(--app-subtle);
@@ -352,7 +295,6 @@
     letter-spacing: 0.12em;
 
 }
-
 
 
 .entropy-app .profile-menu-heading strong {
@@ -368,7 +310,6 @@
 }
 
 
-
 .entropy-app .profile-menu-divider {
 
     height: 1px;
@@ -378,7 +319,6 @@
     background: var(--app-line);
 
 }
-
 
 
 .entropy-app .profile-menu > button {
@@ -410,7 +350,6 @@
 }
 
 
-
 .entropy-app .profile-menu > button:hover {
 
     color: var(--app-text);
@@ -420,28 +359,8 @@
 }
 
 
-
 .entropy-app .profile-menu > button.profile-logout {
 
-    color: #ff9d93;
+    color: var(--app-danger);
 
-}
-
-
-/* Light theme: user profile avatar */
-.entropy-app.theme-light .profile-avatar {
-    color: #26351A;
-    background: #B7E93B;
-    border: 1px solid #A3D12A;
-}
-
-.entropy-app.theme-light .profile-trigger {
-    color: #30382A;
-    background: #FFFFFF;
-    border-color: #DDE2D5;
-}
-
-.entropy-app.theme-light .profile-trigger:hover {
-    background: #F2F7E6;
-    border-color: #C9DDA0;
 }

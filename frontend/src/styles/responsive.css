@@ -10,21 +10,11 @@
     }
 
 
-
     .entropy-app .entropy-content {
 
         padding: 32px 24px 44px;
 
     }
-
-
-
-    .entropy-app .entropy-content-preferences {
-
-        padding: 20px;
-
-    }
-
 
 
     .entropy-app .entropy-topbar {
@@ -34,13 +24,11 @@
     }
 
 
-
     .entropy-app .dashboard-welcome {
 
         padding: 30px;
 
     }
-
 
 
     .entropy-app .dashboard-welcome-art {
@@ -54,7 +42,6 @@
     }
 
 
-
     .entropy-app .art-ring-one {
 
         width: 130px;
@@ -62,7 +49,6 @@
         height: 130px;
 
     }
-
 
 
     .entropy-app .art-ring-two {
@@ -74,7 +60,6 @@
     }
 
 }
-
 
 
 @media (max-width: 700px) {
@@ -92,7 +77,6 @@
     }
 
 
-
     .entropy-app .entropy-sidebar .entropy-sidebar-brand {
 
         justify-content: center;
@@ -100,7 +84,6 @@
         padding: 0;
 
     }
-
 
 
     .entropy-app .entropy-sidebar-brand img {
@@ -112,7 +95,6 @@
         height: 36px;
 
     }
-
 
 
     .entropy-app .entropy-sidebar .entropy-brand-copy,
@@ -128,7 +110,6 @@
     }
 
 
-
     .entropy-app .entropy-sidebar .sidebar-collapse {
 
         align-self: center;
@@ -138,7 +119,6 @@
     }
 
 
-
     .entropy-app .entropy-sidebar .nav-item {
 
         justify-content: center;
@@ -146,7 +126,6 @@
         padding: 0;
 
     }
-
 
 
     .entropy-app .entropy-topbar {
@@ -162,13 +141,11 @@
     }
 
 
-
     .entropy-app .topbar-context {
 
         gap: 6px;
 
     }
-
 
 
     .entropy-app .topbar-section {
@@ -178,13 +155,11 @@
     }
 
 
-
     .entropy-app .topbar-actions {
 
         gap: 7px;
 
     }
-
 
 
     .entropy-app .profile-trigger {
@@ -196,7 +171,6 @@
     }
 
 
-
     .entropy-app .profile-name {
 
         max-width: 70px;
@@ -204,35 +178,11 @@
     }
 
 
-
     .entropy-app .entropy-content {
 
         padding: 26px 16px 36px;
 
     }
-
-
-
-    .entropy-app .entropy-content-preferences {
-
-        padding: 14px;
-
-        overflow-y: auto;
-
-    }
-
-
-
-    .entropy-app .entropy-content-preferences > .preferences-panel {
-
-        height: auto;
-
-        min-height: 0;
-
-        overflow: visible;
-
-    }
-
 
 
     .entropy-app .dashboard-welcome {
@@ -244,7 +194,6 @@
     }
 
 
-
     .entropy-app .dashboard-welcome-art {
 
         display: none;
@@ -252,13 +201,11 @@
     }
 
 
-
     .entropy-app .content-panel {
 
         padding: 25px;
 
     }
-
 
 
     .entropy-app .theme-option {
@@ -274,21 +221,16 @@
 }
 
 
-
 @media (prefers-reduced-motion: reduce) {
 
     .entropy-app .entropy-sidebar,
-
-    .entropy-app .nav-item,
-
-    .entropy-app .icon-button {
+.entropy-app .nav-item {
 
         transition: none;
 
     }
 
 }
-
 
 
 :root {
@@ -298,15 +240,11 @@
 }
 
 
-
 .entropy-app {
 
   font-family: var(--entropy-font-family);
 
 }
-
-
-
 
 
 /* Notification center */
@@ -322,13 +260,11 @@
 }
 
 
-
 .notification-trigger {
 
     position: relative;
 
 }
-
 
 
 .notification-badge {
@@ -351,11 +287,11 @@
 
     padding: 0 4px;
 
-    border: 2px solid var(--topbar-bg, var(--surface-color, #1b1d23));
+    border: 2px solid var(--app-surface);
 
     border-radius: 999px;
 
-    background: var(--danger-color, #dc4545);
+    background: var(--app-danger);
 
     color: #fff;
 
@@ -366,7 +302,6 @@
     line-height: 1;
 
 }
-
 
 
 .notification-menu {
@@ -389,20 +324,19 @@
 
     overflow: hidden;
 
-    border: 1px solid var(--border-color, #343741);
+    border: 1px solid var(--app-line);
 
     border-radius: 12px;
 
-    background: var(--panel-bg, var(--surface-color, #202229));
+    background: var(--app-surface);
 
-    color: var(--text-color, inherit);
+    color: var(--app-text);
 
     box-shadow: 0 12px 36px rgb(0 0 0 / 24%);
 
     font-family: inherit;
 
 }
-
 
 
 .notification-menu-heading {
@@ -420,7 +354,6 @@
 }
 
 
-
 .notification-menu-heading > div {
 
     display: flex;
@@ -432,7 +365,6 @@
 }
 
 
-
 .notification-menu-heading strong {
 
     font-size: 14px;
@@ -440,43 +372,13 @@
 }
 
 
-
 .notification-menu-heading span {
 
-    color: var(--muted-text, #9296a3);
+    color: var(--app-muted);
 
     font-size: 12px;
 
 }
-
-
-
-.notification-mark-all {
-
-    display: inline-flex;
-
-    align-items: center;
-
-    gap: 5px;
-
-    padding: 6px;
-
-    border: 0;
-
-    background: transparent;
-
-    color: var(--accent-color, #7c8cff);
-
-    font: inherit;
-
-    font-size: 11px;
-
-    cursor: pointer;
-
-    white-space: nowrap;
-
-}
-
 
 
 .notification-menu-divider {
@@ -485,10 +387,9 @@
 
     flex: 0 0 auto;
 
-    background: var(--border-color, #343741);
+    background: var(--app-line);
 
 }
-
 
 
 .notification-empty {
@@ -503,22 +404,20 @@
 
     padding: 36px 16px;
 
-    color: var(--muted-text, #9296a3);
+    color: var(--app-muted);
 
     text-align: center;
 
 }
 
 
-
 .notification-empty strong {
 
-    color: var(--text-color, inherit);
+    color: var(--app-text);
 
     font-size: 13px;
 
 }
-
 
 
 .notification-empty span {
@@ -528,13 +427,11 @@
 }
 
 
-
 .notification-list {
 
     overflow-y: auto;
 
 }
-
 
 
 .notification-item {
@@ -547,10 +444,9 @@
 
     padding: 14px 16px;
 
-    border-bottom: 1px solid var(--border-color, #343741);
+    border-bottom: 1px solid var(--app-line);
 
 }
-
 
 
 .notification-item:last-child {
@@ -560,13 +456,11 @@
 }
 
 
-
 .notification-item.is-unread {
 
-    background: var(--notification-unread-bg, rgb(124 140 255 / 7%));
+    background: var(--app-accent-soft);
 
 }
-
 
 
 .notification-item-content {
@@ -576,7 +470,6 @@
     min-width: 0;
 
 }
-
 
 
 .notification-item-title {
@@ -590,7 +483,6 @@
 }
 
 
-
 .notification-item-title strong {
 
     font-size: 12px;
@@ -598,7 +490,6 @@
     overflow-wrap: anywhere;
 
 }
-
 
 
 .notification-unread-dot {
@@ -613,17 +504,16 @@
 
     border-radius: 50%;
 
-    background: var(--accent-color, #7c8cff);
+    background: var(--app-accent);
 
 }
-
 
 
 .notification-item-content p {
 
     margin: 6px 0;
 
-    color: var(--muted-text, #a0a3af);
+    color: var(--app-muted);
 
     font-size: 12px;
 
@@ -634,15 +524,13 @@
 }
 
 
-
 .notification-item-content time {
 
-    color: var(--muted-text, #858995);
+    color: var(--app-muted);
 
     font-size: 10px;
 
 }
-
 
 
 .notification-item-actions {
@@ -656,7 +544,6 @@
     gap: 8px;
 
 }
-
 
 
 .notification-item-actions button {
@@ -673,7 +560,7 @@
 
     background: transparent;
 
-    color: var(--muted-text, #a0a3af);
+    color: var(--app-muted);
 
     font: inherit;
 
@@ -686,35 +573,22 @@
 }
 
 
+.notification-item-actions button:hover {
 
-.notification-item-actions button:hover,
-
-.notification-mark-all:hover {
-
-    color: var(--accent-color, #7c8cff);
+    color: var(--app-accent-fg);
 
 }
-
-
-
-.notification-item-actions .notification-clear:hover {
-
-    color: var(--danger-color, #dc4545);
-
-}
-
 
 
 .notification-trigger:focus-visible,
 
 .notification-menu button:focus-visible {
 
-    outline: 2px solid var(--accent-color, #7c8cff);
+    outline: 2px solid var(--app-accent);
 
     outline-offset: 2px;
 
 }
-
 
 
 @media (max-width: 480px) {
@@ -734,15 +608,11 @@
 }
 
 
-
-
-
 /* ---------------------------------------------------------
 
    Shared content sizing — keep page-specific layouts intact.
 
    --------------------------------------------------------- */
-
 
 
 .entropy-app {
@@ -756,7 +626,6 @@
 }
 
 
-
 .entropy-app .entropy-content {
 
     min-width: 0;
@@ -768,13 +637,11 @@
 }
 
 
-
 .entropy-app .entropy-content:has(.password-settings-panel) > .content-panel {
 
     align-items: center;
 
 }
-
 
 
 .entropy-app .entropy-content:has(.password-settings-panel) .password-settings-panel {
@@ -788,7 +655,6 @@
 }
 
 
-
 @media (max-width: 700px) {
 
     .entropy-app .entropy-content {
@@ -796,7 +662,6 @@
         padding: 16px;
 
     }
-
 
 
     .entropy-app .content-panel {
@@ -808,7 +673,6 @@
 }
 
 
-
 .entropy-app .entropy-content:has(> .password-settings-panel) {
 
     display: flex;
@@ -818,7 +682,6 @@
     align-items: flex-start;
 
 }
-
 
 
 .entropy-app .entropy-content > .password-settings-panel {
@@ -834,9 +697,6 @@
 }
 
 
-
-
-
 /* Keep the open profile dropdown above page-level controls. */
 
 .entropy-app .entropy-topbar {
@@ -848,7 +708,6 @@
 }
 
 
-
 .entropy-app .profile-container {
 
     position: relative;
@@ -856,7 +715,6 @@
     z-index: 51;
 
 }
-
 
 
 .entropy-app .profile-menu {

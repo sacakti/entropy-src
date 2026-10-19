@@ -10,7 +10,6 @@ import {
     CloudUpload,
     Maximize,
     Moon,
-    RotateCcw,
     Sun,
     Trash2,
     X,
@@ -21,7 +20,7 @@ import {
 import type { BackgroundImage } from '../../api/backgrounds.api'
 import type { UserPreferences } from '../../api/preferences.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
-import '../../styles/preferences.css'
+import '../../styles/Preferences.css'
 
 export interface PreferencesProps {
     theme: UserPreferences['theme']
@@ -283,11 +282,12 @@ export default function Preferences({
     }
 
     return (
-        <section className="content-panel preferences-panel">
-            <div className="preferences-page-header">
+        <section className="preferences-panel">
+            <header className="page-heading">
                 <div>
+                    <p className="page-eyebrow">ACCOUNT</p>
                     <h1>Preferences</h1>
-                    <p>Personalize your Entropy workspace.</p>
+                    <p className="page-subtitle">Personalize your Entropy workspace.</p>
                 </div>
 
                 <button
@@ -314,7 +314,7 @@ export default function Preferences({
                 >
                     Reset to default
                 </button>
-            </div>
+            </header>
 
             {preferencesError && (
                 <p className="preferences-error" role="alert">
@@ -715,6 +715,7 @@ export default function Preferences({
                                 <div className="gallery-pagination-actions">
                                     <button
                                         type="button"
+                                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                         aria-label="First page"
                                         disabled={galleryPage === 0}
                                         onClick={() => setGalleryPage(0)}
@@ -723,6 +724,7 @@ export default function Preferences({
                                     </button>
                                     <button
                                         type="button"
+                                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                         aria-label="Previous page"
                                         disabled={galleryPage === 0}
                                         onClick={() => setGalleryPage((page) => page - 1)}
@@ -734,6 +736,7 @@ export default function Preferences({
                                     </span>
                                     <button
                                         type="button"
+                                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                         aria-label="Next page"
                                         disabled={galleryPage >= pageCount - 1}
                                         onClick={() => setGalleryPage((page) => page + 1)}
@@ -742,6 +745,7 @@ export default function Preferences({
                                     </button>
                                     <button
                                         type="button"
+                                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                         aria-label="Last page"
                                         disabled={galleryPage >= pageCount - 1}
                                         onClick={() => setGalleryPage(pageCount - 1)}
@@ -828,7 +832,7 @@ export default function Preferences({
                                     {previewBackground.source === 'upload' && (
                                     <button
                                         type="button"
-                                        className="entropy-button-danger"
+                                        className="entropy-button entropy-button-danger entropy-button-icon entropy-button-sm"
                                         aria-label="Delete wallpaper"
                                         title="Delete wallpaper"
                                         disabled={isBusy || backgroundDeletingId !== null}

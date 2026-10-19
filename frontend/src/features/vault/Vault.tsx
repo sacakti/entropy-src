@@ -1225,26 +1225,12 @@ export default function Vault() {
 
         <section className="vault-page">
 
-            <header className="vault-header">
-
-                <div className="vault-heading">
-
-                    <div className="vault-heading-icon">
-
-                        <KeyRound size={22} />
-
-                    </div>
-
-                    <div>
-
-                        <h1>Vault</h1>
-
-                        <p>Manage secrets and namespace access.</p>
-
-                    </div>
-
+            <header className="page-heading">
+                <div>
+                    <p className="page-eyebrow">DEPLOYMENT WORKSPACE</p>
+                    <h1>Vault</h1>
+                    <p className="page-subtitle">Manage secrets and namespace access.</p>
                 </div>
-
             </header>
 
 
@@ -1259,7 +1245,7 @@ export default function Vault() {
 
                         type="button"
 
-                        className="vault-icon-button"
+                        className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
 
                         onClick={() => setError('')}
 
@@ -1287,7 +1273,7 @@ export default function Vault() {
 
                         type="button"
 
-                        className="vault-icon-button"
+                        className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
 
                         onClick={() => setMessage('')}
 
@@ -1712,7 +1698,7 @@ export default function Vault() {
                                                                     <span>{isRevealed ? previewValue(revealedValue, 48) : '••••••••••••'}</span>
                                                                     <button
                                                                         type="button"
-                                                                        className="vault-icon-button"
+                                                                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                                                         onClick={() => void revealEntry(entry.key)}
                                                                         disabled={busy}
                                                                         aria-label={isRevealed ? `Hide ${entry.key}` : `Reveal ${entry.key}`}
@@ -1723,7 +1709,7 @@ export default function Vault() {
                                                                     {isRevealed && (
                                                                         <button
                                                                             type="button"
-                                                                            className="vault-text-button"
+                                                                            className="entropy-button entropy-button-link"
                                                                             onClick={() => openEntryDetails(revealedEntry)}
                                                                         >
                                                                             View full value
@@ -1742,7 +1728,7 @@ export default function Vault() {
                                                             ) : (
                                                                 <button
                                                                     type="button"
-                                                                    className="vault-text-button"
+                                                                    className="entropy-button entropy-button-link"
                                                                     onClick={() => void revealEntry(entry.key)}
                                                                     disabled={busy}
                                                                 >
@@ -1754,7 +1740,7 @@ export default function Vault() {
                                                             <div className="vault-row-actions">
                                                                 <button
                                                                     type="button"
-                                                                    className="vault-icon-button"
+                                                                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                                                     onClick={() => editEntry(entry)}
                                                                     disabled={busy}
                                                                     aria-label={`Edit ${entry.key}`}
@@ -1764,7 +1750,7 @@ export default function Vault() {
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    className="vault-icon-button vault-danger"
+                                                                    className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                                                                     onClick={() => void deleteEntry(entry)}
                                                                     disabled={busy}
                                                                     aria-label={`Delete ${entry.key}`}
@@ -1991,7 +1977,7 @@ export default function Vault() {
 
                                                                 type="button"
 
-                                                                className="vault-icon-button vault-icon-danger"
+                                                                className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
 
                                                                 onClick={() =>
 
@@ -2083,7 +2069,7 @@ export default function Vault() {
 
                                 type="button"
 
-                                className="vault-icon-button"
+                                className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
 
                                 onClick={closeModal}
 
@@ -2272,7 +2258,7 @@ export default function Vault() {
 
                                 type="button"
 
-                                className="vault-icon-button"
+                                className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
 
                                 onClick={closeModal}
 
@@ -2594,7 +2580,7 @@ export default function Vault() {
 
                                 type="button"
 
-                                className="vault-icon-button"
+                                className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
 
                                 onClick={closeModal}
 

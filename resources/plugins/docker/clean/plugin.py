@@ -554,7 +554,7 @@ class DockerCleanPlugin(
 
         except json.JSONDecodeError as exc:
 
-            self.log.exception(
+            self.log.error(
                 "Unable to parse DockerRootDir.",
             )
 

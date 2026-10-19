@@ -189,6 +189,8 @@ tmp/*
 *.zip
 executions/
 workflows/
+# ...but not the web UI's Workflows page source.
+!frontend/src/features/workflows/
 
 # Test files
 deployment-wf.json

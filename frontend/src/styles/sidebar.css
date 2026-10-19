@@ -299,7 +299,7 @@
 
 .entropy-app .nav-item.active {
 
-    color: var(--app-accent);
+    color: var(--app-accent-fg);
 
     background: color-mix(in srgb, var(--app-accent) 8%, transparent);
 
@@ -391,29 +391,4 @@
 
     white-space: nowrap;
 
-}
-
-
-/* Light theme: sidebar text contrast */
-.entropy-app.theme-light .entropy-sidebar {
-    color: #30382A;
-}
-
-.entropy-app.theme-light .entropy-sidebar .nav-section-title,
-.entropy-app.theme-light .entropy-sidebar .sidebar-section-title {
-    color: #68745D;
-}
-
-.entropy-app.theme-light .entropy-sidebar .nav-item {
-    color: #46513F;
-}
-
-.entropy-app.theme-light .entropy-sidebar .nav-item:hover {
-    color: #26351A;
-}
-
-.entropy-app.theme-light .entropy-sidebar .nav-item.active {
-    color: #527510;
-    background: #F2F7E6;
-    border-color: #DDEABF;
 }

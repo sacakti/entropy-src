@@ -16,7 +16,6 @@
 }
 
 
-
 .entropy-app *,
 
 .entropy-app *::before,
@@ -26,7 +25,6 @@
     box-sizing: border-box;
 
 }
-
 
 
 .entropy-app button,
@@ -42,13 +40,11 @@
 }
 
 
-
 .entropy-app button {
 
     color: inherit;
 
 }
-
 
 
 .entropy-app button:focus-visible,
@@ -64,9 +60,6 @@
     outline-offset: 3px;
 
 }
-
-
-
 
 
 .entropy-app .entropy-content {
@@ -89,26 +82,4 @@
 
     overflow-y: auto;
 
-}
-
-
-
-/* Preferences has a bounded viewport-height content region. */
-
-.entropy-app .entropy-content-preferences {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 0;
-    padding: 24px 28px;
-    overflow-x: hidden;
-    overflow-y: auto;
-}
-
-.entropy-app .entropy-content-preferences > .preferences-panel {
-    flex: 1 0 auto;
-    width: 100%;
-    min-width: 0;
-    min-height: 0;
 }

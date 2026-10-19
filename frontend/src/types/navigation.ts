@@ -1,7 +1,6 @@
 import {
     Activity,
     Blocks,
-    Info,
     KeyRound,
     LayoutDashboard,
     Server,

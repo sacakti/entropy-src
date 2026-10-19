@@ -46,87 +46,13 @@
 }
 
 /* ----------------------------------------------------------
-   Page heading
-   ---------------------------------------------------------- */
-
-.entropy-app .permissions-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  width: 100%;
-  min-width: 0;
-}
-
-.entropy-app .permissions-heading {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-}
-
-.entropy-app .permissions-heading > div {
-  min-width: 0;
-}
-
-.entropy-app .permissions-heading-icon {
-  display: flex;
-  flex: 0 0 42px;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  color: var(--app-accent);
-  background: color-mix(
-    in srgb,
-    var(--app-accent) 10%,
-    transparent
-  );
-  border: 1px solid color-mix(
-    in srgb,
-    var(--app-accent) 16%,
-    transparent
-  );
-  border-radius: 10px;
-}
-
-.entropy-app .permissions-eyebrow {
-  margin: 0 0 4px;
-  color: var(--app-accent);
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 0.14em;
-  line-height: 1.5;
-}
-
-.entropy-app .permissions-heading h1,
-.entropy-app .permissions-heading h2 {
-  margin: 0;
-  color: var(--app-text);
-  font-family: inherit;
-  font-size: clamp(22px, 2.5vw, 26px);
-  font-weight: 750;
-  line-height: 1.2;
-  letter-spacing: -0.5px;
-}
-
-.entropy-app .permissions-description {
-  margin: 7px 0 0;
-  color: var(--app-muted);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-/* ----------------------------------------------------------
    Refresh and retry controls
 
    Preferred JSX class: entropy-button-secondary
    Legacy classes remain supported during migration.
    ---------------------------------------------------------- */
 
-.entropy-app .permissions-refresh,
-.entropy-app .permissions-retry {
+.entropy-app .permissions-refresh {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -149,20 +75,17 @@
     opacity 0.15s ease;
 }
 
-.entropy-app .permissions-refresh:hover:not(:disabled),
-.entropy-app .permissions-retry:hover:not(:disabled) {
+.entropy-app .permissions-refresh:hover:not(:disabled) {
   background: var(--app-surface-hover);
   border-color: var(--app-accent);
 }
 
-.entropy-app .permissions-refresh:focus-visible,
-.entropy-app .permissions-retry:focus-visible {
+.entropy-app .permissions-refresh:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
 }
 
-.entropy-app .permissions-refresh:disabled,
-.entropy-app .permissions-retry:disabled {
+.entropy-app .permissions-refresh:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -385,7 +308,7 @@
   min-width: 23px;
   height: 22px;
   padding: 0 6px;
-  color: var(--app-accent);
+  color: var(--app-accent-fg);
   background: color-mix(
     in srgb,
     var(--app-accent) 10%,
@@ -427,7 +350,7 @@
   width: 17px;
   height: 17px;
   margin-top: 1px;
-  color: var(--app-accent);
+  color: var(--app-accent-fg);
   background: color-mix(
     in srgb,
     var(--app-accent) 10%,
@@ -487,7 +410,7 @@
   width: 100%;
   min-width: 0;
   padding: 14px 16px;
-  color: #ff8989;
+  color: var(--app-danger);
   background: color-mix(
     in srgb,
     #ff4545 8%,
@@ -567,7 +490,6 @@
 }
 
 .entropy-app .permissions-refresh:focus-visible,
-.entropy-app .permissions-retry:focus-visible,
 .entropy-app .permissions-search:focus-within {
   outline-offset: 2px;
 }
@@ -578,10 +500,9 @@
   }
 
   .entropy-app .permissions-summary-card,
-  .entropy-app .permissions-group,
-  .entropy-app .permissions-refresh,
-  .entropy-app .permissions-retry,
-  .entropy-app .permissions-search {
+.entropy-app .permissions-group,
+.entropy-app .permissions-refresh,
+.entropy-app .permissions-search {
     transition: none;
   }
 }
@@ -628,10 +549,6 @@
 }
 
 @media (max-width: 600px) {
-  .entropy-app .permissions-header {
-    flex-direction: column;
-    gap: 14px;
-  }
 
   .entropy-app .permissions-refresh {
     align-self: flex-start;
@@ -659,24 +576,6 @@
   .entropy-app .permissions-search {
     width: 100%;
   }
-}
-
-/* ----------------------------------------------------------
-   Light theme refinements
-
-   Surface opacity remains identical to Dashboard.
-   Theme tokens continue to determine the actual colors.
-   ---------------------------------------------------------- */
-
-.entropy-app.theme-light .permissions-group-count {
-  color: #527510;
-  background: #edf4d9;
-}
-
-.entropy-app.theme-light .permissions-item-check {
-  color: #527510;
-  background: #edf4d9;
-  border-color: #d8e7ad;
 }
 
 /* Subtle accent hover — preserve the card's original surface */
@@ -713,7 +612,7 @@
 
 .entropy-app .permissions-group-count,
 .entropy-app .permissions-item-check {
-  color: var(--app-accent);
+  color: var(--app-accent-fg);
   background: var(--app-accent-soft);
   border-color: var(--app-accent-border);
 }

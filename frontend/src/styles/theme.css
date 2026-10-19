@@ -1,4 +1,5 @@
-/* Global design tokens. Authenticated theme tokens remain scoped to .entropy-app. */
+/* Global design tokens. App tokens are also published on :root (data-theme mirrors
+   the active theme) so dialogs and toasts rendered outside .entropy-app match it. */
  :root {
   --entropy-bg: #090b0f;
   --entropy-surface: #11151b;
@@ -23,13 +24,14 @@ html, body { width: 100%; min-height: 100%; margin: 0; }
 
 #root { min-height: 100vh; }
 
+:root,
 .entropy-app {
   --app-bg: #090b0f;
   --app-surface: #11151b;
   --app-surface-hover: #191f27;
   --app-text: #f2f4f7;
   --app-muted: #9ba5b3;
-  --app-subtle: #687382;
+  --app-subtle: #7d8796;
   --app-line: rgb(255 255 255 / 9%);
   --app-accent: #d7ff63;
   --app-accent-text: #090b0f;
@@ -37,22 +39,36 @@ html, body { width: 100%; min-height: 100%; margin: 0; }
   --app-background-fit: cover;
   --app-background-opacity: 0.35;
   --app-background-overlay: transparent;
+  --app-accent-fg: var(--app-accent);
   --app-button-bg: var(--app-accent);
   --app-button-text: var(--app-accent-text);
+
+  /* Status colors used as text, borders and tinted fills.
+     Every text token here keeps at least 4.5:1 on --app-bg and --app-surface. */
+  --app-danger: #ff7b72;
+  --app-success: #56d38a;
+  --app-warning: #f2c14e;
+  --app-info: #6cb6ff;
 }
 
+:root[data-theme="light"],
 .entropy-app.theme-light {
   --app-bg: #F4F6EE;
   --app-surface: #FFFFFF;
   --app-surface-hover: #EDF1E3;
 
   --app-text: #171B15;
-  --app-muted: #697166;
-  --app-subtle: #858C80;
+  --app-muted: #5c6458;
+  --app-subtle: #6a7166;
   --app-line: rgb(23 27 21 / 12%);
 
   --app-accent: #658A12;
   --app-accent-text: #FFFFFF;
+
+  --app-danger: #c0262d;
+  --app-success: #1a7f37;
+  --app-warning: #8f5e00;
+  --app-info: #0969da;
 }
 
 /* Global accent treatments — shared by every page */
@@ -61,6 +77,7 @@ html, body { width: 100%; min-height: 100%; margin: 0; }
    Global surfaces and interaction tokens
    ========================================================== */
 
+:root,
 .entropy-app {
   --app-accent-soft: color-mix(
     in srgb,
@@ -105,4 +122,14 @@ html, body { width: 100%; min-height: 100%; margin: 0; }
     var(--app-accent) 22%,
     transparent
   );
+
+  --app-danger-text: var(--app-danger);
+  --app-danger-soft: color-mix(in srgb, var(--app-danger) 11%, var(--app-surface));
+  --app-danger-border: color-mix(in srgb, var(--app-danger) 38%, var(--app-line));
+  --app-success-text: var(--app-success);
+  --app-success-soft: color-mix(in srgb, var(--app-success) 11%, var(--app-surface));
+  --app-success-border: color-mix(in srgb, var(--app-success) 38%, var(--app-line));
+  --app-warning-text: var(--app-warning);
+  --app-warning-soft: color-mix(in srgb, var(--app-warning) 12%, var(--app-surface));
+  --app-warning-border: color-mix(in srgb, var(--app-warning) 40%, var(--app-line));
 }

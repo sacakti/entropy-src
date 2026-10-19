@@ -1,6 +1,7 @@
 
 /* Entropy — shared button system */
 
+:root,
 .entropy-app {
     --button-radius: 9px;
     --button-height: 38px;
@@ -16,6 +17,7 @@
     --button-secondary-text: var(--app-text);
     --button-secondary-border: var(--app-line);
 
+    /* Fixed red so white labels keep 4.5:1 in both themes. */
     --button-danger-bg: #dc2626;
     --button-danger-hover: #b91c1c;
     --button-danger-text: #ffffff;
@@ -24,7 +26,7 @@
 }
 
 /* Base */
-.entropy-app .entropy-button {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -51,87 +53,134 @@
         transform var(--button-transition);
 }
 
-.entropy-app .entropy-button:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button > svg {
+    flex-shrink: 0;
+}
+
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:hover:not(:disabled) {
     transform: translateY(-1px);
 }
 
-.entropy-app .entropy-button:active:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:active:not(:disabled) {
     transform: translateY(0);
 }
 
-.entropy-app .entropy-button:focus-visible {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:focus-visible {
     outline: 2px solid var(--app-accent);
     outline-offset: 3px;
 }
 
-.entropy-app .entropy-button:disabled {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:disabled {
     opacity: var(--button-disabled-opacity);
     cursor: not-allowed;
     transform: none;
 }
 
 /* Primary actions: Save, Apply, Confirm */
-.entropy-app .entropy-button-primary {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary {
     color: var(--button-primary-text);
     background: var(--button-primary-bg);
     border-color: var(--button-primary-bg);
 }
 
-.entropy-app .entropy-button-primary:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary:hover:not(:disabled) {
     filter: brightness(0.94);
 }
 
 /* Secondary actions: Cancel, Close, Back */
-.entropy-app .entropy-button-secondary {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-secondary {
     color: var(--button-secondary-text);
     background: var(--button-secondary-bg);
     border-color: var(--button-secondary-border);
 }
 
-.entropy-app .entropy-button-secondary:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-secondary:hover:not(:disabled) {
     background: var(--app-surface-hover);
     border-color: var(--app-muted);
 }
 
 /* Destructive actions: Delete, Reset to defaults */
-.entropy-app .entropy-button-danger {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger {
     color: var(--button-danger-text);
     background: var(--button-danger-bg);
     border-color: var(--button-danger-bg);
 }
 
-.entropy-app .entropy-button-danger:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger:hover:not(:disabled) {
     background: var(--button-danger-hover);
     border-color: var(--button-danger-hover);
 }
 
 /* Low-emphasis actions: Refresh, View details */
-.entropy-app .entropy-button-ghost {
-    color: var(--app-text);
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-ghost {
+    color: var(--app-muted);
     background: transparent;
     border-color: transparent;
 }
 
-.entropy-app .entropy-button-ghost:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-ghost:hover:not(:disabled) {
+    color: var(--app-text);
     background: var(--app-surface-hover);
     border-color: var(--app-line);
 }
 
+/* Quiet destructive: row actions that only turn red on hover */
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger-quiet {
+    color: var(--app-muted);
+    background: var(--button-secondary-bg);
+    border-color: var(--button-secondary-border);
+}
+
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger-quiet:hover:not(:disabled) {
+    color: var(--app-danger);
+    background: var(--app-danger-soft);
+    border-color: var(--app-danger-border);
+}
+
+/* Inline text action that reads as a link: "View value" */
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-link {
+    min-height: 0;
+    padding: 2px 0;
+    color: var(--app-accent-fg);
+    background: transparent;
+    border-color: transparent;
+    font-weight: 600;
+}
+
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-link:hover:not(:disabled) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transform: none;
+}
+
+/* Square icon-only button; combine with a color variant. */
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-icon {
+    width: var(--button-height);
+    min-width: var(--button-height);
+    padding: 0;
+}
+
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-icon.entropy-button-sm {
+    width: 30px;
+    min-width: 30px;
+    padding: 0;
+}
+
 /* Compact variant */
-.entropy-app .entropy-button-sm {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-sm {
     min-height: 30px;
     padding: 0 11px;
     font-size: 11px;
 }
 
 /* Full-width variant for narrow layouts */
-.entropy-app .entropy-button-block {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-block {
     width: 100%;
 }
 
 
 /* Shared Entropy dropdown */
-.entropy-app .entropy-select {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-select {
     display: inline-flex;
     align-items: center;
     width: 100%;
@@ -154,21 +203,21 @@
         box-shadow var(--button-transition);
 }
 
-.entropy-app .entropy-select:hover {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-select:hover {
     border-color: var(--app-muted);
 }
 
-.entropy-app .entropy-select:focus-visible {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-select:focus-visible {
     outline: 2px solid var(--app-accent);
     outline-offset: 2px;
 }
 
-.entropy-app .entropy-select:disabled {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-select:disabled {
     opacity: var(--button-disabled-opacity);
     cursor: not-allowed;
 }
 
-.entropy-app .entropy-select option {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-select option {
     color: var(--app-text);
     background: var(--app-surface);
 }

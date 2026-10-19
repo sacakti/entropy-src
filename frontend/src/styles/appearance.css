@@ -10,7 +10,6 @@
 }
 
 
-
 .entropy-app .preferences-panel > p {
 
     margin: 10px 0 24px;
@@ -20,7 +19,6 @@
     line-height: 1.6;
 
 }
-
 
 
 .entropy-app .theme-options {
@@ -36,7 +34,6 @@
     width: 100%;
 
 }
-
 
 
 .entropy-app .theme-option {
@@ -72,13 +69,11 @@
 }
 
 
-
 .entropy-app .theme-option span {
 
     font-weight: 650;
 
 }
-
 
 
 .entropy-app .theme-option small {
@@ -88,7 +83,6 @@
 }
 
 
-
 .entropy-app .theme-option.selected {
 
     border-color: var(--app-accent);
@@ -96,7 +90,6 @@
     box-shadow: inset 0 0 0 1px var(--app-accent);
 
 }
-
 
 
 /* Keep generic appearance-control styling available. */
@@ -120,7 +113,6 @@
 }
 
 
-
 .entropy-app .appearance-control {
 
     display: flex;
@@ -136,7 +128,6 @@
 }
 
 
-
 .entropy-app .appearance-control > label {
 
     color: var(--app-text);
@@ -144,7 +135,6 @@
     font-weight: 600;
 
 }
-
 
 
 .entropy-app .color-control {
@@ -158,7 +148,6 @@
     color: var(--app-muted);
 
 }
-
 
 
 .entropy-app .color-control input[type="color"] {
@@ -178,7 +167,6 @@
     cursor: pointer;
 
 }
-
 
 
 .entropy-app .appearance-control > button {
@@ -208,7 +196,6 @@
 }
 
 
-
 .entropy-app .appearance-control > button:hover {
 
     background: var(--app-surface-hover);
@@ -218,23 +205,10 @@
 }
 
 
-
 .entropy-app .appearance-control > button:focus-visible {
 
     outline: 2px solid var(--app-accent);
 
     outline-offset: 2px;
-
-}
-
-
-
-.entropy-app .primary-button {
-
-    color: var(--app-accent-text);
-
-    background-color: var(--app-accent);
-
-    border-color: var(--app-accent);
 
 }

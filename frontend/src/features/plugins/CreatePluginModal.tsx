@@ -135,12 +135,12 @@ export default function CreatePluginModal({
             >
                 <header className="plugins-modal-heading">
                     <div>
-                        <p className="dashboard-eyebrow">NEW PLUGIN</p>
+                        <p className="page-eyebrow">NEW PLUGIN</p>
                         <h2 id="plugins-create-title">Create plugin</h2>
                     </div>
                     <button
                         type="button"
-                        className="plugins-dismiss"
+                        className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
                         aria-label="Close"
                         onClick={onClose}
                         disabled={creating}
@@ -188,7 +188,7 @@ export default function CreatePluginModal({
                 >
                     {status.state === 'checking' && (
                         <>
-                            <LoaderCircle size={15} className="plugins-spin" />
+                            <LoaderCircle size={15} className="entropy-spin" />
                             Checking {trimmedNamespace}.{trimmedName}…
                         </>
                     )}
@@ -227,7 +227,7 @@ export default function CreatePluginModal({
                 <footer className="plugins-modal-footer">
                     <button
                         type="button"
-                        className="plugins-refresh"
+                        className="entropy-button entropy-button-secondary"
                         onClick={onClose}
                         disabled={creating}
                     >
@@ -235,11 +235,11 @@ export default function CreatePluginModal({
                     </button>
                     <button
                         type="submit"
-                        className="plugins-primary"
+                        className="entropy-button entropy-button-primary"
                         disabled={!canCreate}
                     >
                         {creating ? (
-                            <LoaderCircle size={16} className="plugins-spin" />
+                            <LoaderCircle size={16} className="entropy-spin" />
                         ) : (
                             <Plus size={16} />
                         )}

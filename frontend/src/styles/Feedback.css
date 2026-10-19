@@ -34,9 +34,9 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border: 2px solid var(--topbar-bg, var(--surface-color, #1b1d23));
+  border: 2px solid var(--app-surface);
   border-radius: 999px;
-  background: var(--danger-color, #dc4545);
+  background: var(--app-danger);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -53,10 +53,10 @@
   width: min(390px, calc(100vw - 24px));
   max-height: min(520px, calc(100vh - 100px));
   overflow: hidden;
-  border: 1px solid var(--border-color, #343741);
+  border: 1px solid var(--app-line);
   border-radius: var(--radius-lg, 12px);
-  background: var(--panel-bg, var(--surface-color, #202229));
-  color: var(--text-color, inherit);
+  background: var(--app-surface);
+  color: var(--app-text);
   box-shadow: var(--shadow-lg, 0 12px 36px rgb(0 0 0 / 24%));
   font-family: inherit;
 }
@@ -80,29 +80,14 @@
 }
 
 .notification-menu-heading span {
-  color: var(--muted-text, #9296a3);
+  color: var(--app-muted);
   font-size: 12px;
-}
-
-.notification-mark-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px;
-  border: 0;
-  border-radius: var(--radius-sm, 6px);
-  background: transparent;
-  color: var(--accent-color, #7c8cff);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  white-space: nowrap;
 }
 
 .notification-menu-divider {
   flex: 0 0 auto;
   height: 1px;
-  background: var(--border-color, #343741);
+  background: var(--app-line);
 }
 
 .notification-empty {
@@ -111,12 +96,12 @@
   align-items: center;
   gap: 8px;
   padding: 36px 16px;
-  color: var(--muted-text, #9296a3);
+  color: var(--app-muted);
   text-align: center;
 }
 
 .notification-empty strong {
-  color: var(--text-color, inherit);
+  color: var(--app-text);
   font-size: 13px;
 }
 
@@ -133,7 +118,7 @@
   align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color, #343741);
+  border-bottom: 1px solid var(--app-line);
 }
 
 .notification-item:last-child {
@@ -141,7 +126,7 @@
 }
 
 .notification-item.is-unread {
-  background: var(--notification-unread-bg, rgb(124 140 255 / 7%));
+  background: var(--app-accent-soft);
 }
 
 .notification-item-content {
@@ -166,19 +151,19 @@
   height: 7px;
   margin-top: 4px;
   border-radius: 50%;
-  background: var(--accent-color, #7c8cff);
+  background: var(--app-accent);
 }
 
 .notification-item-content p {
   margin: 6px 0;
-  color: var(--muted-text, #a0a3af);
+  color: var(--app-muted);
   font-size: 12px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .notification-item-content time {
-  color: var(--muted-text, #858995);
+  color: var(--app-muted);
   font-size: 10px;
 }
 
@@ -197,66 +182,43 @@
   border: 0;
   border-radius: var(--radius-sm, 6px);
   background: transparent;
-  color: var(--muted-text, #a0a3af);
+  color: var(--app-muted);
   font: inherit;
   font-size: 11px;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.notification-item-actions button:hover,
-.notification-mark-all:hover {
-  color: var(--accent-color, #7c8cff);
-}
-
-.notification-item-actions .notification-clear:hover {
-  color: var(--danger-color, #dc4545);
+.notification-item-actions button:hover {
+  color: var(--app-accent-fg);
 }
 
 .notification-trigger:focus-visible,
 .notification-menu button:focus-visible {
-  outline: 2px solid var(--accent-color, #7c8cff);
+  outline: 2px solid var(--app-accent);
   outline-offset: 2px;
 }
 
 /* ----------------------------------------------------------
    Feedback theme tokens
 
-   These local defaults also work when the provider is mounted
-   outside .entropy-app. Global theme variables take priority.
+   Dialogs and toasts render outside .entropy-app; theme.css
+   publishes the --app-* tokens on :root so they still apply.
    ---------------------------------------------------------- */
 
 .entropy-toast-container,
 .entropy-modal-backdrop {
-  --feedback-success: var(--success-color, #239b67);
-  --feedback-info: var(--info-color, #3985df);
-  --feedback-warning: var(--warning-color, #d99120);
-  --feedback-danger: var(--danger-color, #dc4545);
+  --feedback-success: var(--app-success);
+  --feedback-info: var(--app-info);
+  --feedback-warning: var(--app-warning);
+  --feedback-danger: var(--app-danger);
 
-  --feedback-surface: var(
-    --app-surface,
-    var(--panel-bg, var(--surface-color, #11151b))
-  );
-  --feedback-text: var(
-    --app-text,
-    var(--text-color, #f2f4f7)
-  );
-  --feedback-muted: var(
-    --app-muted,
-    var(--muted-text, #9ba5b3)
-  );
-  --feedback-border: var(
-    --app-line,
-    var(--border-color, rgb(255 255 255 / 12%))
-  );
-  --feedback-accent: var(
-    --app-accent,
-    var(--accent-color, #7c8cff)
-  );
-  --feedback-hover: var(
-    --app-surface-hover,
-    var(--surface-hover, rgb(255 255 255 / 6%))
-  );
+  --feedback-surface: var(--app-surface);
+  --feedback-text: var(--app-text);
+  --feedback-muted: var(--app-muted);
+  --feedback-border: var(--app-line);
+  --feedback-accent: var(--app-accent);
+  --feedback-hover: var(--app-surface-hover);
 }
 
 /* ----------------------------------------------------------
@@ -460,7 +422,7 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  color: var(--feedback-accent);
+  color: var(--app-accent-fg);
   background: color-mix(
     in srgb,
     var(--feedback-accent) 12%,
@@ -520,20 +482,6 @@
 .entropy-modal-actions button {
   min-width: 90px;
   font-family: inherit;
-}
-
-/* Destructive actions reuse the shared danger palette. */
-
-.entropy-modal-actions .entropy-button-primary.is-destructive {
-  color: var(--button-danger-text, #fff);
-  background: var(--button-danger-bg, var(--feedback-danger));
-  border-color: var(--button-danger-bg, var(--feedback-danger));
-}
-
-.entropy-modal-actions
-  .entropy-button-primary.is-destructive:hover:not(:disabled) {
-  background: var(--button-danger-hover, #b91c1c);
-  border-color: var(--button-danger-hover, #b91c1c);
 }
 
 /* ----------------------------------------------------------
@@ -636,86 +584,12 @@
   font-family: inherit;
 }
 
-.entropy-modal-actions button {
-  appearance: none;
-  -webkit-appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding: 8px 14px;
-  border: 1px solid var(--app-line, var(--border-color, #343741));
-  border-radius: var(--button-radius, 8px);
-  font: inherit;
-  font-size: var(--button-font-size, 12px);
-  font-weight: var(--button-font-weight, 600);
-  line-height: 1.2;
-  cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease;
-}
-
-.entropy-modal-actions .entropy-button-primary {
-  color: var(--button-primary-text, #10130a);
-  background: var(--button-primary-bg, var(--app-accent, #d7ff63));
-  border-color: var(--button-primary-bg, var(--app-accent, #d7ff63));
-}
-
-.entropy-modal-actions .entropy-button-primary:hover:not(:disabled) {
-  background: var(--button-primary-hover, #c5ed55);
-  border-color: var(--button-primary-hover, #c5ed55);
-}
-
-.entropy-modal-actions .entropy-button-secondary {
-  color: var(--app-text, var(--text-color, #f2f4f7));
-  background: var(--app-surface, var(--surface-color, #11151b));
-  border-color: var(--app-line, var(--border-color, #343741));
-}
-
-.entropy-modal-actions .entropy-button-secondary:hover:not(:disabled) {
-  background: var(--app-surface-hover, rgb(255 255 255 / 6%));
-  border-color: var(--app-accent, var(--accent-color, #d7ff63));
-}
-
-.entropy-modal-actions button:focus-visible {
-  outline: 2px solid var(--app-accent, var(--accent-color, #d7ff63));
-  outline-offset: 2px;
-}
-
-.entropy-modal-actions button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.entropy-modal-actions .entropy-button-primary.is-destructive {
-  color: #fff;
-  background: var(--button-danger-bg, var(--danger-color, #dc4545));
-  border-color: var(--button-danger-bg, var(--danger-color, #dc4545));
-}
-
-.entropy-modal-actions
-  .entropy-button-primary.is-destructive:hover:not(:disabled) {
-  background: var(--button-danger-hover, #b91c1c);
-  border-color: var(--button-danger-hover, #b91c1c);
-}
-
 .notification-menu {
   /* Keep all existing layout and positioning declarations. */
 
-  background: var(
-    --app-surface,
-    var(--panel-bg, var(--surface-color, #ffffff))
-  );
+  background: var(--app-surface);
 
-  color: var(
-    --app-text,
-    var(--text-color, #1b1d23)
-  );
+  color: var(--app-text);
 
-  border-color: var(
-    --app-line,
-    var(--border-color, #dfe3e8)
-  );
+  border-color: var(--app-line);
 }

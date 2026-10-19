@@ -10,7 +10,6 @@ import {
     ChevronLeft,
     ChevronRight,
     Copy,
-    Filter,
     MoreHorizontal,
     LoaderCircle,
     Package,
@@ -203,7 +202,7 @@ function PluginRow({
                 <div className="plugins-operations" ref={menuRef}>
                     <button
                         type="button"
-                        className="plugins-operation-button"
+                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                         aria-label={`Edit ${plugin.qualified_name}`}
                         title="Edit"
                         onClick={() => onEdit(plugin)}
@@ -213,21 +212,21 @@ function PluginRow({
                     </button>
                     <button
                         type="button"
-                        className="plugins-operation-button plugins-operation-danger"
+                        className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                         aria-label={`Delete ${plugin.qualified_name}`}
                         title="Delete"
                         onClick={() => onDelete(plugin)}
                         disabled={deleting}
                     >
                         {deleting ? (
-                            <LoaderCircle size={15} className="plugins-spin" />
+                            <LoaderCircle size={15} className="entropy-spin" />
                         ) : (
                             <Trash2 size={15} />
                         )}
                     </button>
                     <button
                         type="button"
-                        className="plugins-operation-trigger"
+                        className="entropy-button entropy-button-secondary entropy-button-sm plugins-operation-trigger"
                         aria-label={`Operations for ${plugin.name}`}
                         aria-haspopup="menu"
                         aria-expanded={menuOpen}
@@ -435,26 +434,26 @@ export default function Plugins() {
 
     return (
         <section className="plugins-page">
-            <header className="dashboard-heading">
+            <header className="page-heading">
                 <div>
-                    <p className="dashboard-eyebrow">DEPLOYMENT WORKSPACE</p>
+                    <p className="page-eyebrow">DEPLOYMENT WORKSPACE</p>
                     <h1>Plugins</h1>
-                    <p className="dashboard-subtitle">
+                    <p className="page-subtitle">
                         Browse installed plugins and inspect their registration
                         and status.
                     </p>
                 </div>
 
-                <div className="plugins-heading-actions">
+                <div className="page-heading-actions">
                     <button
                         type="button"
-                        className="plugins-refresh"
+                        className="entropy-button entropy-button-secondary"
                         onClick={refreshPlugins}
                         disabled={loading || refreshing}
                     >
                         <RefreshCw
                             size={16}
-                            className={refreshing ? 'plugins-spin' : ''}
+                            className={refreshing ? 'entropy-spin' : ''}
                         />
                         Refresh
                     </button>
@@ -467,7 +466,7 @@ export default function Plugins() {
                     <span>{error}</span>
                     <button
                         type="button"
-                        className="plugins-retry"
+                        className="entropy-button entropy-button-secondary entropy-button-sm"
                         onClick={refreshPlugins}
                         disabled={refreshing}
                     >
@@ -482,7 +481,7 @@ export default function Plugins() {
                     <span>{notice}</span>
                     <button
                         type="button"
-                        className="plugins-dismiss"
+                        className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
                         aria-label="Dismiss notification"
                         onClick={() => setNotice(null)}
                     >
@@ -512,7 +511,7 @@ export default function Plugins() {
 
                     <button
                         type="button"
-                        className="plugins-create-button"
+                        className="entropy-button entropy-button-primary entropy-button-icon"
                         aria-label="Create plugin"
                         title="Create plugin"
                         onClick={() => setCreateOpen(true)}
@@ -546,9 +545,9 @@ export default function Plugins() {
 
                     <div className="plugins-toolbar-actions">
                         <label className="plugins-filter">
-                            <Filter size={16} aria-hidden="true" />
                             <span>Status</span>
                             <select
+                                className="entropy-select"
                                 value={statusFilter}
                                 onChange={(event) =>
                                     handleStatusFilter(
@@ -561,13 +560,12 @@ export default function Plugins() {
                                 <option value="enabled">Enabled</option>
                                 <option value="disabled">Disabled</option>
                             </select>
-                            <ChevronDown size={14} aria-hidden="true" />
                         </label>
 
                         {hasFilters && (
                             <button
                                 type="button"
-                                className="plugins-clear-filters"
+                                className="entropy-button entropy-button-ghost entropy-button-sm"
                                 onClick={clearFilters}
                             >
                                 Clear filters
@@ -643,7 +641,7 @@ export default function Plugins() {
                                         >
                                             <RefreshCw
                                                 size={19}
-                                                className="plugins-spin"
+                                                className="entropy-spin"
                                             />
                                             <span>Loading plugins…</span>
                                         </div>
@@ -699,6 +697,7 @@ export default function Plugins() {
                         <label htmlFor="plugins-page-select">Page</label>
                         <select
                             id="plugins-page-select"
+                            className="entropy-select plugins-page-select"
                             value={page}
                             onChange={(event) =>
                                 setPage(Number(event.target.value))
@@ -718,7 +717,7 @@ export default function Plugins() {
 
                         <button
                             type="button"
-                            className="plugins-page-arrow"
+                            className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                             aria-label="Previous page"
                             disabled={page <= 1 || loading}
                             onClick={() => setPage((current) => current - 1)}
@@ -727,7 +726,7 @@ export default function Plugins() {
                         </button>
                         <button
                             type="button"
-                            className="plugins-page-arrow"
+                            className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                             aria-label="Next page"
                             disabled={page >= totalPages || loading}
                             onClick={() => setPage((current) => current + 1)}
@@ -757,7 +756,7 @@ export default function Plugins() {
                         >
                             <header className="plugins-modal-heading">
                                 <div>
-                                    <p className="dashboard-eyebrow">
+                                    <p className="page-eyebrow">
                                         PLUGIN DETAILS
                                     </p>
                                     <h2 id="plugins-details-title">
@@ -766,7 +765,7 @@ export default function Plugins() {
                                 </div>
                                 <button
                                     type="button"
-                                    className="plugins-dismiss"
+                                    className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
                                     aria-label="Close plugin details"
                                     onClick={() => setSelectedPlugin(null)}
                                 >
@@ -810,7 +809,7 @@ export default function Plugins() {
                             <footer className="plugins-modal-footer">
                                 <button
                                     type="button"
-                                    className="plugins-refresh"
+                                    className="entropy-button entropy-button-secondary"
                                     onClick={() => setSelectedPlugin(null)}
                                 >
                                     Close
@@ -843,7 +842,7 @@ export default function Plugins() {
                     <Suspense
                         fallback={
                             <div className="plugins-modal-backdrop" role="status">
-                                <LoaderCircle size={24} className="plugins-spin" />
+                                <LoaderCircle size={24} className="entropy-spin" />
                             </div>
                         }
                     >

@@ -54,7 +54,7 @@
 .entropy-app .password-security-note svg {
     flex: 0 0 18px;
     margin-top: 1px;
-    color: var(--app-accent);
+    color: var(--app-accent-fg);
 }
 
 .entropy-app .password-change-form {
@@ -163,9 +163,9 @@
 }
 
 .entropy-app .password-feedback.is-error {
-    color: #ff9d93;
-    background: rgb(220 69 69 / 8%);
-    border-color: rgb(220 69 69 / 25%);
+    color: var(--app-danger);
+    background: var(--app-danger-soft);
+    border-color: var(--app-danger-border);
 }
 
 .entropy-app .password-feedback.is-success {
@@ -185,7 +185,7 @@
 .entropy-app .password-feedback.is-success svg {
     flex: 0 0 17px;
     margin-top: 1px;
-    color: var(--app-accent);
+    color: var(--app-accent-fg);
 }
 
 .entropy-app .password-form-actions {
@@ -214,25 +214,6 @@
     transition:
         background 0.15s ease,
         border-color 0.15s ease;
-}
-
-.entropy-app .password-cancel-button {
-    color: var(--app-text);
-    background: var(--app-bg);
-}
-
-.entropy-app .password-cancel-button:hover {
-    background: var(--app-surface-hover);
-}
-
-.entropy-app .password-submit-button {
-    color: var(--app-button-text);
-    background: var(--app-button-bg);
-    border-color: var(--app-button-bg) !important;
-}
-
-.entropy-app .password-submit-button:hover {
-    filter: brightness(0.94);
 }
 
 .entropy-app .password-form-actions button:disabled {

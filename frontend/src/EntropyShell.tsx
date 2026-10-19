@@ -1,18 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
     Activity,
-    Blocks,
-    Code2,
-    KeyRound,
     Server,
     ShieldCheck,
-    Workflow,
 } from 'lucide-react'
 
 import './EntropyShell.css'
 import { getApplicationVersion } from './api/version'
+import { accentTokens } from './features/preferences/accent'
 import { useAppearance } from './features/preferences/useAppearance'
 import Topbar, { type TopbarNotification } from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
@@ -39,6 +35,20 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
     const [activePage, setActivePage] = useState<PageId>('dashboard')
     const [collapsed, setCollapsed] = useState(false)
     const appearance = useAppearance()
+    const accent = useMemo(
+        () => accentTokens(appearance.accentColor, appearance.theme),
+        [appearance.accentColor, appearance.theme],
+    )
+
+    // Mirror the theme on <html> for dialogs and toasts rendered outside .entropy-app.
+    useEffect(() => {
+        const root = document.documentElement
+
+        root.dataset.theme = appearance.theme
+        root.style.setProperty('--app-accent', accent.accent)
+        root.style.setProperty('--app-accent-text', accent.onAccent)
+        root.style.setProperty('--app-accent-fg', accent.foreground)
+    }, [accent, appearance.theme])
     const pageTitles: Record<PageId, string> = {
         dashboard: 'Dashboard',
         plugins: 'Plugins',
@@ -105,7 +115,9 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
         <div
             className={`entropy-app theme-${appearance.theme}`}
             style={{
-                '--app-accent': appearance.accentColor,
+                '--app-accent': accent.accent,
+                '--app-accent-text': accent.onAccent,
+                '--app-accent-fg': accent.foreground,
                 '--app-background-image': appearance.backgroundImageId !== null
                     ? `url("/api/backgrounds/${appearance.backgroundImageId}/image")`
                     : 'none',
@@ -146,11 +158,7 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
                 onClearNotification={clearNotification}
                 onMarkAllNotificationsRead={markAllNotificationsRead}
             />
-                <main
-                    className={`entropy-content${
-                        activePage === 'preferences' ? ' entropy-content-preferences' : ''
-                    }`}
-                >
+                <main className="entropy-content">
                     {activePage === 'dashboard' ? (
                         <Dashboard
                             onNavigate={setActivePage}
