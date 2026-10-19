@@ -227,7 +227,7 @@ export default function Topbar({
                                     {unreadCount > 0 && (
                                         <button
                                             type="button"
-                                            className="entropy-button entropy-button-link notification-mark-all"
+                                            className="notif-action"
                                             onClick={onMarkAllNotificationsRead}
                                         >
                                             <CheckCheck size={14} />
@@ -237,7 +237,7 @@ export default function Topbar({
                                     {notifications.length > 0 && (
                                         <button
                                             type="button"
-                                            className="entropy-button entropy-button-link notification-mark-all"
+                                            className="notif-action is-danger"
                                             onClick={onClearAllNotifications}
                                         >
                                             <Trash2 size={14} />
@@ -292,6 +292,7 @@ export default function Topbar({
                                                 {!notification.read && (
                                                     <button
                                                         type="button"
+                                                        className="notif-icon-action"
                                                         title="Mark as read"
                                                         aria-label={`Mark "${notification.title}" as read`}
                                                         onClick={() =>
@@ -301,13 +302,12 @@ export default function Topbar({
                                                         }
                                                     >
                                                         <Check size={15} />
-                                                        <span>Read</span>
                                                     </button>
                                                 )}
 
                                                 <button
                                                     type="button"
-                                                    className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm notification-clear"
+                                                    className="notif-icon-action is-danger"
                                                     title="Clear notification"
                                                     aria-label={`Clear "${notification.title}"`}
                                                     onClick={() =>
@@ -317,7 +317,6 @@ export default function Topbar({
                                                     }
                                                 >
                                                     <Trash2 size={15} />
-                                                    <span>Clear</span>
                                                 </button>
                                             </div>
                                         </article>

@@ -423,3 +423,65 @@
 .entropy-app .topbar-create-menu button > svg {
     color: var(--app-accent-fg);
 }
+
+/*
+ * Notification center actions. Own classes (not .entropy-button) so the
+ * link underline and the liquid-glass capsule never apply here.
+ */
+.entropy-app .notification-menu .notification-item-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+}
+
+.entropy-app .notification-menu :is(.notif-action, .notif-icon-action) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--app-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.entropy-app .notification-menu .notif-action {
+    height: 28px;
+    padding: 0 9px;
+}
+
+.entropy-app .notification-menu .notif-icon-action {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+}
+
+.entropy-app .notification-menu :is(.notif-action, .notif-icon-action):hover {
+    color: var(--app-text);
+    background: var(--app-hover-bg);
+    border-color: var(--app-line);
+    text-decoration: none;
+}
+
+.entropy-app .notification-menu :is(.notif-action, .notif-icon-action).is-danger:hover {
+    color: var(--app-danger);
+    background: color-mix(in srgb, var(--app-danger) 10%, transparent);
+    border-color: color-mix(in srgb, var(--app-danger) 30%, transparent);
+}
+
+.entropy-app .notification-menu :is(.notif-action, .notif-icon-action):focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 1px;
+}
+
+.entropy-app .notification-menu .notification-menu-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+}
