@@ -1,0 +1,440 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+    AlertCircle,
+    CheckCircle2,
+    LoaderCircle,
+    Save,
+    ShieldCheck,
+    TriangleAlert,
+    X,
+} from 'lucide-react'
+
+import '../../../styles/workflow-builder.css'
+import { pluginsApi, type PluginContract } from '../../../api/plugins.api'
+import { vaultApi } from '../../../api/vault.api'
+import { workflowsApi, type WorkflowFormat } from '../../../api/workflows.api'
+import { useFeedback } from '../../../components/feedback/FeedbackProvider'
+import CodeView from './CodeView'
+import FormView from './FormView'
+import {
+    definitionFromState,
+    emptyState,
+    parse,
+    serialize,
+    stateFromDefinition,
+    validateState,
+    type BuilderState,
+    type CodeFormat,
+    type Issue,
+    type ParseFailure,
+} from './model'
+
+type View = 'form' | CodeFormat
+
+function errorMessage(error: unknown, fallback: string): string {
+    return error instanceof Error ? error.message : fallback
+}
+
+async function loadVaultKeys(): Promise<string[]> {
+    try {
+        const { items } = await vaultApi.listNamespaces()
+        const entries = await Promise.all(
+            items.map(async (namespace) => {
+                try {
+                    const result = await vaultApi.listEntries(namespace.name)
+                    return result.items.map((entry) => `${namespace.name}/${entry.key}`)
+                } catch {
+                    return []
+                }
+            }),
+        )
+        return entries.flat().sort()
+    } catch {
+        // Vault access is optional for building workflows.
+        return []
+    }
+}
+
+export default function WorkflowBuilder({
+    name,
+    onClose,
+    onSaved,
+}: {
+    /** Name of the workflow to edit; omit to create a new one. */
+    name?: string
+    onClose: () => void
+    onSaved: (name: string) => void
+}) {
+    const { notify, modal } = useFeedback()
+    const editing = name !== undefined
+
+    const [loading, setLoading] = useState(true)
+    const [loadError, setLoadError] = useState<string | null>(null)
+    const [contracts, setContracts] = useState<PluginContract[]>([])
+    const [vaultKeys, setVaultKeys] = useState<string[]>([])
+
+    const [view, setView] = useState<View>('form')
+    const [form, setForm] = useState<BuilderState>(emptyState)
+    const [code, setCode] = useState('')
+    const [initial, setInitial] = useState('')
+
+    const [busy, setBusy] = useState<'save' | 'validate' | null>(null)
+    const [serverResult, setServerResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+    const theme = useMemo(
+        () =>
+            document.documentElement.dataset.theme === 'light' ? 'entropy-light' : 'entropy-dark',
+        [],
+    )
+
+    // ------------------------------------------------------------------
+    // Loading
+    // ------------------------------------------------------------------
+
+    useEffect(() => {
+        let active = true
+
+        Promise.all([
+            pluginsApi.contracts(),
+            loadVaultKeys(),
+            editing ? workflowsApi.get(name, 'json') : Promise.resolve(null),
+        ])
+            .then(([contractList, keys, workflow]) => {
+                if (!active) return
+
+                const state = workflow
+                    ? stateFromDefinition(JSON.parse(workflow.definition))
+                    : emptyState()
+
+                setContracts(contractList.items)
+                setVaultKeys(keys)
+                setForm(state)
+                setInitial(JSON.stringify(definitionFromState(state)))
+            })
+            .catch((error: unknown) => {
+                if (active) setLoadError(errorMessage(error, 'Unable to open the workflow.'))
+            })
+            .finally(() => {
+                if (active) setLoading(false)
+            })
+
+        return () => {
+            active = false
+        }
+    }, [editing, name])
+
+    // ------------------------------------------------------------------
+    // Current definition
+    // ------------------------------------------------------------------
+
+    const codeParse = useMemo(
+        () => (view === 'form' ? null : parse(code, view)),
+        [code, view],
+    )
+    const parseFailure: ParseFailure | null =
+        codeParse && 'failure' in codeParse ? codeParse.failure : null
+
+    /** The state the form would show for the current view, or null if code does not parse. */
+    const currentState = useMemo((): BuilderState | null => {
+        if (view === 'form') return form
+        if (!codeParse || 'failure' in codeParse) return null
+
+        try {
+            return stateFromDefinition(codeParse.value)
+        } catch {
+            return null
+        }
+    }, [codeParse, form, view])
+
+    const contractMap = useMemo(
+        () => new Map(contracts.map((contract) => [contract.qualified_name, contract])),
+        [contracts],
+    )
+
+    const issues: Issue[] = useMemo(() => {
+        if (currentState) return validateState(currentState, contractMap)
+        if (parseFailure) return [{ severity: 'error', message: 'Fix the syntax error before saving.' }]
+        return [{ severity: 'error', message: 'The definition must be an object.' }]
+    }, [contractMap, currentState, parseFailure])
+
+    const errors = issues.filter((issue) => issue.severity === 'error')
+    const warnings = issues.filter((issue) => issue.severity === 'warning')
+
+    const currentDefinitionJson = useMemo(() => {
+        if (view === 'form') return JSON.stringify(definitionFromState(form))
+        return codeParse && 'value' in codeParse ? JSON.stringify(codeParse.value) : null
+    }, [codeParse, form, view])
+
+    const dirty = currentDefinitionJson !== initial
+
+    // ------------------------------------------------------------------
+    // View switching
+    // ------------------------------------------------------------------
+
+    const switchView = (next: View) => {
+        if (next === view) return
+
+        if (view === 'form') {
+            setCode(serialize(definitionFromState(form), next as CodeFormat))
+            setView(next)
+            return
+        }
+
+        if (!codeParse || 'failure' in codeParse) {
+            notify.error('Fix the syntax error first; the definition cannot be converted.', {
+                title: `Invalid ${view.toUpperCase()}`,
+            })
+            return
+        }
+
+        if (next === 'form') {
+            try {
+                setForm(stateFromDefinition(codeParse.value))
+                setView('form')
+            } catch (error) {
+                notify.error(errorMessage(error, 'The definition cannot be shown as a form.'))
+            }
+            return
+        }
+
+        setCode(serialize(codeParse.value, next))
+        setView(next)
+    }
+
+    // ------------------------------------------------------------------
+    // Save / validate / cancel
+    // ------------------------------------------------------------------
+
+    const payload = (): { definition: string; format: WorkflowFormat } | null => {
+        if (view === 'form') return { definition: serialize(definitionFromState(form), 'json'), format: 'json' }
+        return parseFailure ? null : { definition: code, format: view }
+    }
+
+    const validateOnServer = async () => {
+        const body = payload()
+        if (!body) return
+
+        setBusy('validate')
+
+        try {
+            const result = await workflowsApi.validate(body)
+            setServerResult({
+                ok: true,
+                message: `Entropy accepts '${result.workflow.name}' with ${result.workflow.step_count} step${
+                    result.workflow.step_count === 1 ? '' : 's'
+                }.`,
+            })
+        } catch (error) {
+            setServerResult({ ok: false, message: errorMessage(error, 'Validation failed.') })
+        } finally {
+            setBusy(null)
+        }
+    }
+
+    const save = useCallback(async () => {
+        if (busy) return
+
+        if (errors.length > 0) {
+            notify.error(`Fix ${errors.length} problem${errors.length === 1 ? '' : 's'} before saving.`, {
+                title: 'Workflow not saved',
+            })
+            return
+        }
+
+        const body = view === 'form'
+            ? { definition: serialize(definitionFromState(form), 'json'), format: 'json' as const }
+            : { definition: code, format: view }
+
+        setBusy('save')
+        setServerResult(null)
+
+        try {
+            const saved = editing
+                ? await workflowsApi.update(name, body)
+                : await workflowsApi.create(body)
+
+            notify.success(`Workflow '${saved.name}' saved.`, { title: 'Workflow saved' })
+            onSaved(saved.name)
+        } catch (error) {
+            setServerResult({ ok: false, message: errorMessage(error, 'Unable to save the workflow.') })
+        } finally {
+            setBusy(null)
+        }
+    }, [busy, code, editing, errors.length, form, name, notify, onSaved, view])
+
+    const cancel = async () => {
+        if (
+            dirty &&
+            !(await modal.confirm({
+                title: 'Discard unsaved changes?',
+                message: 'Your changes to this workflow will be lost.',
+                confirmText: 'Discard',
+                cancelText: 'Keep editing',
+                destructive: true,
+            }))
+        ) {
+            return
+        }
+
+        onClose()
+    }
+
+    useEffect(() => {
+        if (!dirty) return
+
+        const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+        window.addEventListener('beforeunload', warn)
+        return () => window.removeEventListener('beforeunload', warn)
+    }, [dirty])
+
+    // ------------------------------------------------------------------
+    // Render
+    // ------------------------------------------------------------------
+
+    return (
+        <div className="wf-builder" role="dialog" aria-modal="true" aria-label="Workflow builder">
+            <header className="wf-builder-topbar">
+                <button
+                    type="button"
+                    className="entropy-button entropy-button-secondary"
+                    onClick={() => void cancel()}
+                    disabled={busy === 'save'}
+                >
+                    <X size={16} />
+                    Cancel
+                </button>
+
+                <div className="wf-builder-title">
+                    <strong>{editing ? name : 'New workflow'}</strong>
+                    {dirty && !loading && <span className="wf-chip wf-chip-warning">Unsaved</span>}
+                </div>
+
+                <div className="wf-builder-actions">
+                    <div className="wf-segmented" role="tablist" aria-label="Editor view">
+                        {(['form', 'json', 'yaml'] as View[]).map((option) => (
+                            <button
+                                key={option}
+                                type="button"
+                                role="tab"
+                                aria-selected={view === option}
+                                className={view === option ? 'is-active' : ''}
+                                onClick={() => switchView(option)}
+                                disabled={loading || !!loadError}
+                            >
+                                {option === 'form' ? 'Form' : option.toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
+
+                    <button
+                        type="button"
+                        className="entropy-button entropy-button-secondary"
+                        onClick={() => void validateOnServer()}
+                        disabled={loading || !!loadError || busy !== null || !!parseFailure}
+                        title="Check the definition with Entropy's workflow validator"
+                    >
+                        {busy === 'validate' ? (
+                            <LoaderCircle size={15} className="entropy-spin" />
+                        ) : (
+                            <ShieldCheck size={15} />
+                        )}
+                        Validate
+                    </button>
+
+                    <button
+                        type="button"
+                        className="entropy-button entropy-button-primary"
+                        onClick={() => void save()}
+                        disabled={loading || !!loadError || busy !== null || (editing && !dirty)}
+                    >
+                        {busy === 'save' ? (
+                            <LoaderCircle size={15} className="entropy-spin" />
+                        ) : (
+                            <Save size={15} />
+                        )}
+                        {editing ? 'Save' : 'Create'}
+                    </button>
+                </div>
+            </header>
+
+            {(serverResult || errors.length > 0 || warnings.length > 0) && !loading && !loadError && (
+                <div className="wf-builder-banner">
+                    {serverResult && (
+                        <div
+                            className={`entropy-alert ${serverResult.ok ? 'entropy-alert-success' : 'entropy-alert-error'}`}
+                            role={serverResult.ok ? 'status' : 'alert'}
+                        >
+                            {serverResult.ok ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+                            <span>{serverResult.message}</span>
+                        </div>
+                    )}
+                    {(errors.length > 0 || warnings.length > 0) && (
+                        <details className="wf-problems" open={errors.length > 0 && errors.length <= 4}>
+                            <summary>
+                                {errors.length > 0 && (
+                                    <span className="wf-problems-count is-error">
+                                        <AlertCircle size={13} /> {errors.length} error{errors.length === 1 ? '' : 's'}
+                                    </span>
+                                )}
+                                {warnings.length > 0 && (
+                                    <span className="wf-problems-count is-warning">
+                                        <TriangleAlert size={13} /> {warnings.length} warning
+                                        {warnings.length === 1 ? '' : 's'}
+                                    </span>
+                                )}
+                            </summary>
+                            <ul>
+                                {[...errors, ...warnings].map((issue) => (
+                                    <li key={`${issue.target}-${issue.message}`} className={`is-${issue.severity}`}>
+                                        {issue.message}
+                                    </li>
+                                ))}
+                            </ul>
+                        </details>
+                    )}
+                </div>
+            )}
+
+            <div className="wf-builder-body">
+                {loading ? (
+                    <div className="wf-builder-state">
+                        <LoaderCircle size={22} className="entropy-spin" />
+                        Loading plugins{editing ? ' and workflow' : ''}…
+                    </div>
+                ) : loadError ? (
+                    <div className="wf-builder-state" role="alert">
+                        <AlertCircle size={22} />
+                        {loadError}
+                        <button type="button" className="entropy-button entropy-button-secondary" onClick={onClose}>
+                            Close
+                        </button>
+                    </div>
+                ) : view === 'form' ? (
+                    <FormView
+                        state={form}
+                        onChange={(next) => {
+                            setForm(next)
+                            setServerResult(null)
+                        }}
+                        contracts={contracts}
+                        vaultKeys={vaultKeys}
+                        issues={issues}
+                        editing={editing}
+                    />
+                ) : (
+                    <CodeView
+                        text={code}
+                        format={view}
+                        failure={parseFailure}
+                        theme={theme}
+                        onChange={(text) => {
+                            setCode(text)
+                            setServerResult(null)
+                        }}
+                        onSaveShortcut={() => void save()}
+                    />
+                )}
+            </div>
+        </div>
+    )
+}

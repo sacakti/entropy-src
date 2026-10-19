@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from core.web.plugin_studio.analysis import Diagnostic
+from core.web.plugin_studio.contract import plugin_contract
 from core.web.plugin_studio.sdk import build_catalog
 from core.web.plugin_studio.workspace import (
     PluginStudio,
@@ -284,6 +285,34 @@ def plugin_sdk(
 
     response.headers["Cache-Control"] = "no-store"
     return build_catalog()
+
+
+@router.get("/contracts")
+def plugin_contracts(
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Arguments and outputs of every installed plugin, for the workflow builder."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.list")
+
+    manager = _plugin_manager(request)
+    items = []
+
+    for plugin in manager.list():
+        contract = plugin_contract(plugin.path) if plugin.path.is_dir() else {
+            "description": None,
+            "arguments": [],
+            "outputs": [],
+        }
+        items.append({**_serialize_plugin(plugin), **contract})
+
+    items.sort(key=lambda item: item["qualified_name"])
+
+    response.headers["Cache-Control"] = "no-store"
+    return {"items": items}
 
 
 @router.get("/availability")

@@ -28,7 +28,7 @@ import {
     type PluginListParams,
 } from '../../api/plugins.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
-import AppPortal from './AppPortal'
+import AppPortal from '../../components/layout/AppPortal'
 import CreatePluginModal from './CreatePluginModal'
 
 // Monaco is large; load the editor only when a plugin is opened.

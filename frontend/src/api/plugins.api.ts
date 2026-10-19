@@ -129,6 +129,32 @@ export interface PluginSdkCatalog {
     symbols: SdkSymbol[]
 }
 
+export type PluginArgumentType =
+    | 'string'
+    | 'boolean'
+    | 'integer'
+    | 'number'
+    | 'path'
+    | 'list'
+    | 'dictionary'
+    | 'any'
+
+export interface PluginArgumentSpec {
+    name: string
+    type: PluginArgumentType
+    required: boolean
+    default: unknown
+    minimum?: number
+    maximum?: number
+}
+
+/** Arguments a plugin reads and outputs it publishes, recovered from its source. */
+export interface PluginContract extends PluginItem {
+    description: string | null
+    arguments: PluginArgumentSpec[]
+    outputs: string[]
+}
+
 /** Diagnostics carried by a 422 save response, if any. */
 export function diagnosticsFrom(detail: unknown): PluginDiagnostic[] | null {
     const diagnostics = (detail as { diagnostics?: unknown } | null)?.diagnostics
@@ -209,6 +235,10 @@ export const pluginsApi = {
         qualifiedName: string,
     ): Promise<{ deleted: boolean; qualified_name: string }> {
         return apiRequest(pluginPath(qualifiedName), { method: 'DELETE' })
+    },
+
+    contracts(): Promise<{ items: PluginContract[] }> {
+        return apiRequest<{ items: PluginContract[] }>('/api/plugins/contracts')
     },
 
     sdk(): Promise<PluginSdkCatalog> {

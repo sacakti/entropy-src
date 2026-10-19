@@ -3,11 +3,12 @@
  *
  * Entropy is often deployed without Internet access, so Monaco is bundled
  * locally instead of being fetched from a CDN, and only the languages plugin
- * development needs (Python, JSON, Markdown) are included.
+ * development needs (Python, JSON, YAML, Markdown) are included.
  */
 import * as monaco from 'monaco-editor/esm/vs/editor/edcore.main'
 import 'monaco-editor/esm/vs/basic-languages/python/python.contribution'
 import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution'
+import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution'
 import 'monaco-editor/esm/vs/language/json/monaco.contribution'
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'

@@ -528,7 +528,7 @@ and step arguments can reference them:
 
 ```yaml
 arguments:
-  environment: "${variables.environment}"
+  environment: "${environment}"
 ```
 
 Runtime variable overrides can be supplied from the CLI:
