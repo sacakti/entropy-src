@@ -1,0 +1,568 @@
+/*
+ * ==========================================================
+ * Entropy — Plugins
+ *
+ * Responsibilities:
+ * - Plugin inventory layout
+ * - Search, filters and table
+ * - Plugin status and pagination
+ *
+ * Global ownership:
+ * - theme.css: theme tokens and typography
+ * - shell.css: workspace background and application shell
+ * - buttons.css: shared button styles
+ * ==========================================================
+ */
+
+.entropy-app .plugins-page {
+    --plugins-panel: var(--app-panel-bg);
+    --plugins-panel-hover: var(--app-panel-hover);
+
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    color: var(--app-text);
+    font-family: inherit;
+}
+
+.entropy-app .plugins-page *,
+.entropy-app .plugins-page *::before,
+.entropy-app .plugins-page *::after {
+    box-sizing: border-box;
+}
+
+/* ----------------------------------------------------------
+   Toolbar
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+}
+
+.entropy-app .plugins-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 300px;
+    min-width: 0;
+    max-width: 560px;
+    min-height: 40px;
+    padding: 0 12px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    transition: border-color 0.15s ease;
+}
+
+.entropy-app .plugins-search:focus-within {
+    border-color: var(--app-accent);
+}
+
+.entropy-app .plugins-search > svg {
+    flex: 0 0 auto;
+    color: var(--app-muted);
+}
+
+.entropy-app .plugins-search input {
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    outline: 0;
+    font: inherit;
+    font-size: 12px;
+}
+
+.entropy-app .plugins-search input::placeholder {
+    color: var(--app-subtle);
+}
+
+.entropy-app .plugins-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .plugins-toolbar-actions select {
+    min-height: 38px;
+    max-width: 190px;
+    padding: 0 30px 0 10px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.entropy-app .plugins-create,
+.entropy-app .plugins-retry,
+.entropy-app .plugins-dismiss {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 13px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        opacity 0.15s ease;
+}
+
+.entropy-app .plugins-create {
+    color: var(--app-accent);
+    border-color: var(--app-accent-border);
+    background: var(--app-accent-soft);
+}
+
+.entropy-app .plugins-create:hover,
+.entropy-app .plugins-retry:hover,
+.entropy-app .plugins-dismiss:hover {
+    background: var(--app-surface-hover);
+    border-color: var(--app-hover-border);
+}
+
+.entropy-app .plugins-create:hover {
+    color: var(--app-accent);
+    border-color: var(--app-accent);
+}
+
+/* ----------------------------------------------------------
+   Notices and errors
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-notice,
+.entropy-app .plugins-error {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    padding: 13px 15px;
+    color: var(--app-muted);
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.entropy-app .plugins-notice > span,
+.entropy-app .plugins-error > span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .plugins-notice > button {
+    flex: 0 0 auto;
+    padding: 0 2px;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.entropy-app .plugins-error {
+    color: #ff8989;
+    background: color-mix(
+        in srgb,
+        #ff4545 8%,
+        var(--app-surface)
+    );
+    border-color: color-mix(
+        in srgb,
+        #ff4545 25%,
+        var(--app-line)
+    );
+}
+
+/* ----------------------------------------------------------
+   Inventory table
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-table-wrap {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    background: var(--plugins-panel);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.entropy-app .plugins-table {
+    width: 100%;
+    min-width: 850px;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 12px;
+}
+
+.entropy-app .plugins-table th {
+    height: 46px;
+    padding: 0 15px;
+    color: var(--app-muted);
+    background: color-mix(
+        in srgb,
+        var(--app-surface) 58%,
+        transparent
+    );
+    border-bottom: 1px solid var(--app-line);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.entropy-app .plugins-table td {
+    padding: 14px 15px;
+    color: var(--app-text);
+    border-bottom: 1px solid var(--app-line);
+    vertical-align: middle;
+}
+
+.entropy-app .plugins-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.entropy-app .plugins-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+.entropy-app .plugins-table tbody tr:hover {
+    background: var(--plugins-panel-hover);
+}
+
+.entropy-app .plugins-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.entropy-app .plugins-sort:hover,
+.entropy-app .plugins-sort.is-active {
+    color: var(--app-accent);
+}
+
+.entropy-app .plugins-sort svg {
+    flex: 0 0 auto;
+}
+
+/* ----------------------------------------------------------
+   Plugin identity
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-name {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 160px;
+}
+
+.entropy-app .plugins-name-icon {
+    display: flex;
+    flex: 0 0 38px;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    color: var(--app-accent);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 9px;
+}
+
+.entropy-app .plugins-name-icon code {
+    color: inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.entropy-app .plugins-name > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.entropy-app .plugins-name strong {
+    overflow: hidden;
+    color: var(--app-text);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .plugins-name > div > span {
+    overflow: hidden;
+    color: var(--app-muted);
+    font-size: 10px;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .plugins-version {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 7px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.entropy-app .plugins-date {
+    color: var(--app-muted) !important;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.entropy-app .plugins-operation-placeholder {
+    color: var(--app-subtle);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+/* ----------------------------------------------------------
+   Enabled and disabled states
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    width: fit-content;
+    max-width: 100%;
+    padding: 5px 8px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 650;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.entropy-app .plugins-status-dot {
+    flex: 0 0 6px;
+    width: 6px;
+    height: 6px;
+    background: currentColor;
+    border-radius: 50%;
+}
+
+.entropy-app .plugins-status.is-enabled {
+    color: #73d6a0;
+}
+
+.entropy-app .plugins-status.is-disabled {
+    color: var(--app-muted);
+}
+
+/* ----------------------------------------------------------
+   Empty, loading and error rows
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-empty {
+    height: 150px;
+    padding: 28px !important;
+    color: var(--app-muted) !important;
+    text-align: center;
+    font-size: 12px;
+}
+
+/* ----------------------------------------------------------
+   Pagination
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    color: var(--app-muted);
+    font-size: 11px;
+}
+
+.entropy-app .plugins-pagination-summary {
+    line-height: 1.6;
+}
+
+.entropy-app .plugins-pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.entropy-app .plugins-pagination-controls label,
+.entropy-app .plugins-pagination-controls span {
+    color: var(--app-muted);
+    white-space: nowrap;
+}
+
+.entropy-app .plugins-pagination-controls input {
+    width: 58px;
+    min-height: 32px;
+    padding: 0 7px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 7px;
+    font: inherit;
+    font-size: 11px;
+    text-align: center;
+}
+
+.entropy-app .plugins-page-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        opacity 0.15s ease;
+}
+
+.entropy-app .plugins-page-arrow:hover:not(:disabled) {
+    background: var(--app-surface-hover);
+    border-color: var(--app-hover-border);
+}
+
+.entropy-app .plugins-page-arrow:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ----------------------------------------------------------
+   Accessibility
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-create:focus-visible,
+.entropy-app .plugins-retry:focus-visible,
+.entropy-app .plugins-dismiss:focus-visible,
+.entropy-app .plugins-page-arrow:focus-visible,
+.entropy-app .plugins-sort:focus-visible,
+.entropy-app .plugins-search input:focus-visible,
+.entropy-app .plugins-toolbar-actions select:focus-visible,
+.entropy-app .plugins-pagination-controls input:focus-visible,
+.entropy-app .plugins-notice > button:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .plugins-search,
+    .entropy-app .plugins-create,
+    .entropy-app .plugins-retry,
+    .entropy-app .plugins-dismiss,
+    .entropy-app .plugins-table tbody tr,
+    .entropy-app .plugins-page-arrow {
+        transition: none;
+    }
+}
+
+/* ----------------------------------------------------------
+   Responsive layout
+   ---------------------------------------------------------- */
+
+@media (max-width: 760px) {
+    .entropy-app .plugins-page {
+        gap: 16px;
+    }
+
+    .entropy-app .plugins-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .entropy-app .plugins-search {
+        flex-basis: auto;
+        max-width: none;
+    }
+
+    .entropy-app .plugins-toolbar-actions {
+        justify-content: flex-start;
+    }
+
+    .entropy-app .plugins-pagination {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .entropy-app .plugins-toolbar-actions select {
+        flex: 1 1 140px;
+        max-width: none;
+    }
+
+    .entropy-app .plugins-create {
+        flex: 0 0 auto;
+    }
+
+    .entropy-app .plugins-pagination-controls {
+        flex-wrap: wrap;
+    }
+}

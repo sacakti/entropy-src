@@ -22,6 +22,7 @@ import Preferences from './features/preferences/Preferences'
 import Permissions from './features/permissions/Permissions'
 import Vault from './features/vault/Vault'
 import Workflows from './features/workflows/Workflows'
+import Plugins from './features/plugins/Plugins'
 
 import {
     pageDescriptions,
@@ -173,10 +174,12 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
                         <Vault />
                     ) : activePage === 'workflows' ? (
                     <Workflows />
+                ) : activePage === 'plugins' ? (
+                    <Plugins />
                 ) : (
                     <section className="content-panel placeholder-panel">
                             <span className="placeholder-icon">
-                                {activePage === 'plugins' && <Blocks size={25} />}
+                                {/* {activePage === 'plugins' && <Blocks size={25} />} */}
                                 {/* {activePage === 'workflows' && <Workflow size={25} />} */}
                                 {/* {activePage === 'vault' && <KeyRound size={25} />} */}
                                 {activePage === 'nodes' && <Server size={25} />}
