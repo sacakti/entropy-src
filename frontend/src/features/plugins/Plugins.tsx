@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import {
     Activity,
     AlertCircle,
@@ -12,17 +12,28 @@ import {
     Copy,
     Filter,
     MoreHorizontal,
+    LoaderCircle,
     Package,
+    Pencil,
+    Plus,
     RefreshCw,
     Search,
+    Trash2,
     X,
 } from 'lucide-react'
 
 import {
     listPlugins,
+    pluginsApi,
     type PluginItem,
     type PluginListParams,
 } from '../../api/plugins.api'
+import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import AppPortal from './AppPortal'
+import CreatePluginModal from './CreatePluginModal'
+
+// Monaco is large; load the editor only when a plugin is opened.
+const PluginEditor = lazy(() => import('./editor/PluginEditor'))
 
 type PluginStatusFilter = 'all' | 'enabled' | 'disabled'
 type PluginSortField = NonNullable<PluginListParams['sort_by']>
@@ -111,12 +122,18 @@ function SortButton({
 
 function PluginRow({
     plugin,
+    deleting,
     onCopy,
     onViewDetails,
+    onEdit,
+    onDelete,
 }: {
     plugin: PluginItem
+    deleting: boolean
     onCopy: (value: string) => void
     onViewDetails: (plugin: PluginItem) => void
+    onEdit: (plugin: PluginItem) => void
+    onDelete: (plugin: PluginItem) => void
 }) {
     const [menuOpen, setMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
@@ -186,6 +203,30 @@ function PluginRow({
                 <div className="plugins-operations" ref={menuRef}>
                     <button
                         type="button"
+                        className="plugins-operation-button"
+                        aria-label={`Edit ${plugin.qualified_name}`}
+                        title="Edit"
+                        onClick={() => onEdit(plugin)}
+                        disabled={deleting}
+                    >
+                        <Pencil size={15} />
+                    </button>
+                    <button
+                        type="button"
+                        className="plugins-operation-button plugins-operation-danger"
+                        aria-label={`Delete ${plugin.qualified_name}`}
+                        title="Delete"
+                        onClick={() => onDelete(plugin)}
+                        disabled={deleting}
+                    >
+                        {deleting ? (
+                            <LoaderCircle size={15} className="plugins-spin" />
+                        ) : (
+                            <Trash2 size={15} />
+                        )}
+                    </button>
+                    <button
+                        type="button"
                         className="plugins-operation-trigger"
                         aria-label={`Operations for ${plugin.name}`}
                         aria-haspopup="menu"
@@ -248,6 +289,12 @@ export default function Plugins() {
     const [selectedPlugin, setSelectedPlugin] =
         useState<PluginItem | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
+    const [summaryTotal, setSummaryTotal] = useState(0)
+    const [createOpen, setCreateOpen] = useState(false)
+    const [editingPlugin, setEditingPlugin] = useState<PluginItem | null>(null)
+    const [deletingName, setDeletingName] = useState<string | null>(null)
+
+    const { notify, modal } = useFeedback()
 
     const requestInProgress = useRef(false)
     const hasLoaded = useRef(false)
@@ -255,11 +302,8 @@ export default function Plugins() {
     const loadPlugins = useCallback(async () => {
         if (requestInProgress.current) return
 
+        // `loading` starts true and only covers the first load.
         requestInProgress.current = true
-
-        if (!hasLoaded.current) {
-            setLoading(true)
-        }
 
         try {
             const result = await listPlugins({
@@ -275,6 +319,7 @@ export default function Plugins() {
             })
 
             setPlugins(result.items)
+            setSummaryTotal(result.summary.total)
             setTotal(result.pagination.total)
             setTotalPages(result.pagination.total_pages)
             setError(null)
@@ -284,6 +329,7 @@ export default function Plugins() {
             setError('Unable to refresh plugin data.')
         } finally {
             setLoading(false)
+            setRefreshing(false)
             requestInProgress.current = false
         }
     }, [search, statusFilter, sortBy, order, page])
@@ -291,16 +337,56 @@ export default function Plugins() {
     useEffect(() => {
         void loadPlugins()
 
+        // Pause background polling while the editor is open.
+        if (editingPlugin) return
+
         const timer = window.setInterval(() => {
             void loadPlugins()
         }, 5000)
 
         return () => window.clearInterval(timer)
-    }, [loadPlugins])
+    }, [loadPlugins, editingPlugin])
 
-    useEffect(() => {
+    const refreshPlugins = () => {
+        setRefreshing(true)
         void loadPlugins()
-    }, [loadPlugins])
+    }
+
+    const handleDelete = async (plugin: PluginItem) => {
+        const confirmed = await modal.confirm({
+            title: `Delete ${plugin.qualified_name}?`,
+            message:
+                'The plugin is uninstalled and its module directory is removed. ' +
+                'Workflows that reference it will fail until it is installed again.',
+            confirmText: 'Delete plugin',
+            cancelText: 'Cancel',
+            destructive: true,
+        })
+
+        if (!confirmed) return
+
+        setDeletingName(plugin.qualified_name)
+
+        try {
+            await pluginsApi.delete(plugin.qualified_name)
+            notify.success(`${plugin.qualified_name} was deleted.`, {
+                title: 'Plugin deleted',
+            })
+
+            if (plugins.length === 1 && page > 1) {
+                setPage((current) => current - 1)
+            } else {
+                refreshPlugins()
+            }
+        } catch (cause) {
+            notify.error(
+                cause instanceof Error ? cause.message : 'Unable to delete plugin.',
+                { title: 'Delete failed' },
+            )
+        } finally {
+            setDeletingName(null)
+        }
+    }
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -363,7 +449,7 @@ export default function Plugins() {
                     <button
                         type="button"
                         className="plugins-refresh"
-                        onClick={() => void loadPlugins(true)}
+                        onClick={refreshPlugins}
                         disabled={loading || refreshing}
                     >
                         <RefreshCw
@@ -382,7 +468,7 @@ export default function Plugins() {
                     <button
                         type="button"
                         className="plugins-retry"
-                        onClick={() => void loadPlugins(true)}
+                        onClick={refreshPlugins}
                         disabled={refreshing}
                     >
                         Retry
@@ -406,14 +492,33 @@ export default function Plugins() {
             )}
 
             <section className="dashboard-section plugins-section">
-                <div className="dashboard-section-heading">
+                <div className="dashboard-section-heading plugins-section-heading">
                     <div>
-                        <h2>Installed plugins</h2>
+                        <h2>
+                            Installed plugins
+                            <span
+                                className="plugins-count"
+                                aria-label={`${summaryTotal} plugins in total`}
+                            >
+                                {summaryTotal.toLocaleString()}
+                            </span>
+                        </h2>
                         <p>
                             {total.toLocaleString()} plugin
-                            {total === 1 ? '' : 's'} registered
+                            {total === 1 ? '' : 's'}{' '}
+                            {hasFilters ? 'match the current filters' : 'registered'}
                         </p>
                     </div>
+
+                    <button
+                        type="button"
+                        className="plugins-create-button"
+                        aria-label="Create plugin"
+                        title="Create plugin"
+                        onClick={() => setCreateOpen(true)}
+                    >
+                        <Plus size={20} />
+                    </button>
                 </div>
 
                 <div className="plugins-toolbar">
@@ -549,8 +654,11 @@ export default function Plugins() {
                                     <PluginRow
                                         key={plugin.id}
                                         plugin={plugin}
+                                        deleting={deletingName === plugin.qualified_name}
                                         onCopy={(value) => void handleCopy(value)}
                                         onViewDetails={setSelectedPlugin}
+                                        onEdit={setEditingPlugin}
+                                        onDelete={(item) => void handleDelete(item)}
                                     />
                                 ))
                             ) : (
@@ -631,84 +739,125 @@ export default function Plugins() {
             </section>
 
             {selectedPlugin && (
-                <div
-                    className="plugins-modal-backdrop"
-                    role="presentation"
-                    onMouseDown={(event) => {
-                        if (event.target === event.currentTarget) {
-                            setSelectedPlugin(null)
-                        }
-                    }}
-                >
-                    <section
-                        className="plugins-details-modal"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="plugins-details-title"
+                <AppPortal>
+                    <div
+                        className="plugins-modal-backdrop"
+                        role="presentation"
+                        onMouseDown={(event) => {
+                            if (event.target === event.currentTarget) {
+                                setSelectedPlugin(null)
+                            }
+                        }}
                     >
-                        <header className="plugins-modal-heading">
-                            <div>
-                                <p className="dashboard-eyebrow">
-                                    PLUGIN DETAILS
-                                </p>
-                                <h2 id="plugins-details-title">
-                                    {selectedPlugin.name}
-                                </h2>
-                            </div>
-                            <button
-                                type="button"
-                                className="plugins-dismiss"
-                                aria-label="Close plugin details"
-                                onClick={() => setSelectedPlugin(null)}
-                            >
-                                <X size={18} />
-                            </button>
-                        </header>
+                        <section
+                            className="plugins-details-modal"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="plugins-details-title"
+                        >
+                            <header className="plugins-modal-heading">
+                                <div>
+                                    <p className="dashboard-eyebrow">
+                                        PLUGIN DETAILS
+                                    </p>
+                                    <h2 id="plugins-details-title">
+                                        {selectedPlugin.name}
+                                    </h2>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="plugins-dismiss"
+                                    aria-label="Close plugin details"
+                                    onClick={() => setSelectedPlugin(null)}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </header>
 
-                        <dl className="plugins-details-list">
-                            <div>
-                                <dt>Qualified name</dt>
-                                <dd>{selectedPlugin.qualified_name}</dd>
-                            </div>
-                            <div>
-                                <dt>Namespace</dt>
-                                <dd>{selectedPlugin.namespace}</dd>
-                            </div>
-                            <div>
-                                <dt>Version</dt>
-                                <dd>{selectedPlugin.version}</dd>
-                            </div>
-                            <div>
-                                <dt>Status</dt>
-                                <dd>
-                                    <StatusBadge
-                                        enabled={selectedPlugin.enabled}
-                                    />
-                                </dd>
-                            </div>
-                            <div>
-                                <dt>Installed at</dt>
-                                <dd>
-                                    {formatDate(selectedPlugin.installed_at)}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt>Registry ID</dt>
-                                <dd>{selectedPlugin.id}</dd>
-                            </div>
-                        </dl>
+                            <dl className="plugins-details-list">
+                                <div>
+                                    <dt>Qualified name</dt>
+                                    <dd>{selectedPlugin.qualified_name}</dd>
+                                </div>
+                                <div>
+                                    <dt>Namespace</dt>
+                                    <dd>{selectedPlugin.namespace}</dd>
+                                </div>
+                                <div>
+                                    <dt>Version</dt>
+                                    <dd>{selectedPlugin.version}</dd>
+                                </div>
+                                <div>
+                                    <dt>Status</dt>
+                                    <dd>
+                                        <StatusBadge
+                                            enabled={selectedPlugin.enabled}
+                                        />
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt>Installed at</dt>
+                                    <dd>
+                                        {formatDate(selectedPlugin.installed_at)}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt>Registry ID</dt>
+                                    <dd>{selectedPlugin.id}</dd>
+                                </div>
+                            </dl>
 
-                        <footer className="plugins-modal-footer">
-                            <button
-                                type="button"
-                                className="plugins-refresh"
-                                onClick={() => setSelectedPlugin(null)}
-                            >
-                                Close
-                            </button>
-                        </footer>
-                    </section>
-                </div>
+                            <footer className="plugins-modal-footer">
+                                <button
+                                    type="button"
+                                    className="plugins-refresh"
+                                    onClick={() => setSelectedPlugin(null)}
+                                >
+                                    Close
+                                </button>
+                            </footer>
+                        </section>
+                    </div>
+                </AppPortal>
+            )}
+
+            {createOpen && (
+                <AppPortal>
+                    <CreatePluginModal
+                        onClose={() => setCreateOpen(false)}
+                        onCreated={(plugin) => {
+                            setCreateOpen(false)
+                            notify.success(
+                                `${plugin.qualified_name} was created from the plugin template.`,
+                                { title: 'Plugin created' },
+                            )
+                            refreshPlugins()
+                            setEditingPlugin(plugin)
+                        }}
+                    />
+                </AppPortal>
+            )}
+
+            {editingPlugin && (
+                <AppPortal>
+                    <Suspense
+                        fallback={
+                            <div className="plugins-modal-backdrop" role="status">
+                                <LoaderCircle size={24} className="plugins-spin" />
+                            </div>
+                        }
+                    >
+                        <PluginEditor
+                            key={editingPlugin.qualified_name}
+                            plugin={editingPlugin}
+                            onClose={() => setEditingPlugin(null)}
+                            onSaved={() => {
+                                setEditingPlugin(null)
+                                refreshPlugins()
+                            }}
+                        />
+                    </Suspense>
+                </AppPortal>
             )}
         </section>
     )

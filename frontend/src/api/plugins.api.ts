@@ -12,6 +12,10 @@ export interface PluginItem {
 
 export interface PluginListResponse {
     items: PluginItem[]
+    summary: {
+        total: number
+        enabled: number
+    }
     pagination: {
         page: number
         page_size: number
@@ -55,4 +59,159 @@ export async function listPlugins(
     return apiRequest<PluginListResponse>(
         `/api/plugins?${query.toString()}`,
     )
+}
+
+// ----------------------------------------------------------------------
+// Plugin development
+// ----------------------------------------------------------------------
+
+export interface PluginFile {
+    path: string
+    content: string
+}
+
+export interface PluginFilesResponse {
+    plugin: PluginItem
+    files: PluginFile[]
+    revision: string
+}
+
+export type DiagnosticSeverity = 'error' | 'warning' | 'info'
+
+export interface PluginDiagnostic {
+    path: string
+    severity: DiagnosticSeverity
+    message: string
+    line: number
+    column: number
+    end_line: number | null
+    end_column: number | null
+    source: string
+}
+
+export interface PluginValidationResponse {
+    valid: boolean
+    diagnostics: PluginDiagnostic[]
+}
+
+export interface PluginAvailability {
+    available: boolean
+    reason: string | null
+}
+
+export interface SdkMember {
+    name: string
+    kind: 'property' | 'method'
+    type: string | null
+    signature?: string
+    annotation?: string | null
+    doc: string
+}
+
+export interface SdkType {
+    name: string
+    module: string
+    doc: string
+    members: SdkMember[]
+}
+
+export interface SdkSymbol {
+    name: string
+    module: string
+    kind: 'class' | 'function'
+    signature: string
+    doc: string
+}
+
+export interface PluginSdkCatalog {
+    root: string
+    types: Record<string, SdkType>
+    symbols: SdkSymbol[]
+}
+
+/** Diagnostics carried by a 422 save response, if any. */
+export function diagnosticsFrom(detail: unknown): PluginDiagnostic[] | null {
+    const diagnostics = (detail as { diagnostics?: unknown } | null)?.diagnostics
+
+    return Array.isArray(diagnostics)
+        ? (diagnostics as PluginDiagnostic[])
+        : null
+}
+
+function pluginPath(qualifiedName: string, suffix = ''): string {
+    return `/api/plugins/${encodeURIComponent(qualifiedName)}${suffix}`
+}
+
+const jsonHeaders = { 'Content-Type': 'application/json' }
+
+export const pluginsApi = {
+    availability(
+        namespace: string,
+        name: string,
+    ): Promise<PluginAvailability> {
+        const query = new URLSearchParams({ namespace, name })
+
+        return apiRequest<PluginAvailability>(
+            `/api/plugins/availability?${query.toString()}`,
+        )
+    },
+
+    create(payload: {
+        namespace: string
+        name: string
+        description?: string
+    }): Promise<PluginItem> {
+        return apiRequest<PluginItem>('/api/plugins', {
+            method: 'POST',
+            headers: jsonHeaders,
+            body: JSON.stringify(payload),
+        })
+    },
+
+    files(qualifiedName: string): Promise<PluginFilesResponse> {
+        return apiRequest<PluginFilesResponse>(
+            pluginPath(qualifiedName, '/files'),
+        )
+    },
+
+    validate(
+        qualifiedName: string,
+        files: Record<string, string>,
+        signal?: AbortSignal,
+    ): Promise<PluginValidationResponse> {
+        return apiRequest<PluginValidationResponse>(
+            pluginPath(qualifiedName, '/validate'),
+            {
+                method: 'POST',
+                headers: jsonHeaders,
+                body: JSON.stringify({ files }),
+                signal,
+            },
+        )
+    },
+
+    save(
+        qualifiedName: string,
+        files: Record<string, string>,
+        revision: string,
+    ): Promise<PluginFilesResponse> {
+        return apiRequest<PluginFilesResponse>(
+            pluginPath(qualifiedName, '/files'),
+            {
+                method: 'PUT',
+                headers: jsonHeaders,
+                body: JSON.stringify({ files, revision }),
+            },
+        )
+    },
+
+    delete(
+        qualifiedName: string,
+    ): Promise<{ deleted: boolean; qualified_name: string }> {
+        return apiRequest(pluginPath(qualifiedName), { method: 'DELETE' })
+    },
+
+    sdk(): Promise<PluginSdkCatalog> {
+        return apiRequest<PluginSdkCatalog>('/api/plugins/sdk')
+    },
 }

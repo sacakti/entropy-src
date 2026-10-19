@@ -1,11 +1,9 @@
 """
-Installed plugin inventory API.
+Installed plugin inventory and browser plugin development API.
 """
 
-from typing import Any, Optional
-
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, Optional
 
 from fastapi import (
     APIRouter,
@@ -13,12 +11,21 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    Response,
 )
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
-from core.web.routes.auth import _current_session
+from core.web.plugin_studio.analysis import Diagnostic
+from core.web.plugin_studio.sdk import build_catalog
+from core.web.plugin_studio.workspace import (
+    PluginStudio,
+    PluginStudioError,
+    PluginValidationFailed,
+)
+from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
-
+from lib.plugins.exceptions import InvalidPluginNameError, PluginNotFoundError
 
 router = APIRouter(
     prefix="/api/plugins",
@@ -82,7 +89,7 @@ def _serialize_plugin(plugin: Any) -> dict[str, Any]:
 
 
 @router.get("")
-async def list_plugins(
+def list_plugins(
     request: Request,
     session_record: tuple = Depends(_current_session),
     q: str = Query(
@@ -135,6 +142,11 @@ async def list_plugins(
         for plugin in plugins
     ]
 
+    summary = {
+        "total": len(items),
+        "enabled": sum(1 for item in items if item["enabled"]),
+    }
+
     search = q.strip().casefold()
 
     if search:
@@ -178,6 +190,7 @@ async def list_plugins(
     return JSONResponse(
         content={
             "items": paged_items,
+            "summary": summary,
             "pagination": {
                 "page": page,
                 "page_size": page_size,
@@ -189,3 +202,230 @@ async def list_plugins(
             "Cache-Control": "no-store",
         },
     )
+
+
+# ----------------------------------------------------------------------
+# Plugin development
+# ----------------------------------------------------------------------
+
+
+class PluginCreateRequest(BaseModel):
+    """A new plugin scaffolded from the plugin template."""
+
+    namespace: str = Field(max_length=64)
+    name: str = Field(max_length=64)
+    description: str = Field(default="", max_length=200)
+
+
+class PluginFilesRequest(BaseModel):
+    """Changed plugin files keyed by plugin-relative path."""
+
+    files: Dict[str, str]
+
+
+class PluginSaveRequest(PluginFilesRequest):
+    """Changed files plus the revision they were edited from."""
+
+    revision: str
+
+
+def _studio(request: Request) -> PluginStudio:
+    _plugin_manager(request)  # 503 when the plugin subsystem is unavailable
+    return PluginStudio(request.app.state.entropy_context)
+
+
+def _diagnostics(items: list[Diagnostic]) -> list[dict[str, Any]]:
+    return [item.to_dict() for item in items]
+
+
+def _translate(exc: Exception) -> HTTPException:
+    if isinstance(exc, PluginValidationFailed):
+        return HTTPException(
+            status_code=422,
+            detail={
+                "message": str(exc),
+                "diagnostics": _diagnostics(exc.diagnostics),
+            },
+        )
+
+    if isinstance(exc, PluginStudioError):
+        return HTTPException(status_code=exc.status_code, detail=str(exc))
+
+    if isinstance(exc, PluginNotFoundError):
+        return HTTPException(status_code=404, detail="Plugin not found.")
+
+    if isinstance(exc, InvalidPluginNameError):
+        return HTTPException(status_code=422, detail=str(exc))
+
+    return HTTPException(status_code=422, detail=str(exc))
+
+
+def _files_payload(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "plugin": _serialize_plugin(result["plugin"]),
+        "files": [
+            {"path": path, "content": content}
+            for path, content in result["files"].items()
+        ],
+        "revision": result["revision"],
+    }
+
+
+@router.get("/sdk")
+def plugin_sdk(
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Describe the Plugin SDK for editor completion and hover help."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.list")
+
+    response.headers["Cache-Control"] = "no-store"
+    return build_catalog()
+
+
+@router.get("/availability")
+def plugin_availability(
+    request: Request,
+    response: Response,
+    namespace: str = Query(max_length=64),
+    name: str = Query(max_length=64),
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Report whether a namespace/name pair can be used for a new plugin."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.install")
+
+    response.headers["Cache-Control"] = "no-store"
+
+    try:
+        _studio(request).check_name(namespace.strip(), name.strip())
+    except PluginStudioError as exc:
+        return {"available": False, "reason": str(exc)}
+
+    return {"available": True, "reason": None}
+
+
+@router.post("", status_code=201)
+def create_plugin(
+    payload: PluginCreateRequest,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Scaffold a plugin from the template and install it."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.install")
+
+    try:
+        plugin = _studio(request).create(
+            payload.namespace.strip(),
+            payload.name.strip(),
+            payload.description,
+        )
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    response.headers["Cache-Control"] = "no-store"
+    return _serialize_plugin(plugin)
+
+
+@router.get("/{qualified_name}/files")
+def plugin_files(
+    qualified_name: str,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Return the editable source files of an installed plugin."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.list")
+
+    try:
+        result = _studio(request).files(qualified_name)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    response.headers["Cache-Control"] = "no-store"
+    return _files_payload(result)
+
+
+@router.post("/{qualified_name}/validate")
+def validate_plugin(
+    qualified_name: str,
+    payload: PluginFilesRequest,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Check changed files against the Plugin SDK without saving them."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.install")
+
+    try:
+        diagnostics = _studio(request).validate(qualified_name, payload.files)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "valid": not any(item.severity == "error" for item in diagnostics),
+        "diagnostics": _diagnostics(diagnostics),
+    }
+
+
+@router.put("/{qualified_name}/files")
+def save_plugin_files(
+    qualified_name: str,
+    payload: PluginSaveRequest,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Validate changed files and reinstall the plugin with them."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.install")
+
+    try:
+        result = _studio(request).save(
+            qualified_name,
+            payload.files,
+            payload.revision,
+        )
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    response.headers["Cache-Control"] = "no-store"
+    return _files_payload(result)
+
+
+@router.delete("/{qualified_name}")
+def delete_plugin(
+    qualified_name: str,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Uninstall a plugin and remove its module directory."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.uninstall")
+
+    try:
+        _studio(request).delete(qualified_name)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    response.headers["Cache-Control"] = "no-store"
+    return {"deleted": True, "qualified_name": qualified_name}

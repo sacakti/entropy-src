@@ -566,3 +566,357 @@
         flex-wrap: wrap;
     }
 }
+
+/* ----------------------------------------------------------
+   Classes used by Plugins.tsx without rules above
+   (refresh button, spinner, status variants, operation menu,
+   details dialog)
+   ---------------------------------------------------------- */
+
+.entropy-app .plugins-heading-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.entropy-app .plugins-refresh,
+.entropy-app .plugins-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 13px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        opacity 0.15s ease;
+}
+
+.entropy-app .plugins-refresh:hover:not(:disabled) {
+    background: var(--app-surface-hover);
+    border-color: var(--app-hover-border);
+}
+
+.entropy-app .plugins-primary {
+    color: var(--app-button-text, var(--app-accent-text));
+    background: var(--app-button-bg, var(--app-accent));
+    border-color: transparent;
+}
+
+.entropy-app .plugins-refresh:disabled,
+.entropy-app .plugins-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.entropy-app .plugins-spin {
+    animation: plugins-spin 0.9s linear infinite;
+}
+
+@keyframes plugins-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.entropy-app .plugins-status-enabled {
+    color: #73d6a0;
+}
+
+.entropy-app .plugins-status-disabled {
+    color: var(--app-muted);
+}
+
+.entropy-app .plugins-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 34px 0;
+    color: var(--app-muted);
+}
+
+/* Count + create */
+
+.entropy-app .plugins-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.entropy-app .plugins-section-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.entropy-app .plugins-count {
+    min-width: 26px;
+    padding: 2px 9px;
+    color: var(--app-accent);
+    background: var(--app-accent-soft, color-mix(in srgb, var(--app-accent) 14%, transparent));
+    border: 1px solid var(--app-accent-border, color-mix(in srgb, var(--app-accent) 35%, transparent));
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.entropy-app .plugins-create-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    color: var(--app-button-text, var(--app-accent-text));
+    background: var(--app-button-bg, var(--app-accent));
+    border: 0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.entropy-app .plugins-create-button:hover {
+    transform: translateY(-1px);
+}
+
+/* Operations */
+
+.entropy-app .plugins-operations {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.entropy-app .plugins-operation-button,
+.entropy-app .plugins-operation-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 7px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.entropy-app .plugins-operation-button:hover:not(:disabled),
+.entropy-app .plugins-operation-trigger:hover {
+    color: var(--app-text);
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .plugins-operation-danger:hover:not(:disabled) {
+    color: #ff6b6b;
+    border-color: color-mix(in srgb, #ff4545 40%, var(--app-line));
+}
+
+.entropy-app .plugins-operation-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.entropy-app .plugins-operation-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 20;
+    display: grid;
+    min-width: 200px;
+    padding: 6px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    box-shadow: 0 14px 34px rgb(0 0 0 / 28%);
+}
+
+.entropy-app .plugins-operation-menu button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .plugins-operation-menu button:hover {
+    background: var(--app-surface-hover);
+}
+
+/* Dialogs */
+
+.entropy-app .plugins-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--app-text);
+    background: rgb(0 0 0 / 55%);
+    backdrop-filter: blur(3px);
+}
+
+.entropy-app .plugins-details-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: min(520px, 100%);
+    max-height: calc(100vh - 40px);
+    padding: 22px;
+    overflow: auto;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgb(0 0 0 / 40%);
+}
+
+.entropy-app .plugins-modal-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.entropy-app .plugins-modal-heading h2 {
+    margin: 2px 0 0;
+}
+
+.entropy-app .plugins-details-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+}
+
+.entropy-app .plugins-details-list > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .plugins-details-list dt {
+    color: var(--app-muted);
+}
+
+.entropy-app .plugins-details-list dd {
+    margin: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .plugins-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Create dialog */
+
+.entropy-app .plugins-create-help {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.entropy-app .plugins-create-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.entropy-app .plugins-field {
+    display: grid;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--app-muted);
+}
+
+.entropy-app .plugins-field input {
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    padding: 0 11px;
+    color: var(--app-text);
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    outline: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.entropy-app .plugins-field input:focus-visible {
+    border-color: var(--app-accent);
+}
+
+.entropy-app .plugins-availability {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 20px;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+.entropy-app .plugins-availability-available {
+    color: #73d6a0;
+}
+
+.entropy-app .plugins-availability-unavailable {
+    color: #ff8989;
+}
+
+.entropy-app .plugins-refresh:focus-visible,
+.entropy-app .plugins-primary:focus-visible,
+.entropy-app .plugins-create-button:focus-visible,
+.entropy-app .plugins-operation-button:focus-visible,
+.entropy-app .plugins-operation-trigger:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+    .entropy-app .plugins-create-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .plugins-spin {
+        animation-duration: 2.5s;
+    }
+
+    .entropy-app .plugins-create-button {
+        transition: none;
+    }
+}

@@ -1,0 +1,613 @@
+/*
+ * ==========================================================
+ * Entropy — Plugin editor
+ *
+ * Responsibilities:
+ * - Full-screen plugin IDE (explorer, tabs, Monaco, problems)
+ * - Save menu and change review (diff) layout
+ *
+ * Global ownership:
+ * - theme.css: theme tokens and typography
+ * - plugins.css: shared plugin badges, buttons and spinner
+ * ==========================================================
+ */
+
+.entropy-app .plugin-ide {
+    --ide-bg: #0d1117;
+    --ide-panel: #11161d;
+    --ide-panel-2: #161c24;
+    --ide-line: rgb(255 255 255 / 8%);
+    --ide-error: #f85149;
+    --ide-warning: #d29922;
+    --ide-info: #58a6ff;
+    --ide-added: #3fb950;
+
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--ide-bg);
+    color: var(--app-text);
+    font-family: inherit;
+}
+
+.entropy-app.theme-light .plugin-ide {
+    --ide-bg: #ffffff;
+    --ide-panel: #f6f8f2;
+    --ide-panel-2: #edf1e3;
+    --ide-line: rgb(23 27 21 / 12%);
+    --ide-error: #cf222e;
+    --ide-warning: #9a6700;
+    --ide-info: #0969da;
+    --ide-added: #1a7f37;
+}
+
+.entropy-app .plugin-ide *,
+.entropy-app .plugin-ide *::before,
+.entropy-app .plugin-ide *::after {
+    box-sizing: border-box;
+}
+
+.entropy-app .plugin-ide button {
+    font: inherit;
+    color: inherit;
+}
+
+/* ----------------------------------------------------------
+   Top bar
+   ---------------------------------------------------------- */
+
+.entropy-app .plugin-ide-topbar {
+    position: relative;
+    z-index: 10; /* keep the save menu above Monaco's layers */
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    min-height: 52px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--ide-line);
+    background: var(--ide-panel);
+}
+
+.entropy-app .plugin-ide-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--ide-line);
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-ide-cancel:hover:not(:disabled) {
+    background: var(--ide-panel-2);
+}
+
+.entropy-app .plugin-ide-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .plugin-ide-title strong {
+    overflow: hidden;
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .plugin-ide-chip {
+    padding: 2px 8px;
+    border: 1px solid var(--ide-line);
+    border-radius: 999px;
+    color: var(--app-muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.entropy-app .plugin-ide-chip-dirty {
+    border-color: color-mix(in srgb, var(--ide-warning) 50%, transparent);
+    color: var(--ide-warning);
+}
+
+/* ----------------------------------------------------------
+   Save menu
+   ---------------------------------------------------------- */
+
+.entropy-app .plugin-ide-save {
+    position: relative;
+}
+
+.entropy-app .plugin-ide-save-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--app-button-bg, var(--app-accent));
+    color: var(--app-button-text, var(--app-accent-text)) !important;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-ide-save-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.entropy-app .plugin-ide-save-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 5;
+    display: grid;
+    width: 280px;
+    padding: 6px;
+    border: 1px solid var(--ide-line);
+    border-radius: 10px;
+    background: var(--ide-panel);
+    box-shadow: 0 16px 40px rgb(0 0 0 / 35%);
+}
+
+.entropy-app .plugin-ide-save-menu::before {
+    /* Hover bridge so the menu stays open while the pointer crosses the gap. */
+    content: "";
+    position: absolute;
+    top: -8px;
+    right: 0;
+    left: 0;
+    height: 8px;
+}
+
+.entropy-app .plugin-ide-save-menu button {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-ide-save-menu button:hover,
+.entropy-app .plugin-ide-save-menu button:focus-visible {
+    background: var(--ide-panel-2);
+}
+
+.entropy-app .plugin-ide-save-menu span {
+    display: grid;
+    gap: 2px;
+}
+
+.entropy-app .plugin-ide-save-menu small {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+/* ----------------------------------------------------------
+   Body
+   ---------------------------------------------------------- */
+
+.entropy-app .plugin-ide-body {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    flex: 1;
+    min-height: 0;
+}
+
+.entropy-app .plugin-ide-state {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 100%;
+    color: var(--app-muted);
+}
+
+.entropy-app .plugin-ide-explorer {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid var(--ide-line);
+    background: var(--ide-panel);
+}
+
+.entropy-app .plugin-ide-explorer-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.entropy-app .plugin-ide-explorer-heading button {
+    display: inline-flex;
+    padding: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-ide-explorer-heading button:hover {
+    background: var(--ide-panel-2);
+}
+
+.entropy-app .plugin-ide-new-file {
+    padding: 0 10px 8px;
+}
+
+.entropy-app .plugin-ide-new-file input {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--app-accent);
+    border-radius: 6px;
+    outline: none;
+    background: var(--ide-bg);
+    color: var(--app-text);
+    font: inherit;
+    font-size: 13px;
+}
+
+.entropy-app .plugin-ide-tree {
+    flex: 1;
+    margin: 0;
+    padding: 0 0 12px;
+    overflow: auto;
+    list-style: none;
+}
+
+.entropy-app .plugin-ide-tree-folder {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+.entropy-app .plugin-ide-tree-file {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    height: 26px;
+    padding-right: 10px;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-ide-tree-file:hover {
+    background: var(--ide-panel-2);
+}
+
+.entropy-app .plugin-ide-tree-file.is-active {
+    background: color-mix(in srgb, var(--app-accent) 16%, transparent);
+}
+
+.entropy-app .plugin-ide-tree-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .plugin-ide-dirty {
+    color: var(--ide-warning);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.entropy-app .plugin-ide-badge {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--ide-panel-2);
+    color: var(--app-muted);
+    font-size: 11px;
+    line-height: 17px;
+    text-align: center;
+}
+
+.entropy-app .plugin-ide-badge-error {
+    background: color-mix(in srgb, var(--ide-error) 22%, transparent);
+    color: var(--ide-error);
+}
+
+.entropy-app .plugin-ide-icon-py { color: #4f9fe8; }
+.entropy-app .plugin-ide-icon-json { color: #e6b422; }
+.entropy-app .plugin-ide-icon-md { color: var(--app-muted); }
+.entropy-app .plugin-ide-error { color: var(--ide-error); }
+.entropy-app .plugin-ide-warning { color: var(--ide-warning); }
+.entropy-app .plugin-ide-info { color: var(--ide-info); }
+
+/* ----------------------------------------------------------
+   Main column: tabs, editor, problems
+   ---------------------------------------------------------- */
+
+.entropy-app .plugin-ide-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.entropy-app .plugin-ide-tabs {
+    display: flex;
+    min-height: 36px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--ide-line);
+    background: var(--ide-panel);
+}
+
+.entropy-app .plugin-ide-tab {
+    display: flex;
+    align-items: center;
+    border-right: 1px solid var(--ide-line);
+    color: var(--app-muted);
+}
+
+.entropy-app .plugin-ide-tab.is-active {
+    background: var(--ide-bg);
+    box-shadow: inset 0 2px 0 var(--app-accent);
+    color: var(--app-text);
+}
+
+.entropy-app .plugin-ide-tab > button:first-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 6px 0 12px;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-ide-tab-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ide-warning);
+}
+
+.entropy-app .plugin-ide-tab-close {
+    display: inline-flex;
+    margin-right: 6px;
+    padding: 3px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.entropy-app .plugin-ide-tab-close:hover {
+    background: var(--ide-panel-2);
+    opacity: 1;
+}
+
+.entropy-app .plugin-ide-editor {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+.entropy-app .plugin-ide-problems {
+    display: flex;
+    flex-direction: column;
+    height: 170px;
+    border-top: 1px solid var(--ide-line);
+    background: var(--ide-panel);
+}
+
+.entropy-app .plugin-ide-problems.is-collapsed {
+    height: auto;
+}
+
+.entropy-app .plugin-ide-problems.is-collapsed .plugin-ide-problems-heading svg:first-child {
+    transform: rotate(-90deg);
+}
+
+.entropy-app .plugin-ide-problems-heading {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 0;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-ide-problems ul {
+    flex: 1;
+    margin: 0;
+    padding: 0 0 6px;
+    overflow: auto;
+    list-style: none;
+}
+
+.entropy-app .plugin-ide-problems li button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 14px;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-ide-problems li button:hover {
+    background: var(--ide-panel-2);
+}
+
+.entropy-app .plugin-ide-problems small {
+    margin-left: auto;
+    color: var(--app-muted);
+    white-space: nowrap;
+}
+
+.entropy-app .plugin-ide-problems-empty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 14px;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+/* ----------------------------------------------------------
+   Review
+   ---------------------------------------------------------- */
+
+.entropy-app .plugin-ide-review-row {
+    display: flex;
+    align-items: center;
+}
+
+.entropy-app .plugin-ide-review-row .plugin-ide-tree-file {
+    padding-left: 12px;
+}
+
+.entropy-app .plugin-ide-added { color: var(--ide-added); font-size: 12px; }
+.entropy-app .plugin-ide-removed { color: var(--ide-error); font-size: 12px; }
+
+.entropy-app .plugin-ide-revert {
+    display: inline-flex;
+    margin-right: 6px;
+    padding: 4px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    cursor: pointer;
+    opacity: 0.65;
+}
+
+.entropy-app .plugin-ide-revert:hover {
+    background: var(--ide-panel-2);
+    opacity: 1;
+}
+
+.entropy-app .plugin-ide-review-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--ide-line);
+    background: var(--ide-panel);
+}
+
+.entropy-app .plugin-ide-review-heading div {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .plugin-ide-review-heading span {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .plugin-ide-review-errors {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: color-mix(in srgb, var(--ide-error) 14%, transparent);
+    color: var(--ide-error);
+    font-size: 13px;
+}
+
+.entropy-app .plugin-ide-review-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--ide-line);
+    background: var(--ide-panel);
+}
+
+/* ----------------------------------------------------------
+   Status bar
+   ---------------------------------------------------------- */
+
+.entropy-app .plugin-ide-statusbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 24px;
+    padding: 0 12px;
+    border-top: 1px solid var(--ide-line);
+    background: var(--ide-panel);
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .plugin-ide-statusbar span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.entropy-app .plugin-ide-statusbar-spacer {
+    flex: 1;
+}
+
+@media (max-width: 760px) {
+    .entropy-app .plugin-ide-body {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 150px minmax(0, 1fr);
+    }
+
+    .entropy-app .plugin-ide-explorer {
+        border-right: 0;
+        border-bottom: 1px solid var(--ide-line);
+    }
+
+    .entropy-app .plugin-ide-chip,
+    .entropy-app .plugin-ide-statusbar span:last-child {
+        display: none;
+    }
+}
+
+.entropy-app .plugin-ide-body[hidden] {
+    display: none;
+}
+
+.entropy-app .plugin-ide-diff {
+    position: absolute;
+    inset: 0;
+}

@@ -1,27 +1,44 @@
 interface ApiErrorResponse {
-    detail?: string
+    detail?: unknown
     message?: string
 }
 
-async function getErrorMessage(
+/** Error thrown for non-2xx responses; `detail` keeps structured payloads. */
+export class ApiError extends Error {
+    readonly status: number
+    readonly detail: unknown
+
+    constructor(message: string, status: number, detail: unknown) {
+        super(message)
+        this.name = 'ApiError'
+        this.status = status
+        this.detail = detail
+    }
+}
+
+async function toApiError(
     response: Response,
-): Promise<string> {
+): Promise<ApiError> {
     const body = await response.text()
+    const fallback = `Request failed (${response.status}).`
 
     if (!body) {
-        return `Request failed (${response.status}).`
+        return new ApiError(fallback, response.status, null)
     }
 
     try {
         const data = JSON.parse(body) as ApiErrorResponse
+        const detail = data.detail
+        const message =
+            typeof detail === 'string'
+                ? detail
+                : typeof (detail as { message?: unknown } | null)?.message === 'string'
+                  ? (detail as { message: string }).message
+                  : data.message ?? fallback
 
-        return (
-            data.detail ??
-            data.message ??
-            `Request failed (${response.status}).`
-        )
+        return new ApiError(message, response.status, detail)
     } catch {
-        return body
+        return new ApiError(body, response.status, body)
     }
 }
 
@@ -60,7 +77,7 @@ export async function apiRequest<T>(
     })
 
     if (!response.ok) {
-        throw new Error(await getErrorMessage(response))
+        throw await toApiError(response)
     }
 
     // DELETE endpoints may return 204 No Content.
