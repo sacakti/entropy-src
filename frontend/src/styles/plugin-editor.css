@@ -50,7 +50,8 @@
     box-sizing: border-box;
 }
 
-.entropy-app .plugin-ide button {
+/* Zero-specificity reset so shared button variants keep their colors. */
+.entropy-app .plugin-ide :where(button) {
     font: inherit;
     color: inherit;
 }
