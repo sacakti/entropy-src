@@ -15,6 +15,7 @@ import { workflowsApi, type WorkflowSummary } from '../../api/workflows.api'
 import AppPortal from '../../components/layout/AppPortal'
 import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
+import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 
 // The builder pulls in Monaco and YAML; load it only when opened.
@@ -42,7 +43,9 @@ export default function Workflows() {
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
-    const [builder, setBuilder] = useState<BuilderTarget>(null)
+    const [builder, setBuilder] = useState<BuilderTarget>(() =>
+        consumeCreateIntent('workflow') ? { mode: 'create' } : null,
+    )
     const [deleting, setDeleting] = useState<string | null>(null)
     // Row picked with a click; Ctrl+D deletes it.
     const [selectedName, setSelectedName] = useState<string | null>(null)
@@ -113,6 +116,8 @@ export default function Workflows() {
 
     const openCreate = () => setBuilder({ mode: 'create' })
 
+    useCreateIntent('workflow', openCreate)
+
     useShortcuts(
         {
             'mod+n': openCreate,
@@ -142,7 +147,7 @@ export default function Workflows() {
     }, [search, workflows])
 
     return (
-        <section className="workflows-page">
+        <section className="list-page workflows-page">
             {error && (
                 <div className="entropy-alert entropy-alert-error" role="alert">
                     <AlertCircle size={16} />
@@ -150,12 +155,12 @@ export default function Workflows() {
                 </div>
             )}
 
-            <section className="workflows-section">
-                <div className="workflows-section-heading">
+            <section className="dashboard-section list-section">
+                <div className="dashboard-section-heading list-section-heading">
                     <div>
                         <h2>
                             Available workflows
-                            <span className="entropy-count" aria-label={`${workflows.length} workflows in total`}>
+                            <span className="list-count" aria-label={`${workflows.length} workflows in total`}>
                                 {workflows.length}
                             </span>
                         </h2>
@@ -188,8 +193,9 @@ export default function Workflows() {
                     </div>
                 </div>
 
-                <label className="entropy-search workflows-search">
-                    <Search size={15} aria-hidden="true" />
+                <div className="list-toolbar">
+                <div className="list-search">
+                    <Search size={17} aria-hidden="true" />
                     <input
                         ref={searchRef}
                         type="search"
@@ -199,26 +205,22 @@ export default function Workflows() {
                         aria-label="Search workflows"
                     />
                     {search && (
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
-                            aria-label="Clear search"
-                            onClick={() => setSearch('')}
-                        >
-                            <X size={14} />
+                        <button type="button" aria-label="Clear search" onClick={() => setSearch('')}>
+                            <X size={15} />
                         </button>
                     )}
-                </label>
+                </div>
+                </div>
 
-                <div className="workflows-table-wrap">
-                    <table className="workflows-table">
+                <div className="list-table-wrap">
+                    <table className="list-table">
                         <thead>
                             <tr>
                                 <th scope="col">Workflow</th>
                                 <th scope="col">Version</th>
                                 <th scope="col">Updated</th>
-                                <th scope="col" className="workflows-operations-heading">
-                                    Operations
+                                <th scope="col" className="list-operations-cell">
+                                    <span className="list-operations-heading">Operations</span>
                                 </th>
                             </tr>
                         </thead>
@@ -226,7 +228,7 @@ export default function Workflows() {
                             {loading ? (
                                 <tr>
                                     <td colSpan={4}>
-                                        <div className="workflows-empty" role="status">
+                                        <div className="list-empty" role="status">
                                             <LoaderCircle size={18} className="entropy-spin" />
                                             Loading workflows…
                                         </div>
@@ -235,7 +237,7 @@ export default function Workflows() {
                             ) : filtered.length === 0 ? (
                                 <tr>
                                     <td colSpan={4}>
-                                        <div className="workflows-empty">
+                                        <div className="list-empty">
                                             <WorkflowIcon size={22} />
                                             <strong>
                                                 {workflows.length === 0 ? 'No workflows yet' : 'No workflows found'}
@@ -257,22 +259,22 @@ export default function Workflows() {
                                         onClick={() => setSelectedName(workflow.name)}
                                     >
                                         <td>
-                                            <div className="workflows-name">
-                                                <span className="workflows-name-icon" aria-hidden="true">
+                                            <div className="list-name">
+                                                <span className="list-name-icon" aria-hidden="true">
                                                     <WorkflowIcon size={16} />
                                                 </span>
-                                                <div>
+                                                <div className="list-name-content">
                                                     <strong>{workflow.name}</strong>
                                                     <span>{workflow.description || 'No description'}</span>
                                                 </div>
                                             </div>
                                         </td>
                                         <td>
-                                            <span className="plugins-version">{workflow.version}</span>
+                                            <span className="list-version">{workflow.version}</span>
                                         </td>
-                                        <td className="workflows-muted">{formatDate(workflow.updated_at)}</td>
+                                        <td className="list-cell-text">{formatDate(workflow.updated_at)}</td>
                                         <td>
-                                            <div className="workflows-operations">
+                                            <div className="list-operations">
                                                 <button
                                                     type="button"
                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"

@@ -25,6 +25,8 @@ class BackgroundImagesSeeder:
             ("abstract-1", "Abstract", "abstract-1.jpg"),
             ("abstract-2", "Abstract", "abstract-2.jpg"),
             ("abstract-3", "Abstract", "abstract-3.jpg"),
+            ("aurora-video", "Aurora (video)", "aurora.webm"),
+            ("flow-video", "Flow (video)", "flow.webm"),
         )
 
         with connection.transaction():
@@ -42,12 +44,22 @@ class BackgroundImagesSeeder:
                     continue
 
                 image_path = self._assets_directory / filename
-                image_data = image_path.read_bytes()
-                mime_type, _ = mimetypes.guess_type(filename)
 
-                if mime_type is None or not mime_type.startswith("image/"):
+                # Installs may predate an asset; skip what is not shipped.
+                if not image_path.is_file():
+                    continue
+
+                image_data = image_path.read_bytes()
+                # Older Pythons do not know .webm without system mime tables.
+                mime_type = (
+                    "video/webm"
+                    if filename.endswith(".webm")
+                    else mimetypes.guess_type(filename)[0]
+                )
+
+                if mime_type is None or not mime_type.startswith(("image/", "video/")):
                     raise ValueError(
-                        f"Unsupported image type: {filename}"
+                        f"Unsupported background type: {filename}"
                     )
 
                 created_at = datetime.now(timezone.utc).isoformat()

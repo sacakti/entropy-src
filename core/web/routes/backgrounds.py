@@ -96,6 +96,24 @@ def _connection(request: Request):
     return context.database_manager.connection
 
 
+def _seed_builtins(connection) -> None:
+    """Add built-ins shipped after the install's migration (e.g. videos)."""
+
+    if getattr(connection, "_entropy_backgrounds_seeded", False):
+        return
+
+    from pathlib import Path
+
+    from lib.database.seeders.background_images import BackgroundImagesSeeder
+
+    try:
+        BackgroundImagesSeeder(
+            Path(__file__).resolve().parents[3] / "lib" / "assets" / "backgrounds"
+        ).seed(connection)
+    finally:
+        setattr(connection, "_entropy_backgrounds_seeded", True)
+
+
 @router.get("")
 def list_backgrounds(
     request: Request,
@@ -106,6 +124,8 @@ def list_backgrounds(
 
     session, _, _ = session_record
     connection = _connection(request)
+
+    _seed_builtins(connection)
 
     rows = connection.fetchall(
         """

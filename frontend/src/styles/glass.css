@@ -1,0 +1,234 @@
+/*
+ * ==========================================================
+ * Entropy — Liquid glass (opt-in, Preferences › Interface style)
+ *
+ * Active when <html data-glass="on">. Buttons become frosted
+ * capsules with a specular rim; dialogs, menus and toasts become
+ * translucent panes that blur and tint what is behind them.
+ * Loaded last so it can restyle the shared components.
+ * ==========================================================
+ */
+
+:root[data-glass="on"] {
+    --glass-tint: rgb(255 255 255 / 8%);
+    --glass-tint-strong: rgb(255 255 255 / 14%);
+    --glass-rim: rgb(255 255 255 / 22%);
+    --glass-highlight: rgb(255 255 255 / 38%);
+    --glass-shade: rgb(0 0 0 / 22%);
+    --glass-blur: blur(22px) saturate(185%);
+    --glass-pane: color-mix(in srgb, var(--app-surface) 48%, transparent);
+}
+
+:root[data-glass="on"][data-theme="light"] {
+    --glass-tint: rgb(255 255 255 / 45%);
+    --glass-tint-strong: rgb(255 255 255 / 62%);
+    --glass-rim: rgb(255 255 255 / 75%);
+    --glass-highlight: rgb(255 255 255 / 90%);
+    --glass-shade: rgb(15 20 10 / 14%);
+    --glass-pane: color-mix(in srgb, var(--app-surface) 58%, transparent);
+}
+
+/* ---------- Buttons ---------- */
+
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button {
+    border-radius: 999px;
+    border-color: var(--glass-rim);
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
+    box-shadow:
+        inset 0 1px 0 var(--glass-highlight),
+        inset 0 -1px 0 rgb(255 255 255 / 6%),
+        0 6px 18px var(--glass-shade);
+    transition:
+        transform 160ms ease,
+        box-shadow 160ms ease,
+        background 160ms ease;
+}
+
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button:is(
+        .entropy-button-secondary,
+        .entropy-button-ghost,
+        .entropy-button-danger-quiet
+    ) {
+    background:
+        linear-gradient(180deg, var(--glass-tint-strong), var(--glass-tint)),
+        transparent;
+}
+
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-ghost:not(:hover) {
+    border-color: transparent;
+    box-shadow: none;
+    background: transparent;
+}
+
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-primary {
+    background:
+        linear-gradient(180deg, rgb(255 255 255 / 34%), rgb(255 255 255 / 0%) 55%),
+        color-mix(in srgb, var(--app-accent) 82%, transparent);
+    border-color: color-mix(in srgb, var(--app-accent) 60%, white);
+}
+
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-danger {
+    background:
+        linear-gradient(180deg, rgb(255 255 255 / 28%), rgb(255 255 255 / 0%) 55%),
+        rgb(220 38 38 / 82%);
+    border-color: rgb(255 180 180 / 55%);
+}
+
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+        inset 0 1px 0 var(--glass-highlight),
+        inset 0 -1px 0 rgb(255 255 255 / 8%),
+        0 10px 26px var(--glass-shade);
+}
+
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+/* ---------- Dialogs, menus and toasts ---------- */
+
+:root[data-glass="on"] :is(
+        .entropy-app .entropy-dialog,
+        .entropy-app .plugins-details-modal,
+        .entropy-app .vault-modal,
+        .entropy-modal,
+        .entropy-app .entropy-floating-menu,
+        .entropy-app .profile-menu,
+        .entropy-app .notification-menu,
+        .entropy-toast
+    ) {
+    position: relative;
+    background:
+        linear-gradient(160deg, var(--glass-tint-strong), transparent 40%),
+        var(--glass-pane);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-rim);
+    box-shadow:
+        inset 0 1px 0 var(--glass-highlight),
+        inset 0 0 0 1px rgb(255 255 255 / 4%),
+        0 30px 80px rgb(0 0 0 / 32%);
+}
+
+:root[data-glass="on"] :is(.entropy-app .entropy-dialog, .entropy-modal, .entropy-app .vault-modal, .entropy-app .plugins-details-modal) {
+    border-radius: 24px;
+}
+
+:root[data-glass="on"] :is(.entropy-app .entropy-floating-menu, .entropy-app .profile-menu, .entropy-app .notification-menu) {
+    border-radius: 18px;
+}
+
+/* Inner panes stay clear so the glass reads as one sheet. */
+:root[data-glass="on"] .entropy-app :is(.entropy-dialog-header, .entropy-dialog-footer) {
+    background: transparent;
+    border-color: var(--glass-rim);
+}
+
+:root[data-glass="on"] :is(.entropy-app .entropy-dialog-backdrop, .entropy-modal-backdrop, .entropy-app .plugins-modal-backdrop, .entropy-app .vault-modal-backdrop) {
+    backdrop-filter: blur(6px) saturate(120%);
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    :root[data-glass="on"] :is(.entropy-app .entropy-dialog, .entropy-modal, .entropy-toast) {
+        background: var(--app-surface);
+    }
+}
+
+/* ---------- Preferences option previews ---------- */
+
+.entropy-app .glass-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.entropy-app .glass-option {
+    position: relative;
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    color: var(--app-text);
+    text-align: left;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.entropy-app .glass-option.selected {
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 1px var(--app-accent);
+}
+
+.entropy-app .glass-option small {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .glass-option-preview {
+    position: relative;
+    display: grid;
+    height: 96px;
+    margin-bottom: 8px;
+    place-items: center;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 25% 30%, color-mix(in srgb, var(--app-accent) 70%, transparent), transparent 45%),
+        radial-gradient(circle at 80% 75%, #6c5ce7, transparent 50%),
+        #12161c;
+    border-radius: 9px;
+}
+
+.entropy-app .glass-option-card {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    display: grid;
+    gap: 6px;
+    width: 46%;
+    padding: 10px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+}
+
+.entropy-app .glass-option-card span {
+    height: 6px;
+    background: var(--app-line);
+    border-radius: 3px;
+}
+
+.entropy-app .glass-option-card span + span {
+    width: 60%;
+}
+
+.entropy-app .glass-option-button {
+    position: absolute;
+    right: 16px;
+    bottom: 14px;
+    padding: 6px 14px;
+    color: var(--app-accent-text);
+    background: var(--app-accent);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.entropy-app .glass-option.is-glass .glass-option-card {
+    background: linear-gradient(160deg, rgb(255 255 255 / 22%), rgb(255 255 255 / 6%));
+    border-color: rgb(255 255 255 / 30%);
+    backdrop-filter: blur(10px) saturate(180%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 40%);
+}
+
+.entropy-app .glass-option.is-glass .glass-option-button {
+    background:
+        linear-gradient(180deg, rgb(255 255 255 / 40%), rgb(255 255 255 / 0%) 60%),
+        color-mix(in srgb, var(--app-accent) 80%, transparent);
+    border: 1px solid rgb(255 255 255 / 45%);
+    border-radius: 999px;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%), 0 6px 16px rgb(0 0 0 / 30%);
+}

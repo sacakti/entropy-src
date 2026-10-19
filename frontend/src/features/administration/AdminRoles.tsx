@@ -5,6 +5,7 @@ import { adminApi, type AdminModule, type AdminRole } from '../../api/admin.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
+import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { AdminPanel, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
 import { errorMessage, sameSet } from './format'
 import { usePermissions } from './usePermissions'
@@ -20,7 +21,9 @@ export default function AdminRoles() {
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
-    const [editing, setEditing] = useState<AdminRole | 'new' | null>(null)
+    const [editing, setEditing] = useState<AdminRole | 'new' | null>(() =>
+        consumeCreateIntent('role') ? 'new' : null,
+    )
     const [deleting, setDeleting] = useState<string | null>(null)
     const searchRef = useRef<HTMLInputElement>(null)
 
@@ -86,6 +89,8 @@ export default function AdminRoles() {
         if (can('roles.create')) setEditing('new')
     }
 
+    useCreateIntent('role', () => setEditing('new'))
+
     useShortcuts(
         {
             'mod+n': openCreate,
@@ -99,7 +104,7 @@ export default function AdminRoles() {
     )
 
     return (
-        <div className="admin-page">
+        <div className="list-page admin-page">
             <AdminPanel
                 title="Roles"
                 count={roles.length}
@@ -132,15 +137,17 @@ export default function AdminRoles() {
                     />
                 }
             >
-                <div className="admin-table-wrap">
-                    <table className="admin-table">
+                <div className="list-table-wrap">
+                    <table className="list-table">
                         <thead>
                             <tr>
                                 <th>Role</th>
                                 <th>Permissions</th>
                                 <th>Users</th>
                                 <th>Groups</th>
-                                <th className="admin-operations-heading">Operations</th>
+                                <th className="list-operations-cell">
+                                    <span className="list-operations-heading">Operations</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -152,11 +159,11 @@ export default function AdminRoles() {
                                 filtered.map((role) => (
                                     <tr key={role.id}>
                                         <td>
-                                            <div className="admin-identity">
-                                                <span className="admin-icon-tile" aria-hidden="true">
+                                            <div className="list-name">
+                                                <span className="list-name-icon" aria-hidden="true">
                                                     {role.is_builtin ? <Lock size={15} /> : <BadgeCheck size={16} />}
                                                 </span>
-                                                <div>
+                                                <div className="list-name-content">
                                                     <strong>
                                                         {role.name}
                                                         {role.is_builtin && <span className="admin-badge">Built-in</span>}
@@ -186,7 +193,7 @@ export default function AdminRoles() {
                                             <ChipList values={role.groups} empty="None" />
                                         </td>
                                         <td>
-                                            <div className="admin-operations">
+                                            <div className="list-operations">
                                                 <button
                                                     type="button"
                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"

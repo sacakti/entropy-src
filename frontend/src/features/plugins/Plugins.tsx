@@ -32,6 +32,7 @@ import AppPortal from '../../components/layout/AppPortal'
 import FloatingMenu from '../../components/layout/FloatingMenu'
 import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
+import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import CreatePluginModal from './CreatePluginModal'
 
 // Monaco is large; load the editor only when a plugin is opened.
@@ -59,11 +60,11 @@ function formatDate(value: string | null): string {
 function StatusBadge({ enabled }: { enabled: boolean }) {
     return (
         <span
-            className={`plugins-status ${
-                enabled ? 'plugins-status-enabled' : 'plugins-status-disabled'
+            className={`list-status ${
+                enabled ? 'list-status-enabled' : 'list-status-disabled'
             }`}
         >
-            <span className="plugins-status-dot" />
+            <span className="list-status-dot" />
             {enabled ? 'Enabled' : 'Disabled'}
         </span>
     )
@@ -77,7 +78,7 @@ function EmptyState({
     message: string
 }) {
     return (
-        <div className="plugins-empty">
+        <div className="list-empty">
             <Package size={22} />
             <strong>{title}</strong>
             <p>{message}</p>
@@ -103,7 +104,7 @@ function SortButton({
     return (
         <button
             type="button"
-            className="plugins-sort"
+            className="list-sort"
             onClick={() => onSort(field)}
             aria-label={`Sort by ${label}`}
             aria-pressed={active}
@@ -152,11 +153,11 @@ function PluginRow({
             onClick={() => onSelect(plugin)}
         >
             <td>
-                <div className="plugins-name">
-                    <span className="plugins-name-icon" aria-hidden="true">
+                <div className="list-name">
+                    <span className="list-name-icon" aria-hidden="true">
                         <Package size={17} />
                     </span>
-                    <div className="plugins-name-content">
+                    <div className="list-name-content">
                         <strong title={plugin.name}>{plugin.name}</strong>
                         <span title={plugin.qualified_name}>
                             {plugin.qualified_name}
@@ -166,13 +167,13 @@ function PluginRow({
             </td>
 
             <td>
-                <span className="plugins-cell-text" title={plugin.namespace}>
+                <span className="list-cell-text" title={plugin.namespace}>
                     {plugin.namespace}
                 </span>
             </td>
 
             <td>
-                <span className="plugins-version">{plugin.version}</span>
+                <span className="list-version">{plugin.version}</span>
             </td>
 
             <td>
@@ -180,13 +181,13 @@ function PluginRow({
             </td>
 
             <td>
-                <span className="plugins-cell-text">
+                <span className="list-cell-text">
                     {formatDate(plugin.installed_at)}
                 </span>
             </td>
 
-            <td className="plugins-operations-cell">
-                <div className="plugins-operations">
+            <td className="list-operations-cell">
+                <div className="list-operations">
                     <button
                         type="button"
                         className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
@@ -282,7 +283,7 @@ export default function Plugins() {
         useState<PluginItem | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
     const [summaryTotal, setSummaryTotal] = useState(0)
-    const [createOpen, setCreateOpen] = useState(false)
+    const [createOpen, setCreateOpen] = useState(() => consumeCreateIntent('plugin'))
     const [editingPlugin, setEditingPlugin] = useState<PluginItem | null>(null)
     const [deletingName, setDeletingName] = useState<string | null>(null)
     // Row picked with a click; Ctrl+D deletes it.
@@ -435,6 +436,8 @@ export default function Plugins() {
 
     const openCreate = () => setCreateOpen(true)
 
+    useCreateIntent('plugin', openCreate)
+
     useShortcuts(
         {
             'mod+n': openCreate,
@@ -457,9 +460,9 @@ export default function Plugins() {
         searchInput.trim() !== '' || statusFilter !== 'all' || namespaceFilter !== ''
 
     return (
-        <section className="plugins-page">
+        <section className="list-page">
             {error && (
-                <div className="plugins-error" role="alert">
+                <div className="list-error" role="alert">
                     <AlertCircle size={18} />
                     <span>{error}</span>
                     <button
@@ -474,7 +477,7 @@ export default function Plugins() {
             )}
 
             {notice && (
-                <div className="plugins-notice" role="status">
+                <div className="list-notice" role="status">
                     <Check size={16} />
                     <span>{notice}</span>
                     <button
@@ -488,13 +491,13 @@ export default function Plugins() {
                 </div>
             )}
 
-            <section className="dashboard-section plugins-section">
-                <div className="dashboard-section-heading plugins-section-heading">
+            <section className="dashboard-section list-section">
+                <div className="dashboard-section-heading list-section-heading">
                     <div>
                         <h2>
                             Installed plugins
                             <span
-                                className="plugins-count"
+                                className="list-count"
                                 aria-label={`${summaryTotal} plugins in total`}
                             >
                                 {summaryTotal.toLocaleString()}
@@ -530,8 +533,8 @@ export default function Plugins() {
                     </div>
                 </div>
 
-                <div className="plugins-toolbar">
-                    <div className="plugins-search">
+                <div className="list-toolbar">
+                    <div className="list-search">
                         <Search size={17} aria-hidden="true" />
                         <input
                             ref={searchRef}
@@ -554,8 +557,8 @@ export default function Plugins() {
                         )}
                     </div>
 
-                    <div className="plugins-toolbar-actions">
-                        <label className="plugins-filter">
+                    <div className="list-toolbar-actions">
+                        <label className="list-filter">
                             <span>Namespace</span>
                             <select
                                 className="entropy-select"
@@ -579,7 +582,7 @@ export default function Plugins() {
                             </select>
                         </label>
 
-                        <label className="plugins-filter">
+                        <label className="list-filter">
                             <span>Status</span>
                             <select
                                 className="entropy-select"
@@ -609,8 +612,8 @@ export default function Plugins() {
                     </div>
                 </div>
 
-                <div className="plugins-table-wrap">
-                    <table className="plugins-table">
+                <div className="list-table-wrap">
+                    <table className="list-table">
                         <thead>
                             <tr>
                                 <th scope="col">
@@ -659,7 +662,7 @@ export default function Plugins() {
                                     />
                                 </th>
                                 <th scope="col">
-                                    <span className="plugins-operations-heading">
+                                    <span className="list-operations-heading">
                                         Operations
                                     </span>
                                 </th>
@@ -671,7 +674,7 @@ export default function Plugins() {
                                 <tr>
                                     <td colSpan={6}>
                                         <div
-                                            className="plugins-loading"
+                                            className="list-loading"
                                             role="status"
                                         >
                                             <RefreshCw
@@ -720,7 +723,7 @@ export default function Plugins() {
                     </table>
                 </div>
 
-                <footer className="plugins-pagination">
+                <footer className="list-pagination">
                     <span>
                         {total === 0
                             ? 'No plugins'
@@ -730,11 +733,11 @@ export default function Plugins() {
                               )} of ${total}`}
                     </span>
 
-                    <div className="plugins-pagination-controls">
-                        <label htmlFor="plugins-page-select">Page</label>
+                    <div className="list-pagination-controls">
+                        <label htmlFor="list-page-select">Page</label>
                         <select
-                            id="plugins-page-select"
-                            className="entropy-select plugins-page-select"
+                            id="list-page-select"
+                            className="entropy-select list-page-select"
                             value={page}
                             onChange={(event) =>
                                 setPage(Number(event.target.value))

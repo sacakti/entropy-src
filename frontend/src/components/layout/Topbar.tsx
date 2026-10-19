@@ -8,6 +8,7 @@ import {
     ChevronRight,
     HelpCircle,
     LogOut,
+    Plus,
     Moon,
     ShieldCheck,
     Sun,
@@ -15,22 +16,35 @@ import {
     Trash2,
 } from 'lucide-react'
 
+import type { AppNotification } from '../../api/notifications.api'
 import type { Profile } from '../../api/profile.api'
 import Avatar from '../../features/settings/Avatar'
 import type { PageId } from '../../types/navigation'
+import FloatingMenu from './FloatingMenu'
 import { useDismiss } from './useDismiss'
 
-export interface TopbarNotification {
-    id: string
-    title: string
-    message: string
-    createdAt?: string
-    read: boolean
+export type TopbarNotification = AppNotification
+
+/** "just now", "5 min ago", "3 h ago", then a date. */
+function relativeTime(value: string): string {
+    const time = new Date(value).getTime()
+
+    if (Number.isNaN(time)) return ''
+
+    const minutes = Math.round((Date.now() - time) / 60_000)
+
+    if (minutes < 1) return 'just now'
+    if (minutes < 60) return `${minutes} min ago`
+    if (minutes < 24 * 60) return `${Math.round(minutes / 60)} h ago`
+
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(time)
 }
 
 interface TopbarProps {
     profile: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>
     onOpenHelp: () => void
+    /** Entries of the "+" menu, already filtered by permission. */
+    quickCreate: { target: string; label: string; onSelect: () => void }[]
     pageTitle: string
     /** Section the page belongs to, e.g. Administration for Users. */
     parentTitle?: string
@@ -41,14 +55,16 @@ interface TopbarProps {
     onLogout: () => void
 
     notifications: TopbarNotification[]
-    onMarkNotificationRead: (id: string) => void
-    onClearNotification: (id: string) => void
+    onMarkNotificationRead: (id: number) => void
+    onClearNotification: (id: number) => void
     onMarkAllNotificationsRead: () => void
+    onClearAllNotifications: () => void
 }
 
 export default function Topbar({
     profile,
     onOpenHelp,
+    quickCreate,
     pageTitle,
     parentTitle,
     onParentClick,
@@ -60,10 +76,13 @@ export default function Topbar({
     onMarkNotificationRead,
     onClearNotification,
     onMarkAllNotificationsRead,
+    onClearAllNotifications,
 }: TopbarProps) {
     const [profileOpen, setProfileOpen] = useState(false)
     const [notificationsOpen, setNotificationsOpen] = useState(false)
     const notificationsRef = useRef<HTMLDivElement>(null)
+    const createRef = useRef<HTMLButtonElement>(null)
+    const [createOpen, setCreateOpen] = useState(false)
     const profileRef = useRef<HTMLDivElement>(null)
     const displayName = profile.full_name?.trim() || profile.username
 
@@ -98,6 +117,45 @@ export default function Topbar({
             </div>
 
             <div className="topbar-actions">
+                {quickCreate.length > 0 && (
+                    <>
+                        <button
+                            ref={createRef}
+                            type="button"
+                            className="entropy-button entropy-button-ghost entropy-button-icon"
+                            onClick={() => setCreateOpen((open) => !open)}
+                            aria-label="Create new…"
+                            aria-haspopup="menu"
+                            aria-expanded={createOpen}
+                            title="Create new…"
+                        >
+                            <Plus size={19} />
+                        </button>
+                        <FloatingMenu
+                            anchorRef={createRef}
+                            open={createOpen}
+                            onClose={() => setCreateOpen(false)}
+                            className="topbar-create-menu"
+                        >
+                            <span className="topbar-create-label">Create new</span>
+                            {quickCreate.map((item) => (
+                                <button
+                                    key={item.target}
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setCreateOpen(false)
+                                        item.onSelect()
+                                    }}
+                                >
+                                    <Plus size={14} />
+                                    {item.label}
+                                </button>
+                            ))}
+                        </FloatingMenu>
+                    </>
+                )}
+
                 <button
                     type="button"
                     className="entropy-button entropy-button-ghost entropy-button-icon"
@@ -165,16 +223,28 @@ export default function Topbar({
                                     </span>
                                 </div>
 
-                                {unreadCount > 0 && (
-                                    <button
-                                        type="button"
-                                        className="entropy-button entropy-button-link notification-mark-all"
-                                        onClick={onMarkAllNotificationsRead}
-                                    >
-                                        <CheckCheck size={14} />
-                                        Mark all read
-                                    </button>
-                                )}
+                                <div className="notification-menu-actions">
+                                    {unreadCount > 0 && (
+                                        <button
+                                            type="button"
+                                            className="entropy-button entropy-button-link notification-mark-all"
+                                            onClick={onMarkAllNotificationsRead}
+                                        >
+                                            <CheckCheck size={14} />
+                                            Mark all read
+                                        </button>
+                                    )}
+                                    {notifications.length > 0 && (
+                                        <button
+                                            type="button"
+                                            className="entropy-button entropy-button-link notification-mark-all"
+                                            onClick={onClearAllNotifications}
+                                        >
+                                            <Trash2 size={14} />
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="notification-menu-divider" />
@@ -192,7 +262,7 @@ export default function Topbar({
                                     {notifications.map((notification) => (
                                         <article
                                             key={notification.id}
-                                            className={`notification-item ${
+                                            className={`notification-item is-${notification.level} ${
                                                 notification.read
                                                     ? 'is-read'
                                                     : 'is-unread'
@@ -213,11 +283,9 @@ export default function Topbar({
 
                                                 <p>{notification.message}</p>
 
-                                                {notification.createdAt && (
-                                                    <time>
-                                                        {notification.createdAt}
-                                                    </time>
-                                                )}
+                                                <time dateTime={notification.created_at}>
+                                                    {relativeTime(notification.created_at)}
+                                                </time>
                                             </div>
 
                                             <div className="notification-item-actions">

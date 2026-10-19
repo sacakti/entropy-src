@@ -419,3 +419,57 @@
     position: absolute;
     inset: 0;
 }
+
+/* Page the user may not open (AccessRestricted). */
+.entropy-app .access-restricted {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    max-width: 520px;
+    margin: clamp(40px, 14vh, 140px) auto 0;
+    padding: 36px 32px;
+    text-align: center;
+    background: var(--app-panel-bg, var(--app-surface));
+    border: 1px solid var(--app-line);
+    border-radius: 18px;
+}
+
+.entropy-app .access-restricted h2 {
+    margin: 6px 0 0;
+    font-size: 22px;
+}
+
+.entropy-app .access-restricted p {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+
+.entropy-app .access-restricted-icon {
+    display: grid;
+    width: 64px;
+    height: 64px;
+    place-items: center;
+    color: var(--app-warning);
+    background: color-mix(in srgb, var(--app-warning) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--app-warning) 32%, transparent);
+    border-radius: 18px;
+}
+
+.entropy-app .access-restricted-permissions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.entropy-app .access-restricted-permissions code {
+    padding: 3px 8px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 6px;
+    font-size: 12px;
+}

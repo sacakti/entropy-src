@@ -126,7 +126,7 @@ export default function AdminPermissions() {
     }
 
     return (
-        <div className="admin-page">
+        <div className="list-page admin-page">
             <AdminPanel
                 title="Permissions"
                 count={total}
@@ -145,7 +145,7 @@ export default function AdminPermissions() {
                             onChange={setSearch}
                             placeholder="Search permissions or roles…"
                         />
-                        <label className="admin-filter">
+                        <label className="list-filter">
                             <span>Module</span>
                             <select
                                 className="entropy-select"
@@ -160,7 +160,7 @@ export default function AdminPermissions() {
                                 ))}
                             </select>
                         </label>
-                        <label className="admin-filter">
+                        <label className="list-filter">
                             <span>Type</span>
                             <select
                                 className="entropy-select"
@@ -174,7 +174,7 @@ export default function AdminPermissions() {
                             </select>
                         </label>
                         {canAssign && (
-                            <label className="admin-filter">
+                            <label className="list-filter">
                                 <span>Edit role</span>
                                 <select
                                     className="entropy-select"
@@ -214,7 +214,7 @@ export default function AdminPermissions() {
                         {visible.map((module) => (
                             <section key={module.name} className="admin-module-card">
                                 <header>
-                                    <span className="admin-icon-tile" aria-hidden="true">
+                                    <span className="list-name-icon" aria-hidden="true">
                                         <LockKeyhole size={15} />
                                     </span>
                                     <div>

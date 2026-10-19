@@ -24,12 +24,12 @@ export function AdminPanel({
     children: ReactNode
 }) {
     return (
-        <section className="admin-panel">
-            <div className="admin-panel-heading">
+        <section className="dashboard-section list-section">
+            <div className="dashboard-section-heading list-section-heading">
                 <div>
                     <h2>
                         {title}
-                        <span className="entropy-count" aria-label={`${count} in total`}>
+                        <span className="list-count" aria-label={`${count} in total`}>
                             {count}
                         </span>
                     </h2>
@@ -58,7 +58,7 @@ export function AdminPanel({
                 </div>
             )}
 
-            {toolbar && <div className="admin-toolbar">{toolbar}</div>}
+            {toolbar && <div className="list-toolbar">{toolbar}</div>}
 
             {children}
         </section>
@@ -77,8 +77,8 @@ export function SearchField({
     inputRef?: React.Ref<HTMLInputElement>
 }) {
     return (
-        <label className="entropy-search admin-search">
-            <Search size={15} aria-hidden="true" />
+        <div className="list-search">
+            <Search size={17} aria-hidden="true" />
             <input
                 ref={inputRef}
                 type="search"
@@ -88,16 +88,11 @@ export function SearchField({
                 aria-label={placeholder}
             />
             {value && (
-                <button
-                    type="button"
-                    className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
-                    aria-label="Clear search"
-                    onClick={() => onChange('')}
-                >
-                    <X size={14} />
+                <button type="button" aria-label="Clear search" onClick={() => onChange('')}>
+                    <X size={15} />
                 </button>
             )}
-        </label>
+        </div>
     )
 }
 

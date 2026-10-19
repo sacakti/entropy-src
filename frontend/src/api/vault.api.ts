@@ -15,6 +15,8 @@ export type VaultAccess = "read" | "write" | "admin"
 export interface VaultNamespace {
     id: number
     name: string
+    /** The caller's access; null when a shared namespace is only readable. */
+    access?: VaultAccess | null
     owner_user_id: number
     visibility: VaultVisibility
     created_at: string | null

@@ -14,9 +14,6 @@ from lib.database.objects.user_web_settings import (
 )
 from lib.database.repository import Repository
 
-# Connections whose tables were already ensured in this process.
-_ENSURED: set = set()
-
 
 class UserWebSettingsRepository(Repository):
     """
@@ -31,12 +28,13 @@ class UserWebSettingsRepository(Repository):
 
         # Servers upgraded without `ent migrate` still get the tables;
         # both statements are CREATE TABLE IF NOT EXISTS.
-        if id(connection) not in _ENSURED:
+        if not getattr(connection, "_entropy_web_settings_ready", False):
             with self.connection.transaction():
                 UserAvatarsTable().create(connection)
                 UserWebSettingsTable().create(connection)
 
-            _ENSURED.add(id(connection))
+            # Remembered on the connection: ids can be reused by new objects.
+            setattr(connection, "_entropy_web_settings_ready", True)
 
     # ------------------------------------------------------------------
     # Avatar

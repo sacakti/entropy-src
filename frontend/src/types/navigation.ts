@@ -84,3 +84,15 @@ export function pageFromHash(hash: string): PageId | null {
     const id = hash.replace(/^#\/?/, '')
     return (PAGE_IDS as readonly string[]).includes(id) ? (id as PageId) : null
 }
+
+/** Pages the API refuses without one of these permissions. */
+export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
+    dashboard: ['workflows.list'],
+    plugins: ['plugins.list'],
+    workflows: ['workflows.list'],
+    administration: ['users.read', 'groups.read', 'roles.read'],
+    'admin-users': ['users.read'],
+    'admin-groups': ['groups.read'],
+    'admin-roles': ['roles.read'],
+    'admin-permissions': ['roles.read'],
+}

@@ -244,3 +244,50 @@ def update_wallpaper_settings(
     )
 
     return _wallpaper(settings)
+
+
+# ----------------------------------------------------------------------
+# Interface style
+# ----------------------------------------------------------------------
+
+
+class InterfaceSettings(BaseModel):
+    # Translucent "liquid glass" buttons, dialogs and menus.
+    glass: bool = False
+
+
+def _interface(settings: dict) -> dict:
+    try:
+        return InterfaceSettings(**settings.get("interface", {})).model_dump()
+    except ValueError:
+        return InterfaceSettings().model_dump()
+
+
+@router.get("/interface")
+def get_interface_settings(
+    request: Request,
+    response: Response,
+    session_record: SessionRecord = Depends(_current_session),
+) -> dict:
+    session, _, _ = session_record
+    response.headers["Cache-Control"] = "no-store"
+
+    return _interface(_wallpaper_repository(request).get_settings(session.user_id))
+
+
+@router.put("/interface", dependencies=[Depends(verify_csrf)])
+def update_interface_settings(
+    payload: InterfaceSettings,
+    request: Request,
+    response: Response,
+    session_record: SessionRecord = Depends(_current_session),
+) -> dict:
+    session, _, _ = session_record
+    response.headers["Cache-Control"] = "no-store"
+
+    settings = _wallpaper_repository(request).update_settings(
+        session.user_id,
+        {"interface": payload.model_dump()},
+    )
+
+    return _interface(settings)

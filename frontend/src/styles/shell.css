@@ -106,3 +106,16 @@
     appearance: none;
 
 }
+
+
+/*
+ * The shell never scrolls; only .entropy-content does. `clip` (unlike
+ * `hidden`) also stops focus or scrollIntoView from scrolling these boxes,
+ * which shifted the whole workspace up and left a blank area below.
+ */
+.entropy-app,
+.entropy-app .entropy-main {
+
+    overflow: clip;
+
+}

@@ -1,6 +1,11 @@
 import { apiRequest } from '../services/api'
 
 export interface AdminSummary {
+    charts: {
+        groups: { name: string; members: number }[]
+        roles: { name: string; users: number; groups: number; permissions: number }[]
+        modules: { name: string; read: number; write: number; execute: number }[]
+    }
     users: number
     active_users: number
     groups: number

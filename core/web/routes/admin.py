@@ -22,6 +22,7 @@ from lib.authorization.exceptions import (
     RoleNotFoundError,
 )
 from lib.authorization.role_manager import ADMIN_ROLE
+from lib.database.repositories.notifications import NotificationRepository, notify_user
 from lib.models.session import Session
 from lib.models.users import SYSTEM_USERNAME, User
 from lib.users.exceptions import (
@@ -149,6 +150,20 @@ def _names(rows: Iterable[Any], key: str = "name") -> Dict[int, List[str]]:
     return grouped
 
 
+def _notify_account(request: Request, actor: User, username: str, title: str, message: str, level: str = "info") -> None:
+    """Tell a user about an administrator's change to their account."""
+
+    if actor.username == username:
+        return
+
+    try:
+        target = _context(request).user_manager.get(username)
+    except UserError:
+        return
+
+    notify_user(_context(request), target.id, title, f"{message} (by {actor.username})", level, "administration")
+
+
 def _sync(
     current: Iterable[str],
     wanted: Iterable[str],
@@ -196,7 +211,61 @@ def summary(
 
     response.headers["Cache-Control"] = "no-store"
 
+    groups = [
+        {"name": row["name"], "members": row["members"]}
+        for row in connection.fetchall(
+            """
+            SELECT g.name, COUNT(ug.user_id) AS members
+            FROM groups g LEFT JOIN user_groups ug ON ug.group_id = g.id
+            GROUP BY g.id
+            ORDER BY members DESC, g.name
+            LIMIT 8
+            """
+        )
+    ]
+
+    roles = [
+        {
+            "name": row["name"],
+            "users": row["users"],
+            "groups": row["groups"],
+            "permissions": row["permissions"],
+        }
+        for row in connection.fetchall(
+            """
+            SELECT r.name,
+                   (SELECT COUNT(*) FROM user_roles ur WHERE ur.role_id = r.id) AS users,
+                   (SELECT COUNT(*) FROM group_roles gr WHERE gr.role_id = r.id) AS groups,
+                   (SELECT COUNT(*) FROM role_permissions rp WHERE rp.role_id = r.id) AS permissions
+            FROM roles r
+            ORDER BY users + groups DESC, permissions DESC, r.name
+            LIMIT 8
+            """
+        )
+    ]
+
+    modules = [
+        {
+            "name": row["name"],
+            "read": row["read"],
+            "write": row["write"],
+            "execute": row["execute"],
+        }
+        for row in connection.fetchall(
+            """
+            SELECT m.name,
+                   SUM(p.permission_type = 'read') AS read,
+                   SUM(p.permission_type = 'write') AS write,
+                   SUM(p.permission_type = 'execute') AS execute
+            FROM modules m JOIN permissions p ON p.module_id = m.id
+            GROUP BY m.id
+            ORDER BY COUNT(p.id) DESC, m.name
+            """
+        )
+    ]
+
     return {
+        "charts": {"groups": groups, "roles": roles, "modules": modules},
         "users": count("SELECT COUNT(*) FROM users"),
         "active_users": count("SELECT COUNT(*) FROM users WHERE is_active = 1"),
         "groups": count("SELECT COUNT(*) FROM groups"),
@@ -350,6 +419,9 @@ def set_user_active(
     except (UserError, SystemUserError) as exc:
         raise _http_error(exc) from None
 
+    if state == "enable":
+        _notify_account(request, actor, username, "Your account was enabled", "You can sign in again.", "success")
+
     return _user_payload(request, username)
 
 
@@ -362,7 +434,7 @@ def set_user_password(
 ) -> dict:
     """Set a password, or generate a temporary one when none is given."""
 
-    _require(request, record, "users.modify")
+    actor = _require(request, record, "users.modify")
     manager = _context(request).user_manager
 
     try:
@@ -370,11 +442,23 @@ def set_user_password(
 
         if payload.password:
             manager.admin_change_password(user, payload.password)
-            return {"message": f"Password updated for '{username}'.", "password": None}
-
-        _, password = manager.reset_password(user)
+            password = None
+        else:
+            _, password = manager.reset_password(user)
     except (WeakPasswordError, PasswordReuseError, UserError) as exc:
         raise _http_error(exc) from None
+
+    _notify_account(
+        request,
+        actor,
+        username,
+        "Your password was changed",
+        "An administrator set a new password for your account.",
+        "warning",
+    )
+
+    if password is None:
+        return {"message": f"Password updated for '{username}'.", "password": None}
 
     return {
         "message": f"Temporary password generated for '{username}'.",
@@ -406,6 +490,8 @@ def delete_user(
         for table in ("user_roles", "user_groups"):
             connection.execute(f"DELETE FROM {table} WHERE user_id = ?", (user.id,))
 
+    NotificationRepository(context.database_manager.connection).delete(user.id)
+
     return {"message": f"User '{username}' deleted."}
 
 
@@ -416,7 +502,7 @@ def set_user_roles(
     request: Request,
     record: SessionRecord = Depends(_current_session),
 ) -> dict:
-    _require(request, record, "users.roles")
+    actor = _require(request, record, "users.roles")
     context = _context(request)
 
     try:
@@ -429,6 +515,9 @@ def set_user_roles(
         )
     except (UserError, AuthorizationException) as exc:
         raise _http_error(exc) from None
+
+    roles = ", ".join(sorted(payload.names)) or "none"
+    _notify_account(request, actor, username, "Your roles changed", f"Your roles are now: {roles}.")
 
     return _user_payload(request, username)
 

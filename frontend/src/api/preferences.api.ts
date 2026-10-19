@@ -65,3 +65,20 @@ export async function updateWallpaperSettings(
         body: JSON.stringify(settings),
     })
 }
+
+export interface InterfaceSettings {
+    /** Translucent "liquid glass" buttons, dialogs and menus. */
+    glass: boolean
+}
+
+export async function getInterfaceSettings(): Promise<InterfaceSettings> {
+    return apiRequest<InterfaceSettings>('/api/preferences/interface')
+}
+
+export async function updateInterfaceSettings(settings: InterfaceSettings): Promise<InterfaceSettings> {
+    return apiRequest<InterfaceSettings>('/api/preferences/interface', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+    })
+}

@@ -19,6 +19,7 @@ import { adminApi, type AdminGroup, type AdminRole, type AdminUser } from '../..
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
+import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { AdminPanel, Checklist, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
 import { errorMessage, formatDate, sameSet } from './format'
 import { usePermissions } from './usePermissions'
@@ -65,7 +66,9 @@ export default function AdminUsers() {
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
     const [status, setStatus] = useState<StatusFilter>('all')
-    const [editing, setEditing] = useState<AdminUser | 'new' | null>(null)
+    const [editing, setEditing] = useState<AdminUser | 'new' | null>(() =>
+        consumeCreateIntent('user') ? 'new' : null,
+    )
     const [busyUser, setBusyUser] = useState<string | null>(null)
     const searchRef = useRef<HTMLInputElement>(null)
 
@@ -173,6 +176,8 @@ export default function AdminUsers() {
         if (can('users.create')) setEditing('new')
     }
 
+    useCreateIntent('user', () => setEditing('new'))
+
     useShortcuts(
         {
             'mod+n': openCreate,
@@ -188,7 +193,7 @@ export default function AdminUsers() {
     const activeCount = users.filter((user) => user.is_active).length
 
     return (
-        <div className="admin-page">
+        <div className="list-page admin-page">
             <AdminPanel
                 title="Users"
                 count={users.length}
@@ -217,7 +222,7 @@ export default function AdminUsers() {
                             onChange={setSearch}
                             placeholder="Search users, roles or groups…"
                         />
-                        <label className="admin-filter">
+                        <label className="list-filter">
                             <span>Status</span>
                             <select
                                 className="entropy-select"
@@ -232,8 +237,8 @@ export default function AdminUsers() {
                     </>
                 }
             >
-                <div className="admin-table-wrap">
-                    <table className="admin-table">
+                <div className="list-table-wrap">
+                    <table className="list-table">
                         <thead>
                             <tr>
                                 <th>User</th>
@@ -242,7 +247,9 @@ export default function AdminUsers() {
                                 <th>Roles</th>
                                 <th>Groups</th>
                                 <th>Created</th>
-                                <th className="admin-operations-heading">Operations</th>
+                                <th className="list-operations-cell">
+                                    <span className="list-operations-heading">Operations</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -258,11 +265,11 @@ export default function AdminUsers() {
                                 filtered.map((user) => (
                                     <tr key={user.id} className={user.is_active ? undefined : 'is-muted'}>
                                         <td>
-                                            <div className="admin-identity">
+                                            <div className="list-name">
                                                 <span className="admin-avatar" aria-hidden="true">
                                                     {initials(user)}
                                                 </span>
-                                                <div>
+                                                <div className="list-name-content">
                                                     <strong>{user.full_name || user.username}</strong>
                                                     <span>
                                                         @{user.username}
@@ -275,9 +282,10 @@ export default function AdminUsers() {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="admin-cell-text">{user.email || <span className="admin-muted">—</span>}</td>
+                                        <td className="list-cell-text">{user.email || <span className="admin-muted">—</span>}</td>
                                         <td>
-                                            <span className={`admin-status ${user.is_active ? 'is-active' : 'is-disabled'}`}>
+                                            <span className={`list-status ${user.is_active ? 'list-status-enabled' : 'list-status-disabled'}`}>
+                                                <span className="list-status-dot" />
                                                 {user.is_active ? 'Active' : 'Disabled'}
                                             </span>
                                         </td>
@@ -287,9 +295,9 @@ export default function AdminUsers() {
                                         <td>
                                             <ChipList values={user.groups} />
                                         </td>
-                                        <td className="admin-cell-text">{formatDate(user.created_at)}</td>
+                                        <td className="list-cell-text">{formatDate(user.created_at)}</td>
                                         <td>
-                                            <div className="admin-operations">
+                                            <div className="list-operations">
                                                 <button
                                                     type="button"
                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"

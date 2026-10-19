@@ -128,8 +128,8 @@ export default function Settings({
     }
 
     return (
-        <div className="settings-page">
-            <section className="settings-card" aria-labelledby="settings-profile-title">
+        <div className="list-page settings-page">
+            <section className="dashboard-section list-section settings-card" aria-labelledby="settings-profile-title">
                 <header className="settings-card-header">
                     <span className="settings-card-icon">
                         <UserRound size={18} />
@@ -243,7 +243,7 @@ export default function Settings({
                 </form>
             </section>
 
-            <section className="settings-card" aria-labelledby="settings-security-title">
+            <section className="dashboard-section list-section settings-card" aria-labelledby="settings-security-title">
                 <header className="settings-card-header">
                     <span className="settings-card-icon">
                         <ShieldCheck size={18} />

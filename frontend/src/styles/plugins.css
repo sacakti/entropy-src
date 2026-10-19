@@ -1,4 +1,7 @@
 /*
+ * Shared list-page layout (list-*): Plugins, Workflows, Vault,
+ * Administration and Settings all use these classes.
+ *
  * ==========================================================
  * Entropy — Plugins
  *
@@ -14,9 +17,12 @@
  * ==========================================================
  */
 
-.entropy-app .plugins-page {
-    --plugins-panel: var(--app-panel-bg);
-    --plugins-panel-hover: var(--app-panel-hover);
+.entropy-app .list-page {
+    --list-panel: var(--app-panel-bg);
+    --list-panel-hover: var(--app-panel-hover);
+    /* Panels reuse the dashboard section frame. */
+    --dashboard-panel: var(--app-panel-bg);
+    --dashboard-panel-hover: var(--app-panel-hover);
 
     display: flex;
     flex-direction: column;
@@ -28,9 +34,9 @@
     font-family: inherit;
 }
 
-.entropy-app .plugins-page *,
-.entropy-app .plugins-page *::before,
-.entropy-app .plugins-page *::after {
+.entropy-app .list-page *,
+.entropy-app .list-page *::before,
+.entropy-app .list-page *::after {
     box-sizing: border-box;
 }
 
@@ -38,7 +44,7 @@
    Toolbar
    ---------------------------------------------------------- */
 
-.entropy-app .plugins-toolbar {
+.entropy-app .list-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -48,7 +54,7 @@
     min-width: 0;
 }
 
-.entropy-app .plugins-search {
+.entropy-app .list-search {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -64,16 +70,16 @@
     transition: border-color 0.15s ease;
 }
 
-.entropy-app .plugins-search:focus-within {
+.entropy-app .list-search:focus-within {
     border-color: var(--app-accent);
 }
 
-.entropy-app .plugins-search > svg {
+.entropy-app .list-search > svg {
     flex: 0 0 auto;
     color: var(--app-muted);
 }
 
-.entropy-app .plugins-search input {
+.entropy-app .list-search input {
     width: 100%;
     min-width: 0;
     padding: 0;
@@ -85,11 +91,11 @@
     font-size: 12px;
 }
 
-.entropy-app .plugins-search input::placeholder {
+.entropy-app .list-search input::placeholder {
     color: var(--app-subtle);
 }
 
-.entropy-app .plugins-toolbar-actions {
+.entropy-app .list-toolbar-actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -98,7 +104,7 @@
     min-width: 0;
 }
 
-.entropy-app .plugins-filter {
+.entropy-app .list-filter {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -107,7 +113,7 @@
     font-weight: 600;
 }
 
-.entropy-app .plugins-filter .entropy-select {
+.entropy-app .list-filter .entropy-select {
     width: auto;
     min-width: 150px;
     min-height: 38px;
@@ -117,8 +123,8 @@
    Notices and errors
    ---------------------------------------------------------- */
 
-.entropy-app .plugins-notice,
-.entropy-app .plugins-error {
+.entropy-app .list-notice,
+.entropy-app .list-error {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -134,14 +140,14 @@
     line-height: 1.7;
 }
 
-.entropy-app .plugins-notice > span,
-.entropy-app .plugins-error > span {
+.entropy-app .list-notice > span,
+.entropy-app .list-error > span {
     flex: 1 1 auto;
     min-width: 0;
     overflow-wrap: anywhere;
 }
 
-.entropy-app .plugins-notice > button {
+.entropy-app .list-notice > button {
     flex: 0 0 auto;
     padding: 0 2px;
     color: var(--app-muted);
@@ -153,7 +159,7 @@
     cursor: pointer;
 }
 
-.entropy-app .plugins-error {
+.entropy-app .list-error {
     color: var(--app-danger);
     background: color-mix(
         in srgb,
@@ -171,18 +177,18 @@
    Inventory table
    ---------------------------------------------------------- */
 
-.entropy-app .plugins-table-wrap {
+.entropy-app .list-table-wrap {
     width: 100%;
     min-width: 0;
     overflow-x: auto;
-    background: var(--plugins-panel);
+    background: var(--list-panel);
     border: 1px solid var(--app-line);
     border-radius: 12px;
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
 }
 
-.entropy-app .plugins-table {
+.entropy-app .list-table {
     width: 100%;
     min-width: 850px;
     border-collapse: collapse;
@@ -190,7 +196,7 @@
     font-size: 12px;
 }
 
-.entropy-app .plugins-table th {
+.entropy-app .list-table th {
     height: 46px;
     padding: 0 15px;
     color: var(--app-muted);
@@ -207,26 +213,26 @@
     white-space: nowrap;
 }
 
-.entropy-app .plugins-table td {
+.entropy-app .list-table td {
     padding: 14px 15px;
     color: var(--app-text);
     border-bottom: 1px solid var(--app-line);
     vertical-align: middle;
 }
 
-.entropy-app .plugins-table tbody tr:last-child td {
+.entropy-app .list-table tbody tr:last-child td {
     border-bottom: 0;
 }
 
-.entropy-app .plugins-table tbody tr {
+.entropy-app .list-table tbody tr {
     transition: background 0.15s ease;
 }
 
-.entropy-app .plugins-table tbody tr:hover {
-    background: var(--plugins-panel-hover);
+.entropy-app .list-table tbody tr:hover {
+    background: var(--list-panel-hover);
 }
 
-.entropy-app .plugins-sort {
+.entropy-app .list-sort {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -242,12 +248,12 @@
     cursor: pointer;
 }
 
-.entropy-app .plugins-sort:hover,
-.entropy-app .plugins-sort.is-active {
+.entropy-app .list-sort:hover,
+.entropy-app .list-sort.is-active {
     color: var(--app-accent-fg);
 }
 
-.entropy-app .plugins-sort svg {
+.entropy-app .list-sort svg {
     flex: 0 0 auto;
 }
 
@@ -255,14 +261,14 @@
    Plugin identity
    ---------------------------------------------------------- */
 
-.entropy-app .plugins-name {
+.entropy-app .list-name {
     display: flex;
     align-items: center;
     gap: 11px;
     min-width: 160px;
 }
 
-.entropy-app .plugins-name-icon {
+.entropy-app .list-name-icon {
     display: flex;
     flex: 0 0 38px;
     align-items: center;
@@ -275,21 +281,21 @@
     border-radius: 9px;
 }
 
-.entropy-app .plugins-name-icon code {
+.entropy-app .list-name-icon code {
     color: inherit;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
     font-weight: 700;
 }
 
-.entropy-app .plugins-name > div {
+.entropy-app .list-name > div {
     display: flex;
     flex-direction: column;
     gap: 5px;
     min-width: 0;
 }
 
-.entropy-app .plugins-name strong {
+.entropy-app .list-name strong {
     overflow: hidden;
     color: var(--app-text);
     font-size: 12px;
@@ -299,7 +305,7 @@
     white-space: nowrap;
 }
 
-.entropy-app .plugins-name > div > span {
+.entropy-app .list-name > div > span {
     overflow: hidden;
     color: var(--app-muted);
     font-size: 10px;
@@ -308,7 +314,7 @@
     white-space: nowrap;
 }
 
-.entropy-app .plugins-version {
+.entropy-app .list-version {
     display: inline-flex;
     align-items: center;
     padding: 4px 7px;
@@ -337,7 +343,7 @@
    Enabled and disabled states
    ---------------------------------------------------------- */
 
-.entropy-app .plugins-status {
+.entropy-app .list-status {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -354,7 +360,7 @@
     white-space: nowrap;
 }
 
-.entropy-app .plugins-status-dot {
+.entropy-app .list-status-dot {
     flex: 0 0 6px;
     width: 6px;
     height: 6px;
@@ -362,11 +368,11 @@
     border-radius: 50%;
 }
 
-.entropy-app .plugins-status.is-enabled {
+.entropy-app .list-status.is-enabled {
     color: var(--app-success);
 }
 
-.entropy-app .plugins-status.is-disabled {
+.entropy-app .list-status.is-disabled {
     color: var(--app-muted);
 }
 
@@ -374,7 +380,7 @@
    Empty, loading and error rows
    ---------------------------------------------------------- */
 
-.entropy-app .plugins-empty {
+.entropy-app .list-empty {
     height: 150px;
     padding: 28px !important;
     color: var(--app-muted) !important;
@@ -386,7 +392,7 @@
    Pagination
    ---------------------------------------------------------- */
 
-.entropy-app .plugins-pagination {
+.entropy-app .list-pagination {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -398,39 +404,39 @@
     font-size: 11px;
 }
 
-.entropy-app .plugins-pagination-summary {
+.entropy-app .list-pagination-summary {
     line-height: 1.6;
 }
 
-.entropy-app .plugins-pagination-controls {
+.entropy-app .list-pagination-controls {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
 }
 
-.entropy-app .plugins-pagination-controls label,
-.entropy-app .plugins-pagination-controls span {
+.entropy-app .list-pagination-controls label,
+.entropy-app .list-pagination-controls span {
     color: var(--app-muted);
     white-space: nowrap;
 }
 
-.entropy-app .plugins-page-select {
+.entropy-app .list-page-select {
     width: auto;
     min-width: 64px;
     min-height: 30px;
     padding-right: 26px;
 }
 
-.entropy-app .plugins-sort:focus-visible,
-.entropy-app .plugins-notice > button:focus-visible {
+.entropy-app .list-sort:focus-visible,
+.entropy-app .list-notice > button:focus-visible {
     outline: 2px solid var(--app-accent);
     outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .entropy-app .plugins-search,
-    .entropy-app .plugins-table tbody tr {
+    .entropy-app .list-search,
+    .entropy-app .list-table tbody tr {
         transition: none;
     }
 }
@@ -440,37 +446,37 @@
    ---------------------------------------------------------- */
 
 @media (max-width: 760px) {
-    .entropy-app .plugins-page {
+    .entropy-app .list-page {
         gap: 16px;
     }
 
-    .entropy-app .plugins-toolbar {
+    .entropy-app .list-toolbar {
         align-items: stretch;
         flex-direction: column;
     }
 
-    .entropy-app .plugins-search {
+    .entropy-app .list-search {
         flex-basis: auto;
         max-width: none;
     }
 
-    .entropy-app .plugins-toolbar-actions {
+    .entropy-app .list-toolbar-actions {
         justify-content: flex-start;
     }
 
-    .entropy-app .plugins-pagination {
+    .entropy-app .list-pagination {
         align-items: flex-start;
         flex-direction: column;
     }
 }
 
 @media (max-width: 480px) {
-    .entropy-app .plugins-filter,
-    .entropy-app .plugins-filter .entropy-select {
+    .entropy-app .list-filter,
+    .entropy-app .list-filter .entropy-select {
         flex: 1 1 140px;
     }
 
-    .entropy-app .plugins-pagination-controls {
+    .entropy-app .list-pagination-controls {
         flex-wrap: wrap;
     }
 }
@@ -486,15 +492,15 @@ operation menu {
     gap: 10px;
 }
 
-.entropy-app .plugins-status-enabled {
+.entropy-app .list-status-enabled {
     color: var(--app-success);
 }
 
-.entropy-app .plugins-status-disabled {
+.entropy-app .list-status-disabled {
     color: var(--app-muted);
 }
 
-.entropy-app .plugins-loading {
+.entropy-app .list-loading {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -505,20 +511,20 @@ operation menu {
 
 /* Count + create */
 
-.entropy-app .plugins-section-heading {
+.entropy-app .list-section-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
 }
 
-.entropy-app .plugins-section-heading h2 {
+.entropy-app .list-section-heading h2 {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.entropy-app .plugins-count {
+.entropy-app .list-count {
     min-width: 26px;
     padding: 2px 9px;
     color: var(--app-accent-fg);
@@ -533,7 +539,7 @@ operation menu {
 
 /* Operations */
 
-.entropy-app .plugins-operations {
+.entropy-app .list-operations {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -711,7 +717,7 @@ operation menu {
 
 /* Title + create button fit on one row even on phones. */
 @media (max-width: 760px) {
-    .entropy-app .plugins-section-heading {
+    .entropy-app .list-section-heading {
         flex-direction: row;
         align-items: flex-start;
     }

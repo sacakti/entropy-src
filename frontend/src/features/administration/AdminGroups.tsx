@@ -5,6 +5,7 @@ import { adminApi, type AdminGroup, type AdminRole, type AdminUser } from '../..
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
+import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { AdminPanel, Checklist, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
 import { errorMessage, formatDate, sameSet } from './format'
 import { usePermissions } from './usePermissions'
@@ -21,7 +22,9 @@ export default function AdminGroups() {
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
-    const [editing, setEditing] = useState<AdminGroup | 'new' | null>(null)
+    const [editing, setEditing] = useState<AdminGroup | 'new' | null>(() =>
+        consumeCreateIntent('group') ? 'new' : null,
+    )
     const [deleting, setDeleting] = useState<string | null>(null)
     const searchRef = useRef<HTMLInputElement>(null)
 
@@ -90,6 +93,8 @@ export default function AdminGroups() {
         if (can('groups.create')) setEditing('new')
     }
 
+    useCreateIntent('group', () => setEditing('new'))
+
     useShortcuts(
         {
             'mod+n': openCreate,
@@ -103,7 +108,7 @@ export default function AdminGroups() {
     )
 
     return (
-        <div className="admin-page">
+        <div className="list-page admin-page">
             <AdminPanel
                 title="Groups"
                 count={groups.length}
@@ -136,15 +141,17 @@ export default function AdminGroups() {
                     />
                 }
             >
-                <div className="admin-table-wrap">
-                    <table className="admin-table">
+                <div className="list-table-wrap">
+                    <table className="list-table">
                         <thead>
                             <tr>
                                 <th>Group</th>
                                 <th>Members</th>
                                 <th>Roles</th>
                                 <th>Updated</th>
-                                <th className="admin-operations-heading">Operations</th>
+                                <th className="list-operations-cell">
+                                    <span className="list-operations-heading">Operations</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -164,11 +171,11 @@ export default function AdminGroups() {
                                 filtered.map((group) => (
                                     <tr key={group.id}>
                                         <td>
-                                            <div className="admin-identity">
-                                                <span className="admin-icon-tile" aria-hidden="true">
+                                            <div className="list-name">
+                                                <span className="list-name-icon" aria-hidden="true">
                                                     <UsersRound size={16} />
                                                 </span>
-                                                <div>
+                                                <div className="list-name-content">
                                                     <strong>{group.name}</strong>
                                                     <span>{group.description || 'No description'}</span>
                                                 </div>
@@ -180,9 +187,9 @@ export default function AdminGroups() {
                                         <td>
                                             <ChipList values={group.roles} tone="accent" empty="No roles" />
                                         </td>
-                                        <td className="admin-cell-text">{formatDate(group.updated_at)}</td>
+                                        <td className="list-cell-text">{formatDate(group.updated_at)}</td>
                                         <td>
-                                            <div className="admin-operations">
+                                            <div className="list-operations">
                                                 <button
                                                     type="button"
                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"

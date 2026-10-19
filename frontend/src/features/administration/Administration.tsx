@@ -3,6 +3,7 @@ import { AlertCircle, ArrowRight, BadgeCheck, LockKeyhole, UserRound, UsersRound
 
 import { adminApi, type AdminSummary } from '../../api/admin.api'
 import type { PageId } from '../../types/navigation'
+import AdminCharts from './AdminCharts'
 import { errorMessage } from './format'
 
 const SECTIONS: {
@@ -64,7 +65,7 @@ export default function Administration({ onNavigate }: { onNavigate: (page: Page
     }, [])
 
     return (
-        <div className="admin-page">
+        <div className="list-page admin-page">
             {error && (
                 <div className="entropy-alert entropy-alert-error" role="alert">
                     <AlertCircle size={16} />
@@ -87,6 +88,8 @@ export default function Administration({ onNavigate }: { onNavigate: (page: Page
                     </button>
                 ))}
             </div>
+
+            {summary && <AdminCharts summary={summary} />}
         </div>
     )
 }

@@ -226,10 +226,6 @@
 .entropy-app .settings-card {
     display: grid;
     gap: 20px;
-    padding: 22px 24px 24px;
-    background: var(--app-panel-bg, var(--app-surface));
-    border: 1px solid var(--app-line);
-    border-radius: 14px;
 }
 
 .entropy-app .settings-card-header {

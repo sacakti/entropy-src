@@ -374,3 +374,52 @@
     color: var(--app-text);
     text-decoration: underline;
 }
+
+
+.notification-menu-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Level accents for server notifications. */
+.notification-item.is-success { box-shadow: inset 3px 0 0 var(--app-success); }
+.notification-item.is-warning { box-shadow: inset 3px 0 0 var(--app-warning); }
+.notification-item.is-error { box-shadow: inset 3px 0 0 var(--app-danger); }
+.notification-item.is-info { box-shadow: inset 3px 0 0 var(--app-info); }
+
+.entropy-app .topbar-create-menu {
+    min-width: 200px;
+}
+
+.entropy-app .topbar-create-label {
+    padding: 6px 10px 4px;
+    color: var(--app-subtle);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.entropy-app .topbar-create-menu button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .topbar-create-menu button:hover,
+.entropy-app .topbar-create-menu button:focus-visible {
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .topbar-create-menu button > svg {
+    color: var(--app-accent-fg);
+}

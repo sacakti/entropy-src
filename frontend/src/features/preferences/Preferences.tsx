@@ -28,6 +28,7 @@ import type {
 } from '../../api/preferences.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import WallpaperViewer from './WallpaperViewer'
+import { useNotificationCenter } from '../notifications/context'
 import '../../styles/Preferences.css'
 
 export interface PreferencesProps {
@@ -62,6 +63,8 @@ export interface PreferencesProps {
     wallpaperSettings: WallpaperSettings
     saveWallpaperSettings: (settings: WallpaperSettings) => Promise<void>
     removeAllUploads: () => Promise<{ deleted: number; message: string }>
+    glass: boolean
+    setGlass: (enabled: boolean) => Promise<void>
 }
 
 const SHUFFLE_INTERVALS = [1, 5, 15, 30, 60, 180, 720, 1440]
@@ -99,17 +102,22 @@ export default function Preferences({
     wallpaperSettings,
     saveWallpaperSettings,
     removeAllUploads,
+    glass,
+    setGlass,
 }: PreferencesProps) {
     const [backgroundDragActive, setBackgroundDragActive] = useState(false)
     const [galleryPage, setGalleryPage] = useState(0)
     const [viewerIndex, setViewerIndex] = useState<number | null>(null)
     const [bulkBusy, setBulkBusy] = useState(false)
+    // Progress of a multi-file upload; the drop zone stays locked until done.
+    const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
+    const notifyCenter = useNotificationCenter()
     const uploadInputRef = useRef<HTMLInputElement>(null)
     const { notify, modal } = useFeedback()
     const previewClickTimer = useRef<number | null>(null)
 
     const isBusy =
-        !preferencesLoaded || preferencesSaving || backgroundUploading
+        !preferencesLoaded || preferencesSaving || backgroundUploading || uploadProgress !== null
 
     const pageCount = Math.max(
         1,
@@ -174,27 +182,46 @@ export default function Preferences({
             )
         }
 
-        let uploaded = 0
-        let failed = 0
+        if (validFiles.length === 0) return
 
-        for (const file of validFiles) {
-            try {
-                await uploadBackground(file)
-                uploaded += 1
-            } catch {
-                failed += 1
+        let uploaded = 0
+        const failed: string[] = []
+
+        setUploadProgress({ done: 0, total: validFiles.length })
+
+        try {
+            for (const file of validFiles) {
+                try {
+                    await uploadBackground(file)
+                    uploaded += 1
+                } catch {
+                    failed.push(file.name)
+                }
+
+                setUploadProgress({ done: uploaded + failed.length, total: validFiles.length })
             }
+        } finally {
+            setUploadProgress(null)
         }
 
-        if (uploaded > 0 && failed === 0) {
+        notifyCenter({
+            title: failed.length ? 'Wallpaper upload finished with errors' : 'Wallpaper upload complete',
+            message: failed.length
+                ? `${uploaded} of ${validFiles.length} uploaded. Failed: ${failed.join(', ')}.`
+                : `${uploaded} wallpaper${uploaded === 1 ? '' : 's'} uploaded to your gallery.`,
+            level: failed.length ? (uploaded ? 'warning' : 'error') : 'success',
+            source: 'wallpapers',
+        })
+
+        if (uploaded > 0 && failed.length === 0) {
             notify.success(
                 uploaded === 1
                     ? 'Wallpaper uploaded successfully.'
                     : `${uploaded} wallpapers uploaded successfully.`,
             )
         } else if (uploaded > 0) {
-            notify.warning(`${uploaded} uploaded; ${failed} failed.`)
-        } else if (failed > 0) {
+            notify.warning(`${uploaded} uploaded; ${failed.length} failed.`)
+        } else if (failed.length > 0) {
             notify.error('Unable to upload the selected files.')
         }
     }
@@ -586,6 +613,57 @@ export default function Preferences({
                 </section>
             </div>
 
+            {/* Interface style */}
+            <section className="settings-section glass-section">
+                <div className="settings-section-heading">
+                    <h3>Interface style</h3>
+                    <p>Choose how buttons, dialogs and menus look.</p>
+                </div>
+
+                <div className="glass-options" role="radiogroup" aria-label="Interface style">
+                    {[
+                        { value: false, title: 'Standard', text: 'Solid, high-contrast surfaces.' },
+                        {
+                            value: true,
+                            title: 'Liquid glass',
+                            text: 'Translucent, frosted buttons and dialogs that let your wallpaper through.',
+                        },
+                    ].map((option) => (
+                        <button
+                            key={option.title}
+                            type="button"
+                            role="radio"
+                            aria-checked={glass === option.value}
+                            className={`glass-option ${glass === option.value ? 'selected' : ''} ${
+                                option.value ? 'is-glass' : ''
+                            }`}
+                            disabled={!preferencesLoaded}
+                            onClick={() => {
+                                if (glass === option.value) return
+                                setGlass(option.value)
+                                    .then(() =>
+                                        notify.success(
+                                            option.value ? 'Liquid glass turned on.' : 'Standard style restored.',
+                                        ),
+                                    )
+                                    .catch(() => notify.error('Unable to save the interface style.'))
+                            }}
+                        >
+                            <span className="glass-option-preview" aria-hidden="true">
+                                <span className="glass-option-card">
+                                    <span />
+                                    <span />
+                                </span>
+                                <span className="glass-option-button">Button</span>
+                            </span>
+                            <strong>{option.title}</strong>
+                            <small>{option.text}</small>
+                            {glass === option.value && <Check className="theme-check" size={16} />}
+                        </button>
+                    ))}
+                </div>
+            </section>
+
             {/* Background library */}
             <section className="settings-section background-section">
                 <div className="settings-section-heading">
@@ -594,7 +672,7 @@ export default function Preferences({
                 </div>
 
                 <div
-                    className={`background-dropzone ${backgroundDragActive ? 'drag-active' : ''} ${backgroundUploading ? 'uploading' : ''}`}
+                    className={`background-dropzone ${backgroundDragActive ? 'drag-active' : ''} ${backgroundUploading || uploadProgress ? 'uploading' : ''}`}
                     role="button"
                     tabIndex={isBusy ? -1 : 0}
                     aria-label="Upload background images"
@@ -634,7 +712,9 @@ export default function Preferences({
                     />
                     <CloudUpload size={30} />
                     <strong>
-                        {backgroundUploading
+                        {uploadProgress
+                            ? `Uploading ${Math.min(uploadProgress.done + 1, uploadProgress.total)} of ${uploadProgress.total}…`
+                            : backgroundUploading
                             ? 'Uploading…'
                             : backgroundDragActive
                               ? 'Drop to upload'
@@ -697,6 +777,17 @@ export default function Preferences({
                                     const fit =
                                         event.target.value as UserPreferences['background_fit']
                                     setBackgroundFit(fit)
+
+                                    // A custom placement overrides the fit; choosing a fit
+                                    // means the user wants that instead.
+                                    const placed = backgroundImageId !== null
+                                        && wallpaperSettings.placements[String(backgroundImageId)]
+                                    if (placed) {
+                                        const placements = { ...wallpaperSettings.placements }
+                                        delete placements[String(backgroundImageId)]
+                                        void saveWallpaperSettings({ ...wallpaperSettings, placements })
+                                    }
+
                                     void saveWithFeedback(
                                         theme,
                                         accentColor,

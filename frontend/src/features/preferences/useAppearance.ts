@@ -10,7 +10,9 @@ import {
 import {
     DEFAULT_WALLPAPER_SETTINGS,
     getPreferences,
+    getInterfaceSettings,
     getWallpaperSettings,
+    updateInterfaceSettings,
     updatePreferences,
     updateWallpaperSettings,
     type UserPreferences,
@@ -45,6 +47,7 @@ export function useAppearance() {
     const [modalBackdropOpacity, setModalBackdropOpacity] = useState(
         DEFAULT_PREFERENCES.modal_backdrop_opacity,
     )
+    const [glass, setGlassState] = useState(false)
     const [wallpaperSettings, setWallpaperSettings] = useState<WallpaperSettings>(
         DEFAULT_WALLPAPER_SETTINGS,
     )
@@ -92,6 +95,11 @@ export function useAppearance() {
                 getWallpaperSettings()
                     .then((settings) => {
                         if (!cancelled) setWallpaperSettings(settings)
+                    })
+                    .catch(() => undefined)
+                getInterfaceSettings()
+                    .then((settings) => {
+                        if (!cancelled) setGlassState(settings.glass)
                     })
                     .catch(() => undefined)
             } catch (error) {
@@ -219,6 +227,17 @@ export function useAppearance() {
         }
     }, [wallpaperSettings])
 
+    const setGlass = useCallback(async (enabled: boolean) => {
+        setGlassState(enabled)
+
+        try {
+            setGlassState((await updateInterfaceSettings({ glass: enabled })).glass)
+        } catch (error) {
+            setGlassState(!enabled)
+            throw error
+        }
+    }, [])
+
     const removeAllUploads = useCallback(async () => {
         setPreferencesError('')
 
@@ -264,6 +283,8 @@ export function useAppearance() {
         wallpaperSettings,
         saveWallpaperSettings,
         removeAllUploads,
+        glass,
+        setGlass,
     }
 }
 

@@ -11,7 +11,9 @@ import { accentTokens } from './features/preferences/accent'
 import { useAppearance } from './features/preferences/useAppearance'
 import WallpaperLayer from './features/preferences/WallpaperLayer'
 import { WallpaperContext, useShuffledWallpaper, type WallpaperState } from './features/preferences/wallpaper'
-import Topbar, { type TopbarNotification } from './components/layout/Topbar'
+import Topbar from './components/layout/Topbar'
+import { NotificationCenterContext } from './features/notifications/context'
+import { useNotifications } from './features/notifications/useNotifications'
 import Sidebar from './components/layout/Sidebar'
 import EntropyLogo from './components/layout/EntropyLogo'
 import Settings from './features/settings/Settings'
@@ -32,7 +34,10 @@ import AdminGroups from './features/administration/AdminGroups'
 import AdminRoles from './features/administration/AdminRoles'
 import AdminPermissions from './features/administration/AdminPermissions'
 
-import { pageFromHash, parentPage, type PageId } from './types/navigation'
+import { PAGE_PERMISSIONS, pageFromHash, parentPage, type PageId } from './types/navigation'
+import AccessRestricted from './components/layout/AccessRestricted'
+import { requestCreate, type CreateTarget } from './features/quickCreate'
+import { getCurrentUser } from './services/auth'
 
 interface EntropyShellProps {
     user: AuthUser
@@ -149,10 +154,12 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         const root = document.documentElement
 
         root.dataset.theme = appearance.theme
+        // Portaled dialogs and toasts read the glass style from <html>.
+        root.dataset.glass = appearance.glass ? 'on' : 'off'
         root.style.setProperty('--app-accent', accent.accent)
         root.style.setProperty('--app-accent-text', accent.onAccent)
         root.style.setProperty('--app-accent-fg', accent.foreground)
-    }, [accent, appearance.theme])
+    }, [accent, appearance.theme, appearance.glass])
     const pageTitles: Record<PageId, string> = {
         dashboard: 'Dashboard',
         plugins: 'Plugins',
@@ -171,7 +178,52 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         permissions: 'Permissions',
     }
     const pageTitle = pageTitles[activePage]
-    const [notifications, setNotifications] = useState<TopbarNotification[]>([])
+
+    // Effective permissions, re-read on navigation so role changes apply
+    // without signing in again.
+    const [permissions, setPermissions] = useState<Set<string> | null>(null)
+
+    useEffect(() => {
+        let active = true
+
+        getCurrentUser()
+            .then((result) => {
+                if (active) setPermissions(new Set(result.permissions))
+            })
+            .catch(() => undefined)
+
+        return () => {
+            active = false
+        }
+    }, [activePage])
+
+    const requiredPermissions = PAGE_PERMISSIONS[activePage]
+    const restricted = Boolean(
+        permissions &&
+            requiredPermissions &&
+            !requiredPermissions.some((permission) => permissions.has(permission)),
+    )
+
+    const quickCreate = (
+        [
+            { target: 'plugin', label: 'Plugin', page: 'plugins', permission: 'plugins.install' },
+            { target: 'workflow', label: 'Workflow', page: 'workflows', permission: 'workflows.add' },
+            { target: 'vault-entry', label: 'Vault secret', page: 'vault', permission: null },
+            { target: 'vault-namespace', label: 'Vault namespace', page: 'vault', permission: 'vault.namespace.create' },
+            { target: 'user', label: 'User', page: 'admin-users', permission: 'users.create' },
+            { target: 'group', label: 'Group', page: 'admin-groups', permission: 'groups.create' },
+            { target: 'role', label: 'Role', page: 'admin-roles', permission: 'roles.create' },
+        ] as { target: CreateTarget; label: string; page: PageId; permission: string | null }[]
+    )
+        .filter((item) => !item.permission || permissions?.has(item.permission))
+        .map((item) => ({
+            ...item,
+            onSelect: () => {
+                requestCreate(item.target)
+                setActivePage(item.page)
+            },
+        }))
+    const notifications = useNotifications()
     const [appVersion, setAppVersion] = useState('')
 
     useEffect(() => {
@@ -194,32 +246,8 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         }
     }, [])
 
-    function markNotificationRead(id: string) {
-        setNotifications((current) =>
-            current.map((notification) =>
-                notification.id === id
-                    ? { ...notification, read: true }
-                    : notification,
-            ),
-        )
-    }
-
-    function clearNotification(id: string) {
-        setNotifications((current) =>
-            current.filter((notification) => notification.id !== id),
-        )
-    }
-
-    function markAllNotificationsRead() {
-        setNotifications((current) =>
-            current.map((notification) => ({
-                ...notification,
-                read: true,
-            })),
-        )
-    }
-
     return (
+        <NotificationCenterContext.Provider value={notifications.push}>
         <WallpaperContext.Provider value={wallpaper}>
             <div
                 className={`entropy-app theme-${appearance.theme}`}
@@ -241,6 +269,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     <Topbar
                     profile={profile}
                     onOpenHelp={() => setHelpOpen(true)}
+                    quickCreate={quickCreate}
                     pageTitle={pageTitle}
                     parentTitle={parentPage(activePage)?.label}
                     onParentClick={() => {
@@ -260,13 +289,20 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     }}
                     onPageChange={setActivePage}
                     onLogout={onLogout}
-                    notifications={notifications}
-                    onMarkNotificationRead={markNotificationRead}
-                    onClearNotification={clearNotification}
-                    onMarkAllNotificationsRead={markAllNotificationsRead}
+                    notifications={notifications.items}
+                    onMarkNotificationRead={notifications.markRead}
+                    onClearNotification={notifications.remove}
+                    onMarkAllNotificationsRead={notifications.markAllRead}
+                    onClearAllNotifications={notifications.clear}
                 />
                     <main className="entropy-content">
-                        {activePage === 'dashboard' ? (
+                        {restricted ? (
+                        <AccessRestricted
+                            page={pageTitle}
+                            permissions={requiredPermissions ?? []}
+                            onBack={window.history.length > 1 ? () => window.history.back() : undefined}
+                        />
+                    ) : activePage === 'dashboard' ? (
                             <Dashboard
                                 onNavigate={setActivePage}
                             />
@@ -323,6 +359,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                 {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
             </div>
         </WallpaperContext.Provider>
+        </NotificationCenterContext.Provider>
     )
 }
 

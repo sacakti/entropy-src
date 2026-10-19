@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from core.web.routes.auth import _current_session
 from core.web.routes.workflows import _require_permission
+from lib.database.repositories.notifications import notify_user
 from lib.models.authorization import VaultAccess, VaultVisibility
 from lib.models.session import Session
 from lib.models.users import User
@@ -148,9 +149,14 @@ def _raise_http_error(exc: Exception) -> None:
 # ---------------------------------------------------------------------
 
 
-def _namespace_payload(namespace: Any) -> dict[str, Any]:
+def _namespace_payload(
+    namespace: Any,
+    access: Optional[VaultAccess] = None,
+) -> dict[str, Any]:
     return {
         "id": namespace.id,
+        # The caller's effective access; null for shared read-only access.
+        "access": access.value if access is not None else None,
         "name": namespace.name,
         "owner_user_id": namespace.owner_user_id,
         "visibility": namespace.visibility.value,
@@ -201,6 +207,10 @@ def _users_by_id(request: Request) -> dict[int, User]:
     }
 
 
+def _users_by_name(request: Request) -> dict[str, User]:
+    return {account.username: account for account in _users_by_id(request).values()}
+
+
 def _access_payload(
     assignment: Any,
     users: Optional[dict[int, User]] = None,
@@ -234,13 +244,32 @@ _ACCESS_LEVEL = {
 }
 
 
+def _has_permission(request: Request, user: User, permission: str) -> bool:
+    authorization = request.app.state.entropy_context.authorization
+
+    return bool(
+        authorization is not None
+        and user.id is not None
+        and authorization.has_permission(user.id, permission)
+    )
+
+
 def _require_namespace_access(
+    request: Request,
     namespace_manager: Any,
     namespace: Any,
     user: User,
     required: VaultAccess,
+    permission: str,
 ) -> None:
-    """Enforce access to a specific namespace."""
+    """
+    Enforce access to a specific namespace.
+
+    Access granted on the namespace itself (or ownership) is sufficient:
+    a namespace administrator who grants a user READ or WRITE has decided
+    that user may work with it. Without a grant, shared namespaces are
+    readable by users holding the role permission for the operation.
+    """
     if namespace.id is None:
         raise HTTPException(
             status_code=404,
@@ -252,26 +281,26 @@ def _require_namespace_access(
         user.id,
     )
 
-    # Shared namespaces allow reading, but do not grant write or
-    # administration privileges implicitly.
+    if access is not None and _ACCESS_LEVEL[access] >= _ACCESS_LEVEL[required]:
+        return
+
     if (
         access is None
         and namespace.visibility == VaultVisibility.SHARED
         and required == VaultAccess.READ
+        and _has_permission(request, user, permission)
     ):
         return
 
     if access is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Vault access denied.",
+        detail = f"You have no access to the '{namespace.name}' namespace."
+    else:
+        detail = (
+            f"This needs {required.value} access to the '{namespace.name}' "
+            f"namespace; you have {access.value} access."
         )
 
-    if _ACCESS_LEVEL[access] < _ACCESS_LEVEL[required]:
-        raise HTTPException(
-            status_code=403,
-            detail="Vault access denied.",
-        )
+    raise HTTPException(status_code=403, detail=detail)
 
 
 def _get_namespace(
@@ -297,7 +326,9 @@ def list_namespaces(
 ) -> dict[str, Any]:
     """List namespaces visible to the authenticated user."""
     _, _, user = record
-    _require_permission(request, user, "vault.namespace.read")
+    # Namespaces granted to the user are always listed; shared ones need
+    # the role permission.
+    can_browse_shared = _has_permission(request, user, "vault.namespace.read")
 
     _, namespace_manager = _vault_components(request)
 
@@ -306,13 +337,18 @@ def list_namespaces(
         visible = []
 
         for namespace in namespaces:
-            if namespace_manager.access_by_user_id(
+            access = namespace_manager.access_by_user_id(
                 namespace,
                 user.id,
-            ) is not None:
-                visible.append(namespace)
-            elif namespace.visibility == VaultVisibility.SHARED:
-                visible.append(namespace)
+            )
+
+            if access is not None:
+                visible.append((namespace, access))
+            elif (
+                namespace.visibility == VaultVisibility.SHARED
+                and can_browse_shared
+            ):
+                visible.append((namespace, None))
 
     except VaultError as exc:
         _raise_http_error(exc)
@@ -321,8 +357,8 @@ def list_namespaces(
 
     return {
         "items": [
-            _namespace_payload(namespace)
-            for namespace in visible
+            _namespace_payload(namespace, access)
+            for namespace, access in visible
         ]
     }
 
@@ -364,7 +400,6 @@ def update_namespace(
 ) -> dict[str, Any]:
     """Rename a namespace or update its visibility."""
     _, _, user = record
-    _require_permission(request, user, "vault.namespace.modify")
 
     _, namespace_manager = _vault_components(request)
 
@@ -375,10 +410,12 @@ def update_namespace(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.ADMIN,
+            "vault.namespace.modify",
         )
 
         namespace = namespace_manager.modify(
@@ -405,7 +442,6 @@ def delete_namespace(
 ) -> Response:
     """Delete a namespace and its dependent entries."""
     _, _, user = record
-    _require_permission(request, user, "vault.namespace.delete")
 
     _, namespace_manager = _vault_components(request)
 
@@ -416,10 +452,12 @@ def delete_namespace(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.ADMIN,
+            "vault.namespace.delete",
         )
 
         namespace_manager.delete(namespace)
@@ -446,7 +484,6 @@ def list_entries(
 ) -> dict[str, Any]:
     """List entry metadata without revealing secret values."""
     _, _, user = record
-    _require_permission(request, user, "vault.read")
 
     vault_manager, namespace_manager = _vault_components(request)
 
@@ -457,10 +494,12 @@ def list_entries(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.READ,
+            "vault.read",
         )
 
         if namespace.id is None:
@@ -497,7 +536,6 @@ def create_entry(
 ) -> dict[str, Any]:
     """Create an entry through the existing VaultManager."""
     _, _, user = record
-    _require_permission(request, user, "vault.add")
 
     vault_manager, namespace_manager = _vault_components(request)
 
@@ -508,10 +546,12 @@ def create_entry(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.WRITE,
+            "vault.add",
         )
 
         if namespace.id is None:
@@ -549,7 +589,6 @@ def update_entry(
 ) -> dict[str, Any]:
     """Update an existing entry."""
     _, _, user = record
-    _require_permission(request, user, "vault.modify")
 
     vault_manager, namespace_manager = _vault_components(request)
 
@@ -560,10 +599,12 @@ def update_entry(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.WRITE,
+            "vault.modify",
         )
 
         if namespace.id is None:
@@ -600,7 +641,6 @@ def reveal_entry(
 ) -> dict[str, Any]:
     """Explicitly resolve an entry's value."""
     _, _, user = record
-    _require_permission(request, user, "vault.read")
 
     vault_manager, namespace_manager = _vault_components(request)
 
@@ -611,10 +651,12 @@ def reveal_entry(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.READ,
+            "vault.read",
         )
 
         if namespace.id is None:
@@ -658,7 +700,6 @@ def delete_entry(
 ) -> Response:
     """Delete an entry."""
     _, _, user = record
-    _require_permission(request, user, "vault.delete")
 
     vault_manager, namespace_manager = _vault_components(request)
 
@@ -669,10 +710,12 @@ def delete_entry(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.WRITE,
+            "vault.delete",
         )
 
         if namespace.id is None:
@@ -709,7 +752,6 @@ def list_namespace_access(
 ) -> dict[str, Any]:
     """List explicit access assignments."""
     _, _, user = record
-    _require_permission(request, user, "vault.namespace.users")
 
     _, namespace_manager = _vault_components(request)
 
@@ -720,10 +762,12 @@ def list_namespace_access(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.ADMIN,
+            "vault.namespace.users",
         )
 
         assignments = namespace_manager.access_assignments(
@@ -754,7 +798,16 @@ def suggest_users(
 ) -> dict[str, Any]:
     """Active users matching a username, name or id, for access grants."""
     _, _, user = record
-    _require_permission(request, user, "vault.namespace.users")
+
+    # Namespace administrators may grant access without the role permission.
+    if not _has_permission(request, user, "vault.namespace.users"):
+        _, namespace_manager = _vault_components(request)
+
+        if not any(
+            namespace_manager.access_by_user_id(namespace, user.id) == VaultAccess.ADMIN
+            for namespace in namespace_manager.list()
+        ):
+            raise HTTPException(status_code=403, detail="Permission denied.")
 
     search = q.strip().casefold()
     matches = []
@@ -801,7 +854,6 @@ def grant_namespace_access(
 ) -> Response:
     """Grant a user READ, WRITE, or ADMIN access."""
     _, _, user = record
-    _require_permission(request, user, "vault.namespace.users")
 
     _, namespace_manager = _vault_components(request)
 
@@ -812,10 +864,12 @@ def grant_namespace_access(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.ADMIN,
+            "vault.namespace.users",
         )
 
         namespace_manager.grant_access(
@@ -823,6 +877,17 @@ def grant_namespace_access(
             payload.username.strip(),
             payload.access,
         )
+
+        if payload.username.strip() != user.username:
+            target = _users_by_name(request).get(payload.username.strip())
+            notify_user(
+                request.app.state.entropy_context,
+                target.id if target else None,
+                f"Vault access: {namespace.name}",
+                f"{user.username} gave you {payload.access.value} access to the '{namespace.name}' namespace.",
+                "info",
+                "vault",
+            )
 
     except VaultError as exc:
         _raise_http_error(exc)
@@ -845,7 +910,6 @@ def revoke_namespace_access(
 ) -> Response:
     """Revoke an explicit user access assignment."""
     _, _, user = record
-    _require_permission(request, user, "vault.namespace.users")
 
     _, namespace_manager = _vault_components(request)
 
@@ -856,16 +920,29 @@ def revoke_namespace_access(
         )
 
         _require_namespace_access(
+            request,
             namespace_manager,
             namespace,
             user,
             VaultAccess.ADMIN,
+            "vault.namespace.users",
         )
 
         namespace_manager.revoke_access(
             namespace,
             username,
         )
+
+        if username != user.username:
+            target = _users_by_name(request).get(username)
+            notify_user(
+                request.app.state.entropy_context,
+                target.id if target else None,
+                f"Vault access removed: {namespace.name}",
+                f"{user.username} removed your access to the '{namespace.name}' namespace.",
+                "warning",
+                "vault",
+            )
 
     except VaultError as exc:
         _raise_http_error(exc)

@@ -68,7 +68,6 @@
 }
 
 .entropy-app .vault-header-actions,
-.entropy-app .vault-topbar,
 .entropy-app .vault-section-header,
 .entropy-app .vault-tabs,
 .entropy-app .vault-row-actions,
@@ -99,30 +98,11 @@
 
 /* Namespace toolbar */
 
-.entropy-app .vault-topbar {
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 14px 20px;
-}
-
 .entropy-app .vault-topbar-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-}
-
-.entropy-app .vault-namespace-selector {
-  width: min(360px, 100%);
-  min-width: 0;
-}
-
-.entropy-app .vault-namespace-selector label {
-  display: block;
-  margin: 0 0 7px;
-  color: var(--app-text);
-  font-size: 11px;
-  font-weight: 650;
 }
 
 .entropy-app .vault-create-menu {
@@ -473,53 +453,6 @@
 
 /* Tables */
 
-.entropy-app .vault-table-wrap {
-  width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-  background: var(--app-surface);
-  border: 1px solid var(--app-line);
-  border-radius: 10px;
-}
-
-.entropy-app .vault-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  color: var(--app-text);
-  background: var(--app-surface);
-  font-size: 12px;
-  text-align: left;
-}
-
-.entropy-app .vault-table th {
-  padding: 11px 13px;
-  color: var(--app-muted);
-  background: var(--app-surface);
-  border-bottom: 1px solid var(--app-line);
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.entropy-app .vault-table td {
-  max-width: 360px;
-  padding: 11px 13px;
-  background: var(--app-surface);
-  border-bottom: 1px solid var(--app-line);
-  vertical-align: middle;
-}
-
-.entropy-app .vault-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.entropy-app .vault-table tbody tr:hover td {
-  background: var(--app-surface-hover);
-}
-
 .entropy-app .vault-key-cell {
   display: flex;
   align-items: center;
@@ -849,14 +782,6 @@
     gap: 18px;
   }
 
-  .entropy-app .vault-topbar {
-    align-items: stretch;
-  }
-
-  .entropy-app .vault-namespace-selector {
-    width: 100%;
-  }
-
   .entropy-app .vault-create-menu {
     align-self: flex-start;
   }
@@ -902,10 +827,6 @@
   .entropy-app .vault-modal-footer {
     padding-right: 16px;
     padding-left: 16px;
-  }
-
-  .entropy-app .vault-table {
-    min-width: 720px;
   }
 }
 
