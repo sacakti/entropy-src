@@ -318,7 +318,7 @@ export default function Plugins() {
             })
 
             setPlugins(result.items)
-            setSummaryTotal(result.summary.total)
+            setSummaryTotal(result.summary?.total ?? result.pagination.total)
             setTotal(result.pagination.total)
             setTotalPages(result.pagination.total_pages)
             setError(null)

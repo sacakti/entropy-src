@@ -12,7 +12,8 @@ export interface PluginItem {
 
 export interface PluginListResponse {
     items: PluginItem[]
-    summary: {
+    /** Unfiltered counts; absent on servers older than the plugin studio API. */
+    summary?: {
         total: number
         enabled: number
     }

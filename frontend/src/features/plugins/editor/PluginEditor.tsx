@@ -315,7 +315,11 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
     useEffect(() => {
         let active = true
 
-        Promise.all([pluginsApi.files(qualifiedName), pluginsApi.sdk()])
+        // SDK help is optional: the editor still opens without it.
+        Promise.all([
+            pluginsApi.files(qualifiedName),
+            pluginsApi.sdk().catch(() => null),
+        ])
             .then(([result, sdk]) => {
                 if (!active) return
 
@@ -1001,8 +1005,10 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                         <>
                             <CheckCircle2 size={12} /> Plugin SDK
                         </>
-                    ) : (
+                    ) : loading ? (
                         'Plugin SDK loading'
+                    ) : (
+                        'Plugin SDK help unavailable'
                     )}
                 </span>
                 <span className={errorCount ? 'plugin-ide-error' : undefined}>

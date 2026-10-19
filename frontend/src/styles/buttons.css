@@ -70,10 +70,23 @@
     outline-offset: 3px;
 }
 
+/* Disabled buttons stay legible: a neutral surface with muted text instead
+   of a faded accent (a half-transparent lime reads as murky olive on dark). */
 :is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:disabled {
-    opacity: var(--button-disabled-opacity);
+    color: var(--app-subtle);
     cursor: not-allowed;
     transform: none;
+    filter: none;
+}
+
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary:disabled,
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger:disabled {
+    background: var(--app-surface-hover);
+    border-color: var(--app-line);
+}
+
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-link:disabled {
+    opacity: var(--button-disabled-opacity);
 }
 
 /* Primary actions: Save, Apply, Confirm */

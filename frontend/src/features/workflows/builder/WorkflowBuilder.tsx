@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 
 import '../../../styles/workflow-builder.css'
-import { pluginsApi, type PluginContract } from '../../../api/plugins.api'
+import { listPlugins, pluginsApi, type PluginContract } from '../../../api/plugins.api'
 import { vaultApi } from '../../../api/vault.api'
 import { workflowsApi, type WorkflowFormat } from '../../../api/workflows.api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
@@ -33,6 +33,21 @@ type View = 'form' | CodeFormat
 
 function errorMessage(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback
+}
+
+/** Installed plugins without argument details, from the paginated list API. */
+async function loadPluginsWithoutContracts(): Promise<PluginContract[]> {
+    const plugins: PluginContract[] = []
+
+    for (let page = 1; ; page += 1) {
+        const result = await listPlugins({ page, page_size: 10 })
+
+        plugins.push(
+            ...result.items.map((item) => ({ ...item, description: null, arguments: [], outputs: [] })),
+        )
+
+        if (page >= result.pagination.total_pages) return plugins
+    }
 }
 
 async function loadVaultKeys(): Promise<string[]> {
@@ -72,6 +87,7 @@ export default function WorkflowBuilder({
     const [loadError, setLoadError] = useState<string | null>(null)
     const [contracts, setContracts] = useState<PluginContract[]>([])
     const [vaultKeys, setVaultKeys] = useState<string[]>([])
+    const [contractsError, setContractsError] = useState<string | null>(null)
 
     const [view, setView] = useState<View>('form')
     const [form, setForm] = useState<BuilderState>(emptyState)
@@ -94,8 +110,19 @@ export default function WorkflowBuilder({
     useEffect(() => {
         let active = true
 
+        // Contracts only enrich the form (typed arguments, outputs); a server
+        // without them still lets workflows be built with custom arguments.
         Promise.all([
-            pluginsApi.contracts(),
+            pluginsApi.contracts().catch((error: unknown) => {
+                if (active) {
+                    setContractsError(
+                        errorMessage(error, 'Plugin arguments and outputs could not be loaded.'),
+                    )
+                }
+                return loadPluginsWithoutContracts()
+                    .catch(() => [] as PluginContract[])
+                    .then((items) => ({ items }))
+            }),
             loadVaultKeys(),
             editing ? workflowsApi.get(name, 'json') : Promise.resolve(null),
         ])
@@ -357,8 +384,19 @@ export default function WorkflowBuilder({
                 </div>
             </header>
 
-            {(serverResult || errors.length > 0 || warnings.length > 0) && !loading && !loadError && (
+            {(serverResult || contractsError || errors.length > 0 || warnings.length > 0) &&
+                !loading &&
+                !loadError && (
                 <div className="wf-builder-banner">
+                    {contractsError && (
+                        <div className="entropy-alert entropy-alert-warning" role="status">
+                            <TriangleAlert size={15} />
+                            <span>
+                                Plugin arguments are unavailable, so steps use custom arguments only.{' '}
+                                {contractsError}
+                            </span>
+                        </div>
+                    )}
                     {serverResult && (
                         <div
                             className={`entropy-alert ${serverResult.ok ? 'entropy-alert-success' : 'entropy-alert-error'}`}

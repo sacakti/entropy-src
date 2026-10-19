@@ -36,6 +36,18 @@ async function toApiError(
                   ? (detail as { message: string }).message
                   : data.message ?? fallback
 
+        // FastAPI's bare "Not Found" means the route itself is missing: the
+        // server is running code older than this UI.
+        if (response.status === 404 && detail === 'Not Found') {
+            return new ApiError(
+                `The Entropy web server does not provide ${new URL(response.url).pathname}. ` +
+                    'It is running older code than this page; restart it from the updated ' +
+                    'checkout (python -m core.web).',
+                response.status,
+                detail,
+            )
+        }
+
         return new ApiError(message, response.status, detail)
     } catch {
         return new ApiError(body, response.status, body)
