@@ -392,3 +392,49 @@
     white-space: nowrap;
 
 }
+
+
+/* Navigation sections with sub-pages (Administration). */
+.entropy-app .nav-group {
+    display: grid;
+    gap: 2px;
+}
+
+.entropy-app .nav-item-chevron {
+    flex: 0 0 15px;
+    margin-left: auto;
+    transition: transform 160ms ease;
+}
+
+.entropy-app .nav-item-chevron.is-open {
+    transform: rotate(180deg);
+}
+
+.entropy-app .nav-item.has-active-child {
+    color: var(--app-text);
+}
+
+.entropy-app .nav-submenu {
+    position: relative;
+    display: grid;
+    gap: 2px;
+    margin: 2px 0 6px 21px;
+    padding-left: 10px;
+    border-left: 1px solid var(--app-line);
+}
+
+.entropy-app .nav-subitem {
+    min-height: 36px;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.entropy-app .nav-subitem > svg {
+    flex: 0 0 17px;
+}
+
+.entropy-app .entropy-sidebar.collapsed .nav-submenu {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+}

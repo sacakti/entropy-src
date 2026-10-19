@@ -1,10 +1,14 @@
 import {
     Activity,
+    BadgeCheck,
     Blocks,
     KeyRound,
     LayoutDashboard,
+    LockKeyhole,
     Server,
     ShieldCheck,
+    UserRound,
+    UsersRound,
     Workflow,
 } from 'lucide-react'
 
@@ -16,24 +20,46 @@ export type PageId =
     | 'nodes'
     | 'schedulers'
     | 'administration'
+    | 'admin-users'
+    | 'admin-groups'
+    | 'admin-roles'
+    | 'admin-permissions'
     | 'about'
     | 'settings'
     | 'preferences'
     | 'permissions'
 
-export const navigation = [
+export const navigation: NavigationItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'plugins', label: 'Plugins', icon: Blocks },
     { id: 'workflows', label: 'Workflows', icon: Workflow },
     { id: 'vault', label: 'Vault', icon: KeyRound },
     { id: 'nodes', label: 'Nodes', icon: Server },
     { id: 'schedulers', label: 'Schedulers', icon: Activity },
-    { id: 'administration', label: 'Administration', icon: ShieldCheck },
-] satisfies {
+    {
+        id: 'administration',
+        label: 'Administration',
+        icon: ShieldCheck,
+        children: [
+            { id: 'admin-users', label: 'Users', icon: UserRound },
+            { id: 'admin-groups', label: 'Groups', icon: UsersRound },
+            { id: 'admin-roles', label: 'Roles', icon: BadgeCheck },
+            { id: 'admin-permissions', label: 'Permissions', icon: LockKeyhole },
+        ],
+    },
+]
+
+export interface NavigationItem {
     id: PageId
     label: string
     icon: typeof LayoutDashboard
-}[]
+    children?: NavigationItem[]
+}
+
+/** The navigation entry a page sits under, for sub-pages such as Users. */
+export function parentPage(page: PageId): NavigationItem | null {
+    return navigation.find((item) => item.children?.some((child) => child.id === page)) ?? null
+}
 
 const PAGE_IDS: readonly PageId[] = [
     'dashboard',
@@ -43,6 +69,10 @@ const PAGE_IDS: readonly PageId[] = [
     'nodes',
     'schedulers',
     'administration',
+    'admin-users',
+    'admin-groups',
+    'admin-roles',
+    'admin-permissions',
     'about',
     'settings',
     'preferences',

@@ -1,0 +1,869 @@
+/*
+ * ==========================================================
+ * Entropy — Administration (users, groups, roles, permissions)
+ *
+ * Global ownership:
+ * - theme.css: tokens; buttons.css: buttons
+ * - shared-content.css: search, count, alerts, panel actions
+ * - dialog.css: dialogs and selected table rows
+ * ==========================================================
+ */
+
+.entropy-app .admin-page {
+    display: grid;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+}
+
+/* ----------------------------------------------------------
+   Panel and toolbar
+   ---------------------------------------------------------- */
+
+.entropy-app .admin-panel {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+    padding: 22px 24px 24px;
+    background: var(--app-panel-bg, var(--app-surface));
+    border: 1px solid var(--app-line);
+    border-radius: 16px;
+}
+
+.entropy-app .admin-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.entropy-app .admin-panel-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 18px;
+}
+
+.entropy-app .admin-panel-heading p {
+    margin: 5px 0 0;
+    color: var(--app-muted);
+    font-size: 12.5px;
+}
+
+.entropy-app .admin-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+}
+
+.entropy-app .admin-search {
+    flex: 1 1 280px;
+    max-width: 560px;
+}
+
+.entropy-app .admin-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.entropy-app .admin-filter > span {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .admin-muted {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+/* ----------------------------------------------------------
+   Tables
+   ---------------------------------------------------------- */
+
+.entropy-app .admin-table-wrap {
+    min-width: 0;
+    overflow-x: auto;
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .admin-table {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    text-align: left;
+}
+
+.entropy-app .admin-table th {
+    height: 44px;
+    padding: 0 14px;
+    color: var(--app-muted);
+    background: color-mix(in srgb, var(--app-surface) 58%, transparent);
+    border-bottom: 1px solid var(--app-line);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.entropy-app .admin-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--app-line);
+    vertical-align: middle;
+}
+
+.entropy-app .admin-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.entropy-app .admin-table tbody tr:hover > td {
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .admin-table tr.is-muted > td:not(:last-child) {
+    opacity: 0.6;
+}
+
+.entropy-app .admin-operations-heading {
+    width: 1%;
+    text-align: right;
+}
+
+.entropy-app .admin-operations {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.entropy-app .admin-cell-text {
+    color: var(--app-muted);
+    white-space: nowrap;
+}
+
+.entropy-app .admin-identity {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+}
+
+.entropy-app .admin-identity > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.entropy-app .admin-identity strong {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+}
+
+.entropy-app .admin-identity > div > span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    overflow: hidden;
+    color: var(--app-muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .admin-avatar,
+.entropy-app .admin-icon-tile {
+    display: grid;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+}
+
+.entropy-app .admin-avatar {
+    color: var(--app-accent-text);
+    background: var(--app-accent);
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.entropy-app .admin-icon-tile {
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 9px;
+}
+
+.entropy-app .admin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.entropy-app .admin-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border: 1px solid;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.entropy-app .admin-status::before {
+    width: 6px;
+    height: 6px;
+    background: currentColor;
+    border-radius: 50%;
+    content: "";
+}
+
+.entropy-app .admin-status.is-active {
+    color: var(--app-success);
+    background: color-mix(in srgb, var(--app-success) 11%, transparent);
+    border-color: color-mix(in srgb, var(--app-success) 32%, transparent);
+}
+
+.entropy-app .admin-status.is-disabled {
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border-color: var(--app-line);
+}
+
+.entropy-app .admin-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: 280px;
+}
+
+.entropy-app .admin-chip {
+    padding: 2px 8px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.entropy-app .admin-chip.is-accent {
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .admin-chip.is-more {
+    color: var(--app-muted);
+}
+
+.entropy-app .admin-meter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 130px;
+}
+
+.entropy-app .admin-meter > span {
+    flex: 1;
+    height: 6px;
+    overflow: hidden;
+    background: var(--app-line);
+    border-radius: 999px;
+}
+
+.entropy-app .admin-meter > span > span {
+    display: block;
+    height: 100%;
+    background: var(--app-accent);
+    border-radius: inherit;
+}
+
+.entropy-app .admin-meter small {
+    color: var(--app-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .admin-empty {
+    display: grid;
+    gap: 4px;
+    padding: 34px 12px;
+    text-align: center;
+}
+
+.entropy-app .admin-empty span {
+    color: var(--app-muted);
+    font-size: 12.5px;
+}
+
+.entropy-app .admin-type {
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.entropy-app .admin-type.is-read {
+    color: var(--app-info);
+    background: color-mix(in srgb, var(--app-info) 12%, transparent);
+}
+
+.entropy-app .admin-type.is-write {
+    color: var(--app-warning);
+    background: color-mix(in srgb, var(--app-warning) 13%, transparent);
+}
+
+.entropy-app .admin-type.is-execute {
+    color: var(--app-success);
+    background: color-mix(in srgb, var(--app-success) 12%, transparent);
+}
+
+/* ----------------------------------------------------------
+   Overview
+   ---------------------------------------------------------- */
+
+.entropy-app .admin-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+.entropy-app .admin-overview-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 14px;
+    padding: 20px;
+    color: var(--app-text);
+    text-align: left;
+    background: var(--app-panel-bg, var(--app-surface));
+    border: 1px solid var(--app-line);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.entropy-app .admin-overview-card:hover {
+    border-color: var(--app-accent-border);
+    transform: translateY(-1px);
+}
+
+.entropy-app .admin-overview-icon {
+    display: grid;
+    grid-row: span 2;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 12px;
+}
+
+.entropy-app .admin-overview-copy {
+    display: grid;
+    gap: 4px;
+    padding-right: 20px;
+}
+
+.entropy-app .admin-overview-copy strong {
+    font-size: 15px;
+}
+
+.entropy-app .admin-overview-copy span {
+    color: var(--app-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.entropy-app .admin-overview-stat {
+    grid-column: 2;
+    margin-top: 6px;
+    color: var(--app-accent-fg);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.entropy-app .admin-overview-arrow {
+    position: absolute;
+    top: 22px;
+    right: 18px;
+    color: var(--app-muted);
+}
+
+/* ----------------------------------------------------------
+   Dialog contents
+   ---------------------------------------------------------- */
+
+.entropy-app .admin-dialog {
+    width: min(620px, 100%);
+}
+
+.entropy-app .admin-dialog-wide {
+    width: min(860px, 100%);
+}
+
+.entropy-app .admin-dialog .entropy-dialog-body {
+    display: grid;
+    gap: 16px;
+}
+
+.entropy-app .admin-tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .admin-tabs button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 12px;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.entropy-app .admin-tabs button > span {
+    padding: 0 6px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font-size: 10.5px;
+}
+
+.entropy-app .admin-tabs button.is-active {
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .admin-tabs button.is-active::after {
+    position: absolute;
+    right: 8px;
+    bottom: -1px;
+    left: 8px;
+    height: 2px;
+    background: var(--app-accent);
+    border-radius: 2px;
+    content: "";
+}
+
+.entropy-app .admin-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.entropy-app .admin-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.entropy-app .admin-field-wide {
+    grid-column: 1 / -1;
+}
+
+.entropy-app .admin-field > span {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .admin-field small {
+    color: var(--app-subtle);
+    font-size: 11.5px;
+}
+
+.entropy-app .admin-field :is(input, textarea),
+.entropy-app .admin-password-input {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 12px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    font-size: 13px;
+}
+
+.entropy-app .admin-field textarea {
+    padding: 10px 12px;
+    resize: vertical;
+}
+
+.entropy-app .admin-field :is(input, textarea):disabled {
+    color: var(--app-muted);
+    background: var(--app-bg);
+}
+
+.entropy-app .admin-password-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-right: 5px;
+}
+
+.entropy-app .admin-password-input:focus-within {
+    border-color: var(--app-accent);
+}
+
+.entropy-app .admin-password-input input {
+    flex: 1;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    outline: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.entropy-app .admin-password {
+    display: grid;
+    gap: 14px;
+}
+
+.entropy-app .admin-password-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.entropy-app .admin-temporary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 12px 14px;
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 10px;
+    font-size: 12.5px;
+}
+
+.entropy-app .admin-temporary code {
+    padding: 3px 8px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    user-select: all;
+}
+
+.entropy-app .admin-form-error {
+    margin: 0;
+}
+
+/* Searchable checkbox list */
+.entropy-app .admin-checklist,
+.entropy-app .admin-permission-picker {
+    display: grid;
+    gap: 10px;
+}
+
+.entropy-app .admin-checklist-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.entropy-app .admin-checklist-head .admin-search {
+    max-width: none;
+}
+
+.entropy-app .admin-checklist-head > .admin-muted {
+    white-space: nowrap;
+}
+
+.entropy-app .admin-checklist ul {
+    display: grid;
+    max-height: min(360px, 45vh);
+    margin: 0;
+    padding: 4px;
+    overflow-y: auto;
+    list-style: none;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .admin-checklist li label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .admin-checklist li label:hover {
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .admin-checklist li label.is-locked {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.entropy-app .admin-checklist li span,
+.entropy-app .admin-permission-option > span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.entropy-app .admin-checklist li strong {
+    font-size: 13px;
+}
+
+.entropy-app .admin-checklist li small,
+.entropy-app .admin-permission-option small {
+    color: var(--app-muted);
+    font-size: 11.5px;
+}
+
+.entropy-app .admin-checklist-empty {
+    margin: 0;
+    padding: 20px 6px;
+    color: var(--app-muted);
+    font-size: 12.5px;
+    text-align: center;
+}
+
+.entropy-app :is(.admin-checklist, .admin-permission-picker, .admin-permission-toggle) input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    margin-top: 2px;
+    accent-color: var(--app-accent);
+}
+
+/* Permission picker grouped by module */
+.entropy-app .admin-permission-picker {
+    max-height: min(520px, 58vh);
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.entropy-app .admin-module {
+    margin: 0;
+    padding: 0 0 6px;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .admin-module legend {
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    padding: 10px 12px 6px;
+    float: left;
+}
+
+.entropy-app .admin-module legend label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    cursor: pointer;
+}
+
+.entropy-app .admin-module legend strong {
+    text-transform: capitalize;
+}
+
+.entropy-app .admin-module legend small {
+    padding-left: 24px;
+    color: var(--app-muted);
+    font-size: 11.5px;
+}
+
+.entropy-app .admin-module-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    clear: both;
+    gap: 2px 12px;
+    padding: 0 8px;
+}
+
+.entropy-app .admin-permission-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 6px 6px;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .admin-permission-option:hover {
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .admin-permission-option strong {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .admin-assigned {
+    display: grid;
+    gap: 16px;
+}
+
+.entropy-app .admin-assigned h3 {
+    margin: 0 0 8px;
+    color: var(--app-muted);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.entropy-app .admin-assigned .admin-chips {
+    max-width: none;
+}
+
+/* ----------------------------------------------------------
+   Permissions page
+   ---------------------------------------------------------- */
+
+.entropy-app .admin-focus {
+    border-color: var(--app-accent-border);
+    background: var(--app-accent-soft);
+}
+
+.entropy-app .admin-modules {
+    display: grid;
+    gap: 14px;
+}
+
+.entropy-app .admin-module-card {
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.entropy-app .admin-module-card > header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: color-mix(in srgb, var(--app-surface) 58%, transparent);
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .admin-module-card > header > div {
+    flex: 1;
+    min-width: 0;
+}
+
+.entropy-app .admin-module-card h3 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: capitalize;
+}
+
+.entropy-app .admin-module-card header p {
+    margin: 2px 0 0;
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .admin-module-card ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .admin-module-card li {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+}
+
+.entropy-app .admin-module-card li.has-toggle {
+    grid-template-columns: 22px minmax(0, 1.2fr) minmax(0, 1fr) auto;
+}
+
+.entropy-app .admin-module-card li + li {
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .admin-module-card li:hover {
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .admin-permission-main {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.entropy-app .admin-permission-main strong {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.entropy-app .admin-permission-main code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+}
+
+.entropy-app .admin-permission-main small {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .admin-permission-toggle {
+    display: grid;
+    place-items: center;
+}
+
+.entropy-app .admin-permission-roles .admin-chips {
+    max-width: none;
+}
+
+@media (max-width: 760px) {
+    .entropy-app .admin-panel {
+        padding: 18px 16px;
+    }
+
+    .entropy-app .admin-form-grid,
+    .entropy-app .admin-module-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .admin-module-card li,
+    .entropy-app .admin-module-card li.has-toggle {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

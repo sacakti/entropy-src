@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     Activity,
     Server,
-    ShieldCheck,
 } from 'lucide-react'
 
 import './EntropyShell.css'
@@ -27,8 +26,13 @@ import Permissions from './features/permissions/Permissions'
 import Vault from './features/vault/Vault'
 import Workflows from './features/workflows/Workflows'
 import Plugins from './features/plugins/Plugins'
+import Administration from './features/administration/Administration'
+import AdminUsers from './features/administration/AdminUsers'
+import AdminGroups from './features/administration/AdminGroups'
+import AdminRoles from './features/administration/AdminRoles'
+import AdminPermissions from './features/administration/AdminPermissions'
 
-import { pageFromHash, type PageId } from './types/navigation'
+import { pageFromHash, parentPage, type PageId } from './types/navigation'
 
 interface EntropyShellProps {
     user: AuthUser
@@ -157,6 +161,10 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         nodes: 'Nodes',
         schedulers: 'Schedulers',
         administration: 'Administration',
+        'admin-users': 'Users',
+        'admin-groups': 'Groups',
+        'admin-roles': 'Roles',
+        'admin-permissions': 'Permissions',
         about: 'About',
         settings: 'Settings',
         preferences: 'Preferences',
@@ -234,6 +242,11 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     profile={profile}
                     onOpenHelp={() => setHelpOpen(true)}
                     pageTitle={pageTitle}
+                    parentTitle={parentPage(activePage)?.label}
+                    onParentClick={() => {
+                        const parent = parentPage(activePage)
+                        if (parent) setActivePage(parent.id)
+                    }}
                     theme={appearance.theme}
                     onToggleTheme={() => {
                         const nextTheme =
@@ -275,10 +288,20 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                         ) : activePage === 'vault' ? (
                             <Vault />
                         ) : activePage === 'workflows' ? (
-                        <Workflows />
-                    ) : activePage === 'plugins' ? (
-                        <Plugins />
-                    ) : (
+                            <Workflows />
+                        ) : activePage === 'plugins' ? (
+                            <Plugins />
+                        ) : activePage === 'administration' ? (
+                            <Administration onNavigate={setActivePage} />
+                        ) : activePage === 'admin-users' ? (
+                            <AdminUsers />
+                        ) : activePage === 'admin-groups' ? (
+                            <AdminGroups />
+                        ) : activePage === 'admin-roles' ? (
+                            <AdminRoles />
+                        ) : activePage === 'admin-permissions' ? (
+                            <AdminPermissions />
+                        ) : (
                         <section className="content-panel placeholder-panel">
                                 <span className="placeholder-icon">
                                     {/* {activePage === 'plugins' && <Blocks size={25} />} */}
@@ -286,7 +309,6 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                                     {/* {activePage === 'vault' && <KeyRound size={25} />} */}
                                     {activePage === 'nodes' && <Server size={25} />}
                                     {activePage === 'schedulers' && <Activity size={25} />}
-                                    {activePage === 'administration' && <ShieldCheck size={25} />}
                                     {/* {activePage === 'settings' && <Settings size={25} />}
                                     {activePage === 'permissions' && <ShieldCheck size={25} />} */}
                                 </span>

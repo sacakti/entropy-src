@@ -32,6 +32,9 @@ interface TopbarProps {
     profile: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>
     onOpenHelp: () => void
     pageTitle: string
+    /** Section the page belongs to, e.g. Administration for Users. */
+    parentTitle?: string
+    onParentClick?: () => void
     theme: 'dark' | 'light'
     onToggleTheme: () => void
     onPageChange: (page: PageId) => void
@@ -47,6 +50,8 @@ export default function Topbar({
     profile,
     onOpenHelp,
     pageTitle,
+    parentTitle,
+    onParentClick,
     theme,
     onToggleTheme,
     onPageChange,
@@ -81,6 +86,14 @@ export default function Topbar({
             <div className="topbar-context">
                 <span className="topbar-section">ENTROPY</span>
                 <ChevronRight size={14} />
+                {parentTitle && (
+                    <>
+                        <button type="button" className="topbar-parent" onClick={onParentClick}>
+                            {parentTitle}
+                        </button>
+                        <ChevronRight size={14} />
+                    </>
+                )}
                 <span className="topbar-current">{pageTitle}</span>
             </div>
 

@@ -357,3 +357,20 @@
 .entropy-app .profile-trigger .profile-avatar {
     border-radius: 50%;
 }
+
+
+/* Section crumb (e.g. Administration) links back to its overview. */
+.entropy-app .topbar-parent {
+    padding: 0;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.entropy-app .topbar-parent:hover {
+    color: var(--app-text);
+    text-decoration: underline;
+}

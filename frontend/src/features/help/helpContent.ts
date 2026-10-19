@@ -50,6 +50,13 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
         ],
     },
     {
+        title: 'Administration (users, groups, roles)',
+        entries: [
+            { keys: ['Ctrl', 'N'], action: 'Create a user, group or role (also Alt+N)' },
+            { keys: ['Ctrl', 'F'], action: 'Search the list' },
+        ],
+    },
+    {
         title: 'Wallpaper viewer',
         entries: [
             { keys: ['←', '→'], action: 'Previous / next wallpaper' },
