@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
     Activity,
@@ -10,9 +10,17 @@ import './EntropyShell.css'
 import { getApplicationVersion } from './api/version'
 import { accentTokens } from './features/preferences/accent'
 import { useAppearance } from './features/preferences/useAppearance'
+import WallpaperLayer from './features/preferences/WallpaperLayer'
+import { WallpaperContext, useShuffledWallpaper, type WallpaperState } from './features/preferences/wallpaper'
 import Topbar, { type TopbarNotification } from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
-import ChangePasswordForm from './features/settings/ChangePasswordForm'
+import EntropyLogo from './components/layout/EntropyLogo'
+import Settings from './features/settings/Settings'
+import HelpDialog from './features/help/HelpDialog'
+import { useFeedback } from './components/feedback/FeedbackProvider'
+import { isTyping, useShortcuts } from './components/layout/useShortcuts'
+import { getProfile, type Profile } from './api/profile.api'
+import type { AuthUser } from './services/auth'
 import Dashboard from './features/dashboard/Dashboard'
 import Preferences from './features/preferences/Preferences'
 import Permissions from './features/permissions/Permissions'
@@ -20,25 +28,117 @@ import Vault from './features/vault/Vault'
 import Workflows from './features/workflows/Workflows'
 import Plugins from './features/plugins/Plugins'
 
-import {
-    pageDescriptions,
-    type PageId,
-} from './types/navigation'
+import { pageFromHash, type PageId } from './types/navigation'
 
 interface EntropyShellProps {
-    username: string
+    user: AuthUser
+    /** Display name to greet, right after signing in. */
+    welcome: string | null
     onLogout: () => void
 }
 
 
-function EntropyShell({ username, onLogout }: EntropyShellProps) {
-    const [activePage, setActivePage] = useState<PageId>('dashboard')
+function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
+    const { notify } = useFeedback()
+    const [profile, setProfile] = useState<Profile>(() => ({
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        email: user.email,
+        avatar_url: user.avatar_url ?? null,
+    }))
+    const [helpOpen, setHelpOpen] = useState(false)
+
+    useEffect(() => {
+        let active = true
+
+        getProfile()
+            .then((loaded) => {
+                if (active) setProfile(loaded)
+            })
+            .catch(() => {
+                // Older servers lack /api/profile; keep the session's identity.
+            })
+
+        return () => {
+            active = false
+        }
+    }, [])
+
+    // Greet once per sign-in (effects run twice in development).
+    const greeted = useRef(false)
+
+    useEffect(() => {
+        if (!welcome || greeted.current) return
+        greeted.current = true
+        notify.success(`Signed in as ${welcome}.`)
+    }, [notify, welcome])
+
+    useShortcuts({
+        'shift+?': (event) => {
+            if (isTyping(event)) return false
+            setHelpOpen(true)
+        },
+    })
+
+    const [activePage, setActivePageState] = useState<PageId>(
+        () => pageFromHash(window.location.hash) ?? 'dashboard',
+    )
+
+    // Each page visit is a history entry, so browser Back/Forward move between pages.
+    const setActivePage = useCallback((page: PageId) => {
+        setActivePageState(page)
+
+        if (pageFromHash(window.location.hash) !== page) {
+            window.history.pushState(null, '', `#/${page}`)
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!pageFromHash(window.location.hash)) {
+            window.history.replaceState(null, '', `#/${activePage}`)
+        }
+
+        function handlePopState() {
+            setActivePageState(pageFromHash(window.location.hash) ?? 'dashboard')
+        }
+
+        window.addEventListener('popstate', handlePopState)
+        return () => window.removeEventListener('popstate', handlePopState)
+        // Only the initial page needs normalising.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
     const [collapsed, setCollapsed] = useState(false)
     const appearance = useAppearance()
     const accent = useMemo(
         () => accentTokens(appearance.accentColor, appearance.theme),
         [appearance.accentColor, appearance.theme],
     )
+
+    const wallpaperId = useShuffledWallpaper(
+        appearance.backgrounds,
+        appearance.backgroundImageId,
+        appearance.wallpaperSettings.shuffle,
+    )
+    const wallpaper = useMemo<WallpaperState>(() => {
+        const background =
+            appearance.backgrounds.find((item) => item.id === wallpaperId) ?? null
+
+        return {
+            background,
+            fit: appearance.backgroundFit,
+            opacity: appearance.backgroundOpacity / 100,
+            placement: background
+                ? appearance.wallpaperSettings.placements[String(background.id)]
+                : undefined,
+        }
+    }, [
+        appearance.backgrounds,
+        appearance.backgroundFit,
+        appearance.backgroundOpacity,
+        appearance.wallpaperSettings.placements,
+        wallpaperId,
+    ])
 
     // Mirror the theme on <html> for dialogs and toasts rendered outside .entropy-app.
     useEffect(() => {
@@ -112,100 +212,95 @@ function EntropyShell({ username, onLogout }: EntropyShellProps) {
     }
 
     return (
-        <div
-            className={`entropy-app theme-${appearance.theme}`}
-            style={{
-                '--app-accent': accent.accent,
-                '--app-accent-text': accent.onAccent,
-                '--app-accent-fg': accent.foreground,
-                '--app-background-image': appearance.backgroundImageId !== null
-                    ? `url("/api/backgrounds/${appearance.backgroundImageId}/image")`
-                    : 'none',
-                // '--app-background-fit': appearance.backgroundFit === 'fill'
-                //     ? '100% 100%'
-                //     : appearance.backgroundFit,
-                '--app-background-fit':
-                    appearance.backgroundFit === 'fill' ? '100% 100%' : appearance.backgroundFit,
-                '--app-background-opacity': appearance.backgroundOpacity / 100,
-            } as React.CSSProperties}
-        >
-            <Sidebar
-                activePage={activePage}
-                collapsed={collapsed}
-                onPageChange={setActivePage}
-                onToggleCollapse={() => setCollapsed((value) => !value)}
-                version={appVersion}
-            />
-            <div className="entropy-main">
-                <Topbar
-                username={username}
-                pageTitle={pageTitle}
-                theme={appearance.theme}
-                onToggleTheme={() => {
-                    const nextTheme =
-                        appearance.theme === 'dark' ? 'light' : 'dark'
+        <WallpaperContext.Provider value={wallpaper}>
+            <div
+                className={`entropy-app theme-${appearance.theme}`}
+                style={{
+                    '--app-accent': accent.accent,
+                    '--app-accent-text': accent.onAccent,
+                    '--app-accent-fg': accent.foreground,
+                } as React.CSSProperties}
+            >
+                <Sidebar
+                    activePage={activePage}
+                    collapsed={collapsed}
+                    onPageChange={setActivePage}
+                    onToggleCollapse={() => setCollapsed((value) => !value)}
+                    version={appVersion}
+                />
+                <div className="entropy-main">
+                    <WallpaperLayer />
+                    <Topbar
+                    profile={profile}
+                    onOpenHelp={() => setHelpOpen(true)}
+                    pageTitle={pageTitle}
+                    theme={appearance.theme}
+                    onToggleTheme={() => {
+                        const nextTheme =
+                            appearance.theme === 'dark' ? 'light' : 'dark'
 
-                    void appearance.saveAppearance(
-                        nextTheme,
-                        appearance.accentColor,
-                        appearance.backgroundImageId,
-                    )
-                }}
-                onPageChange={setActivePage}
-                onLogout={onLogout}
-                notifications={notifications}
-                onMarkNotificationRead={markNotificationRead}
-                onClearNotification={clearNotification}
-                onMarkAllNotificationsRead={markAllNotificationsRead}
-            />
-                <main className="entropy-content">
-                    {activePage === 'dashboard' ? (
-                        <Dashboard
-                            onNavigate={setActivePage}
-                        />
-                    ) : activePage === 'about' ? (
-                        <section className="content-panel about-panel">
-                            <img src="/entropy-logo.svg" alt="Entropy logo" />
-                            <h2>Entropy</h2>
-                            <p>Deployment Management Platform</p>
-                            <div className="about-version">
-                                Version {appVersion || 'Unavailable'}
-                            </div>
-                        </section>
-                    ) : activePage === 'preferences' ? (
-                        <Preferences {...appearance} />
-                    ) : activePage === 'settings' ? (
-                            <ChangePasswordForm />
-                    ) : activePage === 'permissions' ? (
-                        <Permissions />
-                    ) : activePage === 'vault' ? (
-                        <Vault />
-                    ) : activePage === 'workflows' ? (
-                    <Workflows />
-                ) : activePage === 'plugins' ? (
-                    <Plugins />
-                ) : (
-                    <section className="content-panel placeholder-panel">
-                            <span className="placeholder-icon">
-                                {/* {activePage === 'plugins' && <Blocks size={25} />} */}
-                                {/* {activePage === 'workflows' && <Workflow size={25} />} */}
-                                {/* {activePage === 'vault' && <KeyRound size={25} />} */}
-                                {activePage === 'nodes' && <Server size={25} />}
-                                {activePage === 'schedulers' && <Activity size={25} />}
-                                {activePage === 'administration' && <ShieldCheck size={25} />}
-                                {/* {activePage === 'settings' && <Settings size={25} />}
-                                {activePage === 'permissions' && <ShieldCheck size={25} />} */}
-                            </span>
-                            <h2>{pageTitle}</h2>
-                            <p>{pageDescriptions[activePage]}</p>
-                            <span className="placeholder-status">
-                                PAGE SHELL READY · FUNCTIONALITY NOT IMPLEMENTED
-                            </span>
-                        </section>
-                    )}
-                </main>
+                        void appearance.saveAppearance(
+                            nextTheme,
+                            appearance.accentColor,
+                            appearance.backgroundImageId,
+                        )
+                    }}
+                    onPageChange={setActivePage}
+                    onLogout={onLogout}
+                    notifications={notifications}
+                    onMarkNotificationRead={markNotificationRead}
+                    onClearNotification={clearNotification}
+                    onMarkAllNotificationsRead={markAllNotificationsRead}
+                />
+                    <main className="entropy-content">
+                        {activePage === 'dashboard' ? (
+                            <Dashboard
+                                onNavigate={setActivePage}
+                            />
+                        ) : activePage === 'about' ? (
+                            <section className="content-panel about-panel">
+                                <EntropyLogo size={72} />
+                                <h2>Entropy</h2>
+                                <p>Deployment Management Platform</p>
+                                <div className="about-version">
+                                    Version {appVersion || 'Unavailable'}
+                                </div>
+                            </section>
+                        ) : activePage === 'preferences' ? (
+                            <Preferences {...appearance} />
+                        ) : activePage === 'settings' ? (
+                            <Settings profile={profile} onProfileChange={setProfile} />
+                        ) : activePage === 'permissions' ? (
+                            <Permissions />
+                        ) : activePage === 'vault' ? (
+                            <Vault />
+                        ) : activePage === 'workflows' ? (
+                        <Workflows />
+                    ) : activePage === 'plugins' ? (
+                        <Plugins />
+                    ) : (
+                        <section className="content-panel placeholder-panel">
+                                <span className="placeholder-icon">
+                                    {/* {activePage === 'plugins' && <Blocks size={25} />} */}
+                                    {/* {activePage === 'workflows' && <Workflow size={25} />} */}
+                                    {/* {activePage === 'vault' && <KeyRound size={25} />} */}
+                                    {activePage === 'nodes' && <Server size={25} />}
+                                    {activePage === 'schedulers' && <Activity size={25} />}
+                                    {activePage === 'administration' && <ShieldCheck size={25} />}
+                                    {/* {activePage === 'settings' && <Settings size={25} />}
+                                    {activePage === 'permissions' && <ShieldCheck size={25} />} */}
+                                </span>
+                                <span className="placeholder-status">
+                                    PAGE SHELL READY · FUNCTIONALITY NOT IMPLEMENTED
+                                </span>
+                            </section>
+                        )}
+                    </main>
+                </div>
+
+                {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
             </div>
-        </div>
+        </WallpaperContext.Provider>
     )
 }
 

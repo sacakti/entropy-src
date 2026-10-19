@@ -27,3 +27,41 @@ export async function updatePreferences(
         body: JSON.stringify(preferences),
     })
 }
+
+/** Focal point (percent) and zoom (percent, 100 = cover) for one wallpaper. */
+export interface WallpaperPlacement {
+    x: number
+    y: number
+    zoom: number
+}
+
+export interface WallpaperShuffle {
+    enabled: boolean
+    interval_minutes: number
+    source: 'all' | 'uploads'
+}
+
+export interface WallpaperSettings {
+    /** Keyed by background id; wallpapers without one fit automatically. */
+    placements: Record<string, WallpaperPlacement>
+    shuffle: WallpaperShuffle
+}
+
+export const DEFAULT_WALLPAPER_SETTINGS: WallpaperSettings = {
+    placements: {},
+    shuffle: { enabled: false, interval_minutes: 15, source: 'all' },
+}
+
+export async function getWallpaperSettings(): Promise<WallpaperSettings> {
+    return apiRequest<WallpaperSettings>('/api/preferences/wallpaper')
+}
+
+export async function updateWallpaperSettings(
+    settings: WallpaperSettings,
+): Promise<WallpaperSettings> {
+    return apiRequest<WallpaperSettings>('/api/preferences/wallpaper', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+    })
+}

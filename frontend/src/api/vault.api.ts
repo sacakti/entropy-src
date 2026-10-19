@@ -38,8 +38,17 @@ export interface VaultAccessAssignment {
     id: number
     namespace_id: number
     user_id: number
+    /** Absent on servers older than the user-suggestion API. */
+    username?: string | null
+    full_name?: string | null
     access: VaultAccess
     created_at: string | null
+}
+
+export interface VaultUserSuggestion {
+    id: number
+    username: string
+    full_name: string | null
 }
 
 interface CreateNamespaceRequest {
@@ -269,6 +278,12 @@ export const vaultApi = {
                 method: "DELETE",
                 credentials: "same-origin",
             },
+        )
+    },
+
+    suggestUsers(query: string): Promise<{ items: VaultUserSuggestion[] }> {
+        return apiRequest<{ items: VaultUserSuggestion[] }>(
+            `${BASE_URL}/users?${new URLSearchParams({ q: query }).toString()}`,
         )
     },
 }

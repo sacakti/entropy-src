@@ -165,12 +165,28 @@ async def me(
 
     response.headers["Cache-Control"] = "no-store"
 
+    avatar_version = None
+
+    if context.database_manager is not None:
+        from lib.database.repositories.user_web_settings import (
+            UserWebSettingsRepository,
+        )
+
+        avatar_version = UserWebSettingsRepository(
+            context.database_manager.connection,
+        ).avatar_version(user.id)
+
     return {
         "user": {
             "id": user.id,
             "username": user.username,
             "full_name": user.full_name,
             "email": user.email,
+            "avatar_url": (
+                f"/api/profile/avatar?v={avatar_version}"
+                if avatar_version
+                else None
+            ),
         },
         "permissions": permissions,
         "expires_at": session.expires_at.isoformat(),

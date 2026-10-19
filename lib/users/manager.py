@@ -4,6 +4,8 @@ User manager.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from core.context import EntropyContext
 from lib.database.repositories.users import UserRepository
 from lib.models.users import SYSTEM_USERNAME, User
@@ -170,6 +172,31 @@ class UserManager:
             user,
             new_password,
         )
+
+    def update_profile(
+        self,
+        user: User,
+        full_name: Optional[str],
+        email: Optional[str],
+    ) -> User:
+        """
+        Update the user's own display name and email address.
+        """
+
+        # Reload so a stale in-memory copy cannot overwrite other columns
+        # such as the password hash.
+        stored = self.get(
+            user.username,
+        )
+
+        stored.full_name = full_name
+        stored.email = email
+
+        self._repository.update(
+            stored,
+        )
+
+        return stored
 
     def admin_change_password(
         self,

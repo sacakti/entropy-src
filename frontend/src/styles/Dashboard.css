@@ -514,8 +514,6 @@
   overflow-wrap: anywhere;
 }
 
-.entropy-app .dashboard-refresh-select:focus-visible,
-.entropy-app .dashboard-custom-interval input:focus-visible,
 .entropy-app .dashboard-error > button:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
@@ -643,4 +641,8 @@
   stroke: var(--app-accent-fg) !important;
   opacity: 1 !important;
   visibility: visible !important;
+}
+
+.entropy-app .dashboard-page > .page-toolbar {
+  margin-bottom: -12px;
 }

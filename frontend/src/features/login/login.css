@@ -933,3 +933,14 @@
 .login-brand > p {
     margin-top: 10px;
 }
+
+.login-session-ended {
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  color: var(--entropy-text);
+  background: rgba(215, 255, 99, 0.08);
+  border: 1px solid rgba(215, 255, 99, 0.28);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}

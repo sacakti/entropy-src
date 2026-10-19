@@ -8,18 +8,26 @@ import {
     ChevronsLeft,
     ChevronsRight,
     CloudUpload,
-    Maximize,
+    Download,
+    Film,
     Moon,
+    Shuffle,
     Sun,
     Trash2,
-    X,
-    ZoomIn,
-    ZoomOut,
-    Minimize
 } from 'lucide-react'
-import type { BackgroundImage } from '../../api/backgrounds.api'
-import type { UserPreferences } from '../../api/preferences.api'
+import {
+    BACKGROUND_UPLOAD_TYPES,
+    BACKGROUNDS_ARCHIVE_URL,
+    isVideoBackground,
+    type BackgroundImage,
+} from '../../api/backgrounds.api'
+import type {
+    UserPreferences,
+    WallpaperPlacement,
+    WallpaperSettings,
+} from '../../api/preferences.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import WallpaperViewer from './WallpaperViewer'
 import '../../styles/Preferences.css'
 
 export interface PreferencesProps {
@@ -51,6 +59,17 @@ export interface PreferencesProps {
     uploadBackground: (file: File) => Promise<void>
     removeBackground: (background: BackgroundImage) => Promise<void>
     resetAppearance: () => Promise<void>
+    wallpaperSettings: WallpaperSettings
+    saveWallpaperSettings: (settings: WallpaperSettings) => Promise<void>
+    removeAllUploads: () => Promise<{ deleted: number; message: string }>
+}
+
+const SHUFFLE_INTERVALS = [1, 5, 15, 30, 60, 180, 720, 1440]
+
+function intervalLabel(minutes: number): string {
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`
+    const hours = minutes / 60
+    return `${hours} hour${hours === 1 ? '' : 's'}`
 }
 
 const IMAGES_PER_PAGE = 6
@@ -77,16 +96,17 @@ export default function Preferences({
     uploadBackground,
     removeBackground,
     resetAppearance,
+    wallpaperSettings,
+    saveWallpaperSettings,
+    removeAllUploads,
 }: PreferencesProps) {
     const [backgroundDragActive, setBackgroundDragActive] = useState(false)
     const [galleryPage, setGalleryPage] = useState(0)
-    const [previewIndex, setPreviewIndex] = useState<number | null>(null)
-    const [zoom, setZoom] = useState(1)
+    const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+    const [bulkBusy, setBulkBusy] = useState(false)
     const uploadInputRef = useRef<HTMLInputElement>(null)
     const { notify, modal } = useFeedback()
     const previewClickTimer = useRef<number | null>(null)
-    const [previewFullscreen, setPreviewFullscreen] = useState(false)
-    const [previewImageError, setPreviewImageError] = useState(false)
 
     const isBusy =
         !preferencesLoaded || preferencesSaving || backgroundUploading
@@ -99,30 +119,13 @@ export default function Preferences({
         galleryPage * IMAGES_PER_PAGE,
         galleryPage * IMAGES_PER_PAGE + IMAGES_PER_PAGE,
     )
-    const previewBackground =
-        previewIndex === null ? null : backgrounds[previewIndex] ?? null
+    const uploadCount = backgrounds.filter((item) => item.source === 'upload').length
 
     useEffect(() => {
         setGalleryPage((current) => Math.min(current, pageCount - 1))
     }, [pageCount])
 
 
-    useEffect(() => {
-        if (previewIndex === null) return
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setPreviewIndex(null)
-            } else if (event.key === 'ArrowLeft') {
-                changePreview(previewIndex - 1)
-            } else if (event.key === 'ArrowRight') {
-                changePreview(previewIndex + 1)
-            }
-        }
-
-        window.addEventListener('keydown', handleKeyDown)
-        return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [previewIndex, backgrounds.length])
 
     useEffect(() => {
         return () => {
@@ -161,13 +164,13 @@ export default function Preferences({
         if (isBusy || files.length === 0) return
 
         const validFiles = files.filter((file) =>
-            ['image/png', 'image/jpeg', 'image/webp'].includes(file.type),
+            BACKGROUND_UPLOAD_TYPES.includes(file.type),
         )
         const invalidCount = files.length - validFiles.length
 
         if (invalidCount > 0) {
             notify.warning(
-                `${invalidCount} file(s) skipped. Only PNG, JPG, and WebP are supported.`,
+                `${invalidCount} file(s) skipped. Only PNG, JPG, WebP, MP4 and WebM are supported.`,
             )
         }
 
@@ -186,13 +189,13 @@ export default function Preferences({
         if (uploaded > 0 && failed === 0) {
             notify.success(
                 uploaded === 1
-                    ? 'Background image uploaded successfully.'
-                    : `${uploaded} background images uploaded successfully.`,
+                    ? 'Wallpaper uploaded successfully.'
+                    : `${uploaded} wallpapers uploaded successfully.`,
             )
         } else if (uploaded > 0) {
             notify.warning(`${uploaded} uploaded; ${failed} failed.`)
         } else if (failed > 0) {
-            notify.error('Unable to upload the selected images.')
+            notify.error('Unable to upload the selected files.')
         }
     }
 
@@ -211,7 +214,7 @@ export default function Preferences({
     }
 
     const handleDelete = async (background: BackgroundImage) => {
-        if (isBusy || backgroundDeletingId !== null) return
+        if (isBusy || backgroundDeletingId !== null) return false
 
         const confirmed = await modal.confirm({
             title:
@@ -227,7 +230,7 @@ export default function Preferences({
             destructive: true,
         })
 
-        if (!confirmed) return
+        if (!confirmed) return false
 
         try {
             if (backgroundImageId === background.id) {
@@ -243,8 +246,83 @@ export default function Preferences({
 
             await removeBackground(background)
             notify.success('Background image deleted successfully.')
+            return true
         } catch {
             notify.error('Unable to delete the background image.')
+            return false
+        }
+    }
+
+    const downloadAll = () => {
+        // A plain navigation keeps the browser's own download handling.
+        const link = document.createElement('a')
+        link.href = BACKGROUNDS_ARCHIVE_URL
+        link.download = 'entropy-backgrounds.zip'
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+    }
+
+    const deleteAll = async () => {
+        const confirmed = await modal.confirm({
+            title: 'Delete all uploaded wallpapers?',
+            message: `All ${uploadCount} wallpaper${uploadCount === 1 ? '' : 's'} you uploaded will be permanently deleted. Built-in wallpapers are kept. This cannot be undone.`,
+            confirmText: 'Delete all',
+            cancelText: 'Cancel',
+            destructive: true,
+        })
+
+        if (!confirmed) return
+
+        setBulkBusy(true)
+
+        try {
+            const result = await removeAllUploads()
+            notify.success(result.message)
+        } catch (error) {
+            notify.error(error instanceof Error ? error.message : 'Unable to delete the uploads.')
+        } finally {
+            setBulkBusy(false)
+        }
+    }
+
+    const setWallpaper = async (
+        background: BackgroundImage,
+        placement: WallpaperPlacement | null,
+    ) => {
+        const placements = { ...wallpaperSettings.placements }
+        const key = String(background.id)
+
+        if (placement) placements[key] = placement
+        else delete placements[key]
+
+        try {
+            await saveWallpaperSettings({ ...wallpaperSettings, placements })
+            await saveAppearance(
+                theme,
+                accentColor,
+                background.id,
+                backgroundFit,
+                backgroundOpacity,
+                modalBackdropOpacity,
+            )
+            notify.success(
+                placement
+                    ? `"${background.name}" set as your wallpaper.`
+                    : `"${background.name}" set as your wallpaper and fitted automatically.`,
+            )
+        } catch (error) {
+            notify.error(error instanceof Error ? error.message : 'Unable to set the wallpaper.')
+            throw error
+        }
+    }
+
+    const saveShuffle = async (shuffle: WallpaperSettings['shuffle'], message: string) => {
+        try {
+            await saveWallpaperSettings({ ...wallpaperSettings, shuffle })
+            notify.success(message)
+        } catch {
+            notify.error('Unable to save shuffle settings.')
         }
     }
 
@@ -259,15 +337,6 @@ export default function Preferences({
                 ? 'Workspace background removed.'
                 : 'Workspace background updated.',
         )
-    }
-
-    const changePreview = (index: number) => {
-        if (index < 0 || index >= backgrounds.length) return
-
-        setPreviewIndex(index)
-        setZoom(1)
-        setPreviewFullscreen(false)
-        setPreviewImageError(false)
     }
 
     const saveOpacity = (value: number) => {
@@ -508,7 +577,10 @@ export default function Preferences({
                                     }
                                 }}
                             />
-                            <small>Controls darkness behind dialogs and overlays.</small>
+                            <small>
+                                How much of your wallpaper shows through dialogs and full-screen
+                                editors on every page. Lower is more see-through.
+                            </small>
                         </div>
                     </div>
                 </section>
@@ -555,7 +627,7 @@ export default function Preferences({
                         ref={uploadInputRef}
                         className="background-upload-input"
                         type="file"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept={BACKGROUND_UPLOAD_TYPES.join(',')}
                         multiple
                         disabled={isBusy}
                         onChange={(event) => void handleFilesChange(event)}
@@ -563,22 +635,45 @@ export default function Preferences({
                     <CloudUpload size={30} />
                     <strong>
                         {backgroundUploading
-                            ? 'Uploading images…'
+                            ? 'Uploading…'
                             : backgroundDragActive
-                              ? 'Drop images to upload'
+                              ? 'Drop to upload'
                               : 'Drag and drop wallpapers here'}
                     </strong>
-                    <span>Or click to choose files · PNG, JPG, WebP</span>
-                    <small>Upload as many images as you need.</small>
+                    <span>Or click to choose files · PNG, JPG, WebP images or MP4, WebM videos</span>
+                    <small>Images up to 20 MB, videos up to 100 MB.</small>
                 </div>
 
                 <div className="background-library-toolbar">
                     <div>
                         <h4>Wallpaper gallery</h4>
-                        <p>{backgrounds.length} images available</p>
+                        <p>
+                            {backgrounds.length} available · {uploadCount} uploaded by you ·
+                            double-click to open the gallery
+                        </p>
                     </div>
 
                     <div className="background-library-actions">
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary entropy-button-sm"
+                            disabled={uploadCount === 0 || bulkBusy}
+                            onClick={downloadAll}
+                            title="Download every wallpaper you uploaded as a zip file"
+                        >
+                            <Download size={14} />
+                            Download all
+                        </button>
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-danger-quiet entropy-button-sm"
+                            disabled={uploadCount === 0 || bulkBusy || isBusy}
+                            onClick={() => void deleteAll()}
+                            title="Delete every wallpaper you uploaded; built-in wallpapers are kept"
+                        >
+                            <Trash2 size={14} />
+                            Delete all
+                        </button>
                         <button
                             type="button"
                             className={`entropy-button entropy-button-secondary entropy-button-sm background-none-option ${
@@ -641,7 +736,7 @@ export default function Preferences({
                                             type="button"
                                             className={`background-thumbnail ${selected ? 'selected' : ''}`}
                                             aria-pressed={selected}
-                                            title={`${background.name} — double-click to preview`}
+                                            title={`${background.name} — double-click to open the gallery`}
                                             disabled={!preferencesLoaded || preferencesSaving}
                                             onClick={() => {
                                                 if (previewClickTimer.current !== null) {
@@ -661,14 +756,29 @@ export default function Preferences({
                                                     previewClickTimer.current = null
                                                 }
 
-                                                changePreview(index)
+                                                setViewerIndex(index)
                                             }}
                                         >
-                                            <img
-                                                src={background.url}
-                                                alt={background.name}
-                                                loading="lazy"
-                                            />
+                                            {isVideoBackground(background) ? (
+                                                <>
+                                                    <video
+                                                        src={background.url}
+                                                        muted
+                                                        preload="metadata"
+                                                        aria-label={background.name}
+                                                    />
+                                                    <span className="background-video-badge">
+                                                        <Film size={12} />
+                                                        Video
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <img
+                                                    src={background.url}
+                                                    alt={background.name}
+                                                    loading="lazy"
+                                                />
+                                            )}
                                             {selected && (
                                                 <span className="background-selected-mark">
                                                     <Check size={16} />
@@ -677,7 +787,7 @@ export default function Preferences({
                                             <span className="background-card-name">
                                                 {background.name}
                                             </span>
-                                            <small>Double-click to preview</small>
+                                            <small>Double-click to open</small>
                                         </button>
 
                                         {background.source === 'upload' && (
@@ -757,6 +867,89 @@ export default function Preferences({
                         )}
                     </>
                 )}
+                <div className="wallpaper-shuffle">
+                    <div className="wallpaper-shuffle-copy">
+                        <span className="wallpaper-shuffle-icon">
+                            <Shuffle size={16} />
+                        </span>
+                        <div>
+                            <strong>Shuffle wallpapers</strong>
+                            <span>
+                                Show a different wallpaper every so often. Your chosen wallpaper
+                                returns when shuffle is off.
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="wallpaper-shuffle-controls">
+                        <label className="wallpaper-shuffle-switch">
+                            <input
+                                type="checkbox"
+                                role="switch"
+                                checked={wallpaperSettings.shuffle.enabled}
+                                disabled={!preferencesLoaded}
+                                onChange={(event) =>
+                                    void saveShuffle(
+                                        { ...wallpaperSettings.shuffle, enabled: event.target.checked },
+                                        event.target.checked ? 'Wallpaper shuffle on.' : 'Wallpaper shuffle off.',
+                                    )
+                                }
+                            />
+                            <span aria-hidden="true" />
+                            {wallpaperSettings.shuffle.enabled ? 'On' : 'Off'}
+                        </label>
+
+                        <label className="background-fit-control">
+                            <span>Every</span>
+                            <select
+                                className="entropy-select"
+                                value={wallpaperSettings.shuffle.interval_minutes}
+                                disabled={!preferencesLoaded}
+                                onChange={(event) =>
+                                    void saveShuffle(
+                                        {
+                                            ...wallpaperSettings.shuffle,
+                                            interval_minutes: Number(event.target.value),
+                                        },
+                                        'Shuffle interval updated.',
+                                    )
+                                }
+                            >
+                                {!SHUFFLE_INTERVALS.includes(wallpaperSettings.shuffle.interval_minutes) && (
+                                    <option value={wallpaperSettings.shuffle.interval_minutes}>
+                                        {intervalLabel(wallpaperSettings.shuffle.interval_minutes)}
+                                    </option>
+                                )}
+                                {SHUFFLE_INTERVALS.map((minutes) => (
+                                    <option key={minutes} value={minutes}>
+                                        {intervalLabel(minutes)}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label className="background-fit-control">
+                            <span>From</span>
+                            <select
+                                className="entropy-select"
+                                value={wallpaperSettings.shuffle.source}
+                                disabled={!preferencesLoaded}
+                                onChange={(event) =>
+                                    void saveShuffle(
+                                        {
+                                            ...wallpaperSettings.shuffle,
+                                            source: event.target.value as WallpaperSettings['shuffle']['source'],
+                                        },
+                                        'Shuffle source updated.',
+                                    )
+                                }
+                            >
+                                <option value="all">All wallpapers</option>
+                                <option value="uploads">My uploads</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
             </section>
 
             <footer className="appearance-actions">
@@ -767,172 +960,17 @@ export default function Preferences({
                 )}
             </footer>
 
-            {/* Wallpaper preview */}
-            {previewBackground && previewIndex !== null && (
-                <div
-                    className="wallpaper-preview-backdrop"
-                    role="presentation"
-                    onMouseDown={(event) => {
-                        if (event.target === event.currentTarget) {
-                            setPreviewIndex(null)
-                        }
-                    }}
-                >
-                    <section
-                        className={`wallpaper-preview-dialog ${
-                            previewFullscreen ? 'fullscreen' : ''
-                        }`}
-                        role="dialog"
-                        aria-modal="true"
-                        aria-label={`Wallpaper preview: ${previewBackground.name}`}
-                    >
-                        <header className="wallpaper-preview-header">
-                            <div>
-                                <strong>{previewBackground.name}</strong>
-                                <span>
-                                    Image {previewIndex + 1} of {backgrounds.length}
-                                </span>
-                            </div>
-                            <div className="wallpaper-preview-tools">
-                                <button
-                                    type="button"
-                                    aria-label="Zoom out"
-                                    title="Zoom out"
-                                    disabled={zoom <= 0.25}
-                                    onClick={() => setZoom((value) => Math.max(0.25, value - 0.25))}
-                                >
-                                    <ZoomOut size={18} />
-                                </button>
-                                <span>{Math.round(zoom * 100)}%</span>
-                                <button
-                                    type="button"
-                                    aria-label="Zoom in"
-                                    title="Zoom in"
-                                    disabled={zoom >= 3}
-                                    onClick={() => setZoom((value) => Math.min(3, value + 0.25))}
-                                >
-                                    <ZoomIn size={18} />
-                                </button>
-                                <button
-                                    type="button"
-                                    aria-label="Fit image"
-                                    title="Fit image"
-                                    onClick={() => setZoom(1)}
-                                >
-                                    <Maximize size={18} />
-                                </button>
-                                <button
-                                    type="button"
-                                    aria-label={previewFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                                    title={previewFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                                    onClick={() => setPreviewFullscreen((value) => !value)}
-                                >
-                                    {previewFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-                                </button>
-                                    {previewBackground.source === 'upload' && (
-                                    <button
-                                        type="button"
-                                        className="entropy-button entropy-button-danger entropy-button-icon entropy-button-sm"
-                                        aria-label="Delete wallpaper"
-                                        title="Delete wallpaper"
-                                        disabled={isBusy || backgroundDeletingId !== null}
-                                        onClick={async () => {
-                                            await handleDelete(previewBackground)
-                                            setPreviewIndex(null)
-                                        }}
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                )}
-                                <button
-                                    type="button"
-                                    aria-label="Close preview"
-                                    title="Close preview"
-                                    onClick={() => setPreviewIndex(null)}
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-                        </header>
-
-                        <div className="wallpaper-preview-stage">
-                            <button
-                                type="button"
-                                className="wallpaper-preview-nav previous"
-                                aria-label="Previous image"
-                                disabled={previewIndex === 0}
-                                onClick={() => changePreview(previewIndex - 1)}
-                            >
-                                <ChevronLeft size={24} />
-                            </button>
-
-                            <div className="wallpaper-preview-image-wrap">
-                                {previewImageError ? (
-                                    <div className="wallpaper-preview-error" role="alert">
-                                        <strong>Unable to load wallpaper</strong>
-                                        <span>Check the image URL or try another wallpaper.</span>
-                                        <button
-                                            type="button"
-                                            className="entropy-button entropy-button-secondary"
-                                            onClick={() => setPreviewImageError(false)}
-                                        >
-                                            Retry
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <img
-                                        src={previewBackground.url}
-                                        alt={previewBackground.name}
-                                        onError={() => setPreviewImageError(true)}
-                                        onLoad={() => setPreviewImageError(false)}
-                                        style={{
-                                            transform: `scale(${zoom})`,
-                                        }}
-                                    />
-                                )}
-                            </div>
-
-                            <button
-                                type="button"
-                                className="wallpaper-preview-nav next"
-                                aria-label="Next image"
-                                disabled={previewIndex === backgrounds.length - 1}
-                                onClick={() => changePreview(previewIndex + 1)}
-                            >
-                                <ChevronRight size={24} />
-                            </button>
-                        </div>
-
-                        <footer className="wallpaper-preview-footer">
-                            <button
-                                type="button"
-                                disabled={previewIndex === 0}
-                                onClick={() => changePreview(0)}
-                            >
-                                <ChevronsLeft size={16} />
-                                First image
-                            </button>
-                            <button
-                                type="button"
-                                disabled={previewIndex === backgrounds.length - 1}
-                                onClick={() => changePreview(backgrounds.length - 1)}
-                            >
-                                Last image
-                                <ChevronsRight size={16} />
-                            </button>
-                            <button
-                                type="button"
-                                className="wallpaper-preview-select"
-                                onClick={() => {
-                                    selectBackground(previewBackground.id)
-                                    setPreviewIndex(null)
-                                }}
-                            >
-                                Use this wallpaper
-                            </button>
-                        </footer>
-                    </section>
-                </div>
+            {viewerIndex !== null && backgrounds.length > 0 && (
+                <WallpaperViewer
+                    backgrounds={backgrounds}
+                    initialIndex={Math.min(viewerIndex, backgrounds.length - 1)}
+                    selectedId={backgroundImageId}
+                    placements={wallpaperSettings.placements}
+                    busy={isBusy || backgroundDeletingId !== null}
+                    onClose={() => setViewerIndex(null)}
+                    onSetWallpaper={setWallpaper}
+                    onDelete={handleDelete}
+                />
             )}
         </section>
     )

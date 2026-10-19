@@ -12,7 +12,6 @@
     padding: clamp(20px, 2.2vw, 32px);
 
 
-
     /* Match the dashboard's translucent workspace surface. */
 
     background:
@@ -30,11 +29,9 @@
         color-mix(in srgb, var(--app-bg) 48%, transparent);
 
 
-
     border: 1px solid var(--app-line);
 
     border-radius: 15px;
-
 
 
     backdrop-filter: blur(3px);
@@ -42,7 +39,6 @@
     -webkit-backdrop-filter: blur(3px);
 
 }
-
 
 
 .entropy-app .placeholder-icon {
@@ -70,7 +66,6 @@
 }
 
 
-
 .entropy-app .placeholder-panel h2,
 
 .entropy-app .about-panel h2 {
@@ -82,7 +77,6 @@
     letter-spacing: -0.5px;
 
 }
-
 
 
 .entropy-app .placeholder-panel > p,
@@ -98,7 +92,6 @@
     line-height: 1.7;
 
 }
-
 
 
 .entropy-app .placeholder-status {
@@ -124,7 +117,6 @@
 }
 
 
-
 .entropy-app .about-panel {
 
     align-items: center;
@@ -136,8 +128,7 @@
 }
 
 
-
-.entropy-app .about-panel > img {
+.entropy-app .about-panel > .entropy-logo-mark {
 
     width: 58px;
 
@@ -150,7 +141,6 @@
     border-radius: 13px;
 
 }
-
 
 
 .entropy-app .about-version {
@@ -214,14 +204,6 @@
   color: var(--app-muted);
   font-size: 13px;
   line-height: 1.7;
-}
-
-.entropy-app .page-heading-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
 }
 
 .entropy-app .entropy-spin {
@@ -329,14 +311,111 @@
         flex-direction: column;
         gap: 14px;
     }
-
-    .entropy-app .page-heading-actions {
-        justify-content: flex-start;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .entropy-app .entropy-spin {
         animation-duration: 2.5s;
     }
+}
+
+/* Menus anchored to a trigger but rendered at the app root (FloatingMenu). */
+.entropy-app .entropy-floating-menu {
+    position: fixed;
+    z-index: 1200;
+    display: grid;
+    min-width: 180px;
+    padding: 6px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    box-shadow: 0 14px 34px rgb(0 0 0 / 28%);
+}
+
+/* Page-level controls without a title (the top bar names the page). */
+.entropy-app .page-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+/* Buttons grouped at the end of a panel heading. */
+.entropy-app .entropy-panel-actions {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Theme-aware Entropy mark: accent-tinted tile, accent outline glyph. */
+.entropy-logo-mark {
+    display: block;
+    flex-shrink: 0;
+}
+
+.entropy-logo-mark-tile {
+    fill: var(--app-accent-soft);
+    stroke: var(--app-accent-border);
+}
+
+.entropy-logo-mark-glyph {
+    stroke: var(--app-accent-fg, var(--app-accent));
+}
+
+/* Profile picture or initials. */
+.entropy-avatar {
+    display: inline-grid;
+    flex-shrink: 0;
+    place-items: center;
+    overflow: hidden;
+    color: var(--app-accent-text);
+    background: var(--app-accent);
+    border-radius: 50%;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.entropy-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Wallpaper (WallpaperLayer): decorative, behind its container's content. */
+.entropy-app .wallpaper-layer {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.entropy-app .wallpaper-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Tint over the wallpaper in full-screen views (WallpaperLayer veil). */
+.entropy-app .wallpaper-veil {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--wallpaper-veil) var(--app-overlay-solidity, 100%), transparent);
+}
+
+/* Fills the sides around a phone-shaped wallpaper shown whole. */
+.entropy-app .wallpaper-media-blur {
+    filter: blur(32px) saturate(1.1);
+    transform: scale(1.15);
+    opacity: 0.7;
+}
+
+.entropy-app .wallpaper-layer-media {
+    position: absolute;
+    inset: 0;
 }

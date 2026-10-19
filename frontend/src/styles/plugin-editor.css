@@ -13,30 +13,37 @@
  */
 
 .entropy-app .plugin-ide {
-    --ide-bg: #0d1117;
-    --ide-panel: #11161d;
-    --ide-panel-2: #161c24;
+    --ide-bg-base: #0d1117;
+    --ide-panel-base: #11161d;
+    --ide-panel-2-base: #161c24;
     --ide-line: rgb(255 255 255 / 8%);
     --ide-error: #f85149;
     --ide-warning: #d29922;
     --ide-info: #58a6ff;
     --ide-added: #3fb950;
 
+    /* Translucent per the modal backdrop preference; see dialog.css. */
+    --ide-bg: color-mix(in srgb, var(--ide-bg-base) var(--app-modal-solidity, 100%), transparent);
+    --ide-panel: color-mix(in srgb, var(--ide-panel-base) var(--app-modal-solidity, 100%), transparent);
+    --ide-panel-2: color-mix(in srgb, var(--ide-panel-2-base) var(--app-modal-solidity, 100%), transparent);
+
+    isolation: isolate;
     position: fixed;
     inset: 0;
     z-index: 1000;
     display: flex;
     flex-direction: column;
     min-width: 0;
-    background: var(--ide-bg);
+    /* Solid base; the wallpaper and its veil sit on top (WallpaperLayer). */
+    background: var(--ide-bg-base);
     color: var(--app-text);
     font-family: inherit;
 }
 
 .entropy-app.theme-light .plugin-ide {
-    --ide-bg: #ffffff;
-    --ide-panel: #f6f8f2;
-    --ide-panel-2: #edf1e3;
+    --ide-bg-base: #ffffff;
+    --ide-panel-base: #f6f8f2;
+    --ide-panel-2-base: #edf1e3;
     --ide-line: rgb(23 27 21 / 12%);
     --ide-error: #cf222e;
     --ide-warning: #9a6700;
@@ -51,7 +58,7 @@
 }
 
 /* Zero-specificity reset so shared button variants keep their colors. */
-.entropy-app .plugin-ide :where(button) {
+:where(.entropy-app .plugin-ide button) {
     font: inherit;
     color: inherit;
 }
@@ -120,7 +127,7 @@
     padding: 6px;
     border: 1px solid var(--ide-line);
     border-radius: 10px;
-    background: var(--ide-panel);
+    background: var(--ide-panel-base);
     box-shadow: 0 16px 40px rgb(0 0 0 / 35%);
 }
 

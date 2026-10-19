@@ -3,13 +3,18 @@ import { useCallback, useEffect, useState } from 'react'
 import {
     getBackgrounds,
     uploadBackground as uploadBackgroundApi,
+    deleteAllBackgrounds,
     deleteBackground,
     type BackgroundImage,
 } from '../../api/backgrounds.api'
 import {
+    DEFAULT_WALLPAPER_SETTINGS,
     getPreferences,
+    getWallpaperSettings,
     updatePreferences,
+    updateWallpaperSettings,
     type UserPreferences,
+    type WallpaperSettings,
 } from '../../api/preferences.api'
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -39,6 +44,9 @@ export function useAppearance() {
     )
     const [modalBackdropOpacity, setModalBackdropOpacity] = useState(
         DEFAULT_PREFERENCES.modal_backdrop_opacity,
+    )
+    const [wallpaperSettings, setWallpaperSettings] = useState<WallpaperSettings>(
+        DEFAULT_WALLPAPER_SETTINGS,
     )
 
     const applyPreferences = useCallback((saved: UserPreferences) => {
@@ -79,6 +87,13 @@ export function useAppearance() {
                 applyPreferences(saved)
                 setBackgrounds(availableBackgrounds)
                 setPreferencesError('')
+
+                // Optional: servers older than the wallpaper settings API lack it.
+                getWallpaperSettings()
+                    .then((settings) => {
+                        if (!cancelled) setWallpaperSettings(settings)
+                    })
+                    .catch(() => undefined)
             } catch (error) {
                 if (!cancelled) {
                     setPreferencesError(
@@ -192,6 +207,29 @@ export function useAppearance() {
         theme,
     ])
 
+    const saveWallpaperSettings = useCallback(async (next: WallpaperSettings) => {
+        const previous = wallpaperSettings
+        setWallpaperSettings(next)
+
+        try {
+            setWallpaperSettings(await updateWallpaperSettings(next))
+        } catch (error) {
+            setWallpaperSettings(previous)
+            throw error
+        }
+    }, [wallpaperSettings])
+
+    const removeAllUploads = useCallback(async () => {
+        setPreferencesError('')
+
+        const result = await deleteAllBackgrounds()
+        // The server clears a selection that pointed at a deleted upload.
+        const [saved] = await Promise.all([getPreferences(), refreshBackgrounds()])
+        applyPreferences(saved)
+
+        return result
+    }, [applyPreferences, refreshBackgrounds])
+
     const resetAppearance = useCallback(() => saveAppearance(
         DEFAULT_PREFERENCES.theme,
         DEFAULT_PREFERENCES.accent_color,
@@ -223,5 +261,10 @@ export function useAppearance() {
         uploadBackground,
         removeBackground,
         resetAppearance,
+        wallpaperSettings,
+        saveWallpaperSettings,
+        removeAllUploads,
     }
 }
+
+export type Appearance = ReturnType<typeof useAppearance>

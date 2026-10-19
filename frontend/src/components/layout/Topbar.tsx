@@ -1,20 +1,24 @@
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
     Bell,
     Check,
     CheckCheck,
     ChevronDown,
     ChevronRight,
+    HelpCircle,
     LogOut,
     Moon,
     ShieldCheck,
     Sun,
+    Settings,
     Trash2,
-    KeyRound,
 } from 'lucide-react'
 
+import type { Profile } from '../../api/profile.api'
+import Avatar from '../../features/settings/Avatar'
 import type { PageId } from '../../types/navigation'
+import { useDismiss } from './useDismiss'
 
 export interface TopbarNotification {
     id: string
@@ -25,7 +29,8 @@ export interface TopbarNotification {
 }
 
 interface TopbarProps {
-    username: string
+    profile: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>
+    onOpenHelp: () => void
     pageTitle: string
     theme: 'dark' | 'light'
     onToggleTheme: () => void
@@ -39,7 +44,8 @@ interface TopbarProps {
 }
 
 export default function Topbar({
-    username,
+    profile,
+    onOpenHelp,
     pageTitle,
     theme,
     onToggleTheme,
@@ -52,6 +58,13 @@ export default function Topbar({
 }: TopbarProps) {
     const [profileOpen, setProfileOpen] = useState(false)
     const [notificationsOpen, setNotificationsOpen] = useState(false)
+    const notificationsRef = useRef<HTMLDivElement>(null)
+    const profileRef = useRef<HTMLDivElement>(null)
+    const displayName = profile.full_name?.trim() || profile.username
+
+    // Menus close on any press outside them, or on Escape.
+    useDismiss(notificationsOpen, [notificationsRef], () => setNotificationsOpen(false))
+    useDismiss(profileOpen, [profileRef], () => setProfileOpen(false))
 
     const unreadCount = notifications.filter(
         (notification) => !notification.read,
@@ -74,6 +87,16 @@ export default function Topbar({
             <div className="topbar-actions">
                 <button
                     type="button"
+                    className="entropy-button entropy-button-ghost entropy-button-icon"
+                    onClick={onOpenHelp}
+                    aria-label="Help: keyboard shortcuts and CLI commands"
+                    title="Help (?)"
+                >
+                    <HelpCircle size={18} />
+                </button>
+
+                <button
+                    type="button"
                     className="entropy-button entropy-button-ghost entropy-button-icon theme-toggle"
                     onClick={onToggleTheme}
                     aria-label={`Switch to ${
@@ -88,7 +111,7 @@ export default function Topbar({
                         : <Moon size={18} />}
                 </button>
 
-                <div className="notification-container">
+                <div className="notification-container" ref={notificationsRef}>
                     <button
                         type="button"
                         className="entropy-button entropy-button-ghost entropy-button-icon notification-trigger"
@@ -224,7 +247,7 @@ export default function Topbar({
                     )}
                 </div>
 
-                <div className="profile-container">
+                <div className="profile-container" ref={profileRef}>
                     <button
                         type="button"
                         className="profile-trigger"
@@ -235,21 +258,25 @@ export default function Topbar({
                         aria-expanded={profileOpen}
                         aria-haspopup="true"
                     >
-                        <span className="profile-avatar">
-                            {username.charAt(0).toUpperCase()}
-                        </span>
+                        <Avatar profile={profile} size={30} className="profile-avatar" />
 
-                        <span className="profile-name">{username}</span>
+                        <span className="profile-name" title={displayName}>
+                            {displayName}
+                        </span>
                         <ChevronDown size={15} />
                     </button>
 
                     {profileOpen && (
                         <div className="profile-menu">
                             <div className="profile-menu-heading">
-                                <span className="profile-menu-label">
-                                    SIGNED IN AS
-                                </span>
-                                <strong>{username}</strong>
+                                <Avatar profile={profile} size={40} />
+                                <div>
+                                    <span className="profile-menu-label">
+                                        SIGNED IN AS
+                                    </span>
+                                    <strong>{displayName}</strong>
+                                    <small>@{profile.username}</small>
+                                </div>
                             </div>
 
                             <div className="profile-menu-divider" />
@@ -258,8 +285,8 @@ export default function Topbar({
                                 type="button"
                                 onClick={() => navigateTo('settings')}
                             >
-                                <KeyRound size={16} />
-                                Change password
+                                <Settings size={16} />
+                                Settings
                             </button>
 
                             <button

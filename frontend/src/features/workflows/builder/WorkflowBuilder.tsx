@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     AlertCircle,
+    ArrowLeft,
     CheckCircle2,
+    Columns2,
     LoaderCircle,
+    Rows2,
     Save,
     ShieldCheck,
     TriangleAlert,
     X,
 } from 'lucide-react'
 
+import WallpaperLayer from '../../preferences/WallpaperLayer'
 import '../../../styles/workflow-builder.css'
 import { listPlugins, pluginsApi, type PluginContract } from '../../../api/plugins.api'
 import { vaultApi } from '../../../api/vault.api'
 import { workflowsApi, type WorkflowFormat } from '../../../api/workflows.api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
+import { useShortcuts } from '../../../components/layout/useShortcuts'
+import DiffView from '../../plugins/editor/DiffView'
 import CodeView from './CodeView'
 import FormView from './FormView'
 import {
@@ -95,6 +101,9 @@ export default function WorkflowBuilder({
     const [initial, setInitial] = useState('')
 
     const [busy, setBusy] = useState<'save' | 'validate' | null>(null)
+    // Saving goes through a review of the changes (Save button or Ctrl+S).
+    const [reviewing, setReviewing] = useState(false)
+    const [sideBySide, setSideBySide] = useState(true)
     const [serverResult, setServerResult] = useState<{ ok: boolean; message: string } | null>(null)
 
     const theme = useMemo(
@@ -289,6 +298,41 @@ export default function WorkflowBuilder({
         }
     }, [busy, code, editing, errors.length, form, name, notify, onSaved, view])
 
+    const requestSave = () => {
+        if (busy) return
+
+        if (errors.length > 0) {
+            notify.error(`Fix ${errors.length} problem${errors.length === 1 ? '' : 's'} before saving.`, {
+                title: 'Workflow not saved',
+            })
+            return
+        }
+
+        if (editing && !dirty) {
+            notify.info('There are no changes to save.')
+            return
+        }
+
+        setReviewing(true)
+    }
+
+    // Both sides as YAML, so the review reads the same whichever view was used.
+    const reviewTexts = useMemo(() => {
+        if (!reviewing) return null
+
+        const original = initial ? serialize(JSON.parse(initial), 'yaml') : ''
+        const modified = currentDefinitionJson ? serialize(JSON.parse(currentDefinitionJson), 'yaml') : ''
+
+        return { original, modified }
+    }, [currentDefinitionJson, initial, reviewing])
+
+    useShortcuts(
+        {
+            'mod+s': () => (reviewing ? void save() : requestSave()),
+        },
+        !loading && !loadError,
+    )
+
     const cancel = async () => {
         if (
             dirty &&
@@ -320,6 +364,7 @@ export default function WorkflowBuilder({
 
     return (
         <div className="wf-builder" role="dialog" aria-modal="true" aria-label="Workflow builder">
+            <WallpaperLayer veil="var(--app-bg)" />
             <header className="wf-builder-topbar">
                 <button
                     type="button"
@@ -371,8 +416,9 @@ export default function WorkflowBuilder({
                     <button
                         type="button"
                         className="entropy-button entropy-button-primary"
-                        onClick={() => void save()}
-                        disabled={loading || !!loadError || busy !== null || (editing && !dirty)}
+                        onClick={requestSave}
+                        disabled={loading || !!loadError || busy !== null || reviewing || (editing && !dirty)}
+                        title="Review changes, then save (Ctrl+S)"
                     >
                         {busy === 'save' ? (
                             <LoaderCircle size={15} className="entropy-spin" />
@@ -447,6 +493,62 @@ export default function WorkflowBuilder({
                             Close
                         </button>
                     </div>
+                ) : reviewing && reviewTexts ? (
+                    <section className="wf-review" aria-label="Review changes">
+                        <header className="wf-review-header">
+                            <div>
+                                <strong>Review changes</strong>
+                                <span>
+                                    {editing
+                                        ? 'Saved definition on the left, your changes on the right (YAML).'
+                                        : 'The new workflow definition (YAML).'}
+                                </span>
+                            </div>
+                            <div className="wf-review-actions">
+                                <button
+                                    type="button"
+                                    className="entropy-button entropy-button-ghost entropy-button-sm"
+                                    onClick={() => setSideBySide((value) => !value)}
+                                >
+                                    {sideBySide ? <Rows2 size={14} /> : <Columns2 size={14} />}
+                                    {sideBySide ? 'Inline' : 'Side by side'}
+                                </button>
+                            </div>
+                        </header>
+                        <div className="wf-review-diff">
+                            <DiffView
+                                original={reviewTexts.original}
+                                modified={reviewTexts.modified}
+                                language="yaml"
+                                theme={theme}
+                                sideBySide={sideBySide}
+                            />
+                        </div>
+                        <footer className="wf-review-footer">
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-secondary"
+                                onClick={() => setReviewing(false)}
+                                disabled={busy === 'save'}
+                            >
+                                <ArrowLeft size={15} />
+                                Back to editor
+                            </button>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-primary"
+                                onClick={() => void save()}
+                                disabled={busy !== null}
+                            >
+                                {busy === 'save' ? (
+                                    <LoaderCircle size={15} className="entropy-spin" />
+                                ) : (
+                                    <Save size={15} />
+                                )}
+                                {editing ? 'Confirm & save' : 'Confirm & create'}
+                            </button>
+                        </footer>
+                    </section>
                 ) : view === 'form' ? (
                     <FormView
                         state={form}
@@ -469,7 +571,7 @@ export default function WorkflowBuilder({
                             setCode(text)
                             setServerResult(null)
                         }}
-                        onSaveShortcut={() => void save()}
+                        onSaveShortcut={requestSave}
                     />
                 )}
             </div>

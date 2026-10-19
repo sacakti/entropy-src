@@ -8,6 +8,7 @@ import {
     navigation,
     type PageId,
 } from '../../types/navigation'
+import EntropyLogo from './EntropyLogo'
 
 interface SidebarProps {
     activePage: PageId
@@ -29,7 +30,7 @@ export default function Sidebar({
             className={`entropy-sidebar ${collapsed ? 'collapsed' : ''}`}
         >
             <div className="entropy-sidebar-brand">
-                <img src="/entropy-logo.svg" alt="Entropy" />
+                <EntropyLogo size={38} />
 
                 {!collapsed && (
                     <div className="entropy-brand-copy">

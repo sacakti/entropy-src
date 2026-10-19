@@ -222,17 +222,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
     return (
         <section className="dashboard-page">
-            <header className="page-heading">
-                <div>
-                    <p className="page-eyebrow">
-                        DEPLOYMENT WORKSPACE
-                    </p>
-                    <h1>Dashboard</h1>
-                    <p className="page-subtitle">
-                        Monitor workflow execution and deployment activity.
-                    </p>
-                </div>
-
+            <header className="page-toolbar">
                 <div className="dashboard-refresh-controls">
                     {/* <label
                         className="dashboard-refresh-label"

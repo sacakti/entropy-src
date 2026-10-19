@@ -1,0 +1,313 @@
+/*
+ * ==========================================================
+ * Entropy — Dialogs and modal surfaces
+ *
+ * --app-modal-backdrop-opacity (0–0.8, the "Modal backdrop"
+ * preference) decides how much of the page and wallpaper shows
+ * through every modal: it dims the backdrop and sets how solid
+ * dialog panels and full-screen editors are. Lower values are
+ * more see-through.
+ * ==========================================================
+ */
+
+:root,
+.entropy-app {
+    --app-modal-backdrop: rgb(0 0 0 / var(--app-modal-backdrop-opacity, 0.48));
+
+    /* Panels stay readable: 72% solid at 0, fully solid from 0.75. */
+    --app-modal-solidity: clamp(72%, calc(72% + var(--app-modal-backdrop-opacity, 0.48) * 37.5%), 100%);
+    --app-modal-surface: color-mix(in srgb, var(--app-surface) var(--app-modal-solidity), transparent);
+    --app-modal-blur: blur(18px) saturate(1.15);
+
+    /* Full-screen editors and viewers: a veil over the wallpaper, 35% at 0. */
+    --app-overlay-solidity: clamp(35%, calc(35% + var(--app-modal-backdrop-opacity, 0.48) * 81.25%), 100%);
+}
+
+.entropy-app .entropy-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+    overflow-y: auto;
+    background: var(--app-modal-backdrop);
+    backdrop-filter: blur(3px);
+}
+
+.entropy-app .entropy-dialog {
+    display: flex;
+    flex-direction: column;
+    width: min(520px, 100%);
+    max-height: calc(100dvh - 48px);
+    color: var(--app-text);
+    background: var(--app-modal-surface);
+    backdrop-filter: var(--app-modal-blur);
+    border: 1px solid var(--app-line);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgb(0 0 0 / 35%);
+    outline: none;
+}
+
+.entropy-app .entropy-dialog-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 18px 14px 20px;
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .entropy-dialog-header > div {
+    flex: 1;
+    min-width: 0;
+}
+
+.entropy-app .entropy-dialog-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 650;
+}
+
+.entropy-app .entropy-dialog-header p {
+    margin: 4px 0 0;
+    color: var(--app-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.entropy-app .entropy-dialog-icon {
+    display: grid;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 10px;
+}
+
+.entropy-app .entropy-dialog-body {
+    min-height: 0;
+    padding: 18px 20px 20px;
+    overflow-y: auto;
+}
+
+.entropy-app .entropy-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--app-line);
+}
+
+/* Every page's modal follows the backdrop preference. */
+.entropy-app :is(.plugins-modal-backdrop, .vault-modal-backdrop),
+.entropy-modal-backdrop {
+    background: var(--app-modal-backdrop);
+    backdrop-filter: blur(3px);
+}
+
+.entropy-app :is(.plugins-details-modal, .vault-modal),
+.entropy-modal {
+    background: var(--app-modal-surface);
+    backdrop-filter: var(--app-modal-blur);
+}
+
+/* Help dialog */
+.entropy-app .help-dialog {
+    width: min(720px, 100%);
+}
+
+.entropy-app .help-tabs {
+    display: inline-flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 4px;
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .help-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.entropy-app .help-tabs button.is-active {
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+}
+
+.entropy-app .help-groups {
+    display: grid;
+    gap: 18px;
+}
+
+.entropy-app .help-group h3 {
+    margin: 0 0 8px;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.entropy-app .help-group dl {
+    display: grid;
+    margin: 0;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.entropy-app .help-group dl > div {
+    display: grid;
+    grid-template-columns: minmax(150px, 210px) 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+}
+
+.entropy-app .help-group dl > div + div,
+.entropy-app .help-commands li + li {
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .help-group dt {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.entropy-app .help-group dd {
+    margin: 0;
+    font-size: 13px;
+}
+
+.entropy-app kbd {
+    display: inline-grid;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    place-items: center;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.entropy-app .help-commands {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.entropy-app .help-commands li {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 8px 7px 12px;
+}
+
+.entropy-app .help-commands code,
+.entropy-app .help-note code {
+    color: var(--app-accent-fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .help-commands span {
+    color: var(--app-muted);
+    font-size: 12.5px;
+}
+
+.entropy-app .help-note {
+    margin: 6px 0 0;
+    color: var(--app-subtle);
+    font-size: 12px;
+}
+
+@media (max-width: 640px) {
+    .entropy-app .help-group dl > div,
+    .entropy-app .help-commands li {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
+    }
+}
+
+/* Picker dialog (choose an item for a shortcut) */
+.entropy-app .picker-dialog .entropy-dialog-body {
+    display: grid;
+    gap: 12px;
+}
+
+.entropy-app .picker-dialog-list {
+    display: grid;
+    max-height: 320px;
+    margin: 0;
+    padding: 4px;
+    overflow-y: auto;
+    list-style: none;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .picker-dialog-list li {
+    display: grid;
+    gap: 2px;
+    padding: 9px 11px;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.entropy-app .picker-dialog-list li.is-highlighted {
+    background: var(--app-accent-soft);
+}
+
+.entropy-app .picker-dialog-list strong {
+    font-size: 13px;
+}
+
+.entropy-app .picker-dialog-list span {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .picker-dialog-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 14px 4px;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+/* Rows selected with a click; keyboard shortcuts act on them. */
+.entropy-app tr.is-selected > td {
+    background: var(--app-accent-soft);
+}
+
+.entropy-app tr.is-selected > td:first-child {
+    box-shadow: inset 3px 0 0 var(--app-accent);
+}

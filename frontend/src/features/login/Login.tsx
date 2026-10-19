@@ -1,8 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import './login.css'
 
+export interface EndedSession {
+  name: string
+  username: string
+  reason: 'signed-out' | 'expired'
+}
+
 type LoginProps = {
   onLogin: (username: string, password: string) => Promise<void>
+  endedSession?: EndedSession | null
 }
 
 function LoginIntro() {
@@ -25,8 +32,8 @@ function LoginIntro() {
   )
 }
 
-export default function Login({ onLogin }: LoginProps) {
-  const [username, setUsername] = useState('')
+export default function Login({ onLogin, endedSession }: LoginProps) {
+  const [username, setUsername] = useState(endedSession?.username ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -54,6 +61,13 @@ export default function Login({ onLogin }: LoginProps) {
           <p>Deployment Management Platform</p>
         </div>
         <div className="login-heading"><h2>Welcome back</h2><p>Sign in to continue to your workspace.</p></div>
+        {endedSession && (
+          <p className="login-session-ended" role="status">
+            {endedSession.reason === 'expired'
+              ? <>Your session ended, <strong>{endedSession.name}</strong>. Sign in again to continue.</>
+              : <><strong>{endedSession.name}</strong> signed out.</>}
+          </p>
+        )}
         <form onSubmit={handleSubmit}>
           <div className="form-field"><label htmlFor="username">Username</label><input id="username" name="username" type="text" placeholder="Enter your username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /></div>
           <div className="form-field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /></div>

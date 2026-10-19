@@ -35,9 +35,6 @@ html, body { width: 100%; min-height: 100%; margin: 0; }
   --app-line: rgb(255 255 255 / 9%);
   --app-accent: #d7ff63;
   --app-accent-text: #090b0f;
-  --app-background-image: none;
-  --app-background-fit: cover;
-  --app-background-opacity: 0.35;
   --app-background-overlay: transparent;
   --app-accent-fg: var(--app-accent);
   --app-button-bg: var(--app-accent);

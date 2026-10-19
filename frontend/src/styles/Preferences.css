@@ -337,7 +337,7 @@
     padding: 7px;
 }
 
-.entropy-app .background-thumbnail > img {
+.entropy-app .background-thumbnail > :is(img, video) {
     display: block;
     width: 100%;
     aspect-ratio: 16 / 9;
@@ -490,173 +490,6 @@
 
 /* Preview modal: separate from the shared workspace background */
 
-.entropy-app .wallpaper-preview-backdrop {
-    position: fixed;
-    z-index: 10000;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: rgb(0 0 0 / var(--app-modal-backdrop-opacity, 0.65));
-    backdrop-filter: blur(5px);
-}
-
-.entropy-app .wallpaper-preview-dialog {
-    display: flex;
-    flex-direction: column;
-    width: min(1200px, 100%);
-    height: min(850px, 100%);
-    min-width: 0;
-    overflow: hidden;
-    color: var(--app-text);
-    background: var(--app-surface);
-    border: 1px solid var(--app-line);
-    border-radius: 14px;
-    box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
-}
-
-.entropy-app .wallpaper-preview-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--app-line);
-}
-
-.entropy-app .wallpaper-preview-header > div:first-child {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    min-width: 0;
-}
-
-.entropy-app .wallpaper-preview-header strong {
-    overflow: hidden;
-    color: var(--app-text);
-    font-size: 13px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.entropy-app .wallpaper-preview-header span {
-    color: var(--app-muted);
-    font-size: 11px;
-}
-
-.entropy-app .wallpaper-preview-tools {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.entropy-app .wallpaper-preview-tools button,
-.entropy-app .wallpaper-preview-footer button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    min-height: 34px;
-    padding: 0 9px;
-    color: var(--app-text);
-    background: var(--app-surface);
-    border: 1px solid var(--app-line);
-    border-radius: 7px;
-    cursor: pointer;
-}
-
-.entropy-app .wallpaper-preview-tools button:hover:not(:disabled),
-.entropy-app .wallpaper-preview-footer button:hover:not(:disabled) {
-    border-color: var(--app-accent);
-}
-
-.entropy-app .wallpaper-preview-tools button:disabled,
-.entropy-app .wallpaper-preview-footer button:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-
-.entropy-app .wallpaper-preview-tools > span {
-    min-width: 42px;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-}
-
-.entropy-app .wallpaper-preview-stage {
-    position: relative;
-    display: flex;
-    flex: 1 1 auto;
-    align-items: center;
-    justify-content: center;
-    min-height: 0;
-    overflow: hidden;
-    background: var(--app-bg);
-}
-
-.entropy-app .wallpaper-preview-image-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-}
-
-.entropy-app .wallpaper-preview-image-wrap img {
-    display: block;
-    max-width: 90%;
-    max-height: 90%;
-    object-fit: contain;
-    transform-origin: center;
-    transition: transform 120ms ease;
-}
-
-.entropy-app .wallpaper-preview-nav {
-    position: absolute;
-    z-index: 1;
-    top: 50%;
-    display: grid;
-    width: 42px;
-    height: 42px;
-    place-items: center;
-    color: var(--app-text);
-    background: var(--app-surface);
-    border: 1px solid var(--app-line);
-    border-radius: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-}
-
-.entropy-app .wallpaper-preview-nav.previous {
-    left: 16px;
-}
-
-.entropy-app .wallpaper-preview-nav.next {
-    right: 16px;
-}
-
-.entropy-app .wallpaper-preview-nav:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-
-.entropy-app .wallpaper-preview-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--app-line);
-}
-
-.entropy-app .wallpaper-preview-footer .wallpaper-preview-select {
-    color: var(--app-button-text);
-    background: var(--app-button-bg);
-    border-color: transparent;
-    font-weight: 700;
-}
-
 /* Responsive */
 
 @media (max-width: 900px) {
@@ -694,35 +527,12 @@
         align-items: flex-start;
         flex-direction: column;
     }
-
-    .entropy-app .wallpaper-preview-backdrop {
-        padding: 8px;
-    }
-
-    .entropy-app .wallpaper-preview-dialog {
-        height: 100%;
-    }
-
-    .entropy-app .wallpaper-preview-header {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .entropy-app .wallpaper-preview-tools {
-        width: 100%;
-        flex-wrap: wrap;
-    }
-
-    .entropy-app .wallpaper-preview-footer {
-        flex-wrap: wrap;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .entropy-app .theme-option,
-    .entropy-app .background-dropzone,
-    .entropy-app .background-thumbnail,
-    .entropy-app .wallpaper-preview-image-wrap img {
+.entropy-app .background-dropzone,
+.entropy-app .background-thumbnail {
         transition: none;
     }
 }
@@ -979,60 +789,523 @@
 }
 
 /* Wallpaper preview: image loading failure */
-.entropy-app .wallpaper-preview-error {
-    display: flex;
-    flex-direction: column;
+
+/* Fullscreen wallpaper preview */
+
+/* Zoomed image should remain navigable */
+
+/* Keep toolbar controls visually consistent */
+
+/* Video wallpapers in the gallery */
+.entropy-app .background-video-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 4px;
+    padding: 3px 7px;
+    color: #fff;
+    background: rgb(0 0 0 / 62%);
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+}
+
+/* Wallpaper shuffle */
+.entropy-app .wallpaper-shuffle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px 20px;
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .wallpaper-shuffle-copy {
+    display: flex;
+    align-items: center;
     gap: 12px;
-    padding: 24px;
+    min-width: 0;
+}
+
+.entropy-app .wallpaper-shuffle-copy > div {
+    display: grid;
+    gap: 2px;
+}
+
+.entropy-app .wallpaper-shuffle-copy span:not(.wallpaper-shuffle-icon) {
     color: var(--app-muted);
-    text-align: center;
-}
-
-.entropy-app .wallpaper-preview-error strong {
-    color: var(--app-text);
-}
-
-.entropy-app .wallpaper-preview-error span {
     font-size: 12px;
 }
 
-/* Fullscreen wallpaper preview */
-.entropy-app .wallpaper-preview-dialog.fullscreen {
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    max-height: none;
-    border-radius: 0;
+.entropy-app .wallpaper-shuffle-icon {
+    display: grid;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 9px;
 }
 
-.entropy-app .wallpaper-preview-backdrop:has(
-    .wallpaper-preview-dialog.fullscreen
-) {
-    padding: 0;
+.entropy-app .wallpaper-shuffle-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
 }
 
-/* Zoomed image should remain navigable */
-.entropy-app .wallpaper-preview-image-wrap {
-    overflow: auto;
+.entropy-app .wallpaper-shuffle-controls .background-fit-control > span {
+    color: var(--app-muted);
+    font-size: 11px;
 }
 
-.entropy-app .wallpaper-preview-image-wrap img {
-    display: block;
-    flex: 0 0 auto;
-    width: auto;
-    height: auto;
-    max-width: 90%;
-    max-height: 90%;
-    object-fit: contain;
-    transform-origin: center;
-    transition: transform 120ms ease;
+.entropy-app .wallpaper-shuffle-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
 }
 
-/* Keep toolbar controls visually consistent */
-.entropy-app .wallpaper-preview-tools button:focus-visible,
-.entropy-app .wallpaper-preview-footer button:focus-visible {
+.entropy-app .wallpaper-shuffle-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.entropy-app .wallpaper-shuffle-switch > span {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--app-line);
+    border-radius: 999px;
+    transition: background 160ms ease;
+}
+
+.entropy-app .wallpaper-shuffle-switch > span::after {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    background: var(--app-text);
+    border-radius: 50%;
+    content: "";
+    transition: transform 160ms ease;
+}
+
+.entropy-app .wallpaper-shuffle-switch input:checked + span {
+    background: var(--app-accent);
+}
+
+.entropy-app .wallpaper-shuffle-switch input:checked + span::after {
+    background: var(--app-accent-text);
+    transform: translateX(16px);
+}
+
+.entropy-app .wallpaper-shuffle-switch input:focus-visible + span {
     outline: 2px solid var(--app-accent);
     outline-offset: 2px;
+}
+
+/* ==========================================================
+   Wallpaper gallery viewer (full screen)
+   ========================================================== */
+
+.entropy-app .wallpaper-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    color: var(--app-text);
+    background: var(--app-bg);
+}
+
+.entropy-app .wallpaper-viewer-topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 56px;
+    padding: 8px 14px;
+    background: var(--app-modal-surface);
+    backdrop-filter: var(--app-modal-blur);
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .wallpaper-viewer-title {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.entropy-app .wallpaper-viewer-title strong {
+    max-width: 320px;
+    overflow: hidden;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .wallpaper-viewer-title > span:not(.wallpaper-viewer-chip) {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .wallpaper-viewer-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.entropy-app .wallpaper-viewer-chip.is-accent {
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .wallpaper-viewer-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.entropy-app .wallpaper-viewer-zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+}
+
+.entropy-app .wallpaper-viewer-zoom > span {
+    min-width: 46px;
+    color: var(--app-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.entropy-app .wallpaper-viewer-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.entropy-app .wallpaper-viewer-strip {
+    display: flex;
+    flex: 0 0 196px;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    overflow-y: auto;
+    background: var(--app-modal-surface);
+    backdrop-filter: var(--app-modal-blur);
+    border-right: 1px solid var(--app-line);
+}
+
+.entropy-app .wallpaper-viewer-thumb {
+    position: relative;
+    flex: 0 0 auto;
+    display: grid;
+    gap: 6px;
+    padding: 5px;
+    color: var(--app-text);
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.entropy-app .wallpaper-viewer-thumb:hover {
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .wallpaper-viewer-thumb.is-active {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent);
+}
+
+.entropy-app .wallpaper-viewer-thumb > :is(img, video) {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    background: var(--app-bg);
+    border-radius: 7px;
+    pointer-events: none;
+}
+
+.entropy-app .wallpaper-viewer-thumb-name {
+    overflow: hidden;
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .wallpaper-viewer-thumb-badge,
+.entropy-app .wallpaper-viewer-thumb-check {
+    position: absolute;
+    top: 10px;
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    border-radius: 50%;
+}
+
+.entropy-app .wallpaper-viewer-thumb-badge {
+    left: 10px;
+    color: #fff;
+    background: rgb(0 0 0 / 62%);
+}
+
+.entropy-app .wallpaper-viewer-thumb-check {
+    right: 10px;
+    color: var(--app-accent-text);
+    background: var(--app-accent);
+}
+
+.entropy-app .wallpaper-viewer-stage {
+    position: relative;
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    place-items: center;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+}
+
+.entropy-app .wallpaper-viewer-stage.is-pannable {
+    cursor: grab;
+}
+
+.entropy-app .wallpaper-viewer-stage.is-pannable:active {
+    cursor: grabbing;
+}
+
+.entropy-app .wallpaper-viewer-media {
+    max-width: calc(100% - 140px);
+    max-height: calc(100% - 48px);
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 18px 60px rgb(0 0 0 / 40%);
+    transition: transform 120ms ease-out;
+}
+
+.entropy-app .wallpaper-viewer.is-maximized .wallpaper-viewer-media {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.entropy-app .wallpaper-viewer.is-maximized {
+    background: #000;
+}
+
+.entropy-app .wallpaper-viewer-nav {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    color: #fff;
+    background: rgb(0 0 0 / 45%);
+    border: 1px solid rgb(255 255 255 / 18%);
+    border-radius: 50%;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.entropy-app .wallpaper-viewer-nav:hover:not(:disabled) {
+    background: rgb(0 0 0 / 65%);
+}
+
+.entropy-app .wallpaper-viewer-nav:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.entropy-app .wallpaper-viewer-nav.is-previous {
+    left: 16px;
+}
+
+.entropy-app .wallpaper-viewer-nav.is-next {
+    right: 16px;
+}
+
+.entropy-app .wallpaper-viewer-floating {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    background: var(--app-modal-surface);
+    backdrop-filter: var(--app-modal-blur);
+    border: 1px solid var(--app-line);
+    border-radius: 11px;
+}
+
+.entropy-app .wallpaper-viewer-floating .wallpaper-viewer-zoom {
+    border: 0;
+    background: transparent;
+}
+
+/* Placement editor */
+.entropy-app .wallpaper-viewer-placement {
+    display: flex;
+    flex: 0 0 300px;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    overflow-y: auto;
+    background: var(--app-modal-surface);
+    backdrop-filter: var(--app-modal-blur);
+    border-left: 1px solid var(--app-line);
+}
+
+.entropy-app .wallpaper-viewer-placement > header {
+    display: grid;
+    gap: 3px;
+}
+
+.entropy-app .wallpaper-viewer-placement > header span {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .wallpaper-placement-frame {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.entropy-app .wallpaper-placement-frame > :is(img, video) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.entropy-app .wallpaper-placement-focus {
+    position: absolute;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    color: var(--app-accent-text);
+    background: var(--app-accent);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 45%);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.entropy-app .wallpaper-placement-field {
+    display: grid;
+    gap: 6px;
+}
+
+.entropy-app .wallpaper-placement-field > span {
+    display: flex;
+    justify-content: space-between;
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .wallpaper-placement-field strong {
+    color: var(--app-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .wallpaper-placement-field input {
+    width: 100%;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .wallpaper-viewer-placement > footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: auto;
+}
+
+@media (max-width: 860px) {
+    .entropy-app .wallpaper-viewer-topbar {
+        flex-wrap: wrap;
+    }
+
+    .entropy-app .wallpaper-viewer-title {
+        order: -1;
+        flex-basis: 100%;
+        justify-content: flex-start;
+    }
+
+    .entropy-app .wallpaper-viewer-body {
+        flex-direction: column;
+    }
+
+    .entropy-app .wallpaper-viewer-strip {
+        flex: 0 0 auto;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: 0;
+        border-bottom: 1px solid var(--app-line);
+    }
+
+    .entropy-app .wallpaper-viewer-thumb {
+        width: 128px;
+    }
+
+    .entropy-app .wallpaper-viewer-placement {
+        flex: 0 0 auto;
+        border-left: 0;
+        border-top: 1px solid var(--app-line);
+    }
+
+    .entropy-app .wallpaper-viewer-media {
+        max-width: calc(100% - 24px);
+    }
+}
+
+.entropy-app .wallpaper-viewer.is-maximized > .wallpaper-layer {
+    display: none;
 }

@@ -1,12 +1,10 @@
 
 import { useState, type FormEvent } from 'react'
 import {
-    CheckCircle2,
     Eye,
     EyeOff,
     KeyRound,
     LoaderCircle,
-    ShieldCheck,
 } from 'lucide-react'
 
 import { changePassword } from '../../services/auth'
@@ -30,7 +28,13 @@ type Visibility = {
     confirm: boolean
 }
 
-export default function ChangePasswordForm() {
+export default function ChangePasswordForm({
+    onCancel,
+    onChanged,
+}: {
+    onCancel: () => void
+    onChanged: (message: string) => void
+}) {
     const [fields, setFields] =
         useState<PasswordFields>(initialFields)
 
@@ -41,7 +45,6 @@ export default function ChangePasswordForm() {
     })
 
     const [error, setError] = useState('')
-    const [success, setSuccess] = useState('')
     const [loading, setLoading] = useState(false)
 
     function updateField(
@@ -53,7 +56,6 @@ export default function ChangePasswordForm() {
             [field]: value,
         }))
         setError('')
-        setSuccess('')
     }
 
     function toggleVisibility(field: keyof Visibility) {
@@ -69,7 +71,6 @@ export default function ChangePasswordForm() {
         if (loading) return
 
         setError('')
-        setSuccess('')
 
         if (!fields.currentPassword) {
             setError('Enter your current password.')
@@ -115,9 +116,7 @@ export default function ChangePasswordForm() {
                 confirm: false,
             })
 
-            setSuccess(
-                response.message || 'Password changed successfully.',
-            )
+            onChanged(response.message || 'Password changed successfully.')
         } catch (err: unknown) {
             setError(
                 err instanceof Error
@@ -179,27 +178,7 @@ export default function ChangePasswordForm() {
     }
 
     return (
-        <section className="content-panel password-settings-panel">
-            <div className="password-settings-heading">
-                <div className="placeholder-icon">
-                    <KeyRound size={23} />
-                </div>
-
-                <div>
-                    <h2>Change password</h2>
-                    <p>
-                        Update your password to keep your account secure.
-                    </p>
-                </div>
-            </div>
-
-            <div className="password-security-note">
-                <ShieldCheck size={18} />
-                <span>
-                    Confirm your current password before choosing a new one.
-                </span>
-            </div>
-
+        <>
             <form
                 className="password-change-form"
                 onSubmit={handleSubmit}
@@ -239,28 +218,15 @@ export default function ChangePasswordForm() {
                     </div>
                 )}
 
-                {success && (
-                    <div
-                        className="password-feedback is-success"
-                        role="status"
-                    >
-                        <CheckCircle2 size={17} />
-                        <span>{success}</span>
-                    </div>
-                )}
 
                 <div className="password-form-actions">
                     <button
                         type="button"
                         className="entropy-button entropy-button-secondary"
                         disabled={loading}
-                        onClick={() => {
-                            setFields(initialFields)
-                            setError('')
-                            setSuccess('')
-                        }}
+                        onClick={onCancel}
                     >
-                        Clear
+                        Cancel
                     </button>
 
                     <button
@@ -285,6 +251,6 @@ export default function ChangePasswordForm() {
                     </button>
                 </div>
             </form>
-        </section>
+        </>
     )
 }

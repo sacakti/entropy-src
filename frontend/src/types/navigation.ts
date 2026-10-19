@@ -35,16 +35,22 @@ export const navigation = [
     icon: typeof LayoutDashboard
 }[]
 
-export const pageDescriptions: Record<PageId, string> = {
-    dashboard: 'Monitor activity across your deployment workspace.',
-    plugins: 'Develop and manage Entropy plugins.',
-    workflows: 'Create, validate, and manage deployment workflows.',
-    vault: 'Manage your vaults and their configuration.',
-    nodes: 'Entropy execution infrastructure.',
-    schedulers: 'Manage scheduled workflow executions.',
-    administration: 'Manage Entropy users and access.',
-    about: 'Entropy deployment management platform.',
-    settings: 'Manage your account settings and security.',
-    preferences: 'Personalize your Entropy workspace.',
-    permissions: 'Review your account permissions.',
+const PAGE_IDS: readonly PageId[] = [
+    'dashboard',
+    'plugins',
+    'workflows',
+    'vault',
+    'nodes',
+    'schedulers',
+    'administration',
+    'about',
+    'settings',
+    'preferences',
+    'permissions',
+]
+
+/** Page named by a location hash such as `#/vault`, if any. */
+export function pageFromHash(hash: string): PageId | null {
+    const id = hash.replace(/^#\/?/, '')
+    return (PAGE_IDS as readonly string[]).includes(id) ? (id as PageId) : null
 }

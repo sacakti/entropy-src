@@ -54,6 +54,9 @@ async function toApiError(
     }
 }
 
+/** Dispatched on `window` when the server reports the session has ended. */
+export const SESSION_EXPIRED_EVENT = 'entropy:session-expired'
+
 async function getCsrfToken(): Promise<string> {
     const response = await fetch('/api/auth/csrf', {
         method: 'GET',
@@ -89,6 +92,10 @@ export async function apiRequest<T>(
     })
 
     if (!response.ok) {
+        if (response.status === 401 && !url.startsWith('/api/auth/')) {
+            window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+        }
+
         throw await toApiError(response)
     }
 

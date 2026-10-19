@@ -100,6 +100,10 @@ def list_plugins(
     enabled: Optional[bool] = Query(
         default=None,
     ),
+    namespace: str = Query(
+        default="",
+        max_length=200,
+    ),
     sort_by: str = Query(
         default="name",
         pattern="^(name|namespace|version|enabled|installed_at)$",
@@ -146,6 +150,10 @@ def list_plugins(
     summary = {
         "total": len(items),
         "enabled": sum(1 for item in items if item["enabled"]),
+        "namespaces": sorted(
+            {item["namespace"] for item in items},
+            key=str.casefold,
+        ),
     }
 
     search = q.strip().casefold()
@@ -158,6 +166,13 @@ def list_plugins(
             or search in item["namespace"].casefold()
             or search in item["qualified_name"].casefold()
             or search in item["version"].casefold()
+        ]
+
+    if namespace:
+        items = [
+            item
+            for item in items
+            if item["namespace"] == namespace
         ]
 
     if enabled is not None:

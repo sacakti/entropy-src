@@ -29,6 +29,9 @@ import {
 } from '../../api/plugins.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import AppPortal from '../../components/layout/AppPortal'
+import FloatingMenu from '../../components/layout/FloatingMenu'
+import PickerDialog from '../../components/layout/PickerDialog'
+import { useShortcuts } from '../../components/layout/useShortcuts'
 import CreatePluginModal from './CreatePluginModal'
 
 // Monaco is large; load the editor only when a plugin is opened.
@@ -122,6 +125,8 @@ function SortButton({
 function PluginRow({
     plugin,
     deleting,
+    selected,
+    onSelect,
     onCopy,
     onViewDetails,
     onEdit,
@@ -129,41 +134,23 @@ function PluginRow({
 }: {
     plugin: PluginItem
     deleting: boolean
+    selected: boolean
+    onSelect: (plugin: PluginItem) => void
     onCopy: (value: string) => void
     onViewDetails: (plugin: PluginItem) => void
     onEdit: (plugin: PluginItem) => void
     onDelete: (plugin: PluginItem) => void
 }) {
     const [menuOpen, setMenuOpen] = useState(false)
-    const menuRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        if (!menuOpen) return
-
-        function handlePointerDown(event: PointerEvent) {
-            if (
-                menuRef.current &&
-                !menuRef.current.contains(event.target as Node)
-            ) {
-                setMenuOpen(false)
-            }
-        }
-
-        function handleKeyDown(event: KeyboardEvent) {
-            if (event.key === 'Escape') setMenuOpen(false)
-        }
-
-        document.addEventListener('pointerdown', handlePointerDown)
-        document.addEventListener('keydown', handleKeyDown)
-
-        return () => {
-            document.removeEventListener('pointerdown', handlePointerDown)
-            document.removeEventListener('keydown', handleKeyDown)
-        }
-    }, [menuOpen])
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const closeMenu = useCallback(() => setMenuOpen(false), [])
 
     return (
-        <tr>
+        <tr
+            className={selected ? 'is-selected' : undefined}
+            aria-selected={selected}
+            onClick={() => onSelect(plugin)}
+        >
             <td>
                 <div className="plugins-name">
                     <span className="plugins-name-icon" aria-hidden="true">
@@ -199,7 +186,7 @@ function PluginRow({
             </td>
 
             <td className="plugins-operations-cell">
-                <div className="plugins-operations" ref={menuRef}>
+                <div className="plugins-operations">
                     <button
                         type="button"
                         className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
@@ -225,6 +212,7 @@ function PluginRow({
                         )}
                     </button>
                     <button
+                        ref={triggerRef}
                         type="button"
                         className="entropy-button entropy-button-secondary entropy-button-sm plugins-operation-trigger"
                         aria-label={`Operations for ${plugin.name}`}
@@ -236,33 +224,36 @@ function PluginRow({
                         <ChevronDown size={13} />
                     </button>
 
-                    {menuOpen && (
-                        <div className="plugins-operation-menu" role="menu">
-                            <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                    onViewDetails(plugin)
-                                    setMenuOpen(false)
-                                }}
-                            >
-                                <Activity size={15} />
-                                View details
-                            </button>
+                    <FloatingMenu
+                        anchorRef={triggerRef}
+                        open={menuOpen}
+                        onClose={closeMenu}
+                        className="plugins-operation-menu"
+                    >
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                                onViewDetails(plugin)
+                                setMenuOpen(false)
+                            }}
+                        >
+                            <Activity size={15} />
+                            View details
+                        </button>
 
-                            <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                    onCopy(plugin.qualified_name)
-                                    setMenuOpen(false)
-                                }}
-                            >
-                                <Copy size={15} />
-                                Copy qualified name
-                            </button>
-                        </div>
-                    )}
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                                onCopy(plugin.qualified_name)
+                                setMenuOpen(false)
+                            }}
+                        >
+                            <Copy size={15} />
+                            Copy qualified name
+                        </button>
+                    </FloatingMenu>
                 </div>
             </td>
         </tr>
@@ -279,6 +270,8 @@ export default function Plugins() {
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] =
         useState<PluginStatusFilter>('all')
+    const [namespaceFilter, setNamespaceFilter] = useState('')
+    const [namespaces, setNamespaces] = useState<string[]>([])
     const [sortBy, setSortBy] = useState<PluginSortField>('name')
     const [order, setOrder] = useState<SortOrder>('asc')
     const [page, setPage] = useState(1)
@@ -292,6 +285,10 @@ export default function Plugins() {
     const [createOpen, setCreateOpen] = useState(false)
     const [editingPlugin, setEditingPlugin] = useState<PluginItem | null>(null)
     const [deletingName, setDeletingName] = useState<string | null>(null)
+    // Row picked with a click; Ctrl+D deletes it.
+    const [selectedName, setSelectedName] = useState<string | null>(null)
+    const [deletePickerOpen, setDeletePickerOpen] = useState(false)
+    const searchRef = useRef<HTMLInputElement>(null)
 
     const { notify, modal } = useFeedback()
 
@@ -307,6 +304,7 @@ export default function Plugins() {
         try {
             const result = await listPlugins({
                 q: search || undefined,
+                namespace: namespaceFilter || undefined,
                 enabled:
                     statusFilter === 'all'
                         ? undefined
@@ -319,6 +317,7 @@ export default function Plugins() {
 
             setPlugins(result.items)
             setSummaryTotal(result.summary?.total ?? result.pagination.total)
+            setNamespaces(result.summary?.namespaces ?? [])
             setTotal(result.pagination.total)
             setTotalPages(result.pagination.total_pages)
             setError(null)
@@ -331,7 +330,7 @@ export default function Plugins() {
             setRefreshing(false)
             requestInProgress.current = false
         }
-    }, [search, statusFilter, sortBy, order, page])
+    }, [search, statusFilter, namespaceFilter, sortBy, order, page])
 
     useEffect(() => {
         void loadPlugins()
@@ -425,41 +424,40 @@ export default function Plugins() {
         setSearchInput('')
         setSearch('')
         setStatusFilter('all')
+        setNamespaceFilter('')
         setSortBy('name')
         setOrder('asc')
         setPage(1)
     }
 
-    const hasFilters = searchInput.trim() !== '' || statusFilter !== 'all'
+    const overlayOpen =
+        createOpen || editingPlugin !== null || selectedPlugin !== null || deletePickerOpen
+
+    const openCreate = () => setCreateOpen(true)
+
+    useShortcuts(
+        {
+            'mod+n': openCreate,
+            'alt+n': openCreate,
+            'mod+f': () => {
+                searchRef.current?.focus()
+                searchRef.current?.select()
+            },
+            'mod+d': () => {
+                const selected = plugins.find((item) => item.qualified_name === selectedName)
+
+                if (selected) void handleDelete(selected)
+                else setDeletePickerOpen(true)
+            },
+        },
+        !overlayOpen,
+    )
+
+    const hasFilters =
+        searchInput.trim() !== '' || statusFilter !== 'all' || namespaceFilter !== ''
 
     return (
         <section className="plugins-page">
-            <header className="page-heading">
-                <div>
-                    <p className="page-eyebrow">DEPLOYMENT WORKSPACE</p>
-                    <h1>Plugins</h1>
-                    <p className="page-subtitle">
-                        Browse installed plugins and inspect their registration
-                        and status.
-                    </p>
-                </div>
-
-                <div className="page-heading-actions">
-                    <button
-                        type="button"
-                        className="entropy-button entropy-button-secondary"
-                        onClick={refreshPlugins}
-                        disabled={loading || refreshing}
-                    >
-                        <RefreshCw
-                            size={16}
-                            className={refreshing ? 'entropy-spin' : ''}
-                        />
-                        Refresh
-                    </button>
-                </div>
-            </header>
-
             {error && (
                 <div className="plugins-error" role="alert">
                     <AlertCircle size={18} />
@@ -509,21 +507,34 @@ export default function Plugins() {
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        className="entropy-button entropy-button-primary entropy-button-icon"
-                        aria-label="Create plugin"
-                        title="Create plugin"
-                        onClick={() => setCreateOpen(true)}
-                    >
-                        <Plus size={20} />
-                    </button>
+                    <div className="entropy-panel-actions">
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary entropy-button-icon"
+                            aria-label="Refresh plugins"
+                            title="Refresh"
+                            onClick={refreshPlugins}
+                            disabled={loading || refreshing}
+                        >
+                            <RefreshCw size={16} className={refreshing ? 'entropy-spin' : ''} />
+                        </button>
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-primary entropy-button-icon"
+                            aria-label="Create plugin"
+                            title="Create plugin (Ctrl+N)"
+                            onClick={() => setCreateOpen(true)}
+                        >
+                            <Plus size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="plugins-toolbar">
                     <div className="plugins-search">
                         <Search size={17} aria-hidden="true" />
                         <input
+                            ref={searchRef}
                             type="search"
                             value={searchInput}
                             onChange={(event) =>
@@ -544,6 +555,30 @@ export default function Plugins() {
                     </div>
 
                     <div className="plugins-toolbar-actions">
+                        <label className="plugins-filter">
+                            <span>Namespace</span>
+                            <select
+                                className="entropy-select"
+                                value={namespaceFilter}
+                                onChange={(event) => {
+                                    setNamespaceFilter(event.target.value)
+                                    setPage(1)
+                                }}
+                                aria-label="Filter plugins by namespace"
+                            >
+                                <option value="">All namespaces</option>
+                                {/* Keep a filtered namespace selectable even if it disappears. */}
+                                {namespaceFilter && !namespaces.includes(namespaceFilter) && (
+                                    <option value={namespaceFilter}>{namespaceFilter}</option>
+                                )}
+                                {namespaces.map((namespace) => (
+                                    <option key={namespace} value={namespace}>
+                                        {namespace}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
                         <label className="plugins-filter">
                             <span>Status</span>
                             <select
@@ -653,6 +688,8 @@ export default function Plugins() {
                                         key={plugin.id}
                                         plugin={plugin}
                                         deleting={deletingName === plugin.qualified_name}
+                                        selected={selectedName === plugin.qualified_name}
+                                        onSelect={(item) => setSelectedName(item.qualified_name)}
                                         onCopy={(value) => void handleCopy(value)}
                                         onViewDetails={setSelectedPlugin}
                                         onEdit={setEditingPlugin}
@@ -818,6 +855,31 @@ export default function Plugins() {
                         </section>
                     </div>
                 </AppPortal>
+            )}
+
+            {deletePickerOpen && (
+                <PickerDialog
+                    title="Delete which plugin?"
+                    subtitle="No plugin is selected. Choose the plugin to delete."
+                    icon={<Trash2 size={18} />}
+                    placeholder="Search plugins"
+                    empty="No plugins match your search."
+                    load={async (query) =>
+                        (await listPlugins({ q: query || undefined, page_size: PAGE_SIZE })).items.map(
+                            (item) => ({
+                                id: item.qualified_name,
+                                label: item.qualified_name,
+                                detail: `${item.version} · ${item.enabled ? 'Enabled' : 'Disabled'}`,
+                            }),
+                        )
+                    }
+                    onPick={async (item) => {
+                        const result = await listPlugins({ q: item.id, page_size: PAGE_SIZE })
+                        const plugin = result.items.find((entry) => entry.qualified_name === item.id)
+                        if (plugin) void handleDelete(plugin)
+                    }}
+                    onClose={() => setDeletePickerOpen(false)}
+                />
             )}
 
             {createOpen && (

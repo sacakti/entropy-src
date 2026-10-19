@@ -1,20 +1,47 @@
-import { useEffect, useState } from 'react'
-import { login, getCurrentUser, logout } from './services/auth'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { login, getCurrentUser, logout, type AuthUser } from './services/auth'
+import { SESSION_EXPIRED_EVENT } from './services/api'
 import EntropyShell from './EntropyShell'
-import Login from './features/login/Login'
+import Login, { type EndedSession } from './features/login/Login'
+
+// Survives the reload that follows sign-out, so the login page can say who left.
+const ENDED_SESSION_KEY = 'entropy.ended-session'
+
+function displayName(user: AuthUser): string {
+  return user.full_name?.trim() || user.username
+}
+
+function readEndedSession(): EndedSession | null {
+  try {
+    const value = window.sessionStorage.getItem(ENDED_SESSION_KEY)
+    return value ? (JSON.parse(value) as EndedSession) : null
+  } catch {
+    return null
+  }
+}
+
+function rememberEndedSession(session: EndedSession) {
+  try {
+    window.sessionStorage.setItem(ENDED_SESSION_KEY, JSON.stringify(session))
+  } catch {
+    // Storage unavailable: the login page simply shows no notice.
+  }
+}
 
 function App() {
-  const [authenticatedUser, setAuthenticatedUser] = useState('')
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [checkingSession, setCheckingSession] = useState(true)
+  const [endedSession, setEndedSession] = useState<EndedSession | null>(readEndedSession)
+  const [justSignedIn, setJustSignedIn] = useState(false)
 
   useEffect(() => {
     let active = true
     async function restoreSession() {
       try {
         const result = await getCurrentUser()
-        if (active) setAuthenticatedUser(result.user.username)
+        if (active) setUser(result.user)
       } catch {
-        if (active) setAuthenticatedUser('')
+        if (active) setUser(null)
       } finally {
         if (active) setCheckingSession(false)
       }
@@ -23,21 +50,52 @@ function App() {
     return () => { active = false }
   }, [])
 
+  const userRef = useRef<AuthUser | null>(null)
+
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
+
+  const endSession = useCallback((reason: EndedSession['reason']) => {
+    const current = userRef.current
+
+    if (!current) return
+
+    const ended = { name: displayName(current), username: current.username, reason }
+    rememberEndedSession(ended)
+    setEndedSession(ended)
+    setUser(null)
+  }, [])
+
+  // Any API call answered with 401 means the server-side session has ended.
+  useEffect(() => {
+    const handleExpired = () => endSession('expired')
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleExpired)
+  }, [endSession])
+
   async function handleLogin(username: string, password: string) {
     await login(username, password)
     const result = await getCurrentUser()
-    setAuthenticatedUser(result.user.username)
+    try { window.sessionStorage.removeItem(ENDED_SESSION_KEY) } catch { /* ignore */ }
+    setEndedSession(null)
+    setJustSignedIn(true)
+    setUser(result.user)
   }
 
   if (checkingSession) return <div className="session-loading">Loading Entropy...</div>
 
-  if (authenticatedUser) {
-    return <EntropyShell username={authenticatedUser} onLogout={async () => {
-      try { await logout() } finally { setAuthenticatedUser(''); window.location.reload() }
-    }} />
+  if (user) {
+    return <EntropyShell
+      user={user}
+      welcome={justSignedIn ? displayName(user) : null}
+      onLogout={async () => {
+        try { await logout() } finally { endSession('signed-out'); window.location.reload() }
+      }}
+    />
   }
 
-  return <Login onLogin={handleLogin} />
+  return <Login onLogin={handleLogin} endedSession={endedSession} />
 }
 
 export default App

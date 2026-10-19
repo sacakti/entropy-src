@@ -51,13 +51,25 @@
 
 .entropy-app a:focus-visible,
 
-.entropy-app input:focus-visible,
-
-.entropy-app select:focus-visible {
+.entropy-app :where(input[type="checkbox"], input[type="radio"], input[type="range"]):focus-visible {
 
     outline: 2px solid var(--app-accent);
 
     outline-offset: 3px;
+
+}
+
+
+/*
+ * Text fields show focus on their own border only: an offset outline drew a
+ * second frame around them. Fields wrapped in a bordered container (search
+ * boxes) have no border of their own; the container highlights instead.
+ */
+.entropy-app :where(input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea):focus-visible {
+
+    outline: none;
+
+    border-color: var(--app-accent);
 
 }
 
@@ -76,10 +88,21 @@
 
     margin: 0 auto;
 
-    padding: 40px 36px 56px;
+    padding: 28px 36px 56px;
 
     overflow-x: hidden;
 
     overflow-y: auto;
+
+}
+
+
+/* Search fields provide their own clear button. */
+.entropy-app input[type="search"]::-webkit-search-cancel-button,
+.entropy-app input[type="search"]::-webkit-search-decoration {
+
+    -webkit-appearance: none;
+
+    appearance: none;
 
 }

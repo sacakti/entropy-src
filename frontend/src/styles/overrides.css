@@ -6,7 +6,6 @@
    --------------------------------------------------------- */
 
 
-
 .entropy-app {
 
     --entropy-font-family: Inter, ui-sans-serif, system-ui, -apple-system,
@@ -16,7 +15,6 @@
     font-family: var(--entropy-font-family);
 
 }
-
 
 
 .entropy-app .entropy-content {
@@ -30,27 +28,6 @@
 }
 
 
-
-.entropy-app .entropy-content:has(.password-settings-panel) > .content-panel {
-
-    align-items: center;
-
-}
-
-
-
-.entropy-app .entropy-content:has(.password-settings-panel) .password-settings-panel {
-
-    width: 100%;
-
-    max-width: 720px;
-
-    margin-inline: auto;
-
-}
-
-
-
 @media (max-width: 700px) {
 
     .entropy-app .entropy-content {
@@ -60,7 +37,6 @@
     }
 
 
-
     .entropy-app .content-panel {
 
         padding: 20px;
@@ -68,35 +44,6 @@
     }
 
 }
-
-
-
-.entropy-app .entropy-content:has(> .password-settings-panel) {
-
-    display: flex;
-
-    justify-content: center;
-
-    align-items: flex-start;
-
-}
-
-
-
-.entropy-app .entropy-content > .password-settings-panel {
-
-    flex: 0 1 720px;
-
-    width: 100%;
-
-    max-width: 720px;
-
-    margin: 0 auto;
-
-}
-
-
-
 
 
 /* Keep the open profile dropdown above page-level controls. */
@@ -110,7 +57,6 @@
 }
 
 
-
 .entropy-app .profile-container {
 
     position: relative;
@@ -118,7 +64,6 @@
     z-index: 51;
 
 }
-
 
 
 .entropy-app .profile-menu {

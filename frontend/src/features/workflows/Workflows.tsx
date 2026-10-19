@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     AlertCircle,
     LoaderCircle,
@@ -13,6 +13,8 @@ import {
 
 import { workflowsApi, type WorkflowSummary } from '../../api/workflows.api'
 import AppPortal from '../../components/layout/AppPortal'
+import PickerDialog from '../../components/layout/PickerDialog'
+import { useShortcuts } from '../../components/layout/useShortcuts'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 
 // The builder pulls in Monaco and YAML; load it only when opened.
@@ -42,6 +44,10 @@ export default function Workflows() {
     const [search, setSearch] = useState('')
     const [builder, setBuilder] = useState<BuilderTarget>(null)
     const [deleting, setDeleting] = useState<string | null>(null)
+    // Row picked with a click; Ctrl+D deletes it.
+    const [selectedName, setSelectedName] = useState<string | null>(null)
+    const [deletePickerOpen, setDeletePickerOpen] = useState(false)
+    const searchRef = useRef<HTMLInputElement>(null)
 
     const loadWorkflows = useCallback(async () => {
         try {
@@ -105,6 +111,26 @@ export default function Workflows() {
         }
     }
 
+    const openCreate = () => setBuilder({ mode: 'create' })
+
+    useShortcuts(
+        {
+            'mod+n': openCreate,
+            'alt+n': openCreate,
+            'mod+f': () => {
+                searchRef.current?.focus()
+                searchRef.current?.select()
+            },
+            'mod+d': () => {
+                const selected = workflows.find((item) => item.name === selectedName)
+
+                if (selected) void remove(selected)
+                else setDeletePickerOpen(true)
+            },
+        },
+        builder === null && !deletePickerOpen,
+    )
+
     const filtered = useMemo(() => {
         const query = search.trim().toLowerCase()
 
@@ -117,26 +143,6 @@ export default function Workflows() {
 
     return (
         <section className="workflows-page">
-            <header className="page-heading">
-                <div>
-                    <p className="page-eyebrow">DEPLOYMENT WORKSPACE</p>
-                    <h1>Workflows</h1>
-                    <p className="page-subtitle">Create, validate, and manage deployment workflows.</p>
-                </div>
-
-                <div className="page-heading-actions">
-                    <button
-                        type="button"
-                        className="entropy-button entropy-button-secondary"
-                        onClick={refresh}
-                        disabled={loading || refreshing}
-                    >
-                        <RefreshCw size={15} className={refreshing ? 'entropy-spin' : ''} />
-                        Refresh
-                    </button>
-                </div>
-            </header>
-
             {error && (
                 <div className="entropy-alert entropy-alert-error" role="alert">
                     <AlertCircle size={16} />
@@ -159,20 +165,33 @@ export default function Workflows() {
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        className="entropy-button entropy-button-primary entropy-button-icon"
-                        aria-label="Create workflow"
-                        title="Create workflow"
-                        onClick={() => setBuilder({ mode: 'create' })}
-                    >
-                        <Plus size={20} />
-                    </button>
+                    <div className="entropy-panel-actions">
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary entropy-button-icon"
+                            aria-label="Refresh workflows"
+                            title="Refresh"
+                            onClick={refresh}
+                            disabled={loading || refreshing}
+                        >
+                            <RefreshCw size={16} className={refreshing ? 'entropy-spin' : ''} />
+                        </button>
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-primary entropy-button-icon"
+                            aria-label="Create workflow"
+                            title="Create workflow (Ctrl+N)"
+                            onClick={() => setBuilder({ mode: 'create' })}
+                        >
+                            <Plus size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 <label className="entropy-search workflows-search">
                     <Search size={15} aria-hidden="true" />
                     <input
+                        ref={searchRef}
                         type="search"
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
@@ -231,7 +250,12 @@ export default function Workflows() {
                                 </tr>
                             ) : (
                                 filtered.map((workflow) => (
-                                    <tr key={workflow.name}>
+                                    <tr
+                                        key={workflow.name}
+                                        className={selectedName === workflow.name ? 'is-selected' : undefined}
+                                        aria-selected={selectedName === workflow.name}
+                                        onClick={() => setSelectedName(workflow.name)}
+                                    >
                                         <td>
                                             <div className="workflows-name">
                                                 <span className="workflows-name-icon" aria-hidden="true">
@@ -282,6 +306,32 @@ export default function Workflows() {
                     </table>
                 </div>
             </section>
+
+            {deletePickerOpen && (
+                <PickerDialog
+                    title="Delete which workflow?"
+                    subtitle="No workflow is selected. Choose the workflow to delete."
+                    icon={<Trash2 size={18} />}
+                    placeholder="Search workflows"
+                    empty="No workflows match your search."
+                    load={(query) =>
+                        workflows
+                            .filter((item) =>
+                                `${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase()),
+                            )
+                            .map((item) => ({
+                                id: item.name,
+                                label: item.name,
+                                detail: item.description || `Version ${item.version}`,
+                            }))
+                    }
+                    onPick={(item) => {
+                        const workflow = workflows.find((entry) => entry.name === item.id)
+                        if (workflow) void remove(workflow)
+                    }}
+                    onClose={() => setDeletePickerOpen(false)}
+                />
+            )}
 
             {builder && (
                 <AppPortal>

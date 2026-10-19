@@ -5,7 +5,7 @@ User preferences API.
 from __future__ import annotations
 
 import re
-from typing import Literal, Optional, Tuple
+from typing import Dict, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field
 from core.web.routes.auth import _current_session, verify_csrf
 from lib.database.repositories.user_preferences import (
     UserPreferencesRepository,
+)
+from lib.database.repositories.user_web_settings import (
+    UserWebSettingsRepository,
 )
 from lib.models.session import Session
 from lib.models.users import User
@@ -163,3 +166,81 @@ def update_preferences(
         background_opacity=payload.background_opacity,
         modal_backdrop_opacity=payload.modal_backdrop_opacity,
     )
+
+
+# ----------------------------------------------------------------------
+# Wallpaper placement and shuffle
+# ----------------------------------------------------------------------
+
+
+class WallpaperPlacement(BaseModel):
+    """Where a wallpaper sits: focal point in percent and zoom in percent."""
+
+    x: float = Field(default=50, ge=0, le=100)
+    y: float = Field(default=50, ge=0, le=100)
+    zoom: float = Field(default=100, ge=100, le=400)
+
+
+class WallpaperShuffle(BaseModel):
+    enabled: bool = False
+    interval_minutes: int = Field(default=15, ge=1, le=1440)
+    source: Literal["all", "uploads"] = "all"
+
+
+class WallpaperSettings(BaseModel):
+    # Keyed by background id; images without an entry fit automatically.
+    placements: Dict[str, WallpaperPlacement] = Field(default_factory=dict)
+    shuffle: WallpaperShuffle = Field(default_factory=WallpaperShuffle)
+
+
+def _wallpaper_repository(request: Request) -> UserWebSettingsRepository:
+    context = request.app.state.entropy_context
+
+    if context.database_manager is None:
+        raise HTTPException(status_code=500, detail="Database is unavailable.")
+
+    return UserWebSettingsRepository(context.database_manager.connection)
+
+
+def _wallpaper(settings: dict) -> dict:
+    try:
+        return WallpaperSettings(**settings.get("wallpaper", {})).model_dump()
+    except ValueError:
+        return WallpaperSettings().model_dump()
+
+
+@router.get("/wallpaper")
+def get_wallpaper_settings(
+    request: Request,
+    response: Response,
+    session_record: SessionRecord = Depends(_current_session),
+) -> dict:
+    """Return wallpaper placements and shuffle settings."""
+
+    session, _, _ = session_record
+    response.headers["Cache-Control"] = "no-store"
+
+    return _wallpaper(_wallpaper_repository(request).get_settings(session.user_id))
+
+
+@router.put("/wallpaper", dependencies=[Depends(verify_csrf)])
+def update_wallpaper_settings(
+    payload: WallpaperSettings,
+    request: Request,
+    response: Response,
+    session_record: SessionRecord = Depends(_current_session),
+) -> dict:
+    """Replace wallpaper placements and shuffle settings."""
+
+    session, _, _ = session_record
+    response.headers["Cache-Control"] = "no-store"
+
+    if len(payload.placements) > 500:
+        raise HTTPException(status_code=422, detail="Too many wallpaper placements.")
+
+    settings = _wallpaper_repository(request).update_settings(
+        session.user_id,
+        {"wallpaper": payload.model_dump()},
+    )
+
+    return _wallpaper(settings)

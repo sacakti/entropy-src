@@ -637,24 +637,6 @@
 }
 
 
-.entropy-app .entropy-content:has(.password-settings-panel) > .content-panel {
-
-    align-items: center;
-
-}
-
-
-.entropy-app .entropy-content:has(.password-settings-panel) .password-settings-panel {
-
-    width: 100%;
-
-    max-width: 720px;
-
-    margin-inline: auto;
-
-}
-
-
 @media (max-width: 700px) {
 
     .entropy-app .entropy-content {
@@ -669,30 +651,6 @@
         padding: 20px;
 
     }
-
-}
-
-
-.entropy-app .entropy-content:has(> .password-settings-panel) {
-
-    display: flex;
-
-    justify-content: center;
-
-    align-items: flex-start;
-
-}
-
-
-.entropy-app .entropy-content > .password-settings-panel {
-
-    flex: 0 1 720px;
-
-    width: 100%;
-
-    max-width: 720px;
-
-    margin: 0 auto;
 
 }
 

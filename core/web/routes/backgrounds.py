@@ -5,7 +5,10 @@ Background images API.
 from __future__ import annotations
 
 import datetime
-from typing import Tuple
+import io
+import re
+import zipfile
+from typing import Optional, Tuple
 from uuid import uuid4
 
 from fastapi import (
@@ -17,13 +20,12 @@ from fastapi import (
     Response,
     UploadFile,
 )
-import io
 from PIL import Image
 
 from lib.models.session import Session
 from lib.models.users import User
 
-from core.web.routes.auth import _current_session
+from core.web.routes.auth import _current_session, verify_csrf
 
 
 router = APIRouter(
@@ -32,6 +34,52 @@ router = APIRouter(
 )
 
 SessionRecord = Tuple[Session, str, User]
+
+IMAGE_MAX_BYTES = 20 * 1024 * 1024
+VIDEO_MAX_BYTES = 100 * 1024 * 1024
+
+IMAGE_FORMATS = {
+    "JPEG": "image/jpeg",
+    "PNG": "image/png",
+    "WEBP": "image/webp",
+}
+
+EXTENSIONS = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+}
+
+RANGE_PATTERN = re.compile(r"^bytes=(\d*)-(\d*)$")
+
+
+def _video_mime_type(data: bytes) -> Optional[str]:
+    """Identify MP4 and WebM files by their signatures."""
+
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        return "video/mp4"
+
+    if data[:4] == b"\x1a\x45\xdf\xa3" and b"webm" in data[:64]:
+        return "video/webm"
+
+    return None
+
+
+def _clear_deleted_selection(connection, user_id: int) -> None:
+    """Unset the user's background when it no longer exists."""
+
+    connection.execute(
+        """
+        UPDATE user_preferences
+        SET background_image_id = NULL
+        WHERE user_id = ?
+          AND background_image_id IS NOT NULL
+          AND background_image_id NOT IN (SELECT id FROM background_images)
+        """,
+        (user_id,),
+    )
 
 
 def _connection(request: Request):
@@ -89,54 +137,58 @@ def list_backgrounds(
         for row in rows
     ]
 
-@router.post("")
+@router.post("", dependencies=[Depends(verify_csrf)])
 async def upload_background(
     request: Request,
     file: UploadFile = File(...),
     session_record: SessionRecord = Depends(_current_session),
 ) -> dict:
-    """Upload a background image for the current user."""
+    """Upload a background image or video for the current user."""
 
     session, _, _ = session_record
 
-    allowed_formats = {
-        "JPEG": "image/jpeg",
-        "PNG": "image/png",
-        "WEBP": "image/webp",
-    }
-    max_size_bytes = 20 * 1024 * 1024
-
-    image_data = await file.read(max_size_bytes + 1)
+    image_data = await file.read(VIDEO_MAX_BYTES + 1)
 
     if not image_data:
         raise HTTPException(
             status_code=400,
-            detail="Please select an image to upload.",
+            detail="Please select an image or video to upload.",
         )
 
-    if len(image_data) > max_size_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail="Image size must not exceed 20 MB.",
-        )
+    mime_type = _video_mime_type(image_data)
 
-    try:
-        with Image.open(io.BytesIO(image_data)) as image:
-            image_format = image.format
-            image.verify()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=400,
-            detail="The uploaded file is not a valid supported image.",
-        ) from exc
+    if mime_type is not None:
+        if len(image_data) > VIDEO_MAX_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="Videos must not exceed 100 MB.",
+            )
+    else:
+        if len(image_data) > IMAGE_MAX_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="Image size must not exceed 20 MB.",
+            )
 
-    if image_format not in allowed_formats:
-        raise HTTPException(
-            status_code=400,
-            detail="Only JPEG, PNG, and WebP images are supported.",
-        )
+        try:
+            with Image.open(io.BytesIO(image_data)) as image:
+                image_format = image.format
+                image.verify()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Upload a JPEG, PNG or WebP image, or an MP4 or WebM video."
+                ),
+            ) from exc
 
-    mime_type = allowed_formats[image_format]
+        if image_format not in IMAGE_FORMATS:
+            raise HTTPException(
+                status_code=400,
+                detail="Only JPEG, PNG, and WebP images are supported.",
+            )
+
+        mime_type = IMAGE_FORMATS[image_format]
 
     # Use a safe, user-facing name rather than trusting the file path.
     filename = (file.filename or "Background").replace("\\", "/")
@@ -147,30 +199,31 @@ async def upload_background(
 
     image_key = f"user-{session.user_id}-{uuid4().hex}"
 
-    connection.execute(
-        """
-        INSERT INTO background_images (
-            image_key,
-            owner_user_id,
-            name,
-            mime_type,
-            size_bytes,
-            image_data,
-            source,
-            created_at
+    with connection.transaction():
+        connection.execute(
+            """
+            INSERT INTO background_images (
+                image_key,
+                owner_user_id,
+                name,
+                mime_type,
+                size_bytes,
+                image_data,
+                source,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 'upload', ?)
+            """,
+            (
+                image_key,
+                session.user_id,
+                name,
+                mime_type,
+                len(image_data),
+                image_data,
+                datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            ),
         )
-        VALUES (?, ?, ?, ?, ?, ?, 'upload', ?)
-        """,
-        (
-            image_key,
-            session.user_id,
-            name,
-            mime_type,
-            len(image_data),
-            image_data,
-            datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        ),
-    )
 
     row = connection.fetchone(
         """
@@ -198,14 +251,95 @@ async def upload_background(
         "url": f"/api/backgrounds/{row['id']}/image",
     }
 
+@router.get("/archive")
+def download_uploads(
+    request: Request,
+    session_record: SessionRecord = Depends(_current_session),
+) -> Response:
+    """Return every background the user uploaded as one zip archive."""
+
+    session, _, _ = session_record
+    connection = _connection(request)
+
+    rows = connection.fetchall(
+        """
+        SELECT id, name, mime_type, image_data
+        FROM background_images
+        WHERE owner_user_id = ?
+          AND source = 'upload'
+        ORDER BY name, id
+        """,
+        (session.user_id,),
+    )
+
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail="You have not uploaded any backgrounds.",
+        )
+
+    buffer = io.BytesIO()
+    used = set()
+
+    # Images and videos are already compressed.
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as archive:
+        for row in rows:
+            stem = re.sub(r"[^\w.-]+", "_", row["name"]).strip("._") or "background"
+            extension = EXTENSIONS.get(row["mime_type"], "bin")
+            filename = f"{stem}.{extension}"
+
+            if filename in used:
+                filename = f"{stem}-{row['id']}.{extension}"
+
+            used.add(filename)
+            archive.writestr(filename, bytes(row["image_data"]))
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="entropy-backgrounds.zip"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.delete("", dependencies=[Depends(verify_csrf)])
+def delete_uploads(
+    request: Request,
+    session_record: SessionRecord = Depends(_current_session),
+) -> dict:
+    """Delete every background the user uploaded; built-ins are kept."""
+
+    session, _, _ = session_record
+    connection = _connection(request)
+
+    with connection.transaction():
+        cursor = connection.execute(
+            """
+            DELETE FROM background_images
+            WHERE owner_user_id = ?
+              AND source = 'upload'
+            """,
+            (session.user_id,),
+        )
+        deleted = cursor.rowcount
+
+        _clear_deleted_selection(connection, session.user_id)
+
+    return {
+        "deleted": deleted,
+        "message": f"Deleted {deleted} uploaded background{'s' if deleted != 1 else ''}.",
+    }
+
+
 @router.get("/{image_id}/image")
 def get_background_image(
     image_id: int,
     request: Request,
-    response: Response,
     session_record: SessionRecord = Depends(_current_session),
 ) -> Response:
-    """Return image bytes when the image is visible to the user."""
+    """Return image or video bytes visible to the user; honours Range."""
 
     session, _, _ = session_record
     connection = _connection(request)
@@ -233,19 +367,47 @@ def get_background_image(
             detail="Background image not found.",
         )
 
-    response.headers["Cache-Control"] = "private, max-age=300"
-    response.headers["X-Content-Type-Options"] = "nosniff"
+    data = bytes(row["image_data"])
+    size = len(data)
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, max-age=300",
+        "X-Content-Type-Options": "nosniff",
+    }
+
+    # Browsers (Safari in particular) stream video with byte ranges.
+    match = RANGE_PATTERN.match(request.headers.get("range", "").strip())
+
+    if match and (match.group(1) or match.group(2)):
+        first, last = match.groups()
+
+        if first:
+            start = int(first)
+            end = min(int(last), size - 1) if last else size - 1
+        else:
+            start = max(size - int(last), 0)
+            end = size - 1
+
+        if start >= size or start > end:
+            return Response(
+                status_code=416,
+                headers={**headers, "Content-Range": f"bytes */{size}"},
+            )
+
+        return Response(
+            content=data[start : end + 1],
+            status_code=206,
+            media_type=row["mime_type"],
+            headers={**headers, "Content-Range": f"bytes {start}-{end}/{size}"},
+        )
 
     return Response(
-        content=row["image_data"],
+        content=data,
         media_type=row["mime_type"],
-        headers={
-            "Cache-Control": "private, max-age=300",
-            "X-Content-Type-Options": "nosniff",
-        },
+        headers=headers,
     )
 
-@router.delete("/{image_id}")
+@router.delete("/{image_id}", dependencies=[Depends(verify_csrf)])
 def delete_background(
     image_id: int,
     request: Request,
@@ -274,14 +436,17 @@ def delete_background(
             detail="Uploaded background not found.",
         )
 
-    connection.execute(
-        """
-        DELETE FROM background_images
-        WHERE id = ?
-          AND owner_user_id = ?
-          AND source = 'upload'
-        """,
-        (image_id, session.user_id),
-    )
+    with connection.transaction():
+        connection.execute(
+            """
+            DELETE FROM background_images
+            WHERE id = ?
+              AND owner_user_id = ?
+              AND source = 'upload'
+            """,
+            (image_id, session.user_id),
+        )
+
+        _clear_deleted_selection(connection, session.user_id)
 
     return {"message": "Background image deleted successfully."}

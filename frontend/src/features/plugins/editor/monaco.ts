@@ -20,13 +20,16 @@ self.MonacoEnvironment = {
     },
 }
 
+// Editor backgrounds are transparent: the surrounding panel supplies the
+// colour, translucent per the modal backdrop preference.
 monaco.editor.defineTheme('entropy-dark', {
     base: 'vs-dark',
     inherit: true,
     rules: [],
     colors: {
-        'editor.background': '#0d1117',
-        'editorGutter.background': '#0d1117',
+        'editor.background': '#00000000',
+        'editorGutter.background': '#00000000',
+        'minimap.background': '#00000000',
         'diffEditor.insertedTextBackground': '#3fb95033',
         'diffEditor.removedTextBackground': '#f8514933',
     },
@@ -37,11 +40,23 @@ monaco.editor.defineTheme('entropy-light', {
     inherit: true,
     rules: [],
     colors: {
-        'editor.background': '#ffffff',
+        'editor.background': '#00000000',
+        'editorGutter.background': '#00000000',
+        'minimap.background': '#00000000',
     },
 })
 
 loader.config({ monaco })
+
+// Closing a diff before Monaco finishes computing it rejects the pending
+// computation; those rejections are expected and harmless.
+window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason as { name?: string; message?: string } | undefined
+
+    if (reason?.name === 'Canceled' || reason?.message === 'no diff result available') {
+        event.preventDefault()
+    }
+})
 
 export { monaco }
 export type Monaco = typeof monaco

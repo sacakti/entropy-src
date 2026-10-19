@@ -3,8 +3,9 @@ import { apiRequest } from "./api"
 export interface AuthUser {
   id: number
   username: string
-  full_name: string
+  full_name: string | null
   email: string | null
+  avatar_url?: string | null
 }
 
 interface CurrentUserResponse {

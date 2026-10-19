@@ -31,6 +31,7 @@ import {
 } from '../../../api/plugins.api'
 import { ApiError } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
+import WallpaperLayer from '../../preferences/WallpaperLayer'
 import DiffView from './DiffView'
 import { monaco } from './monaco'
 import { registerSdkLanguage, toMarkers } from './sdkLanguage'
@@ -628,6 +629,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
             aria-modal="true"
             aria-label={`Edit plugin ${qualifiedName}`}
         >
+            <WallpaperLayer veil="var(--ide-bg-base)" />
             <header className="plugin-ide-topbar">
                 <button
                     type="button"

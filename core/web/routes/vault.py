@@ -10,6 +10,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
     Response,
 )
@@ -186,11 +187,32 @@ def _entry_metadata(entry: Any) -> dict[str, Any]:
     }
 
 
-def _access_payload(assignment: Any) -> dict[str, Any]:
+def _users_by_id(request: Request) -> dict[int, User]:
+    """Every user keyed by id, for labelling assignments."""
+    user_manager = getattr(request.app.state.entropy_context, "user_manager", None)
+
+    if user_manager is None:
+        return {}
+
+    return {
+        account.id: account
+        for account in user_manager.list()
+        if account.id is not None
+    }
+
+
+def _access_payload(
+    assignment: Any,
+    users: Optional[dict[int, User]] = None,
+) -> dict[str, Any]:
+    account = (users or {}).get(assignment.user_id)
+
     return {
         "id": assignment.id,
         "namespace_id": assignment.namespace_id,
         "user_id": assignment.user_id,
+        "username": account.username if account else None,
+        "full_name": account.full_name if account else None,
         "access": assignment.access.value,
         "created_at": (
             assignment.created_at.isoformat()
@@ -713,12 +735,58 @@ def list_namespace_access(
 
     response.headers["Cache-Control"] = "no-store"
 
+    users = _users_by_id(request)
+
     return {
         "items": [
-            _access_payload(assignment)
+            _access_payload(assignment, users)
             for assignment in assignments
         ]
     }
+
+
+@router.get("/users")
+def suggest_users(
+    request: Request,
+    response: Response,
+    q: str = Query(default="", max_length=100),
+    record: SessionRecord = Depends(_current_session),
+) -> dict[str, Any]:
+    """Active users matching a username, name or id, for access grants."""
+    _, _, user = record
+    _require_permission(request, user, "vault.namespace.users")
+
+    search = q.strip().casefold()
+    matches = []
+
+    for account in sorted(
+        _users_by_id(request).values(),
+        key=lambda item: item.username.casefold(),
+    ):
+        if not account.is_active:
+            continue
+
+        if search and not (
+            search in account.username.casefold()
+            or search in (account.full_name or "").casefold()
+            or search == str(account.id)
+        ):
+            continue
+
+        matches.append(
+            {
+                "id": account.id,
+                "username": account.username,
+                "full_name": account.full_name,
+            }
+        )
+
+        if len(matches) == 8:
+            break
+
+    response.headers["Cache-Control"] = "no-store"
+
+    return {"items": matches}
 
 
 @router.post(

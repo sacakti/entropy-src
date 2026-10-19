@@ -6,7 +6,6 @@ import {
 
     useEffect,
 
-    useMemo,
 
     useRef,
 
@@ -66,6 +65,9 @@ import type {
 
 } from '../../api/vault.api'
 
+import UserSuggestInput from './UserSuggestInput'
+import PickerDialog from '../../components/layout/PickerDialog'
+import { useShortcuts } from '../../components/layout/useShortcuts'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 
 
@@ -214,6 +216,11 @@ export default function Vault() {
 
     const [modalType, setModalType] = useState<ModalType>(null)
 
+    // Entry picked with a click; Ctrl+D deletes it.
+    const [selectedEntryKey, setSelectedEntryKey] = useState<string | null>(null)
+
+    const [entryPickerOpen, setEntryPickerOpen] = useState(false)
+
     const [createMenuOpen, setCreateMenuOpen] = useState(false)
     const createMenuRef = useRef<HTMLDivElement>(null)
     const [namespaceName, setNamespaceName] = useState('')
@@ -245,14 +252,6 @@ export default function Vault() {
     const [message, setMessage] = useState('')
 
 
-
-    const currentNamespace = useMemo(
-
-        () => namespaces.find((item) => item.name === selectedNamespace) ?? null,
-
-        [namespaces, selectedNamespace],
-
-    )
 
 
 
@@ -1173,29 +1172,101 @@ export default function Vault() {
 
     async function revokeAccess(assignment: VaultAccessAssignment) {
 
-        /*
+        if (!selectedNamespace || !assignment.username) {
 
-         * The current access-assignment response exposes user_id, while
+            notify.warning('Restart the Entropy web server to revoke access from this page.')
 
-         * revokeAccess expects a username. Do not pass a user ID as a username.
+            return
 
-         * Wire this action when the API provides the username or supports
+        }
 
-         * revocation by user ID.
+        const confirmed = await modal.confirm({
 
-         */
+            title: 'Revoke access?',
 
-        void assignment
+            message: `Remove ${assignment.username}'s ${assignment.access} access to ${selectedNamespace}?`,
 
+            confirmText: 'Revoke access',
 
+            destructive: true,
 
-        notify.warning(
+        })
 
-            'Access revocation needs the username or a revoke-by-user-ID API.',
+        if (!confirmed) return
 
-        )
+        setBusy(true)
+
+        try {
+
+            await vaultApi.revokeAccess(selectedNamespace, assignment.username)
+
+            await refreshAccess(selectedNamespace)
+
+            notify.success(`Access revoked for ${assignment.username}.`)
+
+        } catch (cause) {
+
+            notify.error(getErrorMessage(cause))
+
+        } finally {
+
+            setBusy(false)
+
+        }
 
     }
+
+
+
+    const openEntryShortcut = () => {
+
+        if (!selectedNamespace) {
+
+            notify.warning('Create or select a namespace first.')
+
+            return
+
+        }
+
+        openCreateEntryModal()
+
+    }
+
+
+
+    useShortcuts(
+
+        {
+
+            'mod+n': openEntryShortcut,
+
+            'alt+n': openEntryShortcut,
+
+            'mod+shift+s': openNamespaceModal,
+
+            'mod+d': () => {
+
+                if (!selectedNamespace) return
+
+                const selected = entries.find((entry) => entry.key === selectedEntryKey)
+
+                if (selected) void deleteEntry(selected)
+
+                else setEntryPickerOpen(true)
+
+            },
+
+            'mod+shift+d': () => {
+
+                if (selectedNamespace) void deleteNamespace()
+
+            },
+
+        },
+
+        modalType === null && !entryPickerOpen && !busy,
+
+    )
 
 
 
@@ -1224,16 +1295,6 @@ export default function Vault() {
     return (
 
         <section className="vault-page">
-
-            <header className="page-heading">
-                <div>
-                    <p className="page-eyebrow">DEPLOYMENT WORKSPACE</p>
-                    <h1>Vault</h1>
-                    <p className="page-subtitle">Manage secrets and namespace access.</p>
-                </div>
-            </header>
-
-
 
             {error && (
 
@@ -1331,89 +1392,119 @@ export default function Vault() {
 
 
 
-                <div className="vault-create-menu" ref={createMenuRef}>
+                <div className="vault-topbar-actions">
 
-                    <button
+                    {selectedNamespace && (
 
-                        type="button"
+                        <button
 
-                        className="entropy-button entropy-button-primary"
+                            type="button"
 
-                        onClick={() => setCreateMenuOpen((current) => !current)}
+                            className="entropy-button entropy-button-danger"
 
-                        aria-expanded={createMenuOpen}
+                            onClick={() => void deleteNamespace()}
 
-                        aria-haspopup="menu"
+                            disabled={busy}
 
-                    >
+                            title="Delete namespace (Ctrl+Shift+D)"
 
-                        <Plus size={17} />
+                        >
 
-                        <span>Create</span>
+                            <Trash2 size={15} />
 
-                        <ChevronDown size={15} />
+                            Delete namespace
 
-                    </button>
-
-
-
-                    {createMenuOpen && (
-
-                        <>
-
-                            <div className="vault-create-menu-items" role="menu">
-
-                                <button
-
-                                    type="button"
-
-                                    role="menuitem"
-
-                                    disabled={!selectedNamespace}
-
-                                    onClick={openCreateEntryModal}
-
-                                >
-
-                                    <KeyRound size={16} />
-
-                                    <span>
-
-                                        <strong>Create a vault entry</strong>
-
-                                        <small>Add a secret to the selected namespace</small>
-
-                                    </span>
-
-                                </button>
-
-                                <button
-
-                                    type="button"
-
-                                    role="menuitem"
-
-                                    onClick={openNamespaceModal}
-
-                                >
-
-                                    <Shield size={16} />
-
-                                    <span>
-
-                                        <strong>Create a namespace</strong>
-
-                                        <small>Create a new secret namespace</small>
-
-                                    </span>
-
-                                </button>
-
-                            </div>
-
-                        </>
+                        </button>
 
                     )}
+
+
+
+                    <div className="vault-create-menu" ref={createMenuRef}>
+
+                        <button
+
+                            type="button"
+
+                            className="entropy-button entropy-button-primary"
+
+                            onClick={() => setCreateMenuOpen((current) => !current)}
+
+                            aria-expanded={createMenuOpen}
+
+                            aria-haspopup="menu"
+
+                        >
+
+                            <Plus size={17} />
+
+                            <span>Create</span>
+
+                            <ChevronDown size={15} />
+
+                        </button>
+
+
+
+                        {createMenuOpen && (
+
+                            <>
+
+                                <div className="vault-create-menu-items" role="menu">
+
+                                    <button
+
+                                        type="button"
+
+                                        role="menuitem"
+
+                                        disabled={!selectedNamespace}
+
+                                        onClick={openCreateEntryModal}
+
+                                    >
+
+                                        <KeyRound size={16} />
+
+                                        <span>
+
+                                            <strong>Create a vault entry</strong>
+
+                                            <small>Add a secret to the selected namespace</small>
+
+                                        </span>
+
+                                    </button>
+
+                                    <button
+
+                                        type="button"
+
+                                        role="menuitem"
+
+                                        onClick={openNamespaceModal}
+
+                                    >
+
+                                        <Shield size={16} />
+
+                                        <span>
+
+                                            <strong>Create a namespace</strong>
+
+                                            <small>Create a new secret namespace</small>
+
+                                        </span>
+
+                                    </button>
+
+                                </div>
+
+                            </>
+
+                        )}
+
+                    </div>
 
                 </div>
 
@@ -1470,52 +1561,6 @@ export default function Vault() {
             ) : (
 
                 <>
-
-                    <div className="vault-current">
-
-                        <div className="vault-current-title">
-
-                            <div>
-
-                                <h2>{currentNamespace?.name ?? selectedNamespace}</h2>
-
-                                <p>
-
-                                    {currentNamespace?.visibility ?? 'Namespace'} namespace
-
-                                    {' · '}
-
-                                    {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
-
-                                </p>
-
-                            </div>
-
-                        </div>
-
-
-
-                        <button
-
-                            type="button"
-
-                            className="entropy-button entropy-button-danger"
-
-                            onClick={() => void deleteNamespace()}
-
-                            disabled={busy}
-
-                        >
-
-                            <Trash2 size={15} />
-
-                            Delete namespace
-
-                        </button>
-
-                    </div>
-
-
 
                     <nav className="vault-tabs" aria-label="Namespace sections">
 
@@ -1665,7 +1710,17 @@ export default function Vault() {
                                                     : ''
 
                                                 return (
-                                                    <tr key={entry.key}>
+                                                    <tr
+
+                                                        key={entry.key}
+
+                                                        className={selectedEntryKey === entry.key ? 'is-selected' : undefined}
+
+                                                        aria-selected={selectedEntryKey === entry.key}
+
+                                                        onClick={() => setSelectedEntryKey(entry.key)}
+
+                                                    >
                                                         <td>
                                                             <div className="vault-key-cell">
                                                                 <KeyRound size={15} />
@@ -1801,21 +1856,15 @@ export default function Vault() {
 
                                     <label htmlFor="vault-access-username">Username</label>
 
-                                    <input
+                                    <UserSuggestInput
 
                                         id="vault-access-username"
 
-                                        type="text"
-
-                                        autoComplete="off"
-
-                                        placeholder="Enter username"
-
                                         value={username}
 
-                                        onChange={(event) => setUsername(event.target.value)}
+                                        onChange={setUsername}
 
-                                        required
+                                        disabled={busy}
 
                                     />
 
@@ -1871,16 +1920,6 @@ export default function Vault() {
 
 
 
-                            <div className="vault-access-note">
-
-                                User suggestions require the existing user-search API to be
-
-                                connected. Enter a username directly to grant access.
-
-                            </div>
-
-
-
                             <div className="vault-section-header vault-access-list-header">
 
                                 <div>
@@ -1927,7 +1966,7 @@ export default function Vault() {
 
                                             <tr>
 
-                                                <th>User ID</th>
+                                                <th>User</th>
 
                                                 <th>Access level</th>
 
@@ -1953,7 +1992,21 @@ export default function Vault() {
 
                                                             </div>
 
-                                                            <span>{assignment.user_id}</span>
+                                                            <span className="vault-user-name">
+
+                                                                <strong>
+
+                                                                    {assignment.username ?? `User #${assignment.user_id}`}
+
+                                                                </strong>
+
+                                                                {assignment.full_name && (
+
+                                                                    <small>{assignment.full_name}</small>
+
+                                                                )}
+
+                                                            </span>
 
                                                         </div>
 
@@ -1987,7 +2040,7 @@ export default function Vault() {
 
                                                                 disabled={busy}
 
-                                                                aria-label={`Revoke access for ${assignment.user_id}`}
+                                                                aria-label={`Revoke access for ${assignment.username ?? assignment.user_id}`}
 
                                                                 title="Revoke access"
 
@@ -2018,6 +2071,54 @@ export default function Vault() {
                     )}
 
                 </>
+
+            )}
+
+
+
+            {entryPickerOpen && (
+
+                <PickerDialog
+
+                    title="Delete which entry?"
+
+                    subtitle={`No entry is selected. Choose the entry to delete from ${selectedNamespace}.`}
+
+                    icon={<Trash2 size={18} />}
+
+                    placeholder="Search entries"
+
+                    empty="No entries match your search."
+
+                    load={(query) =>
+
+                        entries
+
+                            .filter((entry) => entry.key.toLowerCase().includes(query.toLowerCase()))
+
+                            .map((entry) => ({
+
+                                id: entry.key,
+
+                                label: entry.key,
+
+                                detail: `${entry.type}${entry.sensitive ? ' · sensitive' : ''}`,
+
+                            }))
+
+                    }
+
+                    onPick={(item) => {
+
+                        const entry = entries.find((candidate) => candidate.key === item.id)
+
+                        if (entry) void deleteEntry(entry)
+
+                    }}
+
+                    onClose={() => setEntryPickerOpen(false)}
+
+                />
 
             )}
 

@@ -16,6 +16,8 @@ export interface PluginListResponse {
     summary?: {
         total: number
         enabled: number
+        /** Every installed namespace, ignoring filters. */
+        namespaces?: string[]
     }
     pagination: {
         page: number
@@ -48,6 +50,7 @@ export async function listPlugins(
     const query = new URLSearchParams()
 
     if (params.q) query.set('q', params.q)
+    if (params.namespace) query.set('namespace', params.namespace)
     if (params.enabled !== undefined && params.enabled !== null) {
         query.set('enabled', String(params.enabled))
     }
