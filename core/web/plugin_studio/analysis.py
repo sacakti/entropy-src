@@ -15,7 +15,7 @@ import importlib
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Union
 
 from core.web.plugin_studio.sdk import ROOT_TYPE, build_catalog, plugin_attributes
 
@@ -74,7 +74,15 @@ def _at(path: str, severity: str, message: str, node: ast.AST, source: str) -> D
 # ----------------------------------------------------------------------
 
 
-Scope = ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda | ast.ClassDef
+Scope = Union[ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef]
+
+# Pattern-matching nodes exist from Python 3.10; on 3.9 sources cannot contain them.
+_NAMED_CAPTURES: tuple[type, ...] = tuple(
+    getattr(ast, name) for name in ("MatchAs", "MatchStar") if hasattr(ast, name)
+)
+_MAPPING_PATTERN: tuple[type, ...] = tuple(
+    getattr(ast, name) for name in ("MatchMapping",) if hasattr(ast, name)
+)
 
 
 def _body(scope: Scope) -> list[ast.AST]:
@@ -115,9 +123,9 @@ def _bindings(scope: Scope) -> set[str]:
             names.update((alias.asname or alias.name).split(".", 1)[0] for alias in node.names)
         elif isinstance(node, (ast.Global, ast.Nonlocal)):
             names.update(node.names)
-        elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name:
+        elif isinstance(node, (ast.ExceptHandler, *_NAMED_CAPTURES)) and node.name:
             names.add(node.name)
-        elif isinstance(node, ast.MatchMapping) and node.rest:
+        elif isinstance(node, _MAPPING_PATTERN) and node.rest:
             names.add(node.rest)
 
         pending.extend(ast.iter_child_nodes(node))
@@ -409,8 +417,9 @@ def check_python(
                 message=f"Syntax error: {exc.msg}.",
                 line=exc.lineno or 1,
                 column=exc.offset or 1,
-                end_line=exc.end_lineno,
-                end_column=exc.end_offset,
+                # end_lineno/end_offset exist on SyntaxError from Python 3.10.
+                end_line=getattr(exc, "end_lineno", None),
+                end_column=getattr(exc, "end_offset", None),
                 source="syntax",
             )
         ]

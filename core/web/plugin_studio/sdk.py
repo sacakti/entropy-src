@@ -85,7 +85,9 @@ def _return_annotation(cls: type, name: str) -> str | None:
     attribute = inspect.getattr_static(cls, name, None)
 
     if isinstance(attribute, property) and attribute.fget is not None:
-        return attribute.fget.__annotations__.get("return")
+        # Some stdlib properties wrap callables without annotations
+        # (e.g. operator.attrgetter on Python 3.9's pathlib).
+        return getattr(attribute.fget, "__annotations__", {}).get("return")
 
     if callable(attribute):
         return getattr(attribute, "__annotations__", {}).get("return")
