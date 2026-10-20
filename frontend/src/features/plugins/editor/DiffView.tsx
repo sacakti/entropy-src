@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react'
 import type { editor } from 'monaco-editor'
 
 import { monaco } from './monaco'
+import '../../../styles/diff-view.css'
 
 /**
- * Read-only side-by-side or inline diff.
+ * Read-only side-by-side or inline diff, filling its positioned parent.
  *
  * Owns its Monaco lifecycle so models are always detached from the diff
  * widget before either is disposed, and every render shows current text.
@@ -69,5 +70,5 @@ export default function DiffView({
         diffRef.current?.updateOptions({ renderSideBySide: sideBySide })
     }, [sideBySide, theme])
 
-    return <div ref={containerRef} className="plugin-ide-diff" />
+    return <div ref={containerRef} className="diff-view" />
 }

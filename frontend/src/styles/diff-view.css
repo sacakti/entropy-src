@@ -1,0 +1,8 @@
+/*
+ * DiffView fills its parent, which must be positioned. Loaded with the
+ * component, so the layout does not depend on which editor loaded first.
+ */
+.entropy-app .diff-view {
+    position: absolute;
+    inset: 0;
+}

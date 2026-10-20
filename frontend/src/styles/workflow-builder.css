@@ -898,12 +898,10 @@
 }
 
 .entropy-app .wf-review-diff {
+    /* Contains the absolutely positioned DiffView. */
+    position: relative;
     flex: 1;
     min-height: 0;
-}
-
-.entropy-app .wf-review-diff > div {
-    height: 100%;
 }
 
 .entropy-app .wf-review-footer {

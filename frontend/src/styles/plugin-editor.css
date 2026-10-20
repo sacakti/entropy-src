@@ -580,7 +580,3 @@
     display: none;
 }
 
-.entropy-app .plugin-ide-diff {
-    position: absolute;
-    inset: 0;
-}
