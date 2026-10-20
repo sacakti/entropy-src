@@ -1,9 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     AlertCircle,
+    Download,
     LoaderCircle,
     Pencil,
-    Plus,
+    Play,
     RefreshCw,
     Search,
     Trash2,
@@ -11,8 +12,11 @@ import {
     X,
 } from 'lucide-react'
 
-import { workflowsApi, type WorkflowSummary } from '../../api/workflows.api'
+import { workflowsApi, type WorkflowFormat, type WorkflowSummary } from '../../api/workflows.api'
+import { ApiError } from '../../services/api'
+import AddMenu from '../../components/layout/AddMenu'
 import AppPortal from '../../components/layout/AppPortal'
+import StartRunDialog from '../runs/StartRunDialog'
 import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
@@ -50,7 +54,12 @@ export default function Workflows() {
     // Row picked with a click; Ctrl+D deletes it.
     const [selectedName, setSelectedName] = useState<string | null>(null)
     const [deletePickerOpen, setDeletePickerOpen] = useState(false)
+    const [running, setRunning] = useState<string | null>(null)
+    // Checkbox selection for bulk delete and export.
+    const [checked, setChecked] = useState<Set<string>>(new Set())
+    const [bulkBusy, setBulkBusy] = useState(false)
     const searchRef = useRef<HTMLInputElement>(null)
+    const importRef = useRef<HTMLInputElement>(null)
 
     const loadWorkflows = useCallback(async () => {
         try {
@@ -116,6 +125,106 @@ export default function Workflows() {
 
     const openCreate = () => setBuilder({ mode: 'create' })
 
+    const toggleChecked = (name: string) =>
+        setChecked((current) => {
+            const next = new Set(current)
+            if (next.has(name)) next.delete(name)
+            else next.add(name)
+            return next
+        })
+
+    const removeChecked = async () => {
+        const names = workflows.filter((item) => checked.has(item.name)).map((item) => item.name)
+        if (!names.length) return
+
+        const confirmed = await modal.confirm({
+            title: `Delete ${names.length} workflow${names.length === 1 ? '' : 's'}?`,
+            message: `${names.join(', ')} will be removed from the registry. This cannot be undone.`,
+            confirmText: names.length === 1 ? 'Delete workflow' : `Delete ${names.length} workflows`,
+            cancelText: 'Cancel',
+            destructive: true,
+        })
+        if (!confirmed) return
+
+        setBulkBusy(true)
+        const failed: string[] = []
+        for (const name of names) {
+            try {
+                await workflowsApi.delete(name)
+            } catch {
+                failed.push(name)
+            }
+        }
+        setBulkBusy(false)
+        setChecked(new Set(failed))
+
+        if (failed.length) {
+            notify.error(`Could not delete ${failed.join(', ')}.`, { title: 'Delete incomplete' })
+        } else {
+            notify.success(`${names.length} workflow${names.length === 1 ? '' : 's'} deleted.`)
+        }
+        refresh()
+    }
+
+    const exportChecked = async (format: WorkflowFormat) => {
+        setBulkBusy(true)
+        try {
+            await workflowsApi.exportZip([...checked], format)
+        } catch (cause) {
+            notify.error(errorMessage(cause, 'Unable to export workflows.'), { title: 'Export failed' })
+        } finally {
+            setBulkBusy(false)
+        }
+    }
+
+    // Import JSON/YAML definitions; an existing name is replaced only after asking.
+    const importFiles = async (files: FileList | null) => {
+        if (!files?.length) return
+        const imported: string[] = []
+        const failed: string[] = []
+
+        for (const file of Array.from(files)) {
+            const extension = file.name.split('.').pop()?.toLowerCase()
+            const format: WorkflowFormat = extension === 'yaml' || extension === 'yml' ? extension : 'json'
+            const definition = await file.text()
+
+            try {
+                const created = await workflowsApi.create({ definition, format })
+                imported.push(created.name)
+            } catch (cause) {
+                if (cause instanceof ApiError && cause.status === 409) {
+                    const validated = await workflowsApi.validate({ definition, format }).catch(() => null)
+                    const name = validated?.workflow.name
+                    const replace =
+                        name &&
+                        (await modal.confirm({
+                            title: `Replace ${name}?`,
+                            message: `A workflow named '${name}' already exists. Importing ${file.name} replaces it and raises its version.`,
+                            confirmText: 'Replace',
+                            cancelText: 'Skip',
+                        }))
+                    if (replace && name) {
+                        try {
+                            await workflowsApi.update(name, { definition, format })
+                            imported.push(name)
+                        } catch (error) {
+                            failed.push(`${file.name}: ${errorMessage(error, 'invalid')}`)
+                        }
+                    }
+                } else {
+                    failed.push(`${file.name}: ${errorMessage(cause, 'invalid')}`)
+                }
+            }
+        }
+
+        if (importRef.current) importRef.current.value = ''
+        if (imported.length) {
+            notify.success(`Imported ${imported.join(', ')}.`, { title: 'Workflows imported' })
+            refresh()
+        }
+        if (failed.length) notify.error(failed.join('\n'), { title: 'Some files were not imported' })
+    }
+
     useCreateIntent('workflow', openCreate)
 
     useShortcuts(
@@ -133,7 +242,7 @@ export default function Workflows() {
                 else setDeletePickerOpen(true)
             },
         },
-        builder === null && !deletePickerOpen,
+        builder === null && !deletePickerOpen && running === null,
     )
 
     const filtered = useMemo(() => {
@@ -181,15 +290,20 @@ export default function Workflows() {
                         >
                             <RefreshCw size={16} className={refreshing ? 'entropy-spin' : ''} />
                         </button>
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-primary entropy-button-icon"
-                            aria-label="Create workflow"
-                            title="Create workflow (Ctrl+N)"
-                            onClick={() => setBuilder({ mode: 'create' })}
-                        >
-                            <Plus size={20} />
-                        </button>
+<AddMenu
+                            label="Add workflow"
+                            onCreate={openCreate}
+                            onImport={() => importRef.current?.click()}
+                            importLabel="Import JSON / YAML…"
+                        />
+                        <input
+                            ref={importRef}
+                            type="file"
+                            accept=".json,.yaml,.yml,application/json,application/yaml"
+                            multiple
+                            hidden
+                            onChange={(event) => void importFiles(event.target.files)}
+                        />
                     </div>
                 </div>
 
@@ -210,12 +324,68 @@ export default function Workflows() {
                         </button>
                     )}
                 </div>
+                {checked.size > 0 && (
+                    <div className="list-bulk" role="toolbar" aria-label="Selected workflows">
+                        <span>{checked.size} selected</span>
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary entropy-button-sm"
+                            onClick={() => void exportChecked('json')}
+                            disabled={bulkBusy}
+                        >
+                            <Download size={14} /> Export JSON
+                        </button>
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary entropy-button-sm"
+                            onClick={() => void exportChecked('yaml')}
+                            disabled={bulkBusy}
+                        >
+                            <Download size={14} /> Export YAML
+                        </button>
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-danger-quiet entropy-button-sm"
+                            onClick={() => void removeChecked()}
+                            disabled={bulkBusy}
+                        >
+                            {bulkBusy ? <LoaderCircle size={14} className="entropy-spin" /> : <Trash2 size={14} />} Delete
+                        </button>
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-ghost entropy-button-sm"
+                            onClick={() => setChecked(new Set())}
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
                 </div>
 
                 <div className="list-table-wrap">
                     <table className="list-table">
                         <thead>
                             <tr>
+                                <th scope="col" className="list-check-cell">
+                                    <input
+                                        type="checkbox"
+                                        className="list-check"
+                                        aria-label="Select all workflows"
+                                        checked={filtered.length > 0 && filtered.every((item) => checked.has(item.name))}
+                                        ref={(element) => {
+                                            if (element) {
+                                                const count = filtered.filter((item) => checked.has(item.name)).length
+                                                element.indeterminate = count > 0 && count < filtered.length
+                                            }
+                                        }}
+                                        onChange={(event) =>
+                                            setChecked(
+                                                event.target.checked ? new Set(filtered.map((item) => item.name)) : new Set(),
+                                            )
+                                        }
+                                        disabled={filtered.length === 0}
+                                    />
+                                </th>
                                 <th scope="col">Workflow</th>
                                 <th scope="col">Version</th>
                                 <th scope="col">Updated</th>
@@ -227,7 +397,7 @@ export default function Workflows() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={4}>
+                                    <td colSpan={5}>
                                         <div className="list-empty" role="status">
                                             <LoaderCircle size={18} className="entropy-spin" />
                                             Loading workflows…
@@ -236,7 +406,7 @@ export default function Workflows() {
                                 </tr>
                             ) : filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4}>
+                                    <td colSpan={5}>
                                         <div className="list-empty">
                                             <WorkflowIcon size={22} />
                                             <strong>
@@ -258,6 +428,15 @@ export default function Workflows() {
                                         aria-selected={selectedName === workflow.name}
                                         onClick={() => setSelectedName(workflow.name)}
                                     >
+                                        <td className="list-check-cell" onClick={(event) => event.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                className="list-check"
+                                                aria-label={`Select ${workflow.name}`}
+                                                checked={checked.has(workflow.name)}
+                                                onChange={() => toggleChecked(workflow.name)}
+                                            />
+                                        </td>
                                         <td>
                                             <div className="list-name">
                                                 <span className="list-name-icon" aria-hidden="true">
@@ -275,6 +454,16 @@ export default function Workflows() {
                                         <td className="list-cell-text">{formatDate(workflow.updated_at)}</td>
                                         <td>
                                             <div className="list-operations">
+                                                <button
+                                                    type="button"
+                                                    className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
+                                                    aria-label={`Run ${workflow.name}`}
+                                                    title="Run"
+                                                    onClick={() => setRunning(workflow.name)}
+                                                    disabled={deleting === workflow.name}
+                                                >
+                                                    <Play size={15} />
+                                                </button>
                                                 <button
                                                     type="button"
                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
@@ -334,6 +523,8 @@ export default function Workflows() {
                     onClose={() => setDeletePickerOpen(false)}
                 />
             )}
+
+            {running && <StartRunDialog kind="workflow" target={running} onClose={() => setRunning(null)} />}
 
             {builder && (
                 <AppPortal>

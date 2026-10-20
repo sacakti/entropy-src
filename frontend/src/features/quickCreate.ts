@@ -9,6 +9,7 @@ export type CreateTarget =
     | 'user'
     | 'group'
     | 'role'
+    | 'schedule'
 
 const EVENT = 'entropy:create'
 

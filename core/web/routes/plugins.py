@@ -105,6 +105,9 @@ def list_plugins(
     enabled: Optional[bool] = Query(
         default=None,
     ),
+    draft: Optional[bool] = Query(
+        default=None,
+    ),
     namespace: str = Query(
         default="",
         max_length=200,
@@ -185,7 +188,14 @@ def list_plugins(
         items = [
             item
             for item in items
-            if item["enabled"] is enabled
+            if item["enabled"] is enabled and not item["draft"]
+        ]
+
+    if draft is not None:
+        items = [
+            item
+            for item in items
+            if item["draft"] is draft
         ]
 
     def sort_key(item: dict[str, Any]) -> tuple[bool, str]:

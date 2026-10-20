@@ -1,0 +1,318 @@
+import { apiRequest } from '../services/api'
+
+export type RunState =
+    | 'queued'
+    | 'starting'
+    | 'running'
+    | 'paused'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+
+export type RunTab = 'active' | 'completed' | 'failed' | 'cancelled' | 'all'
+
+export const ACTIVE_STATES: readonly RunState[] = ['queued', 'starting', 'running', 'paused']
+
+export interface Run {
+    id: number
+    execution_id: string
+    workflow: string
+    state: RunState
+    pid: number | null
+    user_id: number | null
+    username: string | null
+    full_name: string | null
+    created_at: string | null
+    started_at: string | null
+    finished_at: string | null
+    exit_code: number | null
+    node: string
+    kind: 'workflow' | 'plugin'
+    target: string
+    trigger: 'manual' | 'schedule' | 'retry' | 'cli'
+    schedule_id: number | null
+}
+
+export interface RunStep {
+    id: string | null
+    name: string
+    status: 'started' | 'completed' | 'failed' | 'skipped' | string
+    started_at: string | null
+    finished_at: string | null
+    duration_ms: number | null
+}
+
+export interface PlannedStep {
+    name: string
+    plugin: string
+    enabled: boolean
+}
+
+export interface RunEvent {
+    id: number
+    type: string
+    source: string | null
+    level: string | null
+    message: string | null
+    node_type: string | null
+    node_id: string | null
+    node_name: string | null
+    payload: Record<string, unknown> | null
+    created_at: string | null
+}
+
+export interface RunListResponse {
+    items: Run[]
+    total: number
+    counts: Record<RunTab, number>
+}
+
+export interface RunListQuery {
+    tab?: RunTab
+    search?: string
+    node?: string
+    user?: string
+    limit?: number
+    offset?: number
+}
+
+export interface RunEventsResponse {
+    run: Run
+    steps: RunStep[]
+    events: RunEvent[]
+    cursor: number | null
+}
+
+export interface RunLog {
+    offset: number
+    size: number
+    text: string
+}
+
+export interface Housekeeping {
+    archive_after_days: number
+    purge_archive_after_days: number
+    archived: { jobs: number; events: number }
+}
+
+function json(method: string, body?: unknown): RequestInit {
+    return {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    }
+}
+
+export const runsApi = {
+    list(query: RunListQuery = {}): Promise<RunListResponse> {
+        const params = new URLSearchParams()
+        Object.entries(query).forEach(([key, value]) => {
+            if (value !== undefined && value !== '') params.set(key, String(value))
+        })
+        return apiRequest(`/api/runs?${params.toString()}`)
+    },
+
+    get(id: number): Promise<{ run: Run; plan: PlannedStep[]; steps: RunStep[] }> {
+        return apiRequest(`/api/runs/${id}`)
+    },
+
+    events(id: number, after: number | null): Promise<RunEventsResponse> {
+        const params = new URLSearchParams({ limit: '1000' })
+        if (after !== null) params.set('after', String(after))
+        return apiRequest(`/api/runs/${id}/events?${params.toString()}`)
+    },
+
+    log(id: number, offset: number): Promise<RunLog> {
+        return apiRequest(`/api/runs/${id}/log?offset=${offset}`)
+    },
+
+    stop(id: number): Promise<{ run: Run }> {
+        return apiRequest(`/api/runs/${id}/stop`, json('POST'))
+    },
+
+    startWorkflow(
+        name: string,
+        node: string,
+        variables: Record<string, unknown> = {},
+    ): Promise<{ run: Run }> {
+        return apiRequest(
+            `/api/workflows/${encodeURIComponent(name)}/run`,
+            json('POST', { node, variables }),
+        )
+    },
+
+    startPlugin(
+        qualifiedName: string,
+        node: string,
+        argumentsMap: Record<string, unknown> = {},
+    ): Promise<{ run: Run }> {
+        return apiRequest(
+            `/api/plugins/${encodeURIComponent(qualifiedName)}/run`,
+            json('POST', { node, arguments: argumentsMap }),
+        )
+    },
+
+    housekeeping(): Promise<Housekeeping> {
+        return apiRequest('/api/runs-housekeeping')
+    },
+
+    updateHousekeeping(
+        values: Partial<Pick<Housekeeping, 'archive_after_days' | 'purge_archive_after_days'>> & {
+            run_now?: boolean
+        },
+    ): Promise<Housekeeping & { result: Record<string, number> | null }> {
+        return apiRequest('/api/runs-housekeeping', json('PUT', values))
+    },
+}
+
+// ----------------------------------------------------------------------
+// Nodes
+// ----------------------------------------------------------------------
+
+export interface NodeMetrics {
+    cpu: { percent: number | null; count: number | null }
+    memory: { total: number | null; used: number | null; percent: number | null }
+    disk: {
+        total: number | null
+        used: number | null
+        free?: number | null
+        percent: number | null
+        path: string
+    }
+    load: (number | null)[]
+    uptime_seconds: number | null
+    agent_up: boolean
+    running_jobs: number
+}
+
+export interface EntropyNode {
+    id: number
+    name: string
+    kind: 'local' | 'remote'
+    host: string
+    description: string
+    enabled: boolean
+    info: Record<string, string>
+    created_at: string
+    updated_at: string
+    last_seen_at: string | null
+    agent_up: boolean
+    running_jobs: number
+    metrics: NodeMetrics | null
+}
+
+export interface MetricSample {
+    sampled_at: string
+    cpu_percent: number | null
+    memory_percent: number | null
+    disk_percent: number | null
+    load1: number | null
+    running_jobs: number
+    agent_up: number
+}
+
+export const nodesApi = {
+    list(): Promise<{ items: EntropyNode[] }> {
+        return apiRequest('/api/nodes')
+    },
+
+    get(name: string, hours = 1): Promise<{ node: EntropyNode; history: MetricSample[] }> {
+        return apiRequest(`/api/nodes/${encodeURIComponent(name)}?hours=${hours}`)
+    },
+
+    update(
+        name: string,
+        values: { description?: string; enabled?: boolean },
+    ): Promise<{ node: EntropyNode }> {
+        return apiRequest(`/api/nodes/${encodeURIComponent(name)}`, json('PATCH', values))
+    },
+
+    metricsUrl(name?: string): string {
+        return name ? `/api/nodes/${encodeURIComponent(name)}/metrics` : '/api/nodes/metrics'
+    },
+}
+
+// ----------------------------------------------------------------------
+// Schedules
+// ----------------------------------------------------------------------
+
+export interface ScheduleRun {
+    id: number
+    schedule_id: number
+    schedule: string | null
+    job_id: number | null
+    trigger: 'schedule' | 'manual' | 'retry'
+    state: 'running' | 'completed' | 'failed' | 'cancelled' | 'error' | 'retried'
+    error: string | null
+    retry_of: number | null
+    created_at: string
+    finished_at: string | null
+}
+
+export interface Schedule {
+    id: number
+    name: string
+    description: string
+    kind: 'workflow' | 'plugin'
+    target: string
+    cron: string
+    timezone: string
+    node: string
+    parameters: Record<string, unknown>
+    enabled: boolean
+    user_id: number
+    username: string
+    created_at: string
+    updated_at: string
+    next_run_at: string | null
+    last_run_at: string | null
+    last_run?: ScheduleRun | null
+    failed_runs?: number
+}
+
+export type ScheduleInput = Pick<
+    Schedule,
+    'name' | 'description' | 'kind' | 'target' | 'cron' | 'timezone' | 'node' | 'parameters' | 'enabled'
+>
+
+export const schedulesApi = {
+    list(): Promise<{ items: Schedule[]; failed: ScheduleRun[] }> {
+        return apiRequest('/api/schedules')
+    },
+
+    get(id: number): Promise<{ schedule: Schedule; runs: ScheduleRun[] }> {
+        return apiRequest(`/api/schedules/${id}`)
+    },
+
+    preview(
+        cron: string,
+        timezone: string,
+    ): Promise<{ valid: boolean; error: string | null; next: string[] }> {
+        const params = new URLSearchParams({ cron, timezone })
+        return apiRequest(`/api/schedules/preview?${params.toString()}`)
+    },
+
+    create(values: ScheduleInput): Promise<{ schedule: Schedule }> {
+        return apiRequest('/api/schedules', json('POST', values))
+    },
+
+    update(id: number, values: Partial<ScheduleInput>): Promise<{ schedule: Schedule }> {
+        return apiRequest(`/api/schedules/${id}`, json('PATCH', values))
+    },
+
+    remove(ids: number[]): Promise<{ deleted: number }> {
+        return apiRequest('/api/schedules/delete', json('POST', { ids }))
+    },
+
+    trigger(id: number): Promise<{ run: ScheduleRun }> {
+        return apiRequest(`/api/schedules/${id}/trigger`, json('POST'))
+    },
+
+    retry(ids: number[]): Promise<{ runs: ScheduleRun[] }> {
+        return apiRequest('/api/schedules/runs/retry', json('POST', { ids }))
+    },
+
+    dismiss(ids: number[]): Promise<{ dismissed: number }> {
+        return apiRequest('/api/schedules/runs/dismiss', json('POST', { ids }))
+    },
+}

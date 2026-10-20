@@ -534,14 +534,30 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
     const save = useCallback(async () => {
         if (!dirty || saving) return
 
+        // A draft is only saved unless the author chooses to install it now.
+        const install =
+            Boolean(plugin.draft) &&
+            (await modal.confirm({
+                title: `Install ${qualifiedName}?`,
+                message:
+                    'This plugin is a draft: workflows cannot use it until it is installed. ' +
+                    'Install it now (it must pass validation), or keep saving it as a draft.',
+                confirmText: 'Save and install',
+                cancelText: 'Save as draft',
+            }))
+
         setSaving(true)
 
         try {
-            const result = await pluginsApi.save(qualifiedName, changes, revision)
+            const result = await pluginsApi.save(qualifiedName, changes, revision, install)
 
             notify.success(
-                `${changedPaths.length} file${changedPaths.length === 1 ? '' : 's'} saved and ${result.plugin.qualified_name} reinstalled.`,
-                { title: 'Plugin saved' },
+                result.plugin.draft
+                    ? `${changedPaths.length} file${changedPaths.length === 1 ? '' : 's'} saved to the draft.`
+                    : install
+                      ? `${result.plugin.qualified_name} saved and installed as version ${result.plugin.version}.`
+                      : `${changedPaths.length} file${changedPaths.length === 1 ? '' : 's'} saved; ${result.plugin.qualified_name} reinstalled as version ${result.plugin.version}.`,
+                { title: result.plugin.draft ? 'Draft saved' : 'Plugin saved' },
             )
             onSaved(result.plugin)
         } catch (error) {
@@ -564,7 +580,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
         } finally {
             setSaving(false)
         }
-    }, [changedPaths.length, changes, dirty, notify, onSaved, qualifiedName, revision, saving])
+    }, [changedPaths.length, changes, dirty, modal, notify, onSaved, plugin.draft, qualifiedName, revision, saving])
 
     const preview = useCallback(() => {
         if (!dirty) return
@@ -644,6 +660,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                 <div className="plugin-ide-title">
                     <strong>{qualifiedName}</strong>
                     <span className="plugins-version">{plugin.version}</span>
+                    {plugin.draft && <span className="plugin-ide-chip">Draft</span>}
                     {mode === 'review' && (
                         <span className="plugin-ide-chip">Reviewing changes</span>
                     )}

@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import {
-    Activity,
-    Server,
-} from 'lucide-react'
-
 import './EntropyShell.css'
 import { getApplicationVersion } from './api/version'
 import { accentTokens } from './features/preferences/accent'
@@ -27,6 +22,11 @@ import Preferences from './features/preferences/Preferences'
 import Permissions from './features/permissions/Permissions'
 import Vault from './features/vault/Vault'
 import Workflows from './features/workflows/Workflows'
+import Runs from './features/runs/Runs'
+import RunDetail from './features/runs/RunDetail'
+import { runIdFromHash } from './features/runs/navigation'
+import Nodes from './features/nodes/Nodes'
+import Schedules from './features/schedules/Schedules'
 import Plugins from './features/plugins/Plugins'
 import Administration from './features/administration/Administration'
 import AdminUsers from './features/administration/AdminUsers'
@@ -93,12 +93,15 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
     const [activePage, setActivePageState] = useState<PageId>(
         () => pageFromHash(window.location.hash) ?? 'dashboard',
     )
+    // The run shown by the live run screen (`#/runs/<id>`).
+    const [runId, setRunId] = useState<number | null>(() => runIdFromHash(window.location.hash))
 
     // Each page visit is a history entry, so browser Back/Forward move between pages.
     const setActivePage = useCallback((page: PageId) => {
         setActivePageState(page)
+        setRunId(null)
 
-        if (pageFromHash(window.location.hash) !== page) {
+        if (window.location.hash !== `#/${page}`) {
             window.history.pushState(null, '', `#/${page}`)
         }
     }, [])
@@ -110,6 +113,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
 
         function handlePopState() {
             setActivePageState(pageFromHash(window.location.hash) ?? 'dashboard')
+            setRunId(runIdFromHash(window.location.hash))
         }
 
         window.addEventListener('popstate', handlePopState)
@@ -164,6 +168,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         dashboard: 'Dashboard',
         plugins: 'Plugins',
         workflows: 'Workflows',
+        runs: 'Runs',
         vault: 'Vault',
         nodes: 'Nodes',
         schedulers: 'Schedulers',
@@ -208,6 +213,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         [
             { target: 'plugin', label: 'Plugin', page: 'plugins', permission: 'plugins.install' },
             { target: 'workflow', label: 'Workflow', page: 'workflows', permission: 'workflows.add' },
+            { target: 'schedule', label: 'Schedule', page: 'schedulers', permission: 'schedules.manage' },
             { target: 'vault-entry', label: 'Vault secret', page: 'vault', permission: null },
             { target: 'vault-namespace', label: 'Vault namespace', page: 'vault', permission: 'vault.namespace.create' },
             { target: 'user', label: 'User', page: 'admin-users', permission: 'users.create' },
@@ -325,6 +331,20 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                             <Vault />
                         ) : activePage === 'workflows' ? (
                             <Workflows />
+                        ) : activePage === 'runs' ? (
+                            runId !== null ? (
+                                <RunDetail
+                                    key={runId}
+                                    runId={runId}
+                                    onBack={() => setActivePage('runs')}
+                                />
+                            ) : (
+                                <Runs />
+                            )
+                        ) : activePage === 'nodes' ? (
+                            <Nodes />
+                        ) : activePage === 'schedulers' ? (
+                            <Schedules />
                         ) : activePage === 'plugins' ? (
                             <Plugins />
                         ) : activePage === 'administration' ? (
@@ -337,22 +357,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                             <AdminRoles />
                         ) : activePage === 'admin-permissions' ? (
                             <AdminPermissions />
-                        ) : (
-                        <section className="content-panel placeholder-panel">
-                                <span className="placeholder-icon">
-                                    {/* {activePage === 'plugins' && <Blocks size={25} />} */}
-                                    {/* {activePage === 'workflows' && <Workflow size={25} />} */}
-                                    {/* {activePage === 'vault' && <KeyRound size={25} />} */}
-                                    {activePage === 'nodes' && <Server size={25} />}
-                                    {activePage === 'schedulers' && <Activity size={25} />}
-                                    {/* {activePage === 'settings' && <Settings size={25} />}
-                                    {activePage === 'permissions' && <ShieldCheck size={25} />} */}
-                                </span>
-                                <span className="placeholder-status">
-                                    PAGE SHELL READY · FUNCTIONALITY NOT IMPLEMENTED
-                                </span>
-                            </section>
-                        )}
+                        ) : null}
                     </main>
                 </div>
 

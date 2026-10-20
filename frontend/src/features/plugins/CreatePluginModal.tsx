@@ -152,7 +152,7 @@ export default function CreatePluginModal({
                 <p className="plugins-create-help">
                     The plugin is generated from the Entropy plugin template
                     (plugin.py, plugin.json, README.md, MAN.md, workflow.json…)
-                    and installed so you can open it in the editor.
+                    and saved as a draft. Workflows can use it once you install it.
                 </p>
 
                 <div className="plugins-create-grid">

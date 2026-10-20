@@ -10,11 +10,13 @@ import {
     ChevronLeft,
     ChevronRight,
     Copy,
+    Download,
     MoreHorizontal,
+    PackageCheck,
+    Play,
     LoaderCircle,
     Package,
     Pencil,
-    Plus,
     RefreshCw,
     Search,
     Trash2,
@@ -28,17 +30,19 @@ import {
     type PluginListParams,
 } from '../../api/plugins.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import AddMenu from '../../components/layout/AddMenu'
 import AppPortal from '../../components/layout/AppPortal'
 import FloatingMenu from '../../components/layout/FloatingMenu'
 import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import CreatePluginModal from './CreatePluginModal'
+import StartRunDialog from '../runs/StartRunDialog'
 
 // Monaco is large; load the editor only when a plugin is opened.
 const PluginEditor = lazy(() => import('./editor/PluginEditor'))
 
-type PluginStatusFilter = 'all' | 'enabled' | 'disabled'
+type PluginStatusFilter = 'all' | 'enabled' | 'disabled' | 'draft'
 type PluginSortField = NonNullable<PluginListParams['sort_by']>
 type SortOrder = 'asc' | 'desc'
 
@@ -57,15 +61,16 @@ function formatDate(value: string | null): string {
     }).format(date)
 }
 
-function StatusBadge({ enabled }: { enabled: boolean }) {
+function StatusBadge({ enabled, draft = false }: { enabled: boolean; draft?: boolean }) {
     return (
         <span
             className={`list-status ${
-                enabled ? 'list-status-enabled' : 'list-status-disabled'
+                draft ? 'list-status-draft' : enabled ? 'list-status-enabled' : 'list-status-disabled'
             }`}
+            title={draft ? 'Saved but not installed; workflows cannot use it yet.' : undefined}
         >
             <span className="list-status-dot" />
-            {enabled ? 'Enabled' : 'Disabled'}
+            {draft ? 'Draft' : enabled ? 'Enabled' : 'Disabled'}
         </span>
     )
 }
@@ -127,6 +132,10 @@ function PluginRow({
     plugin,
     deleting,
     selected,
+    checked,
+    onCheck,
+    onRun,
+    onInstall,
     onSelect,
     onCopy,
     onViewDetails,
@@ -136,6 +145,10 @@ function PluginRow({
     plugin: PluginItem
     deleting: boolean
     selected: boolean
+    checked: boolean
+    onCheck: (plugin: PluginItem) => void
+    onRun: (plugin: PluginItem) => void
+    onInstall: (plugin: PluginItem) => void
     onSelect: (plugin: PluginItem) => void
     onCopy: (value: string) => void
     onViewDetails: (plugin: PluginItem) => void
@@ -152,6 +165,15 @@ function PluginRow({
             aria-selected={selected}
             onClick={() => onSelect(plugin)}
         >
+            <td className="list-check-cell" onClick={(event) => event.stopPropagation()}>
+                <input
+                    type="checkbox"
+                    className="list-check"
+                    aria-label={`Select ${plugin.qualified_name}`}
+                    checked={checked}
+                    onChange={() => onCheck(plugin)}
+                />
+            </td>
             <td>
                 <div className="list-name">
                     <span className="list-name-icon" aria-hidden="true">
@@ -177,7 +199,7 @@ function PluginRow({
             </td>
 
             <td>
-                <StatusBadge enabled={plugin.enabled} />
+                <StatusBadge enabled={plugin.enabled} draft={plugin.draft} />
             </td>
 
             <td>
@@ -188,6 +210,29 @@ function PluginRow({
 
             <td className="list-operations-cell">
                 <div className="list-operations">
+                    {plugin.draft ? (
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
+                            aria-label={`Install ${plugin.qualified_name}`}
+                            title="Install"
+                            onClick={() => onInstall(plugin)}
+                            disabled={deleting}
+                        >
+                            <PackageCheck size={15} />
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
+                            aria-label={`Test run ${plugin.qualified_name}`}
+                            title="Test run"
+                            onClick={() => onRun(plugin)}
+                            disabled={deleting || !plugin.enabled}
+                        >
+                            <Play size={15} />
+                        </button>
+                    )}
                     <button
                         type="button"
                         className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
@@ -289,7 +334,12 @@ export default function Plugins() {
     // Row picked with a click; Ctrl+D deletes it.
     const [selectedName, setSelectedName] = useState<string | null>(null)
     const [deletePickerOpen, setDeletePickerOpen] = useState(false)
+    const [running, setRunning] = useState<string | null>(null)
+    // Checkbox selection (across pages) for bulk delete, export and install.
+    const [checked, setChecked] = useState<Map<string, PluginItem>>(new Map())
+    const [bulkBusy, setBulkBusy] = useState(false)
     const searchRef = useRef<HTMLInputElement>(null)
+    const importRef = useRef<HTMLInputElement>(null)
 
     const { notify, modal } = useFeedback()
 
@@ -307,9 +357,10 @@ export default function Plugins() {
                 q: search || undefined,
                 namespace: namespaceFilter || undefined,
                 enabled:
-                    statusFilter === 'all'
+                    statusFilter === 'all' || statusFilter === 'draft'
                         ? undefined
                         : statusFilter === 'enabled',
+                draft: statusFilter === 'draft' ? true : undefined,
                 sort_by: sortBy,
                 order,
                 page,
@@ -431,8 +482,122 @@ export default function Plugins() {
         setPage(1)
     }
 
+    const toggleChecked = (plugin: PluginItem) =>
+        setChecked((current) => {
+            const next = new Map(current)
+            if (next.has(plugin.qualified_name)) next.delete(plugin.qualified_name)
+            else next.set(plugin.qualified_name, plugin)
+            return next
+        })
+
+    const pageChecked = plugins.filter((item) => checked.has(item.qualified_name)).length
+
+    const installPlugin = async (plugin: PluginItem) => {
+        try {
+            const installed = await pluginsApi.install(plugin.qualified_name)
+            notify.success(`${installed.qualified_name} ${installed.version} is installed and ready for workflows.`, {
+                title: 'Plugin installed',
+            })
+            refreshPlugins()
+            return true
+        } catch (cause) {
+            notify.error(cause instanceof Error ? cause.message : 'Unable to install the plugin.', {
+                title: `${plugin.qualified_name} not installed`,
+            })
+            return false
+        }
+    }
+
+    const bulk = async (action: 'delete' | 'export' | 'install') => {
+        const items = [...checked.values()]
+        if (!items.length) return
+
+        if (action === 'export') {
+            setBulkBusy(true)
+            try {
+                await pluginsApi.exportZip(items.map((item) => item.qualified_name))
+            } catch (cause) {
+                notify.error(cause instanceof Error ? cause.message : 'Unable to export plugins.', {
+                    title: 'Export failed',
+                })
+            } finally {
+                setBulkBusy(false)
+            }
+            return
+        }
+
+        const targets = action === 'install' ? items.filter((item) => item.draft) : items
+        if (action === 'delete') {
+            const confirmed = await modal.confirm({
+                title: `Delete ${targets.length} plugin${targets.length === 1 ? '' : 's'}?`,
+                message:
+                    `${targets.map((item) => item.qualified_name).join(', ')} will be removed. ` +
+                    'Installed plugins are uninstalled; workflows that reference them will fail.',
+                confirmText: targets.length === 1 ? 'Delete plugin' : `Delete ${targets.length} plugins`,
+                cancelText: 'Cancel',
+                destructive: true,
+            })
+            if (!confirmed) return
+        }
+
+        setBulkBusy(true)
+        const failed: string[] = []
+        for (const item of targets) {
+            try {
+                if (action === 'delete') await pluginsApi.delete(item.qualified_name)
+                else await pluginsApi.install(item.qualified_name)
+            } catch (cause) {
+                failed.push(`${item.qualified_name}: ${cause instanceof Error ? cause.message : 'failed'}`)
+            }
+        }
+        setBulkBusy(false)
+        setChecked(new Map())
+        refreshPlugins()
+
+        const done = targets.length - failed.length
+        if (done) {
+            notify.success(
+                `${done} plugin${done === 1 ? '' : 's'} ${action === 'delete' ? 'deleted' : 'installed'}.`,
+            )
+        }
+        if (failed.length) notify.error(failed.join('\n'), { title: 'Some plugins were not changed' })
+    }
+
+    const importArchive = async (file: File | undefined) => {
+        if (importRef.current) importRef.current.value = ''
+        if (!file) return
+
+        const install = await modal.confirm({
+            title: `Install plugins from ${file.name}?`,
+            message:
+                'Imported plugins are saved as drafts. Install them now so workflows can use them, ' +
+                'or keep them as drafts to review first.',
+            confirmText: 'Import and install',
+            cancelText: 'Import as drafts',
+        })
+
+        try {
+            const result = await pluginsApi.importZip(file, install)
+            notify.success(
+                `${result.items.map((item) => item.qualified_name).join(', ')} ${
+                    install ? 'installed' : 'saved as drafts'
+                }.`,
+                { title: 'Plugins imported' },
+            )
+            refreshPlugins()
+        } catch (cause) {
+            notify.error(cause instanceof Error ? cause.message : 'Unable to import plugins.', {
+                title: 'Import failed',
+            })
+        }
+    }
+
     const overlayOpen =
-        createOpen || editingPlugin !== null || selectedPlugin !== null || deletePickerOpen
+        createOpen ||
+        editingPlugin !== null ||
+        selectedPlugin !== null ||
+        deletePickerOpen ||
+        running !== null
 
     const openCreate = () => setCreateOpen(true)
 
@@ -521,15 +686,19 @@ export default function Plugins() {
                         >
                             <RefreshCw size={16} className={refreshing ? 'entropy-spin' : ''} />
                         </button>
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-primary entropy-button-icon"
-                            aria-label="Create plugin"
-                            title="Create plugin (Ctrl+N)"
-                            onClick={() => setCreateOpen(true)}
-                        >
-                            <Plus size={20} />
-                        </button>
+<AddMenu
+                            label="Add plugin"
+                            onCreate={openCreate}
+                            onImport={() => importRef.current?.click()}
+                            importLabel="Import from zip…"
+                        />
+                        <input
+                            ref={importRef}
+                            type="file"
+                            accept=".zip,application/zip"
+                            hidden
+                            onChange={(event) => void importArchive(event.target.files?.[0])}
+                        />
                     </div>
                 </div>
 
@@ -597,6 +766,7 @@ export default function Plugins() {
                                 <option value="all">All plugins</option>
                                 <option value="enabled">Enabled</option>
                                 <option value="disabled">Disabled</option>
+                                <option value="draft">Drafts</option>
                             </select>
                         </label>
 
@@ -610,12 +780,75 @@ export default function Plugins() {
                             </button>
                         )}
                     </div>
+                    {checked.size > 0 && (
+                        <div className="list-bulk" role="toolbar" aria-label="Selected plugins">
+                            <span>{checked.size} selected</span>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-secondary entropy-button-sm"
+                                onClick={() => void bulk('export')}
+                                disabled={bulkBusy}
+                            >
+                                <Download size={14} /> Export
+                            </button>
+                            {[...checked.values()].some((item) => item.draft) && (
+                                <button
+                                    type="button"
+                                    className="entropy-button entropy-button-secondary entropy-button-sm"
+                                    onClick={() => void bulk('install')}
+                                    disabled={bulkBusy}
+                                >
+                                    <PackageCheck size={14} /> Install drafts
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-danger-quiet entropy-button-sm"
+                                onClick={() => void bulk('delete')}
+                                disabled={bulkBusy}
+                            >
+                                {bulkBusy ? <LoaderCircle size={14} className="entropy-spin" /> : <Trash2 size={14} />}
+                                Delete
+                            </button>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-ghost entropy-button-sm"
+                                onClick={() => setChecked(new Map())}
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="list-table-wrap">
                     <table className="list-table">
                         <thead>
                             <tr>
+                                <th scope="col" className="list-check-cell">
+                                    <input
+                                        type="checkbox"
+                                        className="list-check"
+                                        aria-label="Select all plugins on this page"
+                                        checked={plugins.length > 0 && pageChecked === plugins.length}
+                                        ref={(element) => {
+                                            if (element) {
+                                                element.indeterminate = pageChecked > 0 && pageChecked < plugins.length
+                                            }
+                                        }}
+                                        onChange={(event) =>
+                                            setChecked((current) => {
+                                                const next = new Map(current)
+                                                plugins.forEach((item) => {
+                                                    if (event.target.checked) next.set(item.qualified_name, item)
+                                                    else next.delete(item.qualified_name)
+                                                })
+                                                return next
+                                            })
+                                        }
+                                        disabled={plugins.length === 0}
+                                    />
+                                </th>
                                 <th scope="col">
                                     <SortButton
                                         label="Plugin"
@@ -672,7 +905,7 @@ export default function Plugins() {
                         <tbody>
                             {loading && plugins.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6}>
+                                    <td colSpan={7}>
                                         <div
                                             className="list-loading"
                                             role="status"
@@ -688,8 +921,12 @@ export default function Plugins() {
                             ) : plugins.length > 0 ? (
                                 plugins.map((plugin) => (
                                     <PluginRow
-                                        key={plugin.id}
+                                        key={plugin.qualified_name}
                                         plugin={plugin}
+                                        checked={checked.has(plugin.qualified_name)}
+                                        onCheck={toggleChecked}
+                                        onRun={(item) => setRunning(item.qualified_name)}
+                                        onInstall={(item) => void installPlugin(item)}
                                         deleting={deletingName === plugin.qualified_name}
                                         selected={selectedName === plugin.qualified_name}
                                         onSelect={(item) => setSelectedName(item.qualified_name)}
@@ -701,7 +938,7 @@ export default function Plugins() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={6}>
+                                    <td colSpan={7}>
                                         <EmptyState
                                             title={
                                                 error
@@ -831,6 +1068,7 @@ export default function Plugins() {
                                     <dd>
                                         <StatusBadge
                                             enabled={selectedPlugin.enabled}
+                                            draft={selectedPlugin.draft}
                                         />
                                     </dd>
                                 </div>
@@ -842,7 +1080,7 @@ export default function Plugins() {
                                 </div>
                                 <div>
                                     <dt>Registry ID</dt>
-                                    <dd>{selectedPlugin.id}</dd>
+                                    <dd>{selectedPlugin.id ?? 'Not installed'}</dd>
                                 </div>
                             </dl>
 
@@ -885,6 +1123,8 @@ export default function Plugins() {
                 />
             )}
 
+            {running && <StartRunDialog kind="plugin" target={running} onClose={() => setRunning(null)} />}
+
             {createOpen && (
                 <AppPortal>
                     <CreatePluginModal
@@ -892,7 +1132,7 @@ export default function Plugins() {
                         onCreated={(plugin) => {
                             setCreateOpen(false)
                             notify.success(
-                                `${plugin.qualified_name} was created from the plugin template.`,
+                                `${plugin.qualified_name} was saved as a draft. Install it to use it in workflows.`,
                                 { title: 'Plugin created' },
                             )
                             refreshPlugins()

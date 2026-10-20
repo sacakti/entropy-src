@@ -289,7 +289,7 @@ export default function WorkflowBuilder({
                 ? await workflowsApi.update(name, body)
                 : await workflowsApi.create(body)
 
-            notify.success(`Workflow '${saved.name}' saved.`, { title: 'Workflow saved' })
+            notify.success(`Workflow '${saved.name}' saved as version ${saved.version}.`, { title: 'Workflow saved' })
             onSaved(saved.name)
         } catch (error) {
             setServerResult({ ok: false, message: errorMessage(error, 'Unable to save the workflow.') })

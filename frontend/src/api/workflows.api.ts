@@ -1,4 +1,4 @@
-import { apiRequest } from '../services/api'
+import { apiRequest, downloadFile } from '../services/api'
 
 export type WorkflowFormat = 'json' | 'yaml' | 'yml'
 
@@ -94,6 +94,14 @@ export const workflowsApi = {
         return apiRequest<WorkflowDeleteResponse>(
             `/api/workflows/${encodeURIComponent(name)}`,
             { method: 'DELETE' },
+        )
+    },
+
+    exportZip(names: string[], format: WorkflowFormat = 'json'): Promise<void> {
+        return downloadFile(
+            '/api/workflows/export',
+            { names, format },
+            names.length === 1 ? `${names[0]}.zip` : 'entropy-workflows.zip',
         )
     },
 }

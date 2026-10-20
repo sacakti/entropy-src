@@ -5,6 +5,7 @@ import {
     KeyRound,
     LayoutDashboard,
     LockKeyhole,
+    PlayCircle,
     Server,
     ShieldCheck,
     UserRound,
@@ -16,6 +17,7 @@ export type PageId =
     | 'dashboard'
     | 'plugins'
     | 'workflows'
+    | 'runs'
     | 'vault'
     | 'nodes'
     | 'schedulers'
@@ -33,6 +35,7 @@ export const navigation: NavigationItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'plugins', label: 'Plugins', icon: Blocks },
     { id: 'workflows', label: 'Workflows', icon: Workflow },
+    { id: 'runs', label: 'Runs', icon: PlayCircle },
     { id: 'vault', label: 'Vault', icon: KeyRound },
     { id: 'nodes', label: 'Nodes', icon: Server },
     { id: 'schedulers', label: 'Schedulers', icon: Activity },
@@ -65,6 +68,7 @@ const PAGE_IDS: readonly PageId[] = [
     'dashboard',
     'plugins',
     'workflows',
+    'runs',
     'vault',
     'nodes',
     'schedulers',
@@ -81,7 +85,8 @@ const PAGE_IDS: readonly PageId[] = [
 
 /** Page named by a location hash such as `#/vault`, if any. */
 export function pageFromHash(hash: string): PageId | null {
-    const id = hash.replace(/^#\/?/, '')
+    // `#/runs/42` is the live screen of run 42, under the Runs page.
+    const id = hash.replace(/^#\/?/, '').split('/')[0]
     return (PAGE_IDS as readonly string[]).includes(id) ? (id as PageId) : null
 }
 
@@ -90,6 +95,9 @@ export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
     dashboard: ['workflows.list'],
     plugins: ['plugins.list'],
     workflows: ['workflows.list'],
+    runs: ['workflows.list'],
+    nodes: ['nodes.list'],
+    schedulers: ['schedules.list'],
     administration: ['users.read', 'groups.read', 'roles.read'],
     'admin-users': ['users.read'],
     'admin-groups': ['groups.read'],

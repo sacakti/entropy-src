@@ -1,4 +1,4 @@
-import { apiRequest } from '../services/api'
+import { apiRequest, downloadFile } from '../services/api'
 
 export interface PluginItem {
     id: number
@@ -8,6 +8,8 @@ export interface PluginItem {
     version: string
     enabled: boolean
     installed_at: string | null
+    /** Saved but not installed; workflows cannot use it until installed. */
+    draft?: boolean
 }
 
 export interface PluginListResponse {
@@ -16,6 +18,7 @@ export interface PluginListResponse {
     summary?: {
         total: number
         enabled: number
+        drafts?: number
         /** Every installed namespace, ignoring filters. */
         namespaces?: string[]
     }
@@ -30,6 +33,7 @@ export interface PluginListResponse {
 export interface PluginListParams {
     q?: string
     enabled?: boolean | null
+    draft?: boolean | null
     namespace?: string
     installed_from?: string
     installed_to?: string
@@ -53,6 +57,9 @@ export async function listPlugins(
     if (params.namespace) query.set('namespace', params.namespace)
     if (params.enabled !== undefined && params.enabled !== null) {
         query.set('enabled', String(params.enabled))
+    }
+    if (params.draft !== undefined && params.draft !== null) {
+        query.set('draft', String(params.draft))
     }
 
     query.set('sort_by', params.sort_by ?? 'name')
@@ -190,6 +197,8 @@ export const pluginsApi = {
         namespace: string
         name: string
         description?: string
+        /** Install right away instead of keeping a draft. */
+        install?: boolean
     }): Promise<PluginItem> {
         return apiRequest<PluginItem>('/api/plugins', {
             method: 'POST',
@@ -224,13 +233,14 @@ export const pluginsApi = {
         qualifiedName: string,
         files: Record<string, string>,
         revision: string,
+        install = false,
     ): Promise<PluginFilesResponse> {
         return apiRequest<PluginFilesResponse>(
             pluginPath(qualifiedName, '/files'),
             {
                 method: 'PUT',
                 headers: jsonHeaders,
-                body: JSON.stringify({ files, revision }),
+                body: JSON.stringify({ files, revision, install }),
             },
         )
     },
@@ -239,6 +249,25 @@ export const pluginsApi = {
         qualifiedName: string,
     ): Promise<{ deleted: boolean; qualified_name: string }> {
         return apiRequest(pluginPath(qualifiedName), { method: 'DELETE' })
+    },
+
+    install(qualifiedName: string): Promise<PluginItem> {
+        return apiRequest<PluginItem>(pluginPath(qualifiedName, '/install'), { method: 'POST' })
+    },
+
+    exportZip(names: string[]): Promise<void> {
+        return downloadFile(
+            '/api/plugins/export',
+            { names },
+            names.length === 1 ? `${names[0]}.zip` : 'entropy-plugins.zip',
+        )
+    },
+
+    importZip(file: File, install: boolean): Promise<{ items: PluginItem[] }> {
+        const body = new FormData()
+        body.append('file', file)
+        body.append('install', String(install))
+        return apiRequest<{ items: PluginItem[] }>('/api/plugins/import', { method: 'POST', body })
     },
 
     contracts(): Promise<{ items: PluginContract[] }> {

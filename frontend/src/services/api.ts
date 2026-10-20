@@ -110,3 +110,34 @@ export async function apiRequest<T>(
     // Preserve support for successful JSON responses.
     return response.json() as Promise<T>
 }
+
+/** POST JSON and save the binary response (an export archive) as a file. */
+export async function downloadFile(
+    url: string,
+    body: unknown,
+    filename: string,
+): Promise<void> {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': await getCsrfToken(),
+        },
+        body: JSON.stringify(body),
+        credentials: 'same-origin',
+        cache: 'no-store',
+    })
+
+    if (!response.ok) {
+        throw await toApiError(response)
+    }
+
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(await response.blob())
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    // Revoke after the browser has started the download.
+    setTimeout(() => URL.revokeObjectURL(link.href), 10_000)
+}
