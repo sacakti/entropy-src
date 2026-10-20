@@ -59,6 +59,14 @@ CPython 3.9 (downloaded into `build/cache/host-python`) so that markers
 such as `python_version < "3.10"` resolve as they will at run time.
 Downloads are cached under `build/cache/`.
 
+Any host can build any platform's package. The bundled Python is copied
+member by member from its CPython archive into the package, never
+extracted on the build host, so the host's file system cannot alter it
+(macOS is case-insensitive and the Linux runtime's terminfo has names
+differing only in case; Windows drops symlinks and permission bits).
+Application files get fixed permissions: directories 755, files 644,
+`install.sh` 755.
+
 ---
 
 # Installation

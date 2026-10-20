@@ -217,7 +217,16 @@ def download_wheels(platform: str, destination: Path, cache: Path, offline: Path
         shutil.copy2(wheel, destination / wheel.name)
 
 
-def extract_python(platform: str, destination: Path, cache: Path, archive: Path | None) -> str:
+def python_archive(platform: str, cache: Path, archive: Path | None) -> Path:
+    """The CPython archive for the platform, checked but never extracted.
+
+    Its files go straight from this archive into the package (see
+    `archive`): extracting them on the build host would depend on its file
+    system. macOS is case-insensitive (share/terminfo has names differing
+    only in case, linked to each other) and Windows drops symlinks and
+    permission bits.
+    """
+
     _, triple, _, _ = PLATFORMS[platform]
     if archive is None:
         log(f"Fetching CPython {CPYTHON_FULL_VERSION} for {triple}")
@@ -228,16 +237,12 @@ def extract_python(platform: str, destination: Path, cache: Path, archive: Path 
 
     with tarfile.open(archive) as source:
         for member in source.getmembers():
-            if member.name.startswith(("/", "..")) or "/../" in member.name:
-                raise ReleaseError(f"Unsafe path in {archive.name}: {member.name}")
-        # Python 3.12+ can filter members; 'tar' keeps the runtime's symlinks.
-        options = {"filter": "tar"} if hasattr(tarfile, "tar_filter") else {}
-        source.extractall(destination.parent, **options)
-
-    extracted = destination.parent / "python"
-    if extracted != destination:
-        extracted.rename(destination)
-    return CPYTHON_FULL_VERSION
+            parts = member.name.split("/")
+            if member.name.startswith("/") or ".." in parts or parts[0] != "python":
+                raise ReleaseError(f"Unexpected path in {archive.name}: {member.name}")
+            if member.isdev():
+                raise ReleaseError(f"Device file in {archive.name}: {member.name}")
+    return archive
 
 
 def copy_application(destination: Path, platform: str, version: str, dist: Path) -> None:
@@ -259,7 +264,9 @@ def copy_application(destination: Path, platform: str, version: str, dist: Path)
             shutil.copy2(source, destination / item)
 
     (destination / "resources" / "wheels" / wheel_dir).mkdir(parents=True, exist_ok=True)
-    shutil.copytree(dist, destination / "frontend" / "dist")
+    shutil.copytree(
+        dist, destination / "frontend" / "dist", ignore=shutil.ignore_patterns(*EXCLUDED)
+    )
 
     # The release carries a fixed version.
     (destination / "core" / "version.py").write_text(
@@ -280,18 +287,59 @@ def write_installer(stage: Path, platform: str) -> None:
     shutil.copy2(TEMPLATES / "README.txt", stage / "README.txt")
 
 
-def archive(stage: Path, output: Path) -> str:
+def archive(stage: Path, output: Path, python: Path) -> str:
+    """Write the package: the staged files, then the Python runtime.
+
+    Staged files get fixed permissions (only the POSIX installer is
+    executable) so the package is the same whichever OS built it. The
+    runtime is copied member by member from its archive, keeping its own
+    names, links and permissions.
+    """
+
     log(f"Writing {output.name}")
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_name(output.name + ".part")
+    executables = {f"{stage.name}/install.sh"}
 
-    def reset(info: tarfile.TarInfo) -> tarfile.TarInfo:
+    def owner(info: tarfile.TarInfo) -> tarfile.TarInfo:
         info.uid = info.gid = 0
         info.uname = info.gname = "root"
         return info
 
+    def staged(info: tarfile.TarInfo) -> tarfile.TarInfo:
+        if info.isdir():
+            info.mode = 0o755
+        elif info.isfile():
+            info.mode = 0o755 if info.name in executables else 0o644
+        return owner(info)
+
     with tarfile.open(temporary, "w:gz", compresslevel=9) as tar:
-        tar.add(stage, arcname=stage.name, filter=reset)
+        tar.add(stage, arcname=stage.name, filter=staged)
+
+        with tarfile.open(python) as source:
+            directories = set()
+            for member in source.getmembers():
+                # The runtime archive lists files only; add their directories.
+                parents = Path(member.name).parents
+                for parent in reversed([p.as_posix() for p in parents if p.as_posix() != "."]):
+                    if parent not in directories:
+                        directories.add(parent)
+                        entry = owner(tarfile.TarInfo(f"{stage.name}/{parent}"))
+                        entry.type, entry.mode, entry.mtime = tarfile.DIRTYPE, 0o755, member.mtime
+                        tar.addfile(entry)
+                if member.isdir():
+                    if member.name in directories:
+                        continue
+                    directories.add(member.name)
+                member = owner(member)
+                member.name = f"{stage.name}/{member.name}"
+                if not member.issym():
+                    # As extracting with the usual umask would: no group/other write.
+                    member.mode &= ~0o022
+                if member.islnk():
+                    # Hard link targets are archive paths too.
+                    member.linkname = f"{stage.name}/{member.linkname}"
+                tar.addfile(member, source.extractfile(member) if member.isfile() else None)
 
     digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
     temporary.replace(output)
@@ -324,7 +372,7 @@ def build(platform: str, version: str, args: argparse.Namespace, dist: Path) -> 
         cache,
         args.wheels,
     )
-    python_version = extract_python(platform, stage / "python", cache, args.python_archive)
+    python = python_archive(platform, cache, args.python_archive)
     write_installer(stage, platform)
 
     wheels = sorted(
@@ -335,7 +383,7 @@ def build(platform: str, version: str, args: argparse.Namespace, dist: Path) -> 
         "name": "entropy",
         "version": version,
         "platform": platform,
-        "python": python_version,
+        "python": CPYTHON_FULL_VERSION,
         "built_at": datetime.now(timezone.utc).isoformat(),
         "installer": PLATFORMS[platform][3],
         "wheels": wheels,
@@ -343,7 +391,7 @@ def build(platform: str, version: str, args: argparse.Namespace, dist: Path) -> 
     (stage / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     output = (args.output or build_root / "dist") / f"entropy-{version}-{platform}.tar.gz"
-    digest = archive(stage, output)
+    digest = archive(stage, output, python)
     shutil.rmtree(stage)
 
     size = output.stat().st_size / (1 << 20)
