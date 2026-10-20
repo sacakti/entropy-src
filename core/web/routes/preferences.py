@@ -18,6 +18,7 @@ from lib.database.repositories.user_web_settings import (
     UserWebSettingsRepository,
 )
 from lib.models.session import Session
+from lib.system.install import theme_enabled
 from lib.models.users import User
 
 
@@ -46,6 +47,26 @@ class PreferencesUpdate(BaseModel):
             raise ValueError("background_opacity must be between 0 and 100.")
         return value
 
+
+
+# What the UI uses when wallpapers are off (ENTROPY_THEME_ENABLE unset).
+WALLPAPER_DEFAULTS = {
+    "background_image_id": None,
+    "background_fit": "cover",
+    "background_opacity": 35,
+    "modal_backdrop_opacity": 48,
+}
+
+
+def _shown(preferences: dict) -> dict:
+    """Preferences as the UI should apply them, with the feature flag."""
+
+    enabled = theme_enabled()
+    shown = dict(preferences)
+    if not enabled:
+        shown.update(WALLPAPER_DEFAULTS)
+    shown["theme_enabled"] = enabled
+    return shown
 
 
 def _repository(
@@ -86,9 +107,7 @@ def get_preferences(
         request,
     )
 
-    return repository.get(
-        session.user_id,
-    )
+    return _shown(repository.get(session.user_id))
 
 
 @router.put(
@@ -126,8 +145,19 @@ def update_preferences(
 
     connection = context.database_manager.connection
 
+    repository = UserPreferencesRepository(
+        connection,
+    )
+
+    # Wallpapers off: keep the stored wallpaper choices for when they return.
+    if not theme_enabled():
+        stored = repository.get(session.user_id)
+        payload = payload.model_copy(
+            update={key: stored[key] for key in WALLPAPER_DEFAULTS if key in stored}
+        )
+
     # A selected image must be built-in or owned by this user.
-    if payload.background_image_id is not None:
+    if theme_enabled() and payload.background_image_id is not None:
         image = connection.fetchone(
             """
             SELECT 1
@@ -151,13 +181,9 @@ def update_preferences(
                 detail="Background image was not found or is not accessible.",
             )
 
-    repository = UserPreferencesRepository(
-        connection,
-    )
-
     response.headers["Cache-Control"] = "no-store"
 
-    return repository.update(
+    return _shown(repository.update(
         user_id=session.user_id,
         theme=payload.theme,
         accent_color=payload.accent_color,
@@ -165,7 +191,7 @@ def update_preferences(
         background_fit=payload.background_fit,
         background_opacity=payload.background_opacity,
         modal_backdrop_opacity=payload.modal_backdrop_opacity,
-    )
+    ))
 
 
 # ----------------------------------------------------------------------
@@ -220,6 +246,8 @@ def get_wallpaper_settings(
     session, _, _ = session_record
     response.headers["Cache-Control"] = "no-store"
 
+    if not theme_enabled():
+        return WallpaperSettings().model_dump()
     return _wallpaper(_wallpaper_repository(request).get_settings(session.user_id))
 
 
@@ -234,6 +262,9 @@ def update_wallpaper_settings(
 
     session, _, _ = session_record
     response.headers["Cache-Control"] = "no-store"
+
+    if not theme_enabled():
+        raise HTTPException(status_code=404, detail="Wallpapers are not enabled on this server.")
 
     if len(payload.placements) > 500:
         raise HTTPException(status_code=422, detail="Too many wallpaper placements.")

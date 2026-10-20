@@ -48,12 +48,15 @@ export function useAppearance() {
         DEFAULT_PREFERENCES.modal_backdrop_opacity,
     )
     const [glass, setGlassState] = useState(false)
+    // Off until the server says otherwise, so wallpaper controls never flash.
+    const [themeEnabled, setThemeEnabled] = useState(false)
     const [wallpaperSettings, setWallpaperSettings] = useState<WallpaperSettings>(
         DEFAULT_WALLPAPER_SETTINGS,
     )
 
     const applyPreferences = useCallback((saved: UserPreferences) => {
         setTheme(saved.theme)
+        setThemeEnabled(saved.theme_enabled ?? true)
         setAccentColor(saved.accent_color)
         setBackgroundImageId(saved.background_image_id)
         setBackgroundFit(saved.background_fit ?? DEFAULT_PREFERENCES.background_fit)
@@ -285,6 +288,7 @@ export function useAppearance() {
         removeAllUploads,
         glass,
         setGlass,
+        themeEnabled,
     }
 }
 

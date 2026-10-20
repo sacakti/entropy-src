@@ -10,6 +10,8 @@ export interface UserPreferences {
     background_fit: BackgroundFit
     background_opacity: number
     modal_backdrop_opacity: number
+    /** Wallpapers enabled on this server (install with ENTROPY_THEME_ENABLE=1). */
+    theme_enabled?: boolean
 }
 
 export async function getPreferences(): Promise<UserPreferences> {

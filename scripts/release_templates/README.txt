@@ -26,6 +26,11 @@ Python packages:
     --deps manual      you installed them yourself into the chosen Python;
                        ./install.sh --print-requirements lists them
 
+Wallpapers (backgrounds, uploads, gallery, shuffle, wallpaper opacity
+and modal backdrop in Preferences) are off by default. To turn them on:
+
+    ENTROPY_THEME_ENABLE=1 ./install.sh
+
 Other options: --admin-user, --admin-name, --admin-password-file, --host,
 --port, --service auto|systemd|none, --no-start, --python=PATH.
 Run ./install.sh --help for details.

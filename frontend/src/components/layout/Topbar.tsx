@@ -349,7 +349,7 @@ export default function Topbar({
                     {profileOpen && (
                         <div className="profile-menu">
                             <div className="profile-menu-heading">
-                                <Avatar profile={profile} size={40} />
+                                <Avatar profile={profile} size={40} zoomable />
                                 <div>
                                     <span className="profile-menu-label">
                                         SIGNED IN AS

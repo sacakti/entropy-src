@@ -26,6 +26,7 @@ from lib.models.session import Session
 from lib.models.users import User
 
 from core.web.routes.auth import _current_session, verify_csrf
+from lib.system.install import theme_enabled
 
 
 router = APIRouter(
@@ -34,6 +35,13 @@ router = APIRouter(
 )
 
 SessionRecord = Tuple[Session, str, User]
+
+
+def require_theme() -> None:
+    """Wallpapers are off unless installed with ENTROPY_THEME_ENABLE=1."""
+
+    if not theme_enabled():
+        raise HTTPException(status_code=404, detail="Wallpapers are not enabled on this server.")
 
 IMAGE_MAX_BYTES = 20 * 1024 * 1024
 VIDEO_MAX_BYTES = 100 * 1024 * 1024
@@ -123,6 +131,10 @@ def list_backgrounds(
     """List built-in and current-user background images."""
 
     session, _, _ = session_record
+    response.headers["Cache-Control"] = "no-store"
+    if not theme_enabled():
+        return []
+
     connection = _connection(request)
 
     _seed_builtins(connection)
@@ -157,7 +169,7 @@ def list_backgrounds(
         for row in rows
     ]
 
-@router.post("", dependencies=[Depends(verify_csrf)])
+@router.post("", dependencies=[Depends(require_theme), Depends(verify_csrf)])
 async def upload_background(
     request: Request,
     file: UploadFile = File(...),
@@ -271,7 +283,7 @@ async def upload_background(
         "url": f"/api/backgrounds/{row['id']}/image",
     }
 
-@router.get("/archive")
+@router.get("/archive", dependencies=[Depends(require_theme)])
 def download_uploads(
     request: Request,
     session_record: SessionRecord = Depends(_current_session),
@@ -324,7 +336,7 @@ def download_uploads(
     )
 
 
-@router.delete("", dependencies=[Depends(verify_csrf)])
+@router.delete("", dependencies=[Depends(require_theme), Depends(verify_csrf)])
 def delete_uploads(
     request: Request,
     session_record: SessionRecord = Depends(_current_session),
@@ -353,7 +365,7 @@ def delete_uploads(
     }
 
 
-@router.get("/{image_id}/image")
+@router.get("/{image_id}/image", dependencies=[Depends(require_theme)])
 def get_background_image(
     image_id: int,
     request: Request,
@@ -427,7 +439,7 @@ def get_background_image(
         headers=headers,
     )
 
-@router.delete("/{image_id}", dependencies=[Depends(verify_csrf)])
+@router.delete("/{image_id}", dependencies=[Depends(require_theme), Depends(verify_csrf)])
 def delete_background(
     image_id: int,
     request: Request,

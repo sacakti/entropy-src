@@ -141,7 +141,7 @@ export default function Settings({
                 </header>
 
                 <div className="settings-avatar-row">
-                    <Avatar profile={profile} size={84} />
+                    <Avatar profile={profile} size={84} zoomable />
 
                     <div className="settings-avatar-actions">
                         <strong>Profile picture</strong>

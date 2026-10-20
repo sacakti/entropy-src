@@ -558,6 +558,11 @@ class Installer:
                 "port": int(self._options.web_port),
                 "service": "process",
             },
+            "features": {
+                # ENTROPY_THEME_ENABLE=1 ./install.sh turns on wallpapers.
+                "theme": os.environ.get("ENTROPY_THEME_ENABLE", "").strip().lower()
+                in ("1", "true", "yes", "on"),
+            },
             "upgrades": [],
         }
 

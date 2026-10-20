@@ -107,6 +107,7 @@ ENTROPY_ADMIN_PASSWORD='…' ./install.sh --yes --workspace /srv/entropy --port 
 | `--host`, `--port` | Web server address (default `127.0.0.1:8000`). |
 | `--service auto\|systemd\|none`, `--no-start` | How and whether to start the web server. |
 | `-y`, `--yes` | Never prompt. |
+| `ENTROPY_THEME_ENABLE=1` | Turn on wallpaper customization (wallpapers, uploads, gallery, shuffle, wallpaper opacity, modal backdrop) in Preferences. Off by default: the controls are hidden and the background API answers 404. Kept in `install.json` (`features.theme`), so upgrades keep it; setting the variable for the web server overrides it. |
 
 ## Layout after installation
 

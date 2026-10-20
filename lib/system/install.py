@@ -50,6 +50,19 @@ def load(home: Path | None = None) -> Dict[str, Any]:
     return record
 
 
+def theme_enabled(home: Path | None = None) -> bool:
+    """Wallpaper customization (backgrounds, opacity, backdrop, shuffle).
+
+    Off unless ENTROPY_THEME_ENABLE=1 was set for ./install (kept in the
+    installation record); the variable also overrides it at runtime.
+    """
+
+    configured = os.environ.get("ENTROPY_THEME_ENABLE")
+    if configured is not None:
+        return configured.strip().lower() in ("1", "true", "yes", "on")
+    return bool(load(home).get("features", {}).get("theme", False))
+
+
 def save(record: Dict[str, Any], home: Path | None = None) -> None:
     path = record_path(home)
     path.parent.mkdir(parents=True, exist_ok=True)
