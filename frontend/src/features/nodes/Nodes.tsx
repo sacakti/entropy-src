@@ -1,22 +1,129 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
     AlertCircle,
     Check,
+    ChevronDown,
     Copy,
     Cpu,
     HardDrive,
     LoaderCircle,
     MemoryStick,
+    MoreHorizontal,
+    Pause,
+    Play,
+    Plus,
     RefreshCw,
+    ScrollText,
     Server,
+    ServerCog,
     Table2,
+    Trash2,
     TrendingUp,
 } from 'lucide-react'
 
 import { nodesApi, type EntropyNode, type MetricSample } from '../../api/runs.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import { errorMessage, formatBytes, formatDateTime, formatDuration, formatTime } from '../runs/format'
+import Dialog from '../../components/layout/Dialog'
+import FloatingMenu from '../../components/layout/FloatingMenu'
 import MetricChart from './MetricChart'
+import NodeSetupDialog from './NodeSetupDialog'
+import ProvisioningLog from './ProvisioningLog'
+import RemoveNodeDialog from './RemoveNodeDialog'
+
+type NodeAction = { kind: 'setup' | 'remove' | 'log'; node: EntropyNode }
+
+/** Operations menu of a remote node. */
+function NodeMenu({
+    node,
+    onAction,
+    onToggle,
+}: {
+    node: EntropyNode
+    onAction: (action: NodeAction) => void
+    onToggle: (node: EntropyNode) => void
+}) {
+    const [open, setOpen] = useState(false)
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const pick = (run: () => void) => () => {
+        setOpen(false)
+        run()
+    }
+
+    return (
+        <>
+            <button
+                ref={triggerRef}
+                type="button"
+                className="entropy-button entropy-button-secondary entropy-button-sm plugins-operation-trigger"
+                aria-label={`Operations for ${node.name}`}
+                aria-haspopup="menu"
+                aria-expanded={open}
+                onClick={() => setOpen((value) => !value)}
+            >
+                <MoreHorizontal size={18} />
+                <ChevronDown size={13} />
+            </button>
+            <FloatingMenu anchorRef={triggerRef} open={open} onClose={() => setOpen(false)} className="plugins-operation-menu">
+                <button type="button" role="menuitem" onClick={pick(() => onAction({ kind: 'setup', node }))}>
+                    <ServerCog size={15} /> Set up again
+                </button>
+                <button type="button" role="menuitem" onClick={pick(() => onAction({ kind: 'log', node }))}>
+                    <ScrollText size={15} /> Last setup log
+                </button>
+                <button type="button" role="menuitem" onClick={pick(() => onToggle(node))}>
+                    {node.enabled ? <Pause size={15} /> : <Play size={15} />}
+                    {node.enabled ? 'Disable (no new runs)' : 'Enable'}
+                </button>
+                <button type="button" role="menuitem" onClick={pick(() => onAction({ kind: 'remove', node }))}>
+                    <Trash2 size={15} /> Remove node
+                </button>
+            </FloatingMenu>
+        </>
+    )
+}
+
+/** The latest setup log of a node. */
+function LastSetupDialog({ node, onClose }: { node: EntropyNode; onClose: () => void }) {
+    const [id, setId] = useState<number | null | undefined>(undefined)
+
+    useEffect(() => {
+        let active = true
+        nodesApi
+            .latestProvisioning(node.name)
+            .then((result) => {
+                if (active) setId(result.provisioning?.id ?? null)
+            })
+            .catch(() => {
+                if (active) setId(null)
+            })
+        return () => {
+            active = false
+        }
+    }, [node.name])
+
+    return (
+        <Dialog
+            title={`${node.name}: last setup`}
+            icon={<ScrollText size={18} />}
+            onClose={onClose}
+            className="node-setup-dialog"
+            footer={
+                <button type="button" className="entropy-button entropy-button-secondary" onClick={onClose}>
+                    Close
+                </button>
+            }
+        >
+            {id === undefined ? (
+                <p className="run-card-muted">Loading…</p>
+            ) : id === null ? (
+                <p className="run-card-muted">No setup has been recorded for this node.</p>
+            ) : (
+                <ProvisioningLog id={id} />
+            )}
+        </Dialog>
+    )
+}
 
 const REFRESH_MS = 10_000
 
@@ -69,7 +176,17 @@ function Meter({
     )
 }
 
-function NodeCard({ node, history }: { node: EntropyNode; history: MetricSample[] }) {
+function NodeCard({
+    node,
+    history,
+    onAction,
+    onToggle,
+}: {
+    node: EntropyNode
+    history: MetricSample[]
+    onAction: (action: NodeAction) => void
+    onToggle: (node: EntropyNode) => void
+}) {
     const { notify } = useFeedback()
     const [view, setView] = useState<'chart' | 'table'>('chart')
     const [copied, setCopied] = useState(false)
@@ -98,14 +215,27 @@ function NodeCard({ node, history }: { node: EntropyNode; history: MetricSample[
                         {node.kind === 'local' && <span className="list-version">Main node</span>}
                     </h2>
                     <p>
-                        {node.host} · {node.info.os} {node.info.release} · {node.info.arch} · Python{' '}
-                        {node.info.python}
+                        {node.kind === 'remote' ? `${node.ssh_user}@${node.host}:${node.port}` : node.host}
+                        {node.info.os
+                            ? ` · ${node.info.os} ${node.info.release} · ${node.info.arch} · Python ${node.info.python}`
+                            : ''}
+                        {node.kind === 'remote' && node.agent_version ? ` · agent ${node.agent_version}` : ''}
                     </p>
+                    {node.description && <p className="node-card-description">{node.description}</p>}
                 </div>
-                <span className={`run-status ${node.agent_up ? 'is-completed' : 'is-failed'}`}>
-                    {node.agent_up ? <Check size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
-                    {node.agent_up ? 'Runnable' : node.enabled ? 'Unreachable' : 'Disabled'}
+                <span
+                    className={`run-status ${
+                        !node.enabled ? 'is-paused' : node.agent_up ? 'is-completed' : 'is-failed'
+                    }`}
+                >
+                    {node.agent_up && node.enabled ? (
+                        <Check size={13} aria-hidden="true" />
+                    ) : (
+                        <AlertCircle size={13} aria-hidden="true" />
+                    )}
+                    {!node.enabled ? 'Disabled' : node.agent_up ? 'Runnable' : node.last_seen_at ? 'Unreachable' : 'Not connected'}
                 </span>
+                {node.kind === 'remote' && <NodeMenu node={node} onAction={onAction} onToggle={onToggle} />}
             </header>
 
             {metrics ? (
@@ -155,7 +285,22 @@ function NodeCard({ node, history }: { node: EntropyNode; history: MetricSample[
                     </dl>
                 </>
             ) : (
-                <p className="run-card-muted">This node has not reported metrics yet.</p>
+                <div className="node-not-connected">
+                    <p className="run-card-muted">
+                        {node.kind === 'remote'
+                            ? 'This node has not connected yet. Check its last setup log, or set it up again.'
+                            : 'This node has not reported metrics yet.'}
+                    </p>
+                    {node.kind === 'remote' && (
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary entropy-button-sm"
+                            onClick={() => onAction({ kind: 'log', node })}
+                        >
+                            <ScrollText size={14} /> Last setup log
+                        </button>
+                    )}
+                </div>
             )}
 
             <section className="node-history">
@@ -245,6 +390,9 @@ export default function Nodes() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [action, setAction] = useState<NodeAction | null>(null)
+    const [adding, setAdding] = useState(false)
+    const { notify } = useFeedback()
 
     const load = useCallback(async () => {
         try {
@@ -260,6 +408,20 @@ export default function Nodes() {
             setRefreshing(false)
         }
     }, [])
+
+    const toggle = async (node: EntropyNode) => {
+        try {
+            await nodesApi.update(node.name, { enabled: !node.enabled })
+            notify.success(
+                node.enabled
+                    ? `${node.name} is disabled: it takes no new runs.`
+                    : `${node.name} is enabled.`,
+            )
+            void load()
+        } catch (cause) {
+            notify.error(errorMessage(cause, 'Unable to update the node.'))
+        }
+    }
 
     useEffect(() => {
         const first = setTimeout(() => void load(), 0)
@@ -302,11 +464,17 @@ export default function Nodes() {
                         >
                             <RefreshCw size={16} className={refreshing ? 'entropy-spin' : ''} />
                         </button>
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-primary entropy-button-icon"
+                            aria-label="Add node"
+                            title="Add node"
+                            onClick={() => setAdding(true)}
+                        >
+                            <Plus size={20} />
+                        </button>
                     </div>
                 </div>
-                <p className="nodes-note">
-                    Remote nodes are added by bootstrapping the Entropy agent over SSH; that arrives in the next release.
-                </p>
             </section>
 
             {loading ? (
@@ -315,8 +483,42 @@ export default function Nodes() {
                     Loading nodes…
                 </div>
             ) : (
-                nodes.map((node) => <NodeCard key={node.name} node={node} history={history[node.name] ?? []} />)
+                nodes.map((node) => (
+                    <NodeCard
+                        key={node.name}
+                        node={node}
+                        history={history[node.name] ?? []}
+                        onAction={setAction}
+                        onToggle={(target) => void toggle(target)}
+                    />
+                ))
             )}
+
+            {(adding || action?.kind === 'setup') && (
+                <NodeSetupDialog
+                    node={action?.kind === 'setup' ? action.node : null}
+                    onClose={() => {
+                        setAdding(false)
+                        setAction(null)
+                        void load()
+                    }}
+                    onDone={() => void load()}
+                />
+            )}
+            {action?.kind === 'remove' && (
+                <RemoveNodeDialog
+                    node={action.node}
+                    onClose={() => {
+                        setAction(null)
+                        void load()
+                    }}
+                    onRemoved={() => {
+                        notify.success(`Node '${action.node.name}' removed.`)
+                        void load()
+                    }}
+                />
+            )}
+            {action?.kind === 'log' && <LastSetupDialog node={action.node} onClose={() => setAction(null)} />}
         </section>
     )
 }

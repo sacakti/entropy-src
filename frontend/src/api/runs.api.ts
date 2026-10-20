@@ -199,6 +199,49 @@ export interface EntropyNode {
     agent_up: boolean
     running_jobs: number
     metrics: NodeMetrics | null
+    port: number
+    ssh_user: string
+    install_dir: string
+    host_key: string | null
+    server_url: string | null
+    agent_version: string | null
+    max_jobs: number
+}
+
+export type SshAuth = 'password' | 'key' | 'server'
+
+export interface NodeCredentials {
+    auth: SshAuth
+    password?: string
+    private_key?: string
+    passphrase?: string
+    forget_host_key?: boolean
+}
+
+export interface NodeSetupInput extends NodeCredentials {
+    name: string
+    host: string
+    port: number
+    ssh_user: string
+    server_url: string
+    verify_tls: boolean
+    ca_cert?: string
+    python: 'auto' | 'system' | 'bundled'
+    install_dir: string
+    max_jobs: number
+    description: string
+}
+
+export interface ProvisioningRecord {
+    id: number
+    node: string
+    action: 'install' | 'uninstall'
+    status: 'running' | 'succeeded' | 'failed'
+    log: { at: string; level: 'info' | 'success' | 'warning' | 'error'; message: string }[]
+    error: string | null
+    username: string | null
+    created_at: string
+    finished_at: string | null
 }
 
 export interface MetricSample {
@@ -222,9 +265,32 @@ export const nodesApi = {
 
     update(
         name: string,
-        values: { description?: string; enabled?: boolean },
+        values: { description?: string; enabled?: boolean; max_jobs?: number },
     ): Promise<{ node: EntropyNode }> {
         return apiRequest(`/api/nodes/${encodeURIComponent(name)}`, json('PATCH', values))
+    },
+
+    add(values: NodeSetupInput): Promise<{ provisioning_id: number; node: string }> {
+        return apiRequest('/api/nodes', json('POST', values))
+    },
+
+    setup(values: NodeSetupInput): Promise<{ provisioning_id: number; node: string }> {
+        return apiRequest(`/api/nodes/${encodeURIComponent(values.name)}/setup`, json('POST', values))
+    },
+
+    remove(
+        name: string,
+        values: NodeCredentials & { uninstall: boolean },
+    ): Promise<{ removed: boolean; provisioning_id?: number }> {
+        return apiRequest(`/api/nodes/${encodeURIComponent(name)}/remove`, json('POST', values))
+    },
+
+    provisioning(id: number): Promise<ProvisioningRecord> {
+        return apiRequest(`/api/nodes/provisioning/${id}`)
+    },
+
+    latestProvisioning(name: string): Promise<{ provisioning: ProvisioningRecord | null }> {
+        return apiRequest(`/api/nodes/${encodeURIComponent(name)}/provisioning`)
     },
 
     metricsUrl(name?: string): string {

@@ -6,6 +6,7 @@ Responsible for constructing the application dependency graph.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from core.commands.manager import CommandManager
@@ -68,7 +69,8 @@ from lib.workflow.manager import WorkflowManager
 from lib.workflow.runner import WorkflowRunner
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ENTROPY_HOME = Path.home() / ".entropy"
+# ENTROPY_HOME relocates the Entropy home, e.g. for a node agent.
+ENTROPY_HOME = Path(os.environ.get("ENTROPY_HOME") or Path.home() / ".entropy")
 
 
 class ContextFactory:

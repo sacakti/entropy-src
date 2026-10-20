@@ -118,7 +118,10 @@ class RunsBackground:
         return self._context.database_manager.connection
 
     def reconcile(self) -> None:
+        from lib.nodes.dispatch import NodeDispatcher
+
         RunService(self._context).reconcile()
+        NodeDispatcher(self._context).reconcile()
 
     def fire_schedules(self) -> None:
         store = ScheduleStore(self._connection)

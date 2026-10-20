@@ -270,11 +270,20 @@ def exposition(nodes: List[Dict[str, Any]]) -> str:
 # ----------------------------------------------------------------------
 
 
-def _node_payload(row: Any) -> Dict[str, Any]:
+def _json(value: Optional[str], default: Any) -> Any:
     try:
-        info = json.loads(row["info"]) if row["info"] else {}
+        return json.loads(value) if value else default
     except ValueError:
-        info = {}
+        return default
+
+
+def _node_payload(row: Any) -> Dict[str, Any]:
+    keys = row.keys()
+
+    def column(name: str, default: Any = None) -> Any:
+        return row[name] if name in keys else default
+
+    info = _json(row["info"], {})
 
     return {
         "id": row["id"],
@@ -287,6 +296,14 @@ def _node_payload(row: Any) -> Dict[str, Any]:
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
         "last_seen_at": row["last_seen_at"],
+        "port": column("port", 22),
+        "ssh_user": column("ssh_user", ""),
+        "install_dir": column("install_dir", ""),
+        "host_key": column("host_key"),
+        "server_url": column("server_url"),
+        "agent_version": column("agent_version"),
+        "max_jobs": column("max_jobs", 2),
+        "last_metrics": _json(column("last_metrics"), None),
     }
 
 
@@ -344,6 +361,7 @@ class NodeStore:
         *,
         description: Optional[str] = None,
         enabled: Optional[bool] = None,
+        max_jobs: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         node = self.get(name)
         if node is None:
@@ -351,15 +369,111 @@ class NodeStore:
 
         with self.connection.transaction():
             self.connection.execute(
-                "UPDATE nodes SET description = ?, enabled = ?, updated_at = ? WHERE name = ?",
+                "UPDATE nodes SET description = ?, enabled = ?, max_jobs = ?, updated_at = ?"
+                " WHERE name = ?",
                 (
                     node["description"] if description is None else description.strip()[:500],
                     int(node["enabled"] if enabled is None else enabled),
+                    int(node["max_jobs"] if max_jobs is None else max_jobs),
                     utcnow(),
                     name,
                 ),
             )
         return self.get(name)
+
+    # ------------------------------------------------------------------
+    # Remote nodes
+    # ------------------------------------------------------------------
+
+    def save_remote(
+        self,
+        name: str,
+        *,
+        host: str,
+        port: int,
+        ssh_user: str,
+        install_dir: str,
+        server_url: str,
+        description: str = "",
+        max_jobs: int = 2,
+    ) -> Dict[str, Any]:
+        """Create or update a remote node's connection details."""
+
+        now = utcnow()
+        with self.connection.transaction():
+            self.connection.execute(
+                """
+                INSERT INTO nodes
+                (name, kind, host, description, enabled, created_at, updated_at,
+                 port, ssh_user, install_dir, server_url, max_jobs)
+                VALUES (?, 'remote', ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    host = excluded.host,
+                    description = excluded.description,
+                    updated_at = excluded.updated_at,
+                    port = excluded.port,
+                    ssh_user = excluded.ssh_user,
+                    install_dir = excluded.install_dir,
+                    server_url = excluded.server_url,
+                    max_jobs = excluded.max_jobs
+                """,
+                (
+                    name,
+                    host,
+                    description,
+                    now,
+                    now,
+                    port,
+                    ssh_user,
+                    install_dir,
+                    server_url,
+                    max_jobs,
+                ),
+            )
+        return self.get(name) or {}
+
+    def set_token(
+        self, name: str, token_hash: Optional[str], host_key: Optional[str] = None
+    ) -> None:
+        """Install a new agent token (revoking the previous one)."""
+
+        with self.connection.transaction():
+            self.connection.execute(
+                "UPDATE nodes SET token_hash = ?, host_key = COALESCE(?, host_key),"
+                " updated_at = ? WHERE name = ?",
+                (token_hash, host_key, utcnow(), name),
+            )
+
+    def by_token_hash(self, token_hash: str) -> Optional[Dict[str, Any]]:
+        row = self.connection.fetchone(
+            "SELECT * FROM nodes WHERE kind = 'remote' AND token_hash = ?",
+            (token_hash,),
+        )
+        return _node_payload(row) if row is not None else None
+
+    def record_heartbeat(
+        self,
+        name: str,
+        metrics: Dict[str, Any],
+        info: Dict[str, Any],
+        version: str,
+    ) -> None:
+        with self.connection.transaction():
+            self.connection.execute(
+                "UPDATE nodes SET last_seen_at = ?, last_metrics = ?, info = ?,"
+                " agent_version = ? WHERE name = ?",
+                (utcnow(), json.dumps(metrics), json.dumps(info), version[:40], name),
+            )
+
+    def delete(self, name: str) -> int:
+        with self.connection.transaction():
+            # Foreign keys are not enforced: remove dependents explicitly.
+            self.connection.execute("DELETE FROM node_metrics WHERE node = ?", (name,))
+            cursor = self.connection.execute(
+                "DELETE FROM nodes WHERE name = ? AND kind = 'remote'",
+                (name,),
+            )
+        return cursor.rowcount
 
     def touch(self, name: str) -> None:
         with self.connection.transaction():

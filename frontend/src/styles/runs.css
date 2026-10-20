@@ -1276,3 +1276,162 @@
 .entropy-app .schedule-cron-code {
     white-space: nowrap;
 }
+
+/* ----------------------------------------------------------
+   Remote nodes: setup dialogs
+   ---------------------------------------------------------- */
+
+.entropy-app .node-card-description {
+    margin-top: 2px;
+    color: var(--app-text);
+}
+
+.entropy-app .node-not-connected {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.entropy-app .node-setup-dialog {
+    width: min(720px, calc(100vw - 32px));
+}
+
+.entropy-app .node-host-row {
+    display: grid;
+    grid-template-columns: minmax(80px, 0.6fr) minmax(0, 1fr);
+    gap: 14px;
+}
+
+.entropy-app .node-credentials .seg-control {
+    width: fit-content;
+}
+
+.entropy-app .node-credentials-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.entropy-app .node-key-box {
+    display: grid;
+    gap: 6px;
+}
+
+.entropy-app .node-key-box textarea {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+}
+
+.entropy-app .node-key-box button {
+    justify-self: start;
+}
+
+.entropy-app .admin-field .node-field-warning {
+    color: var(--app-warning-text);
+}
+
+.entropy-app .admin-field .node-field-error {
+    color: var(--app-danger-text);
+}
+
+.entropy-app .node-advanced-toggle {
+    display: inline-flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    padding: 0;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.entropy-app .node-advanced-toggle svg {
+    transition: transform 160ms ease;
+}
+
+.entropy-app .node-advanced-toggle[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+.entropy-app .provision-log {
+    display: grid;
+    gap: 12px;
+}
+
+.entropy-app .provision-steps {
+    display: grid;
+    gap: 2px;
+    max-height: min(50vh, 420px);
+    margin: 0;
+    padding: 8px;
+    overflow: auto;
+    list-style: none;
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .provision-steps li {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px;
+    padding: 4px 6px;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.entropy-app .provision-steps li svg {
+    margin-top: 2px;
+    color: var(--app-subtle);
+}
+
+.entropy-app .provision-steps li span {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .provision-steps li time {
+    color: var(--app-subtle);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .provision-steps li.is-success svg {
+    color: var(--app-success);
+}
+
+.entropy-app .provision-steps li.is-warning {
+    background: var(--app-warning-soft);
+    border-radius: 6px;
+}
+
+.entropy-app .provision-steps li.is-warning svg {
+    color: var(--app-warning);
+}
+
+.entropy-app .provision-steps li.is-error {
+    color: var(--app-danger-text);
+    background: var(--app-danger-soft);
+    border-radius: 6px;
+}
+
+.entropy-app .provision-steps li.is-error svg {
+    color: var(--app-danger);
+}
+
+.entropy-app .start-run-check.is-checking {
+    color: var(--app-muted);
+}
+
+@media (max-width: 640px) {
+    .entropy-app .node-setup-dialog .admin-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

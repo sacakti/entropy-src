@@ -204,6 +204,97 @@ class RunArchiveTables(DatabaseObject):
             """)
 
 
+class NodeJobsTable(DatabaseObject):
+    """
+    Runs dispatched to remote nodes: the agent claims them, streams their
+    events back and reports their final state.
+    """
+
+    NAME = "node_jobs"
+
+    def create(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS node_jobs
+            (
+                job_id          INTEGER PRIMARY KEY,
+                node            TEXT NOT NULL,
+                spec            TEXT NOT NULL,
+                status          TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'claimed', 'finished')),
+                stop_requested  INTEGER NOT NULL DEFAULT 0,
+                created_at      TEXT NOT NULL,
+                claimed_at      TEXT,
+                updated_at      TEXT NOT NULL
+            )
+            """)
+
+        connection.execute("""
+            CREATE INDEX IF NOT EXISTS idx_node_jobs_node
+            ON node_jobs (node, status)
+            """)
+
+
+class NodeProvisioningTable(DatabaseObject):
+    """
+    Setup attempts of remote nodes with their progress log. Credentials
+    are never stored here.
+    """
+
+    NAME = "node_provisioning"
+
+    def create(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS node_provisioning
+            (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                node         TEXT NOT NULL,
+                action       TEXT NOT NULL DEFAULT 'install'
+                    CHECK (action IN ('install', 'uninstall')),
+                status       TEXT NOT NULL DEFAULT 'running'
+                    CHECK (status IN ('running', 'succeeded', 'failed')),
+                log          TEXT NOT NULL DEFAULT '[]',
+                error        TEXT,
+                user_id      INTEGER,
+                username     TEXT,
+                created_at   TEXT NOT NULL,
+                finished_at  TEXT
+            )
+            """)
+
+
+# Columns added to `nodes` for remote nodes (name, declaration).
+NODE_COLUMNS = (
+    ("port", "INTEGER NOT NULL DEFAULT 22"),
+    ("ssh_user", "TEXT NOT NULL DEFAULT ''"),
+    ("install_dir", "TEXT NOT NULL DEFAULT ''"),
+    ("host_key", "TEXT"),
+    ("server_url", "TEXT"),
+    ("agent_version", "TEXT"),
+    ("last_metrics", "TEXT"),
+    ("max_jobs", "INTEGER NOT NULL DEFAULT 2"),
+)
+
+
+def upgrade_nodes_table(
+    connection: DatabaseConnection,
+) -> None:
+    """Add remote-node columns that older `nodes` tables lack."""
+
+    existing = {row["name"] for row in connection.fetchall("PRAGMA table_info(nodes)")}
+
+    for name, declaration in NODE_COLUMNS:
+        if name not in existing:
+            connection.execute(f"ALTER TABLE nodes ADD COLUMN {name} {declaration}")
+
+
 RUN_TABLES = (
     RunMetadataTable,
     NodesTable,
@@ -211,6 +302,8 @@ RUN_TABLES = (
     SchedulesTable,
     ScheduleRunsTable,
     RunArchiveTables,
+    NodeJobsTable,
+    NodeProvisioningTable,
 )
 
 
@@ -221,3 +314,5 @@ def create_run_tables(
 
     for table in RUN_TABLES:
         table().create(connection)
+
+    upgrade_nodes_table(connection)

@@ -14,19 +14,22 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from lib.auth.manager import SESSION_TOKEN_ENV
 from lib.models.workflow import WorkflowExecutionOptions
 
-from .nodes import NodeStore
-from .store import RunStore
+from .nodes import NodeStore, agent_up
+from .store import LOCAL_NODE, RunStore
 
 # Delegated sessions outlive any reasonable run; the worker revokes early.
 RUN_SESSION_HOURS = 72
 
 # A job whose worker never attached is considered lost after this long.
 QUEUED_GRACE = timedelta(minutes=2)
+
+# Plugin bundle digests, memoised per directory (see plugin_digest).
+_DIGESTS: Dict[str, Tuple[float, str]] = {}
 
 _QUALIFIED_PLUGIN = re.compile(r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
 
@@ -80,7 +83,7 @@ class RunService:
     # Start
     # ------------------------------------------------------------------
 
-    def _executable_node(self, name: str) -> str:
+    def _executable_node(self, name: str) -> Dict[str, Any]:
         node = self.nodes.get(name or "local")
 
         if node is None:
@@ -89,14 +92,69 @@ class RunService:
         if not node["enabled"]:
             raise RunError(f"Node '{node['name']}' is disabled.", 409)
 
-        if node["kind"] != "local":
+        if node["kind"] != "local" and not agent_up(node):
             raise RunError(
-                f"Node '{node['name']}' has no agent connected yet; "
-                "remote execution is not available.",
+                f"Node '{node['name']}' is unreachable: its agent has not reported recently.",
                 409,
             )
 
-        return str(node["name"])
+        return node
+
+    def _dispatch(
+        self,
+        user: Any,
+        node: Dict[str, Any],
+        *,
+        name: str,
+        definition: str,
+        steps: List[Any],
+        variables: Optional[Dict[str, Any]],
+    ) -> int:
+        """Queue a run for a remote node's agent; returns the job id."""
+
+        from lib.nodes.dispatch import NodeDispatcher
+        from lib.nodes.packaging import plugin_digest
+
+        plugins = self._context.plugin_manager
+        required = sorted({step for step in steps if step})
+        bundles = []
+        for qualified_name in required:
+            if not plugins.exists(qualified_name):
+                raise RunError(f"Plugin '{qualified_name}' is not installed on the main node.", 409)
+            path = Path(plugins.get(qualified_name).path)
+            bundles.append(
+                {"qualified_name": qualified_name, "digest": plugin_digest(path, _DIGESTS)}
+            )
+
+        slug = re.sub(r"[^a-z0-9_.-]+", "_", name.lower()).strip("_") or "workflow"
+        job = self._context.workflow_job_manager.create(
+            execution_id=f"{slug}_{uuid.uuid4().hex[:8]}",
+            workflow=name,
+            workspace=Path(f"node:{node['name']}"),
+            pid=0,
+            user_id=user.id,
+            username=user.username,
+            full_name=getattr(user, "full_name", None),
+        )
+        job_id = job.require_id()
+
+        NodeDispatcher(self._context).enqueue(
+            job_id,
+            node["name"],
+            {
+                "job_id": job_id,
+                "execution_id": job.execution_id,
+                "definition": definition,
+                "variables": dict(variables or {}),
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "full_name": getattr(user, "full_name", None),
+                },
+                "plugins": bundles,
+            },
+        )
+        return job_id
 
     def _start(
         self,
@@ -141,19 +199,30 @@ class RunService:
         trigger: str = "manual",
         schedule_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        node_name = self._executable_node(node)
+        target = self._executable_node(node)
 
         try:
-            job = self._start(user, name=name, variables=variables)
+            if target["kind"] == "local":
+                job_id = self._start(user, name=name, variables=variables).require_id()
+            else:
+                manager = self._context.workflow_manager
+                workflow = manager.get(name)
+                job_id = self._dispatch(
+                    user,
+                    target,
+                    name=workflow.name,
+                    definition=manager.serialize(workflow, "json"),
+                    steps=[step.plugin for step in workflow.steps if step.enabled],
+                    variables=variables,
+                )
         except RunError:
             raise
         except Exception as exc:
             raise RunError(str(exc) or exc.__class__.__name__) from exc
 
-        job_id = job.require_id()
         self.store.record(
             job_id,
-            node=node_name,
+            node=target["name"],
             kind="workflow",
             target=name,
             trigger=trigger,
@@ -183,7 +252,7 @@ class RunService:
         if not plugins.exists(qualified_name):
             raise RunError(f"Plugin '{qualified_name}' is not installed.", 404)
 
-        node_name = self._executable_node(node)
+        target = self._executable_node(node)
 
         definition = {
             "name": f"plugin.{qualified_name}",
@@ -203,24 +272,38 @@ class RunService:
             ],
         }
 
-        directory = self.plugin_run_directory()
-        directory.mkdir(parents=True, exist_ok=True)
-        path = directory / f"{uuid.uuid4().hex}.json"
-        path.write_text(json.dumps(definition, indent=2), encoding="utf-8")
+        if target["kind"] != "local":
+            try:
+                job_id = self._dispatch(
+                    user,
+                    target,
+                    name=str(definition["name"]),
+                    definition=json.dumps(definition, indent=2),
+                    steps=[qualified_name],
+                    variables=None,
+                )
+            except RunError:
+                raise
+            except Exception as exc:
+                raise RunError(str(exc) or exc.__class__.__name__) from exc
+        else:
+            directory = self.plugin_run_directory()
+            directory.mkdir(parents=True, exist_ok=True)
+            path = directory / f"{uuid.uuid4().hex}.json"
+            path.write_text(json.dumps(definition, indent=2), encoding="utf-8")
 
-        try:
-            job = self._start(user, file=path)
-        except RunError:
-            path.unlink()
-            raise
-        except Exception as exc:
-            path.unlink()
-            raise RunError(str(exc) or exc.__class__.__name__) from exc
+            try:
+                job_id = self._start(user, file=path).require_id()
+            except RunError:
+                path.unlink()
+                raise
+            except Exception as exc:
+                path.unlink()
+                raise RunError(str(exc) or exc.__class__.__name__) from exc
 
-        job_id = job.require_id()
         self.store.record(
             job_id,
-            node=node_name,
+            node=target["name"],
             kind="plugin",
             target=qualified_name,
             trigger=trigger,
@@ -246,7 +329,13 @@ class RunService:
 
         jobs = self._context.workflow_job_manager
 
-        if _pid_alive(run["pid"]):
+        if run["node"] != LOCAL_NODE:
+            from lib.nodes.dispatch import NodeDispatcher
+
+            # The node's agent stops it on its next heartbeat.
+            if not NodeDispatcher(self._context).request_stop(job_id):
+                jobs.cancel(job_id)
+        elif _pid_alive(run["pid"]):
             # SIGINT: the worker records the cancellation itself.
             jobs.stop(run["pid"])
         else:
@@ -297,7 +386,8 @@ class RunService:
         fixed = 0
 
         for run in self.store.active():
-            if _pid_alive(run["pid"]):
+            # Remote runs are reconciled against their node's heartbeat.
+            if run["node"] != LOCAL_NODE or _pid_alive(run["pid"]):
                 continue
 
             if not run["pid"]:

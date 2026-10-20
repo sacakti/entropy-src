@@ -2,12 +2,16 @@
 Entropy bootstrap.
 """
 
+import os
 import sys
 from pathlib import Path
 
+# ENTROPY_HOME relocates the Entropy home, e.g. for a node agent.
+ENTROPY_HOME = Path(os.environ.get("ENTROPY_HOME") or Path.home() / ".entropy")
+
 PACKAGE_DIRS = (
-    Path.home() / ".entropy" / "site-packages",
-    Path.home() / ".entropy" / "extensions" / "site-packages",
+    ENTROPY_HOME / "site-packages",
+    ENTROPY_HOME / "extensions" / "site-packages",
 )
 
 

@@ -152,10 +152,18 @@ class WorkflowProcess:
 
         try:
 
-            os.kill(
-                pid,
-                signal.SIGINT,
-            )
+            # The worker leads its own session: interrupt its whole process
+            # group so commands it started (shell steps) stop as well.
+            try:
+                os.killpg(
+                    pid,
+                    signal.SIGINT,
+                )
+            except (PermissionError, ProcessLookupError):
+                os.kill(
+                    pid,
+                    signal.SIGINT,
+                )
 
         except ProcessLookupError as exc:
 
