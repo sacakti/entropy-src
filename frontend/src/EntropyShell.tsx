@@ -29,6 +29,7 @@ import Nodes from './features/nodes/Nodes'
 import Schedules from './features/schedules/Schedules'
 import Plugins from './features/plugins/Plugins'
 import Administration from './features/administration/Administration'
+import AdminSystem from './features/administration/AdminSystem'
 import AdminUsers from './features/administration/AdminUsers'
 import AdminGroups from './features/administration/AdminGroups'
 import AdminRoles from './features/administration/AdminRoles'
@@ -177,6 +178,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         'admin-groups': 'Groups',
         'admin-roles': 'Roles',
         'admin-permissions': 'Permissions',
+        'admin-system': 'System',
         about: 'About',
         settings: 'Settings',
         preferences: 'Preferences',
@@ -357,6 +359,8 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                             <AdminRoles />
                         ) : activePage === 'admin-permissions' ? (
                             <AdminPermissions />
+                        ) : activePage === 'admin-system' ? (
+                            <AdminSystem />
                         ) : null}
                     </main>
                 </div>

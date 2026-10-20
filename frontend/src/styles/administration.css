@@ -902,3 +902,124 @@
 .entropy-app .admin-chart-table td {
     font-variant-numeric: tabular-nums;
 }
+
+/* Administration → System */
+
+.entropy-app .system-page {
+    gap: 18px;
+}
+
+.entropy-app .system-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+}
+
+.entropy-app .system-section-head h3 {
+    margin: 0;
+    font-size: 15px;
+}
+
+.entropy-app .system-section-head p {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.entropy-app .system-section-head code {
+    font-size: 12px;
+}
+
+.entropy-app .system-facts {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
+.entropy-app .system-facts .system-fact-wide {
+    grid-column: span 2;
+}
+
+.entropy-app .system-drop {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 28px 16px;
+    color: var(--app-text);
+    text-align: center;
+    border: 1.5px dashed var(--app-line);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 160ms ease, background 160ms ease;
+}
+
+.entropy-app .system-drop:hover,
+.entropy-app .system-drop.is-dragging {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .system-drop.is-busy {
+    cursor: progress;
+}
+
+.entropy-app .system-drop input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.entropy-app .system-drop svg {
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .system-drop-bar {
+    display: block;
+    width: min(320px, 100%);
+    height: 6px;
+    overflow: hidden;
+    background: var(--app-line);
+    border-radius: 999px;
+}
+
+.entropy-app .system-drop-bar span {
+    display: block;
+    height: 100%;
+    background: var(--app-accent);
+    transition: width 200ms ease;
+}
+
+.entropy-app .system-package {
+    display: grid;
+    gap: 12px;
+}
+
+.entropy-app .system-package-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.entropy-app .system-package-head > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.entropy-app .system-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+}
+
+@media (max-width: 640px) {
+    .entropy-app .system-facts .system-fact-wide {
+        grid-column: 1 / -1;
+    }
+}
+
+.entropy-app .system-page td .list-version {
+    margin-left: 8px;
+}

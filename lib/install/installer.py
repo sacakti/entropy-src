@@ -6,10 +6,14 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from lib.authorization import AuthorizationInitializer
 from lib.install.application import ApplicationInstaller
@@ -34,11 +38,40 @@ class InstallerResult:
     message: str
 
 
+@dataclass
+class InstallOptions:
+    """
+    Choices for one installation. Anything left as None is asked for
+    interactively (or fails when `interactive` is False).
+    """
+
+    workspace: Optional[Path] = None
+    admin_username: Optional[str] = None
+    admin_full_name: str = "Administrator"
+    admin_password: Optional[str] = field(default=None, repr=False)
+    # bundled: offline from the package's wheels; index: from a package
+    # index; manual: already installed into the runtime Python.
+    deps: str = "bundled"
+    index_url: Optional[str] = None
+    # A self-contained Python shipped in the package, copied next to the
+    # application and used as the runtime.
+    bundled_python: Optional[Path] = None
+    platform: Optional[str] = None
+    web_host: str = "127.0.0.1"
+    web_port: int = 8000
+    # auto: systemd user service when available, else a background process.
+    service: str = "auto"
+    start_web: bool = True
+    interactive: bool = True
+
+
 class Installer:
 
-    def __init__(self) -> None:
+    def __init__(self, options: InstallOptions | None = None) -> None:
 
         self._paths: InstallerPathManager | None = None
+        self._options = options or InstallOptions()
+        self._runtime_python = Path(sys.executable)
 
     # ------------------------------------------------------------------
     # Install
@@ -74,14 +107,16 @@ class Installer:
             # Install Python dependencies.
             #
 
-            console.step("Installing Python packages...")
+            console.step(self._deps_step())
 
             WheelInstaller(
                 platform,
                 paths,
+                mode=self._options.deps,
+                index_url=self._options.index_url,
             ).install()
 
-            console.success("Python packages installed.")
+            console.success("Python packages ready.")
 
             #
             # Create Entropy staging directories.
@@ -155,7 +190,13 @@ class Installer:
 
             admin_user = BootstrapInstaller(
                 factory.context,
+                username=self._options.admin_username,
+                password=self._options.admin_password,
+                full_name=self._options.admin_full_name,
+                interactive=self._options.interactive,
             ).install()
+            # The password is not needed past this point.
+            self._options.admin_password = None
 
             console.success("Bootstrap administrator created.")
 
@@ -225,6 +266,9 @@ class Installer:
 
             console.success("Application installed.")
 
+            self._install_runtime_python(paths)
+            self._write_record(paths)
+
             #
             # Activate installation.
             #
@@ -266,6 +310,8 @@ class Installer:
                 launcher,
             )
 
+            web_message = self._start_web()
+
             console.success("Installation completed.")
 
             return InstallerResult(
@@ -273,10 +319,12 @@ class Installer:
                 message=(
                     "Entropy installed successfully.\n\n"
                     f"Installation Directory\n{paths.home}\n\n"
+                    f"Application\n{paths.application_directory}\n\n"
                     f"Workspace\n{paths.workspace}\n\n"
                     f"Configuration\n"
                     f"{paths.home / 'config' / 'entropy.json'}\n\n"
                     f"Launcher\n{launcher}\n\n"
+                    f"{web_message}\n\n"
                     f"{path_response}"
                 ),
             )
@@ -305,10 +353,20 @@ class Installer:
         paths: InstallerPathManager,
     ) -> None:
 
-        if paths.application_root.exists():
+        if paths.application_directory.exists():
 
             raise RuntimeError(
-                "Entropy application is already installed at " f"'{paths.application_root}'.",
+                "Entropy application is already installed at "
+                f"'{paths.application_directory}'. Use 'ent upgrade --source <package>' "
+                "to upgrade it.",
+            )
+
+        # Never replace an existing Entropy home (users, Vault, history).
+        if (paths.home / "database").exists():
+
+            raise RuntimeError(
+                f"An Entropy home with data already exists at '{paths.home}'. "
+                "Move it away first, or upgrade the existing installation.",
             )
 
         if paths.application_staging.exists():
@@ -352,6 +410,16 @@ class Installer:
     # ------------------------------------------------------------------
 
     def _prompt_workspace(self) -> Path:
+
+        if self._options.workspace is not None:
+
+            return self._validate_workspace(
+                self._options.workspace,
+            ).resolve()
+
+        if not self._options.interactive:
+
+            raise RuntimeError("--workspace is required for a non-interactive installation.")
 
         default = Path(
             "/srv/workspace",
@@ -438,6 +506,135 @@ class Installer:
         return workspace
 
     # ------------------------------------------------------------------
+    # Runtime Python, record and web server
+    # ------------------------------------------------------------------
+
+    def _deps_step(self) -> str:
+
+        return {
+            "bundled": "Installing Python packages from the bundled wheels...",
+            "index": "Installing Python packages from the package index...",
+            "manual": "Checking manually installed Python packages...",
+        }.get(self._options.deps, "Installing Python packages...")
+
+    def _install_runtime_python(self, paths: InstallerPathManager) -> None:
+        """Copy the package's self-contained Python next to the application."""
+
+        source = self._options.bundled_python
+
+        if source is None or not source.is_dir():
+
+            console.success(f"Using Python {sys.version.split()[0]} at {sys.executable}.")
+            return
+
+        console.step("Installing the bundled Python runtime...")
+
+        destination = paths.application_root / "python"
+
+        if destination.exists():
+            shutil.rmtree(destination)
+
+        shutil.copytree(source, destination, symlinks=True)
+
+        relative = Path(sys.executable).resolve().relative_to(source.resolve())
+        self._runtime_python = destination / relative
+
+        console.success(f"Python runtime installed at {destination}.")
+
+    def _write_record(self, paths: InstallerPathManager) -> None:
+
+        from core.version import VERSION
+
+        record = {
+            "version": VERSION,
+            "installed_at": datetime.now(timezone.utc).isoformat(),
+            "python": str(self._runtime_python),
+            "deps": self._options.deps,
+            "index_url": self._options.index_url,
+            "platform": self._options.platform,
+            "application": str(paths.application_directory),
+            "web": {
+                "host": self._options.web_host,
+                "port": int(self._options.web_port),
+                "service": "process",
+            },
+            "upgrades": [],
+        }
+
+        (paths.config / "install.json").write_text(
+            json.dumps(record, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    def _start_web(self) -> str:
+        """Register the web server as a service when possible, then start it."""
+
+        from lib.system import install, web
+
+        record = install.load()
+        service = self._options.service
+
+        if service in ("auto", "systemd") and os.name != "nt":
+
+            available = (
+                shutil.which("systemctl") is not None
+                and subprocess.run(
+                    ["systemctl", "--user", "show-environment"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                ).returncode
+                == 0
+            )
+
+            if available:
+
+                console.step("Registering the web server as a systemd user service...")
+                unit = web.service_file()
+                unit.parent.mkdir(parents=True, exist_ok=True)
+                unit.write_text(web.unit(record), encoding="utf-8")
+                subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+                subprocess.run(
+                    ["systemctl", "--user", "enable", web.SERVICE_NAME],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+                # Keep it running after logout when the system allows it.
+                subprocess.run(
+                    ["loginctl", "enable-linger", os.environ.get("USER", "")],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+                record["web"]["service"] = "systemd"
+                install.save(record)
+                console.success(f"Service {web.SERVICE_NAME} registered.")
+
+            elif service == "systemd":
+
+                console.error(
+                    "systemd user services are not available; using a background process."
+                )
+
+        if not self._options.start_web:
+
+            return (
+                "Web Server\n" f"Start it with 'ent web start'; it will listen on {web.url(record)}"
+            )
+
+        console.step("Starting the web server...")
+        state = web.start()
+
+        if state["healthy"]:
+
+            console.success(f"Web server running at {state['url']}.")
+            return f"Web Server\n{state['url']} (manage with 'ent web start|stop|status')"
+
+        console.error(f"The web server did not answer yet; see {state['log']}.")
+        return f"Web Server\nNot answering yet; check {state['log']} and run 'ent web status'."
+
+    # ------------------------------------------------------------------
     # Launcher
     # ------------------------------------------------------------------
 
@@ -450,6 +647,7 @@ class Installer:
         return Launcher(
             platform,
             paths,
+            python=self._runtime_python,
         ).install()
 
     # ------------------------------------------------------------------

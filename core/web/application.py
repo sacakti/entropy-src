@@ -9,9 +9,11 @@ from typing import AsyncIterator
 import pkgutil
 import importlib
 
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 from core.context import EntropyContext
 from core.context_factory import ContextFactory
@@ -42,6 +44,43 @@ def _start_background(context: EntropyContext):
 
     background = RunsBackground(context)
     return background if background.start() else None
+
+def frontend_directory() -> Path | None:
+    """The built web UI (`frontend/dist`), when this install ships one."""
+
+    configured = os.environ.get("ENTROPY_WEB_DIST")
+    directory = (
+        Path(configured)
+        if configured
+        else Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    )
+    return directory if (directory / "index.html").is_file() else None
+
+
+def mount_frontend(app: FastAPI, directory: Path) -> None:
+    """Serve the single-page web UI; unknown paths fall back to index.html."""
+
+    root = directory.resolve()
+
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+    async def web_ui(path: str) -> FileResponse:
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+
+        candidate = (root / path).resolve()
+        if path and candidate.is_file() and root in candidate.parents:
+            # Built assets carry content hashes in their names.
+            immutable = candidate.parent.name == "assets"
+            return FileResponse(
+                candidate,
+                headers={
+                    "Cache-Control": (
+                        "public, max-age=31536000, immutable" if immutable else "no-cache"
+                    )
+                },
+            )
+
+        return FileResponse(root / "index.html", headers={"Cache-Control": "no-cache"})
 
 def register_routes(app: FastAPI) -> None:
     """Register routers discovered in the routes package."""
@@ -179,6 +218,11 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
             content=html,
             headers={"Cache-Control": "no-store"},
         )
+
+    # Last: the UI's catch-all route must not shadow the API or /docs.
+    dist = frontend_directory()
+    if dist is not None:
+        mount_frontend(app, dist)
 
     return app
 

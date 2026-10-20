@@ -42,7 +42,7 @@ EXCLUDED_PREFIXES = (
 )
 
 # Not needed on nodes: the web server stays on the main node.
-AGENT_EXCLUDED_REQUIREMENTS = ("fastapi", "uvicorn")
+AGENT_EXCLUDED_REQUIREMENTS = ("fastapi", "uvicorn", "python-multipart", "pillow")
 
 
 class PackagingError(Exception):
@@ -185,6 +185,11 @@ def cpython_archive(cache: Path, machine: str, *, download: bool = True) -> Path
             f"No bundled Python is available for '{machine}'. Install Python {PYTHON_VERSION} "
             "with pip on the server and choose 'Use the server's Python'."
         )
+    return cpython_archive_for(cache, triple, download=download)
+
+
+def cpython_archive_for(cache: Path, triple: str, *, download: bool = True) -> Path:
+    """A relocatable CPython 3.9 for a target triple, e.g. x86_64-pc-windows-msvc."""
 
     name = f"cpython-{CPYTHON_FULL_VERSION}+{CPYTHON_RELEASE}-{triple}-install_only.tar.gz"
     cache.mkdir(parents=True, exist_ok=True)

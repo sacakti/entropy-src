@@ -27,6 +27,8 @@ class Uninstaller:
 
             platform = PlatformDetector.detect()
 
+            self._remove_web_server()
+
             Launcher(
                 platform,
                 self._paths,
@@ -50,6 +52,26 @@ class Uninstaller:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _remove_web_server(self) -> None:
+        """Stop the web server and remove its systemd user service."""
+
+        import subprocess
+
+        from lib.system import web
+
+        web.stop()
+
+        unit = web.service_file()
+        if unit.exists():
+            subprocess.run(
+                ["systemctl", "--user", "disable", web.SERVICE_NAME],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            unit.unlink()
+            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
 
     def _remove_installation(self) -> None:
         """

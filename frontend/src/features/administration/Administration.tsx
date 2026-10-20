@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, ArrowRight, BadgeCheck, LockKeyhole, UserRound, UsersRound } from 'lucide-react'
+import { AlertCircle, ArrowRight, ArrowUpCircle, BadgeCheck, LockKeyhole, UserRound, UsersRound } from 'lucide-react'
 
 import { adminApi, type AdminSummary } from '../../api/admin.api'
 import type { PageId } from '../../types/navigation'
@@ -40,6 +40,13 @@ const SECTIONS: {
         description: 'Browse every Entropy permission by module and choose which roles hold it.',
         icon: LockKeyhole,
         stat: (summary) => `${summary.permissions} permissions · ${summary.modules} modules`,
+    },
+    {
+        page: 'admin-system',
+        title: 'System',
+        description: 'See how Entropy is installed, upgrade it from a release package, or roll back.',
+        icon: ArrowUpCircle,
+        stat: () => 'Version and upgrades',
     },
 ]
 

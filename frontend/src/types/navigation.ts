@@ -1,5 +1,6 @@
 import {
     Activity,
+    ArrowUpCircle,
     BadgeCheck,
     Blocks,
     KeyRound,
@@ -26,6 +27,7 @@ export type PageId =
     | 'admin-groups'
     | 'admin-roles'
     | 'admin-permissions'
+    | 'admin-system'
     | 'about'
     | 'settings'
     | 'preferences'
@@ -48,6 +50,7 @@ export const navigation: NavigationItem[] = [
             { id: 'admin-groups', label: 'Groups', icon: UsersRound },
             { id: 'admin-roles', label: 'Roles', icon: BadgeCheck },
             { id: 'admin-permissions', label: 'Permissions', icon: LockKeyhole },
+            { id: 'admin-system', label: 'System', icon: ArrowUpCircle },
         ],
     },
 ]
@@ -77,6 +80,7 @@ const PAGE_IDS: readonly PageId[] = [
     'admin-groups',
     'admin-roles',
     'admin-permissions',
+    'admin-system',
     'about',
     'settings',
     'preferences',
@@ -103,4 +107,5 @@ export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
     'admin-groups': ['groups.read'],
     'admin-roles': ['roles.read'],
     'admin-permissions': ['roles.read'],
+    'admin-system': ['upgrade.entropy'],
 }

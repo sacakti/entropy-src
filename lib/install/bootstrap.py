@@ -19,11 +19,20 @@ class BootstrapInstaller:
     def __init__(
         self,
         context: EntropyContext,
+        *,
+        username: str | None = None,
+        password: str | None = None,
+        full_name: str = "Administrator",
+        interactive: bool = True,
     ) -> None:
 
         assert context.user_manager is not None
 
         self._users = context.user_manager
+        self._username = username
+        self._password = password
+        self._full_name = full_name or "Administrator"
+        self._interactive = interactive
 
     # ------------------------------------------------------------------
     # Public
@@ -34,31 +43,47 @@ class BootstrapInstaller:
         if self._users.any():
             return None
 
-        username = "admin"
-
         print()
         print("Bootstrap Administrator")
         print("-----------------------")
+
+        username = self._username
+        if not username:
+            if not self._interactive:
+                username = "admin"
+            else:
+                username = input("Username [admin]: ").strip() or "admin"
         print(f"Username: {username}")
 
         while True:
 
-            password = getpass.getpass("Password: ")
-            confirm = getpass.getpass("Confirm Password: ")
+            password = self._password
+            self._password = None
 
-            if password != confirm:
+            if password is None:
 
-                print("Passwords do not match.")
-                print()
+                if not self._interactive:
+                    raise RuntimeError(
+                        "A bootstrap administrator password is required "
+                        "(set ENTROPY_ADMIN_PASSWORD or use --admin-password-file)."
+                    )
 
-                continue
+                password = getpass.getpass("Password: ")
+                confirm = getpass.getpass("Confirm Password: ")
+
+                if password != confirm:
+
+                    print("Passwords do not match.")
+                    print()
+
+                    continue
 
             try:
 
                 user = self._users.create(
                     username=username,
                     password=password,
-                    full_name="Administrator",
+                    full_name=self._full_name,
                 )
 
                 break
@@ -66,6 +91,9 @@ class BootstrapInstaller:
             except WeakPasswordError as exc:
 
                 print(exc)
+
+                if not self._interactive:
+                    raise
 
                 continue
 

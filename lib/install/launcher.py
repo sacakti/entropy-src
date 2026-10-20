@@ -21,10 +21,13 @@ class Launcher:
         self,
         platform,
         paths: InstallerPathManager,
+        python: Path | None = None,
     ) -> None:
 
         self._platform = platform
         self._paths = paths
+        # The runtime Python (bundled or chosen at install time).
+        self._python = python or Path(sys.executable)
 
     # ------------------------------------------------------------------
     # Install
@@ -78,6 +81,6 @@ class Launcher:
 
         if self._platform == Platform.WINDOWS:
 
-            return "@echo off\n" f'"{sys.executable}" ' f'"{entropy}" %*\n'
+            return "@echo off\n" f'"{self._python}" ' f'"{entropy}" %*\n'
 
-        return "#!/usr/bin/env bash\n\n" f'exec "{sys.executable}" ' f'"{entropy}" "$@"\n'
+        return "#!/usr/bin/env bash\n\n" f'exec "{self._python}" ' f'"{entropy}" "$@"\n'
