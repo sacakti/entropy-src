@@ -38,6 +38,8 @@ export interface SystemInfo {
     application: string
     home: string
     installed: boolean
+    /** Runs from the container image; upgrades come from a new image. */
+    container?: boolean
     web: {
         running: boolean
         healthy: boolean

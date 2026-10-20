@@ -110,6 +110,7 @@ def system_info(
         "application": details["application"],
         "home": str(install.entropy_home()),
         "installed": install.record_path().exists(),
+        "container": install.in_container(),
         "web": {**web.status(), "service": details["web"]["service"]},
         "upgrades": list(reversed(details.get("upgrades", []))),
         "can_rollback": ReleaseUpgrader().can_rollback(),
@@ -245,6 +246,10 @@ def apply_upgrade(
     """Apply an uploaded package; follow it at GET /api/system/upgrade."""
 
     user = _admin(request, record)
+    if install.in_container():
+        raise HTTPException(
+            status_code=409, detail="This server runs in a container: deploy a newer image instead."
+        )
     package = _package(payload.id)
 
     try:

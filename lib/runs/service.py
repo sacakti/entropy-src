@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from lib.auth.manager import SESSION_TOKEN_ENV
 from lib.models.workflow import WorkflowExecutionOptions
+from lib.system.install import scratch_directory
 
 from .nodes import NodeStore, agent_up
 from .plan import PlanError, RunPlan, build_plan
@@ -225,7 +226,7 @@ class RunService:
         if registered:
             return self._start(user, name=workflow.name, variables=variables).require_id()
 
-        directory = Path(self._context.bootstrap.project_root) / "tmp" / "run-definitions"
+        directory = scratch_directory(self._context.bootstrap.project_root) / "run-definitions"
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{uuid.uuid4().hex}.json"
         path.write_text(manager.serialize(workflow, "json"), encoding="utf-8")
@@ -444,8 +445,8 @@ class RunService:
     # ------------------------------------------------------------------
 
     def log_path(self, job_id: int) -> Path:
-        root = Path(self._context.bootstrap.project_root)
-        return root / "tmp" / f"workflow-worker-{job_id}.log"
+        root = scratch_directory(self._context.bootstrap.project_root)
+        return root / f"workflow-worker-{job_id}.log"
 
     def log(self, job_id: int, offset: int = 0, limit: int = 256_000) -> Dict[str, Any]:
         children = self.store.children(job_id)

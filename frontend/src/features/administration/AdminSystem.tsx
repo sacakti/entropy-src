@@ -216,6 +216,11 @@ export default function AdminSystem() {
 
                 {job && job.state !== 'idle' ? (
                     <UpgradeProgress job={job} logRef={logRef} onDismiss={() => setJob(null)} />
+                ) : info?.container ? (
+                    <p className="run-card-muted">
+                        This server runs in a container. Upgrade it by deploying a newer image; the
+                        database on the persistent volume is migrated when the new version starts.
+                    </p>
                 ) : info && !info.installed ? (
                     <p className="run-card-muted">
                         This server runs from a source checkout; release packages upgrade installations only.

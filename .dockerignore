@@ -1,0 +1,15 @@
+# Only what the Dockerfile copies matters; keep the build context small.
+.git
+**/node_modules
+**/__pycache__
+**/*.pyc
+build/
+tmp/
+tests/
+docs/
+frontend/dist/
+resources/wheels/linux/
+resources/wheels/mac/
+resources/wheels/windows/
+.venv/
+*.tar.gz

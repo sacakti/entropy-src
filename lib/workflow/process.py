@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from lib.models.workflow import WorkflowExecutionOptions
+from lib.system.install import scratch_directory
 from lib.workflow.exceptions import WorkflowProcessIDError, WorkflowProcessNotRunningError
 
 
@@ -99,7 +100,7 @@ class WorkflowProcess:
             ],
         )
 
-        worker_log = self._project_root / "tmp" / f"workflow-worker-{self._job_id}.log"
+        worker_log = scratch_directory(self._project_root) / f"workflow-worker-{self._job_id}.log"
 
         worker_log.parent.mkdir(
             parents=True,

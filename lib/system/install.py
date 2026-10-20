@@ -50,6 +50,20 @@ def load(home: Path | None = None) -> Dict[str, Any]:
     return record
 
 
+def scratch_directory(project_root: Path | str) -> Path:
+    """Worker logs and run definitions: <application>/tmp, or ENTROPY_TMP
+    when the application directory is read-only (the container image)."""
+
+    configured = os.environ.get("ENTROPY_TMP")
+    return Path(configured) if configured else Path(project_root) / "tmp"
+
+
+def in_container() -> bool:
+    """Running from the container image: upgrades come from a new image."""
+
+    return os.environ.get("ENTROPY_CONTAINER", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def theme_enabled(home: Path | None = None) -> bool:
     """Wallpaper customization (backgrounds, opacity, backdrop, shuffle).
 

@@ -1,0 +1,3 @@
+#!/bin/sh
+# The Entropy command line inside the container (oc exec deploy/entropy -- ent ...).
+cd /opt/entropy/app && exec python3 /opt/entropy/app/entropy.py "$@"

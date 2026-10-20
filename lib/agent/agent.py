@@ -27,6 +27,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict
 
+from lib.system.install import scratch_directory
+
 from .client import AgentClient, AgentRevokedError, AgentTransientError
 
 AGENT_VERSION = "1"
@@ -375,7 +377,8 @@ class Agent:
     # ------------------------------------------------------------------
 
     def _log_path(self, local_id: int) -> Path:
-        return Path(self.context.bootstrap.project_root) / "tmp" / f"workflow-worker-{local_id}.log"
+        root = scratch_directory(self.context.bootstrap.project_root)
+        return root / f"workflow-worker-{local_id}.log"
 
     def _forward_all(self) -> None:
         with self.lock:

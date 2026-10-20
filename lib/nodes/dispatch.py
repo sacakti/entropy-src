@@ -11,12 +11,12 @@ import hashlib
 import json
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from lib.database.connection import DatabaseConnection
 from lib.runs.nodes import NodeStore
 from lib.runs.store import ensure_run_schema, utcnow
+from lib.system.install import scratch_directory
 
 # A remote run whose node has not been heard from for this long fails.
 NODE_LOST_AFTER = timedelta(minutes=5)
@@ -144,9 +144,8 @@ class NodeDispatcher:
 
         log = payload.get("log") or ""
         if log:
-            path = (
-                Path(self._context.bootstrap.project_root) / "tmp" / f"workflow-worker-{job_id}.log"
-            )
+            root = scratch_directory(self._context.bootstrap.project_root)
+            path = root / f"workflow-worker-{job_id}.log"
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as handle:
                 handle.write(log)

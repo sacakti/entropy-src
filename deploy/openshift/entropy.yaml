@@ -1,0 +1,147 @@
+# Entropy on OpenShift with its data on OpenShift Data Foundation (ODF).
+#
+#   oc new-project entropy
+#   oc create secret generic entropy-admin --from-literal=password='<strong password>'
+#   oc apply -f deploy/openshift/entropy.yaml
+#   oc get route entropy
+#
+# Change the image below to where you pushed it (see docs/architecture/10-container.md).
+#
+# Storage: one RWO volume from ODF's Ceph RBD class holds the SQLite
+# database, configuration, sessions, plugins, logs and the workflow
+# workspace. SQLite has a single writer, so this runs exactly one replica
+# and replaces it with the Recreate strategy (never two pods on the volume).
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: entropy-data
+  labels:
+    app: entropy
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # ODF block storage. `oc get storageclass` lists the classes on your cluster.
+  storageClassName: ocs-storagecluster-ceph-rbd
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: entropy
+  labels:
+    app: entropy
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: entropy
+  template:
+    metadata:
+      labels:
+        app: entropy
+    spec:
+      containers:
+        - name: entropy
+          image: image-registry.openshift-image-registry.svc:5000/entropy/entropy:latest
+          imagePullPolicy: Always
+          args: ["serve"]
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            # Read on the first start only, to create the administrator.
+            - name: ENTROPY_ADMIN_PASSWORD_FILE
+              value: /var/run/secrets/entropy/password
+            - name: ENTROPY_ADMIN_USER
+              value: admin
+            # Wallpaper customization in Preferences (off by default).
+            - name: ENTROPY_THEME_ENABLE
+              value: "0"
+            # docker CLI in the image talks to a daemon elsewhere, e.g.:
+            # - name: DOCKER_HOST
+            #   value: ssh://builder@docker-host.example.com
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/entropy
+            - name: admin
+              mountPath: /var/run/secrets/entropy
+              readOnly: true
+          startupProbe:
+            # The first start creates the database; upgrades migrate it.
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: entropy-data
+        - name: admin
+          secret:
+            secretName: entropy-admin
+            items:
+              - key: password
+                path: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: entropy
+  labels:
+    app: entropy
+spec:
+  selector:
+    app: entropy
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: entropy
+  labels:
+    app: entropy
+  annotations:
+    # Live run logs are long-polled; give them time.
+    haproxy.router.openshift.io/timeout: 120s
+spec:
+  to:
+    kind: Service
+    name: entropy
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
