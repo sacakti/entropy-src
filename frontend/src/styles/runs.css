@@ -1435,3 +1435,501 @@
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* Run dialog: advanced options (steps, tags, nodes) */
+
+.entropy-app .run-advanced,
+.entropy-modal .run-advanced {
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .run-advanced-toggle,
+.entropy-modal .run-advanced-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.entropy-app .run-advanced-toggle svg,
+.entropy-modal .run-advanced-toggle svg {
+    flex-shrink: 0;
+    color: var(--app-subtle);
+    transition: transform 160ms ease;
+}
+
+.entropy-app .run-advanced.is-open .run-advanced-toggle svg,
+.entropy-modal .run-advanced.is-open .run-advanced-toggle svg {
+    transform: rotate(90deg);
+}
+
+.entropy-app .run-advanced-toggle > span,
+.entropy-modal .run-advanced-toggle > span {
+    color: var(--app-muted);
+}
+
+.entropy-app .run-advanced-toggle em,
+.entropy-modal .run-advanced-toggle em {
+    margin-left: auto;
+    color: var(--app-subtle);
+    font-size: 12px;
+    font-style: normal;
+    white-space: nowrap;
+}
+
+.entropy-app .run-advanced-toggle em.is-changed,
+.entropy-modal .run-advanced-toggle em.is-changed {
+    color: var(--app-accent-fg);
+    font-weight: 600;
+}
+
+.entropy-app .run-advanced-toggle em.is-invalid,
+.entropy-modal .run-advanced-toggle em.is-invalid {
+    color: var(--app-danger-text);
+    font-weight: 600;
+}
+
+.entropy-app .run-advanced-body,
+.entropy-modal .run-advanced-body {
+    display: grid;
+    gap: 10px;
+    padding: 0 12px 12px;
+}
+
+.entropy-app .run-advanced-tags,
+.entropy-modal .run-advanced-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.entropy-app .run-advanced-tags > span,
+.entropy-modal .run-advanced-tags > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--app-muted);
+}
+
+.entropy-app .run-tag,
+.entropy-modal .run-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    color: var(--app-muted);
+    font: inherit;
+    font-size: 11.5px;
+    line-height: 18px;
+    background: var(--app-surface-hover);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+}
+
+.entropy-app button.run-tag,
+.entropy-modal button.run-tag {
+    cursor: pointer;
+}
+
+.entropy-app .run-tag.is-active,
+.entropy-modal .run-tag.is-active {
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .run-advanced-steps,
+.entropy-modal .run-advanced-steps {
+    display: grid;
+    gap: 4px;
+    max-height: 260px;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    list-style: none;
+}
+
+.entropy-app .run-advanced-steps li,
+.entropy-modal .run-advanced-steps li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 150px;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+}
+
+.entropy-app .run-advanced-steps li.is-off .run-advanced-name,
+.entropy-modal .run-advanced-steps li.is-off .run-advanced-name {
+    opacity: 0.55;
+}
+
+.entropy-app .run-advanced-step,
+.entropy-modal .run-advanced-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.entropy-app .run-advanced-index,
+.entropy-modal .run-advanced-index {
+    min-width: 18px;
+    color: var(--app-subtle);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.entropy-app .run-advanced-name,
+.entropy-modal .run-advanced-name {
+    display: grid;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.entropy-app .run-advanced-name small,
+.entropy-modal .run-advanced-name small {
+    overflow: hidden;
+    color: var(--app-subtle);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .run-advanced-step-tags,
+.entropy-modal .run-advanced-step-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.entropy-app .run-advanced-node,
+.entropy-modal .run-advanced-node {
+    width: 100%;
+    min-height: 30px;
+    font-size: 12.5px;
+}
+
+.entropy-app .run-advanced-plan,
+.entropy-modal .run-advanced-plan {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.entropy-app .run-advanced-plan > span,
+.entropy-modal .run-advanced-plan > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.entropy-app .start-run-blocker,
+.entropy-modal .start-run-blocker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--app-warning, var(--app-muted));
+    font-size: 12.5px;
+}
+
+@media (max-width: 640px) {
+    .entropy-app .run-advanced-steps li,
+    .entropy-modal .run-advanced-steps li {
+        grid-template-columns: 1fr;
+    }
+
+    .entropy-app .run-advanced-step-tags,
+    .entropy-modal .run-advanced-step-tags {
+        display: none;
+    }
+}
+
+/* Run screen: options the run was started with */
+
+.entropy-app .run-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin: 0;
+}
+
+.entropy-app .run-options > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.entropy-app .run-options dt {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--app-subtle);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.entropy-app .run-options dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+}
+
+.entropy-app .run-options-plain {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.entropy-app .run-options-more {
+    padding: 0 4px;
+    color: var(--app-accent-fg);
+    font: inherit;
+    font-size: 12px;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.entropy-app .run-options-more:hover {
+    text-decoration: underline;
+}
+
+.entropy-app .run-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
+    margin-left: auto;
+}
+
+.entropy-app .run-card-tags + .run-card-state {
+    margin-left: 0;
+}
+
+@media (max-width: 640px) {
+    .entropy-app .run-card-tags {
+        display: none;
+    }
+}
+
+/* Run screen: diagram view */
+
+.entropy-app .run-diagram {
+    display: grid;
+    gap: 10px;
+}
+
+.entropy-app .run-diagram-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.entropy-app .run-diagram-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .run-diagram-legend > .is-sequence,
+.entropy-app .run-diagram-legend > .is-dependency {
+    display: inline-block;
+    width: 26px;
+    height: 0;
+    border-top: 2px dashed var(--app-subtle);
+}
+
+.entropy-app .run-diagram-legend > .is-dependency {
+    border-top: 2px solid var(--app-accent-fg);
+}
+
+.entropy-app .run-diagram-node-key {
+    padding: 1px 8px;
+    color: var(--app-text);
+    font-size: 11.5px;
+    background: hsl(var(--node-hue) 70% 50% / 0.16);
+    border: 1px solid hsl(var(--node-hue) 70% 50% / 0.55);
+    border-radius: 999px;
+}
+
+.entropy-app .run-diagram-canvas {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle, var(--app-line) 1px, transparent 1.2px) 0 0 / 22px 22px,
+        var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+    touch-action: none;
+}
+
+.entropy-app .run-diagram-edges {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.entropy-app .run-edge {
+    fill: none;
+    stroke-width: 2;
+}
+
+.entropy-app .run-edge.is-sequence {
+    stroke: var(--app-subtle);
+    stroke-dasharray: 6 5;
+}
+
+.entropy-app .run-edge.is-dependency {
+    stroke: var(--app-accent-fg);
+}
+
+.entropy-app .run-diagram-edges marker path.is-sequence {
+    fill: var(--app-subtle);
+}
+
+.entropy-app .run-diagram-edges marker path.is-dependency {
+    fill: var(--app-accent-fg);
+}
+
+.entropy-app .run-edge-label {
+    fill: var(--app-accent-fg);
+    font-size: 11px;
+    font-weight: 600;
+    paint-order: stroke;
+    stroke: var(--app-bg);
+    stroke-width: 4px;
+}
+
+.entropy-app .run-bubble {
+    position: absolute;
+    display: grid;
+    align-content: center;
+    gap: 2px;
+    padding: 8px 12px 8px 34px;
+    color: var(--app-text);
+    font: inherit;
+    text-align: left;
+    background: var(--app-surface);
+    border: 2px solid var(--app-line);
+    border-radius: 999px;
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.entropy-app .run-bubble[style*='--node-hue'] {
+    background: color-mix(in srgb, hsl(var(--node-hue) 70% 50%) 12%, var(--app-surface));
+}
+
+.entropy-app .run-bubble:active {
+    cursor: grabbing;
+    box-shadow: 0 10px 28px rgb(0 0 0 / 0.28);
+}
+
+.entropy-app .run-bubble strong,
+.entropy-app .run-bubble small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .run-bubble strong {
+    font-size: 13px;
+}
+
+.entropy-app .run-bubble small {
+    color: var(--app-subtle);
+    font-size: 11px;
+}
+
+.entropy-app .run-bubble-index {
+    position: absolute;
+    top: 50%;
+    left: 8px;
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--app-surface-hover);
+    border-radius: 50%;
+    transform: translateY(-50%);
+}
+
+.entropy-app .run-bubble.is-completed {
+    border-color: var(--app-success);
+}
+
+.entropy-app .run-bubble.is-completed .run-bubble-index {
+    color: var(--app-bg);
+    background: var(--app-success);
+}
+
+.entropy-app .run-bubble.is-failed {
+    border-color: var(--app-danger);
+}
+
+.entropy-app .run-bubble.is-failed .run-bubble-index {
+    color: var(--app-bg);
+    background: var(--app-danger);
+}
+
+.entropy-app .run-bubble.is-cancelled,
+.entropy-app .run-bubble.is-skipped {
+    border-style: dashed;
+    opacity: 0.7;
+}
+
+.entropy-app .run-bubble.is-running {
+    border-color: var(--app-accent);
+    animation: run-bubble-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes run-bubble-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--app-accent) 45%, transparent);
+    }
+    50% {
+        box-shadow: 0 0 0 8px color-mix(in srgb, var(--app-accent) 0%, transparent);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .run-bubble.is-running {
+        animation: none;
+    }
+}

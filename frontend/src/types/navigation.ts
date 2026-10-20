@@ -90,7 +90,8 @@ const PAGE_IDS: readonly PageId[] = [
 /** Page named by a location hash such as `#/vault`, if any. */
 export function pageFromHash(hash: string): PageId | null {
     // `#/runs/42` is the live screen of run 42, under the Runs page.
-    const id = hash.replace(/^#\/?/, '').split('/')[0]
+    // `#/runs?tab=all` is the Runs page with a tab chosen.
+    const id = hash.replace(/^#\/?/, '').split(/[/?]/)[0]
     return (PAGE_IDS as readonly string[]).includes(id) ? (id as PageId) : null
 }
 

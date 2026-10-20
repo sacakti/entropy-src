@@ -15,6 +15,7 @@ import {
 import { workflowsApi, type WorkflowFormat, type WorkflowSummary } from '../../api/workflows.api'
 import { ApiError } from '../../services/api'
 import AddMenu from '../../components/layout/AddMenu'
+import { usePermissions } from '../administration/usePermissions'
 import AppPortal from '../../components/layout/AppPortal'
 import StartRunDialog from '../runs/StartRunDialog'
 import PickerDialog from '../../components/layout/PickerDialog'
@@ -39,8 +40,20 @@ function formatDate(value: string): string {
         : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
+/** Why an action is unavailable, or null; nothing is blocked until permissions load. */
+function missing(permissions: Set<string> | null, needed: string[], action: string): string | null {
+    if (!permissions) return null
+    const lacking = needed.filter((permission) => !permissions.has(permission))
+    return lacking.length ? `No permission: ${action} needs ${lacking.join(' and ')}.` : null
+}
+
 export default function Workflows() {
     const { notify, modal } = useFeedback()
+    const permissions = usePermissions()
+    const addReason = missing(permissions, ['workflows.add', 'plugins.list'], 'creating or importing workflows')
+    const editReason = missing(permissions, ['workflows.edit', 'plugins.list'], 'editing workflows')
+    const deleteReason = missing(permissions, ['workflows.edit'], 'deleting workflows')
+    const runReason = missing(permissions, ['workflows.start'], 'running workflows')
 
     const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
     const [loading, setLoading] = useState(true)
@@ -123,7 +136,13 @@ export default function Workflows() {
         }
     }
 
-    const openCreate = () => setBuilder({ mode: 'create' })
+    const openCreate = () => {
+        if (addReason) {
+            notify.error(addReason, { title: 'Cannot create workflow' })
+            return
+        }
+        setBuilder({ mode: 'create' })
+    }
 
     const toggleChecked = (name: string) =>
         setChecked((current) => {
@@ -236,6 +255,10 @@ export default function Workflows() {
                 searchRef.current?.select()
             },
             'mod+d': () => {
+                if (deleteReason) {
+                    notify.error(deleteReason, { title: 'Cannot delete workflow' })
+                    return
+                }
                 const selected = workflows.find((item) => item.name === selectedName)
 
                 if (selected) void remove(selected)
@@ -295,6 +318,7 @@ export default function Workflows() {
                             onCreate={openCreate}
                             onImport={() => importRef.current?.click()}
                             importLabel="Import JSON / YAML…"
+                            disabledReason={addReason}
                         />
                         <input
                             ref={importRef}
@@ -346,8 +370,12 @@ export default function Workflows() {
                         <button
                             type="button"
                             className="entropy-button entropy-button-danger-quiet entropy-button-sm"
-                            onClick={() => void removeChecked()}
+                            onClick={() => {
+                                if (!deleteReason) void removeChecked()
+                            }}
                             disabled={bulkBusy}
+                            aria-disabled={deleteReason ? true : undefined}
+                            title={deleteReason ?? undefined}
                         >
                             {bulkBusy ? <LoaderCircle size={14} className="entropy-spin" /> : <Trash2 size={14} />} Delete
                         </button>
@@ -458,8 +486,11 @@ export default function Workflows() {
                                                     type="button"
                                                     className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
                                                     aria-label={`Run ${workflow.name}`}
-                                                    title="Run"
-                                                    onClick={() => setRunning(workflow.name)}
+                                                    title={runReason ?? 'Run'}
+                                                    aria-disabled={runReason ? true : undefined}
+                                                    onClick={() => {
+                                                        if (!runReason) setRunning(workflow.name)
+                                                    }}
                                                     disabled={deleting === workflow.name}
                                                 >
                                                     <Play size={15} />
@@ -468,8 +499,11 @@ export default function Workflows() {
                                                     type="button"
                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                                     aria-label={`Edit ${workflow.name}`}
-                                                    title="Edit"
-                                                    onClick={() => setBuilder({ mode: 'edit', name: workflow.name })}
+                                                    title={editReason ?? 'Edit'}
+                                                    aria-disabled={editReason ? true : undefined}
+                                                    onClick={() => {
+                                                        if (!editReason) setBuilder({ mode: 'edit', name: workflow.name })
+                                                    }}
                                                     disabled={deleting === workflow.name}
                                                 >
                                                     <Pencil size={15} />
@@ -478,8 +512,11 @@ export default function Workflows() {
                                                     type="button"
                                                     className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                                                     aria-label={`Delete ${workflow.name}`}
-                                                    title="Delete"
-                                                    onClick={() => void remove(workflow)}
+                                                    title={deleteReason ?? 'Delete'}
+                                                    aria-disabled={deleteReason ? true : undefined}
+                                                    onClick={() => {
+                                                        if (!deleteReason) void remove(workflow)
+                                                    }}
                                                     disabled={deleting === workflow.name}
                                                 >
                                                     {deleting === workflow.name ? (

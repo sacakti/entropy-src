@@ -214,16 +214,20 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
     const quickCreate = (
         [
             { target: 'plugin', label: 'Plugin', page: 'plugins', permission: 'plugins.install' },
-            { target: 'workflow', label: 'Workflow', page: 'workflows', permission: 'workflows.add' },
+            { target: 'workflow', label: 'Workflow', page: 'workflows', permission: ['workflows.add', 'plugins.list'] },
             { target: 'schedule', label: 'Schedule', page: 'schedulers', permission: 'schedules.manage' },
             { target: 'vault-entry', label: 'Vault secret', page: 'vault', permission: null },
             { target: 'vault-namespace', label: 'Vault namespace', page: 'vault', permission: 'vault.namespace.create' },
             { target: 'user', label: 'User', page: 'admin-users', permission: 'users.create' },
             { target: 'group', label: 'Group', page: 'admin-groups', permission: 'groups.create' },
             { target: 'role', label: 'Role', page: 'admin-roles', permission: 'roles.create' },
-        ] as { target: CreateTarget; label: string; page: PageId; permission: string | null }[]
+        ] as { target: CreateTarget; label: string; page: PageId; permission: string | string[] | null }[]
     )
-        .filter((item) => !item.permission || permissions?.has(item.permission))
+        .filter(
+            (item) =>
+                !item.permission ||
+                ([] as string[]).concat(item.permission).every((permission) => permissions?.has(permission)),
+        )
         .map((item) => ({
             ...item,
             onSelect: () => {
@@ -311,9 +315,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                             onBack={window.history.length > 1 ? () => window.history.back() : undefined}
                         />
                     ) : activePage === 'dashboard' ? (
-                            <Dashboard
-                                onNavigate={setActivePage}
-                            />
+                            <Dashboard />
                         ) : activePage === 'about' ? (
                             <section className="content-panel about-panel">
                                 <EntropyLogo size={72} />

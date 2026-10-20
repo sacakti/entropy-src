@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import './login.css'
 
 export interface EndedSession {
@@ -37,6 +37,21 @@ export default function Login({ onLogin, endedSession }: LoginProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // Enter signs in even when no field has focus, e.g. after the browser's
+  // password manager filled both fields.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.defaultPrevented) return
+      const form = formRef.current
+      if (!form || form.contains(document.activeElement)) return
+      event.preventDefault()
+      form.requestSubmit()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -68,9 +83,9 @@ export default function Login({ onLogin, endedSession }: LoginProps) {
               : <><strong>{endedSession.name}</strong> signed out.</>}
           </p>
         )}
-        <form onSubmit={handleSubmit}>
-          <div className="form-field"><label htmlFor="username">Username</label><input id="username" name="username" type="text" placeholder="Enter your username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /></div>
-          <div className="form-field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /></div>
+        <form ref={formRef} onSubmit={handleSubmit}>
+          <div className="form-field"><label htmlFor="username">Username</label><input id="username" name="username" type="text" placeholder="Enter your username" autoComplete="username" autoFocus={!endedSession?.username} value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /></div>
+          <div className="form-field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" autoFocus={Boolean(endedSession?.username)} value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /></div>
           {error && <p className="login-error" role="alert">{error}</p>}
           <button className="entropy-button entropy-button-primary entropy-button-block login-button" type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
         </form>

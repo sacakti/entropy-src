@@ -14,17 +14,13 @@ import {
     XCircle,
 } from 'lucide-react'
 
-import type { PageId } from '../../types/navigation'
 import {
     getDashboard,
     type DashboardData,
     type DashboardExecution,
     type WorkflowJobState,
 } from '../../api/dashboard.api'
-
-interface DashboardProps {
-    onNavigate: (page: PageId) => void
-}
+import { openRunsTab } from '../runs/navigation'
 
 const stateLabels: Record<WorkflowJobState, string> = {
     queued: 'Queued',
@@ -147,7 +143,7 @@ function EmptyState({
     )
 }
 
-export default function Dashboard({ onNavigate }: DashboardProps) {
+export default function Dashboard() {
     const [data, setData] = useState<DashboardData | null>(null)
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
@@ -345,9 +341,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             <button
                                 type="button"
                                 className="entropy-button entropy-button-secondary entropy-button-sm"
-                                onClick={() => onNavigate('workflows')}
+                                onClick={() => openRunsTab('active')}
                             >
-                                View workflows
+                                View executing runs
                                 <ArrowRight size={16} />
                             </button>
                         </div>
@@ -381,7 +377,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             <button
                                 type="button"
                                 className="entropy-button entropy-button-secondary entropy-button-sm"
-                                onClick={() => onNavigate('workflows')}
+                                onClick={() => openRunsTab('all')}
                             >
                                 View history
                                 <ArrowRight size={16} />

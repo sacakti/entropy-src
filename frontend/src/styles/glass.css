@@ -75,7 +75,7 @@
     border-color: rgb(255 180 180 / 55%);
 }
 
-:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button:hover:not(:disabled) {
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button:hover:not(:disabled, [aria-disabled="true"]) {
     transform: translateY(-1px);
     box-shadow:
         inset 0 1px 0 var(--glass-highlight),
@@ -83,7 +83,7 @@
         0 10px 26px var(--glass-shade);
 }
 
-:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button:active:not(:disabled) {
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button:active:not(:disabled, [aria-disabled="true"]) {
     transform: scale(0.97);
 }
 

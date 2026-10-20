@@ -90,7 +90,12 @@ function App() {
       user={user}
       welcome={justSignedIn ? displayName(user) : null}
       onLogout={async () => {
-        try { await logout() } finally { endSession('signed-out'); window.location.reload() }
+        try { await logout() } finally {
+          endSession('signed-out')
+          // Start the next session from the dashboard, not the last page.
+          window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          window.location.reload()
+        }
       }}
     />
   }

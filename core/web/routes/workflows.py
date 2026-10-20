@@ -104,6 +104,54 @@ def _require_permission(
         )
 
 
+def _require_any_permission(
+    request: Request,
+    user: User,
+    *permissions: str,
+) -> None:
+    """Allow the request when the user holds any one of the permissions."""
+
+    authorization = request.app.state.entropy_context.authorization
+
+    if authorization is None:
+        raise HTTPException(status_code=503, detail="Authorization service unavailable.")
+
+    if user.id is None or not any(
+        authorization.has_permission(user.id, permission) for permission in permissions
+    ):
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+
+def _check_plugin_access(request: Request, user: User, workflow) -> None:
+    """
+    Authoring a workflow means choosing plugins, so it needs plugins.list;
+    every step's plugin must also be enabled. Running a workflow needs only
+    workflows.start: the saved workflow is what grants its plugins.
+    """
+
+    authorization = request.app.state.entropy_context.authorization
+    if user.id is None or not authorization.has_permission(user.id, "plugins.list"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Workflows are built from plugins: creating, editing or importing "
+                "a workflow needs the plugins.list permission."
+            ),
+        )
+
+    plugins = request.app.state.entropy_context.plugin_manager
+    for step in workflow.steps:
+        try:
+            plugin = plugins.get(step.plugin)
+        except Exception:  # noqa: BLE001 - the validator reports unknown plugins
+            continue
+        if not getattr(plugin, "enabled", True):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Step '{step.name}' uses plugin '{step.plugin}', which is disabled.",
+            )
+
+
 def _validate_format(format_name: str) -> str:
     normalized = format_name.strip().lower()
 
@@ -266,10 +314,10 @@ def validate_workflow(
     record: SessionRecord = Depends(_current_session),
     _: None = Depends(verify_csrf),
 ) -> Dict[str, object]:
-    """Validate a supplied workflow without saving it."""
+    """Validate a supplied workflow without saving it (authoring or starting a run)."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.add")
+    _require_any_permission(request, user, "workflows.add", "workflows.edit", "workflows.start")
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -306,6 +354,11 @@ def create_workflow(
 
     for path in _definition_file(payload.definition, normalized_format):
         try:
+            candidate = manager.load(path)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _check_plugin_access(request, user, candidate)
+        try:
             workflow = manager.add(path)
             result = _workflow_payload(workflow, manager, normalized_format)
         except Exception as exc:
@@ -338,6 +391,11 @@ def update_workflow(
     manager = _manager(request)
 
     for path in _definition_file(payload.definition, normalized_format):
+        try:
+            candidate = manager.load(path)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _check_plugin_access(request, user, candidate)
         _bump_if_unchanged_version(manager, name, path, normalized_format)
         try:
             workflow = manager.replace(name, path)

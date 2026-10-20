@@ -8,6 +8,7 @@ import {
     ChevronDown,
     CircleDashed,
     LayoutGrid,
+    Network,
     LoaderCircle,
     ScrollText,
     SkipForward,
@@ -25,6 +26,8 @@ import {
     type RunStep,
 } from '../../api/runs.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import RunDiagram from './RunDiagram'
+import RunOptionsSummary from './RunOptionsSummary'
 import RunStatus from './RunStatus'
 import {
     TRIGGER_LABELS,
@@ -40,7 +43,7 @@ import {
 
 const POLL_MS = 1000
 
-type View = 'progress' | 'log'
+type View = 'progress' | 'diagram' | 'log'
 type LogSource = 'events' | 'output'
 type CardStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled'
 
@@ -49,6 +52,8 @@ interface StepCard {
     index: number
     name: string
     plugin: string
+    tags: string[]
+    node: string | null
     status: CardStatus
     startedAt: string | null
     durationMs: number | null
@@ -116,11 +121,13 @@ function buildCards(
     run: Run,
 ): StepCard[] {
     const byName = new Map(steps.map((step) => [step.name, step]))
+    // Runs that recorded their plan list the steps they selected.
     const names = [
-        ...plan.filter((step) => step.enabled).map((step) => step.name),
+        ...plan.filter((step) => step.selected ?? step.enabled).map((step) => step.name),
         ...steps.map((step) => step.name).filter((name) => !plan.some((step) => step.name === name)),
     ]
     const pluginOf = new Map(plan.map((step) => [step.name, step.plugin]))
+    const planned = new Map(plan.map((step) => [step.name, step]))
 
     return names.map((name, index) => {
         const step = byName.get(name)
@@ -157,6 +164,8 @@ function buildCards(
             plugin:
                 pluginOf.get(name) ??
                 String((startEvent && payloadMetadata(startEvent).plugin) || ''),
+            tags: planned.get(name)?.tags ?? [],
+            node: planned.get(name)?.node ?? null,
             status,
             startedAt: step?.started_at ?? null,
             durationMs: step?.duration_ms ?? null,
@@ -325,6 +334,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
         [grouped, plan, run, steps],
     )
     const done = cards.filter((card) => card.status === 'completed' || card.status === 'skipped').length
+    const multiNode = (run?.options?.nodes.length ?? 1) > 1
     const progress = cards.length ? Math.round((done / cards.length) * 100) : 0
     const runFailure =
         run?.state === 'failed' ? events.find((event) => event.type === 'execution.failed') : undefined
@@ -419,8 +429,10 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                         <dd>{TRIGGER_LABELS[run.trigger] ?? run.trigger}</dd>
                     </div>
                     <div>
-                        <dt>Node</dt>
-                        <dd>{run.node}</dd>
+                        <dt>{(run.options?.nodes.length ?? 1) > 1 ? 'Nodes' : 'Node'}</dt>
+                        <dd title={run.options?.nodes.join(', ')}>
+                            {(run.options?.nodes.length ?? 1) > 1 ? run.options?.nodes.join(', ') : run.node}
+                        </dd>
                     </div>
                     <div>
                         <dt>Started</dt>
@@ -437,6 +449,8 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                         </dd>
                     </div>
                 </dl>
+
+                {run.options && <RunOptionsSummary options={run.options} />}
 
                 <div
                     className={`run-progress is-${run.state}`}
@@ -488,6 +502,15 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                         <button
                             type="button"
                             role="tab"
+                            aria-selected={view === 'diagram'}
+                            className={view === 'diagram' ? 'is-active' : ''}
+                            onClick={() => setView('diagram')}
+                        >
+                            <Network size={13} /> Diagram
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
                             aria-selected={view === 'log'}
                             className={view === 'log' ? 'is-active' : ''}
                             onClick={() => setView('log')}
@@ -530,7 +553,22 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                     )}
                 </div>
 
-                {view === 'progress' ? (
+                {view === 'diagram' ? (
+                    <RunDiagram
+                        workflow={run.target}
+                        plan={
+                            plan.length
+                                ? plan
+                                : cards.map((card) => ({ name: card.name, plugin: card.plugin, enabled: true }))
+                        }
+                        statuses={Object.fromEntries(cards.map((card) => [card.name, card.status]))}
+                        onSelect={(name) => {
+                            const card = cards.find((item) => item.name === name)
+                            setView('progress')
+                            if (card) setExpanded(card.key)
+                        }}
+                    />
+                ) : view === 'progress' ? (
                     <ol className="run-cards">
                         {cards.length === 0 && (
                             <li className="list-empty">
@@ -565,8 +603,20 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                                         </span>
                                         <span className="run-card-title">
                                             <strong>{card.name}</strong>
-                                            <span>{card.plugin}</span>
+                                            <span>
+                                                {card.plugin}
+                                                {multiNode && card.node ? ` · on ${card.node}` : ''}
+                                            </span>
                                         </span>
+                                        {card.tags.length > 0 && (
+                                            <span className="run-card-tags">
+                                                {card.tags.map((tag) => (
+                                                    <span key={tag} className="run-tag">
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </span>
+                                        )}
                                         <span className="run-card-state">
                                             {CARD_LABELS[card.status]}
                                             {duration !== null && card.status !== 'pending' && (

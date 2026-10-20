@@ -75,6 +75,19 @@ def get_dashboard(
     # Repository.list() is ordered by descending ID, newest first.
     jobs = job_manager.list()
 
+    # Segments of a multi-node run count as part of that run.
+    from lib.runs.store import RunStore
+
+    connection = context.database_manager.connection
+    RunStore(connection)  # ensures the run_metadata columns exist
+    segments = {
+        row["job_id"]
+        for row in connection.fetchall(
+            "SELECT job_id FROM run_metadata WHERE parent_job_id IS NOT NULL"
+        )
+    }
+    jobs = [job for job in jobs if job.id not in segments]
+
     counts = {state: 0 for state in ALL_STATES}
     for job in jobs:
         counts[job.state.value] += 1

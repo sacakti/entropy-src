@@ -9,6 +9,8 @@ import Dialog from '../../components/layout/Dialog'
 import { errorMessage } from './format'
 import { openRun } from './navigation'
 import ParamsEditor from './ParamsEditor'
+import RunAdvancedOptions from './RunAdvancedOptions'
+import { EMPTY_ADVANCED, runOptionsFor, type AdvancedState, type PlanCheck } from './runOptions'
 import { parseRows, rowsFor, type ParamRow } from './params'
 
 type Check = { state: 'checking' } | { state: 'valid'; summary: string } | { state: 'invalid'; error: string }
@@ -33,6 +35,9 @@ export default function StartRunDialog({
     const [check, setCheck] = useState<Check>({ state: 'checking' })
     const [starting, setStarting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [nodesLoaded, setNodesLoaded] = useState(false)
+    const [advanced, setAdvanced] = useState<AdvancedState>(EMPTY_ADVANCED)
+    const [planCheck, setPlanCheck] = useState<PlanCheck>({ state: 'checking' })
 
     useEffect(() => {
         let active = true
@@ -45,6 +50,9 @@ export default function StartRunDialog({
                 setNode(items.find((item) => item.agent_up)?.name ?? 'local')
             })
             .catch(() => undefined)
+            .finally(() => {
+                if (active) setNodesLoaded(true)
+            })
 
         const validate = async (): Promise<void> => {
             if (kind === 'workflow') {
@@ -100,6 +108,24 @@ export default function StartRunDialog({
 
     const selected = nodes.find((item) => item.name === node)
 
+    // Why "Start run" is unavailable, shown on hover and under the button row.
+    const blocker =
+        check.state === 'checking'
+            ? 'Validating…'
+            : check.state === 'invalid'
+              ? check.error
+              : !nodesLoaded
+                ? 'Loading nodes…'
+                : nodes.length === 0
+                  ? 'No runner node is available to you.'
+                  : !selected?.agent_up
+                    ? `Node '${node}' is unavailable; choose another node.`
+                    : kind === 'workflow' && planCheck.state === 'invalid'
+                      ? planCheck.error
+                      : kind === 'workflow' && planCheck.state === 'checking'
+                        ? 'Checking the steps to run…'
+                        : null
+
     const start = async () => {
         const parsed = parseRows(rows)
         if (parsed.error) {
@@ -112,7 +138,12 @@ export default function StartRunDialog({
         try {
             const { run } =
                 kind === 'workflow'
-                    ? await runsApi.startWorkflow(target, node, parsed.values)
+                    ? await runsApi.startWorkflow(
+                          target,
+                          node,
+                          parsed.values,
+                          planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {},
+                      )
                     : await runsApi.startPlugin(target, node, parsed.values)
             notify.success(`Run #${run.id} started on ${run.node}.`, { title: `${target} started` })
             onClose()
@@ -143,8 +174,12 @@ export default function StartRunDialog({
                     <button
                         type="button"
                         className="entropy-button entropy-button-primary"
-                        onClick={() => void start()}
-                        disabled={starting || check.state !== 'valid' || !selected?.agent_up}
+                        onClick={() => {
+                            if (!blocker) void start()
+                        }}
+                        aria-disabled={blocker ? true : undefined}
+                        title={blocker ?? undefined}
+                        disabled={starting}
                         data-autofocus
                     >
                         {starting ? <LoaderCircle size={15} className="entropy-spin" /> : <Play size={15} />}
@@ -218,6 +253,29 @@ export default function StartRunDialog({
                     addLabel={kind === 'workflow' ? 'Add variable' : 'Add argument'}
                 />
             </div>
+
+            {kind === 'workflow' && check.state === 'valid' && (
+                <RunAdvancedOptions
+                    target={target}
+                    node={node}
+                    nodes={nodes}
+                    value={advanced}
+                    onChange={setAdvanced}
+                    check={planCheck}
+                    onCheck={setPlanCheck}
+                />
+            )}
+
+            {blocker &&
+                !error &&
+                check.state === 'valid' &&
+                nodesLoaded &&
+                !(kind === 'workflow' && planCheck.state === 'checking') && (
+                <p className="start-run-blocker" role="note">
+                    <AlertCircle size={14} aria-hidden="true" />
+                    {blocker}
+                </p>
+            )}
 
             {error && (
                 <div className="entropy-alert entropy-alert-error" role="alert">

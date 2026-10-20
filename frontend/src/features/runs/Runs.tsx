@@ -29,7 +29,7 @@ import {
     runDuration,
     runnerName,
 } from './format'
-import { openRun } from './navigation'
+import { openRun, runsTabFromHash } from './navigation'
 
 const PAGE_SIZE = 25
 
@@ -48,7 +48,8 @@ const TAB_LABELS: { id: RunTab; label: string }[] = [
 export default function Runs() {
     const { notify, modal } = useFeedback()
 
-    const [tab, setTab] = useState<RunTab>('active')
+    // A tab in the address (`#/runs?tab=all`, e.g. from the dashboard) wins.
+    const [tab, setTab] = useState<RunTab>(() => runsTabFromHash(window.location.hash) ?? 'active')
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(0)
     const [data, setData] = useState<RunListResponse | null>(null)
@@ -61,7 +62,21 @@ export default function Runs() {
     const searchRef = useRef<HTMLInputElement>(null)
 
     // The first visit lands on Executing; with nothing running, show history.
-    const pickedTab = useRef(false)
+    const pickedTab = useRef(runsTabFromHash(window.location.hash) !== null)
+
+    // Back/Forward between tabs, or a link to another tab while mounted.
+    useEffect(() => {
+        const follow = () => {
+            const next = runsTabFromHash(window.location.hash)
+            if (next) {
+                pickedTab.current = true
+                setTab(next)
+                setPage(0)
+            }
+        }
+        window.addEventListener('popstate', follow)
+        return () => window.removeEventListener('popstate', follow)
+    }, [])
 
     const load = useCallback(async () => {
         try {
@@ -149,6 +164,8 @@ export default function Runs() {
 
     const changeTab = (next: RunTab) => {
         pickedTab.current = true
+        // Keep the tab in the address so reloads and shared links keep it.
+        window.history.replaceState(null, '', `#/runs?tab=${next}`)
         setTab(next)
         setPage(0)
         setLoading(true)

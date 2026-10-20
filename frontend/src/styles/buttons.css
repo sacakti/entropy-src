@@ -57,11 +57,11 @@
     flex-shrink: 0;
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:hover:not(:disabled, [aria-disabled="true"]) {
     transform: translateY(-1px);
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:active:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:active:not(:disabled, [aria-disabled="true"]) {
     transform: translateY(0);
 }
 
@@ -72,20 +72,20 @@
 
 /* Disabled buttons stay legible: a neutral surface with muted text instead
    of a faded accent (a half-transparent lime reads as murky olive on dark). */
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:disabled {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button:is(:disabled, [aria-disabled="true"]) {
     color: var(--app-subtle);
     cursor: not-allowed;
     transform: none;
     filter: none;
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary:disabled,
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger:disabled {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary:is(:disabled, [aria-disabled="true"]),
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger:is(:disabled, [aria-disabled="true"]) {
     background: var(--app-surface-hover);
     border-color: var(--app-line);
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-link:disabled {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-link:is(:disabled, [aria-disabled="true"]) {
     opacity: var(--button-disabled-opacity);
 }
 
@@ -96,7 +96,7 @@
     border-color: var(--button-primary-bg);
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary:hover:not(:disabled, [aria-disabled="true"]) {
     filter: brightness(0.94);
 }
 
@@ -107,7 +107,7 @@
     border-color: var(--button-secondary-border);
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-secondary:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-secondary:hover:not(:disabled, [aria-disabled="true"]) {
     background: var(--app-surface-hover);
     border-color: var(--app-muted);
 }
@@ -119,7 +119,7 @@
     border-color: var(--button-danger-bg);
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger:hover:not(:disabled, [aria-disabled="true"]) {
     background: var(--button-danger-hover);
     border-color: var(--button-danger-hover);
 }
@@ -131,7 +131,7 @@
     border-color: transparent;
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-ghost:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-ghost:hover:not(:disabled, [aria-disabled="true"]) {
     color: var(--app-text);
     background: var(--app-surface-hover);
     border-color: var(--app-line);
@@ -144,7 +144,7 @@
     border-color: var(--button-secondary-border);
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger-quiet:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-danger-quiet:hover:not(:disabled, [aria-disabled="true"]) {
     color: var(--app-danger);
     background: var(--app-danger-soft);
     border-color: var(--app-danger-border);
@@ -160,7 +160,7 @@
     font-weight: 600;
 }
 
-:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-link:hover:not(:disabled) {
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-link:hover:not(:disabled, [aria-disabled="true"]) {
     text-decoration: underline;
     text-underline-offset: 3px;
     transform: none;

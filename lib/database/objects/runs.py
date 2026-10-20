@@ -295,6 +295,35 @@ def upgrade_nodes_table(
             connection.execute(f"ALTER TABLE nodes ADD COLUMN {name} {declaration}")
 
 
+# Columns added to `run_metadata` (and its archive) after it was created:
+# - options: the run's plan (selected/skipped steps, tags, node per step);
+# - parent_job_id: set on each segment of a run that spans several nodes;
+# - heartbeat_at: set on such a run while the main node coordinates it.
+RUN_METADATA_COLUMNS = (
+    ("options", "TEXT"),
+    ("parent_job_id", "INTEGER"),
+    ("heartbeat_at", "TEXT"),
+)
+
+
+def upgrade_run_metadata_table(
+    connection: DatabaseConnection,
+) -> None:
+    """Add run_metadata columns that older tables lack."""
+
+    for table in ("run_metadata", "run_metadata_archive"):
+        existing = {row["name"] for row in connection.fetchall(f"PRAGMA table_info({table})")}
+        if not existing:
+            continue
+        for name, declaration in RUN_METADATA_COLUMNS:
+            if name not in existing:
+                connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {declaration}")
+
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_run_metadata_parent ON run_metadata (parent_job_id)"
+    )
+
+
 RUN_TABLES = (
     RunMetadataTable,
     NodesTable,
@@ -316,3 +345,4 @@ def create_run_tables(
         table().create(connection)
 
     upgrade_nodes_table(connection)
+    upgrade_run_metadata_table(connection)

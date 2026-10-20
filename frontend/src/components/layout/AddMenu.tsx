@@ -10,12 +10,15 @@ export default function AddMenu({
     onImport,
     createLabel = 'Create new',
     importLabel = 'Import…',
+    disabledReason,
 }: {
     label: string
     onCreate: () => void
     onImport: () => void
     createLabel?: string
     importLabel?: string
+    /** Why the user may not add items; shown on hover instead of opening the menu. */
+    disabledReason?: string | null
 }) {
     const triggerRef = useRef<HTMLButtonElement>(null)
     const [open, setOpen] = useState(false)
@@ -29,8 +32,12 @@ export default function AddMenu({
                 aria-label={label}
                 aria-haspopup="menu"
                 aria-expanded={open}
-                title={`${label} (Ctrl+N)`}
-                onClick={() => setOpen((value) => !value)}
+                // aria-disabled rather than disabled, so the reason shows on hover.
+                aria-disabled={disabledReason ? true : undefined}
+                title={disabledReason ?? `${label} (Ctrl+N)`}
+                onClick={() => {
+                    if (!disabledReason) setOpen((value) => !value)
+                }}
             >
                 <Plus size={20} />
             </button>

@@ -31,6 +31,40 @@ export interface Run {
     target: string
     trigger: 'manual' | 'schedule' | 'retry' | 'cli'
     schedule_id: number | null
+    /** The run's plan when it started (newer runs only). */
+    options?: RunOptionsSnapshot | null
+    /** Set on a segment of a multi-node run. */
+    parent_job_id?: number | null
+    /** Runs steps on several nodes, one segment after another. */
+    coordinated?: boolean
+}
+
+export interface StepDependency {
+    step: string
+    output: string
+}
+
+export interface RunSegment {
+    node: string
+    steps: string[]
+}
+
+/** What a run recorded about its plan (variable names only, no values). */
+export interface RunOptionsSnapshot {
+    default_node: string
+    tags: string[]
+    selected: string[]
+    skipped: string[]
+    nodes: string[]
+    segments: RunSegment[]
+    variables: string[]
+    steps: PlannedStep[]
+}
+
+export interface RunOptions {
+    steps?: string[]
+    tags?: string[]
+    step_nodes?: Record<string, string>
 }
 
 export interface RunStep {
@@ -46,6 +80,12 @@ export interface PlannedStep {
     name: string
     plugin: string
     enabled: boolean
+    // Present on runs that recorded their plan.
+    tags?: string[]
+    selected?: boolean
+    skip_reason?: 'disabled' | 'tag filter' | 'not selected' | null
+    node?: string
+    depends_on?: StepDependency[]
 }
 
 export interface RunEvent {
@@ -134,10 +174,23 @@ export const runsApi = {
         name: string,
         node: string,
         variables: Record<string, unknown> = {},
+        options: RunOptions = {},
     ): Promise<{ run: Run }> {
         return apiRequest(
             `/api/workflows/${encodeURIComponent(name)}/run`,
-            json('POST', { node, variables }),
+            json('POST', { node, variables, ...options }),
+        )
+    },
+
+    /** The steps, nodes and segments a run with these options would follow. */
+    planWorkflow(
+        name: string,
+        node: string,
+        options: RunOptions = {},
+    ): Promise<{ valid: true; plan: RunOptionsSnapshot } | { valid: false; error: string }> {
+        return apiRequest(
+            `/api/workflows/${encodeURIComponent(name)}/plan`,
+            json('POST', { node, ...options }),
         )
     },
 

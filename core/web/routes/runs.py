@@ -23,10 +23,20 @@ router = APIRouter(tags=["runs"])
 SessionRecord = Tuple[Session, str, User]
 
 
-class StartRunRequest(BaseModel):
-    """Where to run and with which inputs."""
+class RunOptionsRequest(BaseModel):
+    """Which steps run and where: by default every enabled step on `node`."""
 
     node: str = "local"
+    # Explicit selection (None: all enabled steps), narrowed by tags.
+    steps: Optional[List[str]] = Field(default=None, max_length=500)
+    tags: List[str] = Field(default_factory=list, max_length=100)
+    # Step name -> node, for steps that run elsewhere than `node`.
+    step_nodes: Dict[str, str] = Field(default_factory=dict)
+
+
+class StartRunRequest(RunOptionsRequest):
+    """Where to run and with which inputs."""
+
     variables: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -76,6 +86,11 @@ def _planned_steps(request: Request, run: Dict[str, Any]) -> List[Dict[str, Any]
 
     if run["kind"] == "plugin":
         return [{"name": run["target"], "plugin": run["target"], "enabled": True}]
+
+    # Runs record their own plan: the steps as they were when it started.
+    recorded = (run.get("options") or {}).get("steps")
+    if recorded:
+        return recorded
 
     manager = request.app.state.entropy_context.workflow_manager
     try:
@@ -164,6 +179,17 @@ def run_events(
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
 
+    if run["coordinated"]:
+        # The run's own messages and those of its segments, in order.
+        merged = service.store.events(service.store.job_ids(job_id), after, limit)
+        _no_store(response)
+        return {
+            "run": run,
+            "steps": service.store.steps(job_id),
+            "events": merged,
+            "cursor": merged[-1]["id"] if merged else after,
+        }
+
     events = request.app.state.entropy_context.workflow_job_manager.events(
         job_id, after=after, limit=limit
     )
@@ -231,12 +257,49 @@ def run_workflow(
 
     try:
         run = _service(request).start_workflow(
-            current, name, node=payload.node, variables=payload.variables
+            current,
+            name,
+            node=payload.node,
+            variables=payload.variables,
+            steps=payload.steps,
+            tags=payload.tags,
+            step_nodes=payload.step_nodes,
         )
     except RunError as exc:
         raise _http(exc) from exc
 
     return {"run": run}
+
+
+@router.post("/api/workflows/{name}/plan", dependencies=[Depends(verify_csrf)])
+def plan_workflow_run(
+    name: str,
+    payload: RunOptionsRequest,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Which steps a run with these options would run, where, in which segments."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.start")
+
+    try:
+        _, plan = _service(request).plan(
+            name,
+            node=payload.node,
+            steps=payload.steps,
+            tags=payload.tags,
+            step_nodes=payload.step_nodes,
+        )
+    except RunError as exc:
+        if exc.status != 422:
+            raise _http(exc) from exc
+        _no_store(response)
+        return {"valid": False, "error": str(exc)}
+
+    _no_store(response)
+    return {"valid": True, "plan": plan.snapshot()}
 
 
 @router.post(

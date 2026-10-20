@@ -143,3 +143,64 @@ On the node itself: `~/.entropy-agent/bin/agent-ctl status`, and
   permissions; runs on the node can do what that user can.
 * Plugins are shipped to nodes from the main node and verified by
   SHA-256 before installation.
+
+---
+
+# Run options: steps, tags and a node per step
+
+The run dialog's **Advanced** section (collapsed by default) narrows and
+spreads a workflow run:
+
+| Option | Effect |
+|---|---|
+| Only steps tagged … | Runs only enabled steps carrying any of the chosen tags. |
+| Step checkboxes | Leave steps out of this run. |
+| Node per step | Runs that step on another node; unset steps use the run's node. |
+
+Steps always run one after another in workflow order. The server checks the
+selection before starting: a selected step that reads
+`${steps.<step>.outputs.<key>}` from a step that is not selected is refused,
+with the reason shown in the dialog (`POST /api/workflows/{name}/plan`
+previews the plan; `POST /api/workflows/{name}/run` accepts `steps`,
+`tags` and `step_nodes`).
+
+## Runs across several nodes
+
+Consecutive steps on the same node form a **segment**. A run with one
+segment is an ordinary job (with a trimmed definition when steps were left
+out). A run with several segments is coordinated by the main node
+(`lib/runs/coordinator.py`):
+
+1. The run is a job with no process of its own (`run_metadata.heartbeat_at`
+   marks it); each segment is an ordinary job on its node, linked by
+   `run_metadata.parent_job_id` and hidden from run lists and counts.
+2. Each segment receives the workflow reduced to its steps. References to
+   outputs of earlier segments are replaced by the values those steps
+   produced (taken from their `plugin_result` events), so agents need no
+   changes to take part.
+3. A segment that fails or is stopped ends the run; stopping the run stops
+   the running segment. If the main node stops following the run (no
+   heartbeat for 60 s, e.g. after a restart), reconcile fails it.
+
+The run screen merges the segments' events and logs, and records the plan
+the run used (`run_metadata.options`: tags, selected and skipped steps,
+node per step, dependencies, input names but never input values). It shows
+the plan above the progress cards, tags on each card, and a **Diagram**
+view: a draggable bubble per step, dashed arrows for execution order and
+solid arrows for the step outputs each step reads.
+
+# Permissions for workflows and plugins
+
+| Action | Needs |
+|---|---|
+| View workflows and runs | `workflows.list` |
+| Create, import, edit a workflow | `workflows.add` / `workflows.edit` **and** `plugins.list`; every step's plugin must be installed and enabled |
+| Delete a workflow | `workflows.edit` |
+| Run a workflow | `workflows.start` |
+| Run a plugin directly (test run) | `plugins.run` |
+
+A saved workflow is what grants its plugins: running it needs no plugin
+permission, the way a CI job's runner does not need rights to every tool
+the job uses. Choosing plugins is the privileged act, so authoring needs
+`plugins.list`. The Workflows page disables what the user may not do and
+says why on hover; the run dialog explains why **Start run** is unavailable.

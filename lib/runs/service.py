@@ -8,6 +8,7 @@ process, which revokes it when the run ends.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -20,6 +21,7 @@ from lib.auth.manager import SESSION_TOKEN_ENV
 from lib.models.workflow import WorkflowExecutionOptions
 
 from .nodes import NodeStore, agent_up
+from .plan import PlanError, RunPlan, build_plan
 from .store import LOCAL_NODE, RunStore
 
 # Delegated sessions outlive any reasonable run; the worker revokes early.
@@ -27,6 +29,11 @@ RUN_SESSION_HOURS = 72
 
 # A job whose worker never attached is considered lost after this long.
 QUEUED_GRACE = timedelta(minutes=2)
+
+# A coordinated (multi-node) run whose main node stopped following it.
+HEARTBEAT_GRACE = timedelta(seconds=60)
+
+ACTIVE_STATES = ("queued", "starting", "running", "paused")
 
 # Plugin bundle digests, memoised per directory (see plugin_digest).
 _DIGESTS: Dict[str, Tuple[float, str]] = {}
@@ -189,6 +196,69 @@ class RunService:
             sessions.revoke(session.token)
             raise
 
+    def launch(
+        self,
+        user: Any,
+        node: Dict[str, Any],
+        workflow: Any,
+        variables: Optional[Dict[str, Any]],
+        *,
+        registered: bool = False,
+    ) -> int:
+        """
+        Start `workflow` on `node`; returns the job id. A registered workflow
+        runs by name; a trimmed one (a plan's segment) from a definition file.
+        """
+
+        manager = self._context.workflow_manager
+
+        if node["kind"] != "local":
+            return self._dispatch(
+                user,
+                node,
+                name=workflow.name,
+                definition=manager.serialize(workflow, "json"),
+                steps=[step.plugin for step in workflow.steps if step.enabled],
+                variables=variables,
+            )
+
+        if registered:
+            return self._start(user, name=workflow.name, variables=variables).require_id()
+
+        directory = Path(self._context.bootstrap.project_root) / "tmp" / "run-definitions"
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"{uuid.uuid4().hex}.json"
+        path.write_text(manager.serialize(workflow, "json"), encoding="utf-8")
+        return self._start(user, file=path, variables=variables).require_id()
+
+    def plan(
+        self,
+        name: str,
+        *,
+        node: str = "local",
+        steps: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        step_nodes: Optional[Dict[str, str]] = None,
+    ) -> Tuple[Any, RunPlan]:
+        """The workflow and the plan a run with these options would follow."""
+
+        try:
+            workflow = self._context.workflow_manager.get(name)
+        except Exception as exc:
+            raise RunError(str(exc) or f"Workflow '{name}' does not exist.", 404) from exc
+
+        try:
+            plan = build_plan(
+                workflow,
+                default_node=node or "local",
+                steps=steps,
+                tags=tags,
+                step_nodes=step_nodes,
+            )
+        except PlanError as exc:
+            raise RunError(str(exc), 422) from exc
+        return workflow, plan
+
     def start_workflow(
         self,
         user: Any,
@@ -196,24 +266,39 @@ class RunService:
         *,
         node: str = "local",
         variables: Optional[Dict[str, Any]] = None,
+        steps: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        step_nodes: Optional[Dict[str, str]] = None,
         trigger: str = "manual",
         schedule_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        target = self._executable_node(node)
+        workflow, plan = self.plan(name, node=node, steps=steps, tags=tags, step_nodes=step_nodes)
+        nodes = {item: self._executable_node(item) for item in plan.nodes}
+        segments = plan.segments
+        options = plan.snapshot(variables)
 
+        if len(segments) > 1:
+            from .coordinator import Coordinator
+
+            return Coordinator.begin(
+                self,
+                user,
+                workflow,
+                plan,
+                variables,
+                trigger=trigger,
+                schedule_id=schedule_id,
+            )
+
+        target = nodes[segments[0]["node"]]
         try:
-            if target["kind"] == "local":
-                job_id = self._start(user, name=name, variables=variables).require_id()
+            if plan.trivial:
+                job_id = self.launch(user, target, workflow, variables, registered=True)
             else:
-                manager = self._context.workflow_manager
-                workflow = manager.get(name)
-                job_id = self._dispatch(
-                    user,
-                    target,
-                    name=workflow.name,
-                    definition=manager.serialize(workflow, "json"),
-                    steps=[step.plugin for step in workflow.steps if step.enabled],
-                    variables=variables,
+                from .plan import segment_workflow
+
+                job_id = self.launch(
+                    user, target, segment_workflow(workflow, segments[0]["steps"]), variables
                 )
         except RunError:
             raise
@@ -227,6 +312,7 @@ class RunService:
             target=name,
             trigger=trigger,
             schedule_id=schedule_id,
+            options=options,
         )
         return self.store.get(job_id) or {}
 
@@ -324,10 +410,20 @@ class RunService:
         if run is None:
             raise RunError(f"Run #{job_id} does not exist.", 404)
 
-        if run["state"] not in ("queued", "starting", "running", "paused"):
+        if run["state"] not in ACTIVE_STATES:
             raise RunError(f"Run #{job_id} is not running.", 409)
 
         jobs = self._context.workflow_job_manager
+
+        if run["coordinated"]:
+            # Cancelling the run stops its coordinator from starting more
+            # segments; the segment running now is stopped like any run.
+            jobs.cancel(job_id)
+            for child in self.store.children(job_id):
+                if child["state"] in ACTIVE_STATES:
+                    with contextlib.suppress(RunError):
+                        self.stop(child["id"])
+            return self.store.get(job_id) or run
 
         if run["node"] != LOCAL_NODE:
             from lib.nodes.dispatch import NodeDispatcher
@@ -352,6 +448,10 @@ class RunService:
         return root / "tmp" / f"workflow-worker-{job_id}.log"
 
     def log(self, job_id: int, offset: int = 0, limit: int = 256_000) -> Dict[str, Any]:
+        children = self.store.children(job_id)
+        if children:
+            return self._combined_log(children, offset, limit)
+
         path = self.log_path(job_id)
 
         if not path.exists():
@@ -370,6 +470,28 @@ class RunService:
             "text": data.decode("utf-8", errors="replace"),
         }
 
+    def _combined_log(
+        self, children: List[Dict[str, Any]], offset: int, limit: int
+    ) -> Dict[str, Any]:
+        """A coordinated run's output: its segments' logs one after another."""
+
+        parts: List[bytes] = []
+        for index, child in enumerate(children, start=1):
+            parts.append(
+                f"\n=== Segment {index} on {child['node']} (job #{child['id']}) ===\n".encode()
+            )
+            path = self.log_path(child["id"])
+            if path.exists():
+                parts.append(path.read_bytes())
+        data = b"".join(parts)
+        offset = max(0, min(offset, len(data)))
+        chunk = data[offset : offset + limit]
+        return {
+            "offset": offset + len(chunk),
+            "size": len(data),
+            "text": chunk.decode("utf-8", errors="replace"),
+        }
+
     # ------------------------------------------------------------------
     # Reconcile
     # ------------------------------------------------------------------
@@ -386,6 +508,11 @@ class RunService:
         fixed = 0
 
         for run in self.store.active():
+            if run["coordinated"]:
+                if self._coordinator_lost(run):
+                    fixed += 1
+                continue
+
             # Remote runs are reconciled against their node's heartbeat.
             if run["node"] != LOCAL_NODE or _pid_alive(run["pid"]):
                 continue
@@ -420,3 +547,30 @@ class RunService:
                 continue
 
         return fixed
+
+    def _coordinator_lost(self, run: Dict[str, Any]) -> bool:
+        """Fail a multi-node run whose main node stopped following it."""
+
+        beat = _parse(self.store.heartbeat_at(run["id"]))
+        if beat is not None and datetime.now(timezone.utc) - beat < HEARTBEAT_GRACE:
+            return False
+
+        jobs = self._context.workflow_job_manager
+        try:
+            jobs.event(
+                job_id=run["id"],
+                execution_id=run["execution_id"],
+                event_type="message",
+                source="entropy.runs",
+                level="error",
+                message="The main node stopped coordinating this run (it restarted?).",
+            )
+            jobs.fail(run["id"], 1)
+        except Exception:  # noqa: BLE001 - keep reconciling the rest
+            return False
+
+        for child in self.store.children(run["id"]):
+            if child["state"] in ACTIVE_STATES:
+                with contextlib.suppress(RunError):
+                    self.stop(child["id"])
+        return True

@@ -4,6 +4,7 @@ Queries over workflow jobs joined with where and why they ran.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -87,7 +88,20 @@ def run_payload(row: Any) -> Dict[str, Any]:
         "target": value("target") or row["workflow"],
         "trigger": value("trigger") or "cli",
         "schedule_id": value("schedule_id"),
+        "options": _json(value("options")),
+        "parent_job_id": value("parent_job_id"),
+        # Spans several nodes: the main node runs its segments one by one.
+        "coordinated": bool(value("heartbeat_at")),
     }
+
+
+def _json(text: Optional[str]) -> Any:
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except ValueError:
+        return None
 
 
 class RunStore:
@@ -110,23 +124,114 @@ class RunStore:
         target: str,
         trigger: str,
         schedule_id: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None,
+        parent_job_id: Optional[int] = None,
+        coordinated: bool = False,
     ) -> None:
         with self.connection.transaction():
             self.connection.execute(
                 """
                 INSERT OR REPLACE INTO run_metadata
-                (job_id, node, kind, target, trigger, schedule_id, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (job_id, node, kind, target, trigger, schedule_id, created_at,
+                 options, parent_job_id, heartbeat_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (job_id, node, kind, target, trigger, schedule_id, utcnow()),
+                (
+                    job_id,
+                    node,
+                    kind,
+                    target,
+                    trigger,
+                    schedule_id,
+                    utcnow(),
+                    json.dumps(options) if options is not None else None,
+                    parent_job_id,
+                    utcnow() if coordinated else None,
+                ),
             )
+
+    def heartbeat(self, job_id: int) -> None:
+        """A coordinated run's main node is still following it."""
+
+        with self.connection.transaction():
+            self.connection.execute(
+                "UPDATE run_metadata SET heartbeat_at = ? WHERE job_id = ?",
+                (utcnow(), job_id),
+            )
+
+    def heartbeat_at(self, job_id: int) -> Optional[str]:
+        row = self.connection.fetchone(
+            "SELECT heartbeat_at FROM run_metadata WHERE job_id = ?", (job_id,)
+        )
+        return row["heartbeat_at"] if row is not None else None
+
+    def children(self, job_id: int) -> List[Dict[str, Any]]:
+        """The segments of a coordinated run, in order."""
+
+        rows = self.connection.fetchall(
+            self._SELECT + " WHERE m.parent_job_id = ? ORDER BY j.id",
+            (job_id,),
+        )
+        return [run_payload(row) for row in rows]
+
+    def job_ids(self, job_id: int) -> List[int]:
+        """The run and its segments: whose events and logs make up the run."""
+
+        return [job_id] + [child["id"] for child in self.children(job_id)]
+
+    def step_outputs(self, job_id: int) -> Dict[str, Dict[str, Any]]:
+        """Outputs of each step of a job, from its plugin results."""
+
+        rows = self.connection.fetchall(
+            """
+            SELECT node_name, payload FROM workflow_events
+            WHERE job_id = ? AND event_type = 'plugin_result' AND node_type = 'step'
+            ORDER BY id
+            """,
+            (job_id,),
+        )
+        outputs: Dict[str, Dict[str, Any]] = {}
+        for row in rows:
+            payload = _json(row["payload"]) or {}
+            result = payload.get("result") or {}
+            outputs[row["node_name"]] = dict(result.get("outputs") or {})
+        return outputs
+
+    def events(self, job_ids: List[int], after: Optional[int], limit: int) -> List[Dict[str, Any]]:
+        """Events of several jobs merged in order (ids are global)."""
+
+        marks = ", ".join("?" for _ in job_ids)
+        rows = self.connection.fetchall(
+            f"""
+            SELECT * FROM workflow_events
+            WHERE job_id IN ({marks}) AND id > ?
+            ORDER BY id LIMIT ?
+            """,  # nosec B608 - placeholders only
+            tuple(job_ids) + (after or 0, limit),
+        )
+        return [
+            {
+                "id": row["id"],
+                "type": row["event_type"],
+                "source": row["source"],
+                "level": row["level"],
+                "message": row["message"],
+                "node_type": row["node_type"],
+                "node_id": row["node_id"],
+                "node_name": row["node_name"],
+                "payload": _json(row["payload"]),
+                "created_at": iso_utc(row["created_at"]),
+            }
+            for row in rows
+        ]
 
     # ------------------------------------------------------------------
     # Queries
     # ------------------------------------------------------------------
 
     _SELECT = """
-        SELECT j.*, m.node, m.kind, m.target, m.trigger, m.schedule_id
+        SELECT j.*, m.node, m.kind, m.target, m.trigger, m.schedule_id,
+               m.options, m.parent_job_id, m.heartbeat_at
         FROM workflow_jobs j
         LEFT JOIN run_metadata m ON m.job_id = j.id
     """
@@ -148,7 +253,8 @@ class RunStore:
         limit: int = 50,
         offset: int = 0,
     ) -> Tuple[List[Dict[str, Any]], int]:
-        where: List[str] = []
+        # Segments of a multi-node run show up as part of that run.
+        where: List[str] = ["m.parent_job_id IS NULL"]
         parameters: List[Any] = []
 
         states = RUN_TABS.get(tab)
@@ -189,7 +295,9 @@ class RunStore:
 
     def counts(self) -> Dict[str, int]:
         rows = self.connection.fetchall(
-            "SELECT state, COUNT(*) AS n FROM workflow_jobs GROUP BY state",
+            "SELECT j.state, COUNT(*) AS n FROM workflow_jobs j"
+            " LEFT JOIN run_metadata m ON m.job_id = j.id"
+            " WHERE m.parent_job_id IS NULL GROUP BY j.state",
         )
         by_state = {row["state"]: int(row["n"]) for row in rows}
 
@@ -213,7 +321,8 @@ class RunStore:
         row = self.connection.fetchone(
             "SELECT COUNT(*) AS n FROM workflow_jobs j"
             " LEFT JOIN run_metadata m ON m.job_id = j.id"
-            " WHERE COALESCE(m.node, 'local') = ? AND j.state IN ("
+            # A coordinated run occupies no node itself; its segments do.
+            " WHERE COALESCE(m.node, 'local') = ? AND m.heartbeat_at IS NULL AND j.state IN ("
             + ", ".join("?" for _ in ACTIVE_STATES)
             + ")",
             (node,) + ACTIVE_STATES,
@@ -222,21 +331,22 @@ class RunStore:
 
     def steps(self, job_id: int) -> List[Dict[str, Any]]:
         """
-        Step progress derived from lifecycle events, in execution order.
+        Step progress derived from lifecycle events, in execution order
+        (across the segments of a coordinated run).
         """
 
+        job_ids = self.job_ids(job_id)
+        marks = ", ".join("?" for _ in job_ids)
         rows = self.connection.fetchall(
-            """
+            f"""
             SELECT id, event_type, node_id, node_name, payload, created_at
             FROM workflow_events
-            WHERE job_id = ? AND node_type = 'step'
+            WHERE job_id IN ({marks}) AND node_type = 'step'
               AND event_type LIKE 'step.%'
             ORDER BY id
-            """,
-            (job_id,),
+            """,  # nosec B608 - placeholders only
+            tuple(job_ids),
         )
-
-        import json
 
         steps: Dict[str, Dict[str, Any]] = {}
 
