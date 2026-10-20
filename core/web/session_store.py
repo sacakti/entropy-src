@@ -36,10 +36,23 @@ class WebSessionStore:
             self._configuration.get("auth.session.timeout", 8)
         ) * 60 * 60
 
-    def login(self, username: str, password: str) -> Tuple[Session, str]:
+    @property
+    def cli_timeout_seconds(self) -> int:
+        """Lifetime of command line tokens (hours in auth.cli.timeout, default a week)."""
+
+        return int(self._configuration.get("auth.cli.timeout", 168)) * 60 * 60
+
+    def login(
+        self, username: str, password: str, *, seconds: Optional[int] = None
+    ) -> Tuple[Session, str]:
         """Authenticate credentials and create a separate browser session."""
 
         user = self._authentication.authenticate(username, password)
+        return self.issue(user, seconds=seconds)
+
+    def issue(self, user: User, *, seconds: Optional[int] = None) -> Tuple[Session, str]:
+        """A new session for an already authenticated user (e.g. a CLI token)."""
+
         assert user.id is not None
 
         now = datetime.now()
@@ -52,7 +65,7 @@ class WebSessionStore:
             full_name=user.full_name,
             token=token,
             created_at=now,
-            expires_at=now + timedelta(seconds=self.timeout_seconds),
+            expires_at=now + timedelta(seconds=seconds or self.timeout_seconds),
         )
 
         self._executor.mkdir(

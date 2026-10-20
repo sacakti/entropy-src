@@ -54,6 +54,7 @@ class NodeSetupRequest(Credentials):
     install_dir: str = Field(default="~/.entropy-agent", max_length=255)
     max_jobs: int = 2
     description: str = Field(default="", max_length=500)
+    install_cli: bool = True
 
 
 class NodeRemoveRequest(Credentials):
@@ -347,6 +348,7 @@ def _setup(
         install_dir=payload.install_dir.strip(),
         max_jobs=payload.max_jobs,
         description=payload.description.strip(),
+        install_cli=payload.install_cli,
     )
     # The request body (and its secrets) is no longer referenced past here.
     payload.password = payload.private_key = payload.passphrase = None

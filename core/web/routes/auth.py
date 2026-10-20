@@ -6,7 +6,7 @@ Browser authentication endpoints.
 from __future__ import annotations
 
 import secrets
-from typing import Tuple
+from typing import Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, ConfigDict
@@ -40,11 +40,21 @@ def _cookie_options(request: Request) -> dict:
     }
 
 
+def bearer_token(request: Request) -> Optional[str]:
+    """The token of an `Authorization: Bearer` header (command line clients)."""
+
+    header = request.headers.get("authorization") or ""
+    if header[:7].lower() == "bearer ":
+        return header[7:].strip() or None
+    return None
+
+
 def _current_session(
     request: Request,
 ) -> Tuple[Session, str, User]:
     store = request.app.state.web_session_store
-    record = store.get(request.cookies.get(SESSION_COOKIE))
+    # Browsers send the session cookie; the ent command line a bearer token.
+    record = store.get(bearer_token(request) or request.cookies.get(SESSION_COOKIE))
 
     if record is None:
         raise HTTPException(
@@ -84,6 +94,11 @@ async def csrf_token(request: Request, response: Response) -> dict:
 
 def verify_csrf(request: Request) -> None:
     """Validate the browser's double-submit CSRF token."""
+
+    # Cross-site requests cannot set an Authorization header, so bearer
+    # requests need no CSRF token; the token itself is checked on use.
+    if bearer_token(request):
+        return
 
     cookie_token = request.cookies.get(CSRF_COOKIE)
     header_token = request.headers.get("X-CSRF-Token")
@@ -246,3 +261,71 @@ async def change_password(
         ) from None
 
     return {"message": "Password changed successfully."}
+
+
+# ----------------------------------------------------------------------
+# Command line tokens
+# ----------------------------------------------------------------------
+
+
+class TokenRequest(BaseModel):
+    username: str
+    password: str
+
+
+def _token_payload(session: Session) -> dict:
+    return {
+        "token": session.token,
+        "expires_at": session.expires_at.isoformat(),
+        "user": {
+            "id": session.user_id,
+            "username": session.username,
+            "full_name": session.full_name,
+        },
+    }
+
+
+@router.post("/token")
+async def create_token(payload: TokenRequest, request: Request, response: Response) -> dict:
+    """Exchange a username and password for a command line token (`ent login`)."""
+
+    store = request.app.state.web_session_store
+
+    try:
+        session, _ = store.login(
+            payload.username, payload.password, seconds=store.cli_timeout_seconds
+        )
+    except (AuthenticationError, UserInactiveError):
+        raise HTTPException(status_code=401, detail="Invalid username or password.") from None
+
+    response.headers["Cache-Control"] = "no-store"
+    return _token_payload(session)
+
+
+@router.post("/cli-token", dependencies=[Depends(verify_csrf)])
+async def create_cli_token(
+    request: Request,
+    response: Response,
+    record: Tuple[Session, str, User] = Depends(_current_session),
+) -> dict:
+    """A command line token for the signed-in user ("Copy login command")."""
+
+    _, _, user = record
+    store = request.app.state.web_session_store
+    session, _ = store.issue(user, seconds=store.cli_timeout_seconds)
+
+    response.headers["Cache-Control"] = "no-store"
+    return _token_payload(session)
+
+
+@router.delete("/token")
+async def revoke_token(request: Request, response: Response) -> dict:
+    """Revoke the bearer token of this request (`ent logout`)."""
+
+    token = bearer_token(request)
+    if not token:
+        raise HTTPException(status_code=400, detail="Send the token as a Bearer token.")
+
+    request.app.state.web_session_store.logout(token)
+    response.headers["Cache-Control"] = "no-store"
+    return {"revoked": True}

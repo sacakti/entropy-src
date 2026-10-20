@@ -283,6 +283,8 @@ export interface NodeSetupInput extends NodeCredentials {
     install_dir: string
     max_jobs: number
     description: string
+    /** Also install the `ent` command line, preset to this server. */
+    install_cli: boolean
 }
 
 export interface ProvisioningRecord {

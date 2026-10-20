@@ -75,6 +75,8 @@ class ProvisionRequest:
     max_jobs: int = 2
     description: str = ""
     forget_host_key: bool = False
+    # Also install the `ent` command line, preset to this main node.
+    install_cli: bool = True
 
     def validate(self) -> None:
         if not valid_node_name(self.name) or self.name == "local":
@@ -104,6 +106,15 @@ class ProvisionRequest:
 
     def forget_secrets(self) -> None:
         self.password = self.private_key = self.passphrase = None
+
+
+CLI_MARKER = "entropy-cli wrapper"
+
+
+def url_netloc(url: str) -> str:
+    from urllib.parse import urlsplit
+
+    return urlsplit(url).netloc or url
 
 
 def _q(value: str) -> str:
@@ -302,6 +313,75 @@ class Provisioner:
         raise ProvisionError(
             f"The node cannot reach {request.server_url}. {message}"
             + (f"\n(Node reported: {detail})" if detail else "")
+        )
+
+    def _install_cli(
+        self,
+        ssh: SSHSession,
+        request: ProvisionRequest,
+        python: str,
+        base: str,
+        ca_file: Optional[str],
+        home: str,
+    ) -> None:
+        """
+        `ent` on the node: the remote command line from the agent's runtime,
+        with a context for this main node (the user still logs in).
+        """
+
+        wrapper = (
+            "#!/bin/sh\n"
+            f"# {CLI_MARKER}: Entropy command line for remote servers "
+            f"(installed with node '{request.name}', {base}).\n"
+            f"exec {_q(python)} -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); "
+            "from lib.remote_cli.commands import main; sys.exit(main())' "
+            f'{_q(base + "/runtime")} "$@"\n'
+        )
+        rc, out, _ = ssh.run(
+            'target="$HOME/.local/bin/ent"; '
+            f'if [ -e "$target" ] && ! grep -q {_q(CLI_MARKER)} "$target" 2>/dev/null; '
+            "then echo foreign; fi"
+        )
+        if "foreign" in out:
+            self.log(
+                "~/.local/bin/ent already exists on the node and is not the remote command "
+                "line (an Entropy installation?); left it alone. Install the client under "
+                f"another name: curl -fsSL {request.server_url.rstrip('/')}/api/cli/install.sh "
+                "| ENT_NAME=entr sh",
+                "warning",
+            )
+        else:
+            ssh.check('mkdir -p "$HOME/.local/bin"', what="Preparing ~/.local/bin")
+            ssh.write(wrapper, f"{home}/.local/bin/ent", mode="755")
+
+        context = {
+            "server": request.server_url.rstrip("/"),
+            "verify_tls": bool(request.verify_tls),
+            "ca_file": ca_file,
+        }
+        script = (
+            f"{_q(python)} - <<'ENTROPY_CLI'\n"
+            "import json, os, pathlib\n"
+            "path = pathlib.Path.home() / '.entropy-cli' / 'config.json'\n"
+            "path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)\n"
+            "try:\n"
+            "    data = json.loads(path.read_text())\n"
+            "except Exception:\n"
+            "    data = {'current': None, 'contexts': {}}\n"
+            f"values = json.loads({json.dumps(json.dumps(context))})\n"
+            f"name = {json.dumps(url_netloc(request.server_url))}\n"
+            "data.setdefault('contexts', {}).setdefault(name, {}).update(values)\n"
+            "data['current'] = data.get('current') or name\n"
+            "fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)\n"
+            "with os.fdopen(fd, 'w') as handle:\n"
+            "    json.dump(data, handle, indent=2)\n"
+            "ENTROPY_CLI\n"
+        )
+        ssh.check(script, what="Configuring the ent command line")
+        self.log(
+            f"Installed the ent command line, set to {context['server']}: on the node, run "
+            "'ent login' (add ~/.local/bin to PATH if needed).",
+            "success",
         )
 
     def _detect(self, ssh: SSHSession) -> Dict[str, Any]:
@@ -528,6 +608,9 @@ df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print "free_kb=" $4}'
             del token
             self.log("Issued a new node token (any previous token is revoked).")
 
+            if request.install_cli:
+                self._install_cli(ssh, request, python, base, ca_file, facts["home"])
+
             # Launcher and supervisor
             unit = f"entropy-agent-{request.name}"
             launcher = (
@@ -681,6 +764,12 @@ esac
                     "| crontab - 2>/dev/null; true"
                 )
                 ssh.check(f"rm -rf {_q(base)}", what="Removing the agent files")
+                # The ent wrapper this agent installed (the user's config stays).
+                ssh.run(
+                    'target="$HOME/.local/bin/ent"; '
+                    f'if grep -q {_q(CLI_MARKER)} "$target" 2>/dev/null '
+                    f'&& grep -q {_q(base)} "$target"; then rm -f "$target"; fi'
+                )
                 self.log(f"Agent stopped and {base} removed.", "success")
         finally:
             ssh.close()

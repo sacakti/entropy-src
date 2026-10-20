@@ -311,3 +311,7 @@
 .entropy-app tr.is-selected > td:first-child {
     box-shadow: inset 3px 0 0 var(--app-accent);
 }
+
+.entropy-app .help-token-button {
+    margin-top: 8px;
+}

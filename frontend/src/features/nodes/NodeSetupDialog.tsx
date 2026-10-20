@@ -55,6 +55,7 @@ export default function NodeSetupDialog({
         install_dir: node?.install_dir || '~/.entropy-agent',
         max_jobs: node?.max_jobs ?? 2,
         description: node?.description ?? '',
+        install_cli: true,
     }))
     const [credentials, setCredentials] = useState<NodeCredentials>({ auth: 'password' })
     const [advanced, setAdvanced] = useState(false)
@@ -323,6 +324,14 @@ export default function NodeSetupDialog({
                                     onChange={(event) => set({ verify_tls: event.target.checked })}
                                 />
                                 Verify the main node's TLS certificate
+                            </label>
+                            <label className="schedule-switch admin-field-wide">
+                                <input
+                                    type="checkbox"
+                                    checked={values.install_cli}
+                                    onChange={(event) => set({ install_cli: event.target.checked })}
+                                />
+                                Install the ent command line (users on the node run ent login, ent job …)
                             </label>
                         </>
                     )}

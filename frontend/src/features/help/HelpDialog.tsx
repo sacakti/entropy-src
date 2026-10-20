@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Check, Copy, HelpCircle, Keyboard, Terminal } from 'lucide-react'
+import { Check, Copy, HelpCircle, Keyboard, Laptop, Terminal } from 'lucide-react'
 
 import Dialog from '../../components/layout/Dialog'
+import RemoteCliPanel from './RemoteCliPanel'
 import { CLI_GROUPS, SHORTCUT_GROUPS } from './helpContent'
 
-type Tab = 'shortcuts' | 'cli'
+type Tab = 'shortcuts' | 'cli' | 'remote'
 
 export default function HelpDialog({ onClose }: { onClose: () => void }) {
     const [tab, setTab] = useState<Tab>('shortcuts')
@@ -23,7 +24,7 @@ export default function HelpDialog({ onClose }: { onClose: () => void }) {
     return (
         <Dialog
             title="Help"
-            subtitle="Keyboard shortcuts and Entropy CLI commands."
+            subtitle="Keyboard shortcuts, Entropy CLI commands and the remote command line."
             icon={<HelpCircle size={18} />}
             onClose={onClose}
             className="help-dialog"
@@ -49,6 +50,16 @@ export default function HelpDialog({ onClose }: { onClose: () => void }) {
                     <Terminal size={15} />
                     Entropy CLI
                 </button>
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'remote'}
+                    className={tab === 'remote' ? 'is-active' : ''}
+                    onClick={() => setTab('remote')}
+                >
+                    <Laptop size={15} />
+                    Remote command line
+                </button>
             </div>
 
             {tab === 'shortcuts' ? (
@@ -73,6 +84,8 @@ export default function HelpDialog({ onClose }: { onClose: () => void }) {
                     ))}
                     <p className="help-note">On macOS use ⌘ in place of Ctrl.</p>
                 </div>
+            ) : tab === 'remote' ? (
+                <RemoteCliPanel copied={copied} onCopy={(command) => void copy(command)} />
             ) : (
                 <div className="help-groups">
                     {CLI_GROUPS.map((group) => (

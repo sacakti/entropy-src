@@ -43,3 +43,21 @@ Upgrades can also be applied from the web interface:
 Administration -> System -> Upgrade. Upgrades back up the database,
 migrate it and restart the web server; a failed upgrade restores the
 previous version automatically.
+
+Command line on other machines
+------------------------------
+
+Use Entropy from a laptop, CI runner or execution node (Python 3.9+),
+like `oc login` against a cluster URL:
+
+    curl -fsSL http://<server>:8000/api/cli/install.sh | sh
+    ent login http://<server>:8000
+    ent workflow list
+    ent workflow run <name> --follow
+    ent job list
+
+Windows PowerShell: irm http://<server>:8000/api/cli/install.ps1 | iex
+
+Nodes added from the web interface get this `ent` automatically. In the
+web interface, Help -> Remote command line shows the exact commands and
+can copy a login command with a token.

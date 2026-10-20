@@ -120,6 +120,13 @@ endpoint.
 
 ---
 
+# The ent command line on nodes
+
+Setup also installs `ent` for the SSH user, pointed at the main node URL
+(*Advanced → Install the ent command line*, on by default), so people on
+the node can run `ent login`, `ent workflow run`, `ent job logs` … against
+the server. See [Stage 9](09-remote-cli.md).
+
 # Operating nodes
 
 | Action | Where | Effect |
