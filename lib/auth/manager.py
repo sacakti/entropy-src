@@ -4,6 +4,7 @@ Session manager.
 
 from __future__ import annotations
 
+import os
 import secrets
 from datetime import datetime, timedelta
 
@@ -12,6 +13,11 @@ from lib.auth.exceptions import AuthenticationRequiredError, SessionNotFoundErro
 from lib.auth.service import AuthenticationService
 from lib.models.session import Session
 from lib.executor.linux import LinuxExecutor
+
+
+# A process started on someone's behalf (a web or scheduled run) acts as the
+# session named here instead of the shell's current session.
+SESSION_TOKEN_ENV = "ENTROPY_SESSION_TOKEN"
 
 
 class SessionManager:
@@ -119,6 +125,59 @@ class SessionManager:
         return session
 
     # ------------------------------------------------------------------
+    # Delegated sessions
+    # ------------------------------------------------------------------
+
+    def issue(
+        self,
+        user_id: int,
+        username: str,
+        full_name: str | None = None,
+        hours: float = 24,
+    ) -> Session:
+        """
+        Create a session for a user without selecting it.
+
+        Used to run work on a user's behalf in another process; pass the
+        token in ENTROPY_SESSION_TOKEN to that process.
+        """
+
+        now = self._now()
+
+        session = Session(
+            user_id=user_id,
+            username=username,
+            token=secrets.token_hex(32),
+            created_at=now,
+            expires_at=now + timedelta(hours=hours),
+            full_name=full_name,
+        )
+
+        self._save(
+            session,
+        )
+
+        return session
+
+    def revoke(
+        self,
+        token: str,
+    ) -> None:
+        """
+        Delete a session by token. Unknown tokens are ignored.
+        """
+
+        session = self._load_session(
+            token,
+        )
+
+        if session is not None:
+
+            self._delete_session(
+                session,
+            )
+
+    # ------------------------------------------------------------------
     # Logout
     # ------------------------------------------------------------------
 
@@ -174,7 +233,9 @@ class SessionManager:
 
         if session is None:
 
-            self._clear_current()
+            if not os.environ.get(SESSION_TOKEN_ENV):
+
+                self._clear_current()
 
             return None
 
@@ -184,7 +245,9 @@ class SessionManager:
                 session,
             )
 
-            self._clear_current()
+            if not os.environ.get(SESSION_TOKEN_ENV):
+
+                self._clear_current()
 
             self._events.log.warning(
                 f"Session for '{session.username}' expired.",
@@ -347,6 +410,12 @@ class SessionManager:
         Supports the old single-session format temporarily so an
         existing session can be migrated automatically.
         """
+
+        delegated = os.environ.get(SESSION_TOKEN_ENV, "").strip()
+
+        if delegated:
+
+            return delegated
 
         if not self._executor.exists(
             self._session_file,

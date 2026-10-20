@@ -18,6 +18,7 @@ from lib.workflow.exceptions import (
     WorkflowTooManyFilesError,
 )
 from lib.models.workflow_jobs import WorkflowJob
+from lib.models.session import Session
 
 from .follower import WorkflowFollower
 from .loader import WorkflowLoader
@@ -203,10 +204,16 @@ class WorkflowManager:
         *,
         file: Path | None = None,
         options: WorkflowExecutionOptions | None = None,
+        session: Session | None = None,
+        environment: dict[str, str] | None = None,
     ) -> WorkflowJob:
         """
         Start a registered workflow or workflow file
         in the background.
+
+        `session` runs it on behalf of that user instead of the current
+        shell session; its token must also be passed to the worker in
+        `environment` (ENTROPY_SESSION_TOKEN).
         """
 
         if name is not None and file is not None:
@@ -256,7 +263,9 @@ class WorkflowManager:
 
         assert self._context.session_manager is not None
 
-        session = self._context.session_manager.require()
+        if session is None:
+
+            session = self._context.session_manager.require()
 
         variables = dict(
             workflow.variables,
@@ -269,6 +278,7 @@ class WorkflowManager:
         execution = self._context.execution_manager.create(
             workflow,
             variables=variables,
+            session=session,
         )
 
         job = self._jobs.create(
@@ -297,6 +307,7 @@ class WorkflowManager:
             project_root=self._context.bootstrap.project_root,
             python_packages=self._context.paths.python.packages,
             options=options,
+            environment=environment,
         )
 
         pid = process.start()

@@ -74,6 +74,14 @@ MODULES = (
         name="groups",
         description="User group management.",
     ),
+    ModuleDefinition(
+        name="nodes",
+        description="Execution node management.",
+    ),
+    ModuleDefinition(
+        name="schedules",
+        description="Scheduled workflow and plugin runs.",
+    ),
 )
 
 
@@ -365,6 +373,30 @@ PERMISSIONS = (
         "auth.list",
         "read",
         "List authenticated user sessions.",
+    ),
+    PermissionDefinition(
+        "nodes",
+        "nodes.list",
+        "read",
+        "List execution nodes and their metrics.",
+    ),
+    PermissionDefinition(
+        "nodes",
+        "nodes.manage",
+        "write",
+        "Add, modify and remove execution nodes.",
+    ),
+    PermissionDefinition(
+        "schedules",
+        "schedules.list",
+        "read",
+        "List schedules and their runs.",
+    ),
+    PermissionDefinition(
+        "schedules",
+        "schedules.manage",
+        "write",
+        "Create, modify, delete and trigger schedules.",
     ),
 )
 

@@ -39,6 +39,7 @@ class ExecutionManager:
         workflow: Any,
         *,
         variables: dict[str, Any] | None = None,
+        session: Any = None,
     ) -> WorkflowExecution:
         """
         Create a new workflow execution.
@@ -64,7 +65,9 @@ class ExecutionManager:
 
         assert self._context.session_manager is not None
 
-        session = self._context.session_manager.require()
+        if session is None:
+
+            session = self._context.session_manager.require()
 
         runtime = ExecutionContext(
             entropy=self._context,

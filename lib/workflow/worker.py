@@ -185,6 +185,21 @@ class WorkflowWorker:
 
             raise
 
+        finally:
+
+            # A session issued for this run only must not outlive it.
+            import contextlib
+            import os
+
+            from lib.auth.manager import SESSION_TOKEN_ENV
+
+            token = os.environ.get(SESSION_TOKEN_ENV)
+
+            if token and context.session_manager is not None:
+
+                with contextlib.suppress(Exception):
+                    context.session_manager.revoke(token)
+
 
 # ------------------------------------------------------------------
 # Entry point

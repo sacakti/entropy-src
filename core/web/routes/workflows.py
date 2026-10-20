@@ -5,14 +5,18 @@ Authenticated workflow management API.
 
 from __future__ import annotations
 
+import dataclasses
+import io
 import tempfile
+import zipfile
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.web.routes.auth import _current_session, verify_csrf
+from core.web.versioning import bump_version
 from lib.models.session import Session
 from lib.models.users import User
 from lib.workflow.exceptions import (
@@ -33,6 +37,38 @@ class WorkflowDefinitionRequest(BaseModel):
 
     definition: str
     format: str = "json"
+
+
+class WorkflowNamesRequest(BaseModel):
+    """Several workflows, for bulk export."""
+
+    names: List[str] = Field(min_length=1, max_length=500)
+    format: str = "json"
+
+
+def _bump_if_unchanged_version(manager, name: str, path: Path, format_name: str) -> None:
+    """
+    Editing a workflow raises its patch version unless the author changed
+    the version themselves.
+    """
+
+    try:
+        existing = manager.get(name)
+        incoming = manager.load(path)
+    except Exception:  # noqa: BLE001 - replace() reports these errors
+        return
+
+    if incoming.version != existing.version:
+        return
+
+    def body(workflow):
+        return manager.serialize(dataclasses.replace(workflow, version=""), "json")
+
+    if body(incoming) == body(existing):
+        return
+
+    bumped = dataclasses.replace(incoming, version=bump_version(incoming.version))
+    path.write_text(manager.serialize(bumped, format_name), encoding="utf-8")
 
 
 def _manager(request: Request):
@@ -157,6 +193,43 @@ def list_workflows(
     }
 
 
+@router.post("/export")
+def export_workflows(
+    payload: WorkflowNamesRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> Response:
+    """Download workflow definitions as one zip, a file each."""
+
+    _, _, user = record
+    _require_permission(request, user, "workflows.list")
+
+    normalized_format = _validate_format(payload.format)
+    manager = _manager(request)
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name in dict.fromkeys(payload.names):
+            try:
+                workflow = manager.get(name)
+            except WorkflowNotFoundError as exc:
+                raise _translate_workflow_error(exc) from exc
+            archive.writestr(
+                f"{workflow.name}{SUPPORTED_FORMATS[normalized_format]}",
+                manager.serialize(workflow, normalized_format),
+            )
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="entropy-workflows.zip"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 @router.get("/{name}")
 def get_workflow(
     name: str,
@@ -265,6 +338,7 @@ def update_workflow(
     manager = _manager(request)
 
     for path in _definition_file(payload.definition, normalized_format):
+        _bump_if_unchanged_version(manager, name, path, normalized_format)
         try:
             workflow = manager.replace(name, path)
             result = _workflow_payload(workflow, manager, normalized_format)

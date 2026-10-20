@@ -29,6 +29,20 @@ def _close_context(context: EntropyContext) -> None:
     if callable(close):
         close()
 
+def _start_background(context: EntropyContext):
+    """Start schedules, node metrics and housekeeping for a real context."""
+
+    if os.environ.get("ENTROPY_WEB_BACKGROUND", "true").strip().lower() == "false":
+        return None
+
+    if getattr(context, "database_manager", None) is None or getattr(context, "bootstrap", None) is None:
+        return None
+
+    from lib.runs.background import RunsBackground
+
+    background = RunsBackground(context)
+    return background if background.start() else None
+
 def register_routes(app: FastAPI) -> None:
     """Register routers discovered in the routes package."""
 
@@ -65,10 +79,16 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
         app.state.context_factory = factory
         app.state.web_session_store = WebSessionStore(context)
 
+        background = None
+
         try:
             factory.discover()
+            background = _start_background(context)
+            app.state.runs_background = background
             yield
         finally:
+            if background is not None:
+                background.stop()
             _close_context(context)
             app.state.entropy_context = None
             app.state.web_session_store = None

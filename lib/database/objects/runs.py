@@ -1,0 +1,223 @@
+"""
+Run orchestration tables: run metadata, nodes, node metrics, schedules
+and the archive of old jobs.
+"""
+
+from lib.database.base import DatabaseObject
+from lib.database.connection import DatabaseConnection
+
+
+class RunMetadataTable(DatabaseObject):
+    """
+    Where and why a workflow job ran. Kept beside workflow_jobs so the
+    job schema used by the CLI stays unchanged.
+    """
+
+    NAME = "run_metadata"
+
+    def create(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS run_metadata
+            (
+                job_id       INTEGER PRIMARY KEY,
+                node         TEXT NOT NULL DEFAULT 'local',
+                kind         TEXT NOT NULL DEFAULT 'workflow'
+                    CHECK (kind IN ('workflow', 'plugin')),
+                target       TEXT NOT NULL,
+                trigger      TEXT NOT NULL DEFAULT 'manual'
+                    CHECK (trigger IN ('manual', 'schedule', 'retry', 'cli')),
+                schedule_id  INTEGER,
+                created_at   TEXT NOT NULL
+            )
+            """)
+
+        connection.execute("""
+            CREATE INDEX IF NOT EXISTS idx_run_metadata_schedule
+            ON run_metadata (schedule_id)
+            """)
+
+
+class NodesTable(DatabaseObject):
+    """
+    Execution nodes. The server Entropy is installed on is the 'local' node.
+    """
+
+    NAME = "nodes"
+
+    def create(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS nodes
+            (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                name          TEXT NOT NULL UNIQUE,
+                kind          TEXT NOT NULL DEFAULT 'remote'
+                    CHECK (kind IN ('local', 'remote')),
+                host          TEXT NOT NULL DEFAULT '',
+                description   TEXT NOT NULL DEFAULT '',
+                enabled       INTEGER NOT NULL DEFAULT 1,
+                info          TEXT,
+                token_hash    TEXT,
+                created_at    TEXT NOT NULL,
+                updated_at    TEXT NOT NULL,
+                last_seen_at  TEXT
+            )
+            """)
+
+
+class NodeMetricsTable(DatabaseObject):
+    """
+    Periodic resource samples per node.
+    """
+
+    NAME = "node_metrics"
+
+    def create(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS node_metrics
+            (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                node            TEXT NOT NULL,
+                sampled_at      TEXT NOT NULL,
+                cpu_percent     REAL,
+                memory_percent  REAL,
+                disk_percent    REAL,
+                load1           REAL,
+                running_jobs    INTEGER NOT NULL DEFAULT 0,
+                agent_up        INTEGER NOT NULL DEFAULT 0
+            )
+            """)
+
+        connection.execute("""
+            CREATE INDEX IF NOT EXISTS idx_node_metrics_node
+            ON node_metrics (node, sampled_at)
+            """)
+
+
+class SchedulesTable(DatabaseObject):
+    """
+    Cron schedules for workflows and plugins.
+    """
+
+    NAME = "schedules"
+
+    def create(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS schedules
+            (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                name             TEXT NOT NULL UNIQUE,
+                description      TEXT NOT NULL DEFAULT '',
+                kind             TEXT NOT NULL
+                    CHECK (kind IN ('workflow', 'plugin')),
+                target           TEXT NOT NULL,
+                cron             TEXT NOT NULL,
+                timezone         TEXT NOT NULL DEFAULT 'UTC',
+                node             TEXT NOT NULL DEFAULT 'local',
+                parameters       TEXT NOT NULL DEFAULT '{}',
+                enabled          INTEGER NOT NULL DEFAULT 1,
+                user_id          INTEGER NOT NULL,
+                username         TEXT NOT NULL,
+                created_at       TEXT NOT NULL,
+                updated_at       TEXT NOT NULL,
+                next_run_at      TEXT,
+                last_run_at      TEXT
+            )
+            """)
+
+
+class ScheduleRunsTable(DatabaseObject):
+    """
+    Each firing of a schedule, kept so failures can be retriggered.
+    """
+
+    NAME = "schedule_runs"
+
+    def create(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_runs
+            (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                schedule_id    INTEGER NOT NULL,
+                job_id         INTEGER,
+                trigger        TEXT NOT NULL DEFAULT 'schedule'
+                    CHECK (trigger IN ('schedule', 'manual', 'retry')),
+                state          TEXT NOT NULL,
+                error          TEXT,
+                retry_of       INTEGER,
+                created_at     TEXT NOT NULL,
+                finished_at    TEXT
+            )
+            """)
+
+        connection.execute("""
+            CREATE INDEX IF NOT EXISTS idx_schedule_runs_schedule
+            ON schedule_runs (schedule_id, created_at)
+            """)
+
+
+class RunArchiveTables(DatabaseObject):
+    """
+    Archive copies of workflow_jobs and workflow_events for housekeeping.
+    """
+
+    NAME = "workflow_jobs_archive"
+
+    def create(
+        self,
+        connection: DatabaseConnection,
+    ) -> None:
+
+        # Same columns as the live tables, without their constraints.
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_jobs_archive
+            AS SELECT * FROM workflow_jobs WHERE 0
+            """)
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_events_archive
+            AS SELECT * FROM workflow_events WHERE 0
+            """)
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS run_metadata_archive
+            AS SELECT * FROM run_metadata WHERE 0
+            """)
+
+
+RUN_TABLES = (
+    RunMetadataTable,
+    NodesTable,
+    NodeMetricsTable,
+    SchedulesTable,
+    ScheduleRunsTable,
+    RunArchiveTables,
+)
+
+
+def create_run_tables(
+    connection: DatabaseConnection,
+) -> None:
+    """Create every run orchestration table (idempotent)."""
+
+    for table in RUN_TABLES:
+        table().create(connection)

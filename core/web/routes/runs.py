@@ -1,0 +1,326 @@
+"""
+Runs API: list workflow jobs, follow them live, stop them, and start
+workflow or plugin runs on an execution node.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
+
+from core.web.routes.auth import _current_session, verify_csrf
+from core.web.routes.workflows import _require_permission
+from lib.models.session import Session
+from lib.models.users import User
+from lib.runs.housekeeping import Housekeeping
+from lib.runs.service import RunError, RunService
+from lib.runs.store import RUN_TABS, iso_utc
+
+router = APIRouter(tags=["runs"])
+
+SessionRecord = Tuple[Session, str, User]
+
+
+class StartRunRequest(BaseModel):
+    """Where to run and with which inputs."""
+
+    node: str = "local"
+    variables: Dict[str, Any] = Field(default_factory=dict)
+
+
+class StartPluginRunRequest(BaseModel):
+    node: str = "local"
+    arguments: Dict[str, Any] = Field(default_factory=dict)
+
+
+class HousekeepingRequest(BaseModel):
+    archive_after_days: Optional[int] = None
+    purge_archive_after_days: Optional[int] = None
+    run_now: bool = False
+
+
+def _service(request: Request) -> RunService:
+    context = request.app.state.entropy_context
+    if context is None or context.database_manager is None:
+        raise HTTPException(status_code=503, detail="Run service unavailable.")
+    return RunService(context)
+
+
+def _http(exc: RunError) -> HTTPException:
+    return HTTPException(status_code=exc.status, detail=str(exc))
+
+
+def _no_store(response: Response) -> None:
+    response.headers["Cache-Control"] = "no-store"
+
+
+def _event_payload(event: Any) -> Dict[str, Any]:
+    return {
+        "id": event.id,
+        "type": event.event_type,
+        "source": event.source,
+        "level": event.level,
+        "message": event.message,
+        "node_type": event.node_type,
+        "node_id": event.node_id,
+        "node_name": event.node_name,
+        "payload": event.payload,
+        "created_at": iso_utc(event.created_at.isoformat()) if event.created_at else None,
+    }
+
+
+def _planned_steps(request: Request, run: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Steps of the workflow as defined, so pending ones can be shown."""
+
+    if run["kind"] == "plugin":
+        return [{"name": run["target"], "plugin": run["target"], "enabled": True}]
+
+    manager = request.app.state.entropy_context.workflow_manager
+    try:
+        workflow = manager.get(run["workflow"])
+    except Exception:  # noqa: BLE001 - the workflow may have been removed
+        return []
+
+    return [
+        {"name": step.name, "plugin": step.plugin, "enabled": step.enabled}
+        for step in workflow.steps
+    ]
+
+
+# ----------------------------------------------------------------------
+# Runs
+# ----------------------------------------------------------------------
+
+
+@router.get("/api/runs")
+def list_runs(
+    request: Request,
+    response: Response,
+    tab: str = Query("all"),
+    search: str = Query("", max_length=200),
+    node: str = Query("", max_length=64),
+    user: str = Query("", max_length=128),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """List runs, newest first, filtered by tab (active/completed/failed/cancelled/all)."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.list")
+
+    if tab != "all" and tab not in RUN_TABS:
+        raise HTTPException(status_code=422, detail="Unknown tab.")
+
+    service = _service(request)
+    items, total = service.store.list(
+        tab=tab, search=search, node=node, user=user, limit=limit, offset=offset
+    )
+    _no_store(response)
+    return {"items": items, "total": total, "counts": service.store.counts()}
+
+
+@router.get("/api/runs/{job_id}")
+def get_run(
+    job_id: int,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    _, _, current = record
+    _require_permission(request, current, "workflows.list")
+
+    service = _service(request)
+    run = service.store.get(job_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
+
+    _no_store(response)
+    return {
+        "run": run,
+        "plan": _planned_steps(request, run),
+        "steps": service.store.steps(job_id),
+    }
+
+
+@router.get("/api/runs/{job_id}/events")
+def run_events(
+    job_id: int,
+    request: Request,
+    response: Response,
+    after: Optional[int] = Query(None, ge=0),
+    limit: int = Query(500, ge=1, le=2000),
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Events after a cursor plus the current state, for live following."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.list")
+
+    service = _service(request)
+    run = service.store.get(job_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
+
+    events = request.app.state.entropy_context.workflow_job_manager.events(
+        job_id, after=after, limit=limit
+    )
+    _no_store(response)
+    return {
+        "run": run,
+        "steps": service.store.steps(job_id),
+        "events": [_event_payload(event) for event in events],
+        "cursor": events[-1].id if events else after,
+    }
+
+
+@router.get("/api/runs/{job_id}/log")
+def run_log(
+    job_id: int,
+    request: Request,
+    response: Response,
+    offset: int = Query(0, ge=0),
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Raw worker output (stdout/stderr) from a byte offset."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.list")
+
+    service = _service(request)
+    if service.store.get(job_id) is None:
+        raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
+
+    _no_store(response)
+    return service.log(job_id, offset)
+
+
+@router.post("/api/runs/{job_id}/stop", dependencies=[Depends(verify_csrf)])
+def stop_run(
+    job_id: int,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    _, _, current = record
+    _require_permission(request, current, "workflows.start")
+
+    try:
+        return {"run": _service(request).stop(job_id)}
+    except RunError as exc:
+        raise _http(exc) from exc
+
+
+# ----------------------------------------------------------------------
+# Start
+# ----------------------------------------------------------------------
+
+
+@router.post("/api/workflows/{name}/run", status_code=201, dependencies=[Depends(verify_csrf)])
+def run_workflow(
+    name: str,
+    payload: StartRunRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Validate and start a registered workflow as the current user."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.start")
+
+    try:
+        run = _service(request).start_workflow(
+            current, name, node=payload.node, variables=payload.variables
+        )
+    except RunError as exc:
+        raise _http(exc) from exc
+
+    return {"run": run}
+
+
+@router.post(
+    "/api/plugins/{qualified_name}/run", status_code=201, dependencies=[Depends(verify_csrf)]
+)
+def run_plugin(
+    qualified_name: str,
+    payload: StartPluginRunRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Run an installed plugin once (test run) as the current user."""
+
+    _, _, current = record
+    _require_permission(request, current, "plugins.run")
+
+    try:
+        run = _service(request).start_plugin(
+            current, qualified_name, node=payload.node, arguments=payload.arguments
+        )
+    except RunError as exc:
+        raise _http(exc) from exc
+
+    return {"run": run}
+
+
+# ----------------------------------------------------------------------
+# Housekeeping
+# ----------------------------------------------------------------------
+
+
+def _housekeeping_payload(housekeeping: Housekeeping) -> Dict[str, Any]:
+    settings = housekeeping.settings()
+    return {
+        "archive_after_days": settings["runs.archive_after_days"],
+        "purge_archive_after_days": settings["runs.purge_archive_after_days"],
+        "archived": housekeeping.archive_counts(),
+    }
+
+
+@router.get("/api/runs-housekeeping")
+def get_housekeeping(
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    _, _, current = record
+    _require_permission(request, current, "workflows.list")
+
+    service = _service(request)
+    _no_store(response)
+    return _housekeeping_payload(Housekeeping(service.store.connection))
+
+
+@router.put("/api/runs-housekeeping", dependencies=[Depends(verify_csrf)])
+def update_housekeeping(
+    payload: HousekeepingRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Change the archive policy and optionally apply it now."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.edit")
+
+    service = _service(request)
+    housekeeping = Housekeeping(service.store.connection)
+
+    values = {}
+    if payload.archive_after_days is not None:
+        values["runs.archive_after_days"] = payload.archive_after_days
+    if payload.purge_archive_after_days is not None:
+        values["runs.purge_archive_after_days"] = payload.purge_archive_after_days
+
+    try:
+        housekeeping.update_settings(values)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    result = None
+    if payload.run_now:
+        result = housekeeping.run(
+            plugin_runs=service.plugin_run_directory(),
+            worker_logs=service.log_path(0).parent,
+        )
+
+    return {**_housekeeping_payload(housekeeping), "result": result}

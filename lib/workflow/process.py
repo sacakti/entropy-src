@@ -31,6 +31,7 @@ class WorkflowProcess:
         project_root: Path,
         python_packages: Path,
         options: WorkflowExecutionOptions,
+        environment: dict[str, str] | None = None,
     ) -> None:
 
         self._job_id = job_id
@@ -39,6 +40,8 @@ class WorkflowProcess:
         self._project_root = project_root
         self._python_packages = python_packages
         self._options = options
+        # Extra variables for the worker, e.g. a delegated session token.
+        self._environment = environment or {}
 
     # ------------------------------------------------------------------
     # Start
@@ -103,19 +106,22 @@ class WorkflowProcess:
             exist_ok=True,
         )
 
-        log_file = worker_log.open(
+        # The child keeps its own copy of the handle; close ours so a
+        # long-running parent (the web server) does not leak one per run.
+        with worker_log.open(
             "ab",
-        )
+        ) as log_file:
 
-        process = subprocess.Popen(
-            command,
-            stdin=subprocess.DEVNULL,
-            stdout=log_file,
-            # stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-            close_fds=True,
-        )
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=log_file,
+                # stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                close_fds=True,
+                env={**os.environ, **self._environment},
+            )
 
         if process.pid <= 0:
 

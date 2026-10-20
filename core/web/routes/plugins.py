@@ -8,10 +8,13 @@ from typing import Any, Dict, Optional
 from fastapi import (
     APIRouter,
     Depends,
+    File,
+    Form,
     HTTPException,
     Query,
     Request,
     Response,
+    UploadFile,
 )
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -86,6 +89,8 @@ def _serialize_plugin(plugin: Any) -> dict[str, Any]:
         "version": plugin.version,
         "enabled": bool(plugin.enabled),
         "installed_at": installed_at,
+        # Drafts are saved but not installed; workflows cannot use them.
+        "draft": bool(getattr(plugin, "draft", False)),
     }
 
 
@@ -144,12 +149,13 @@ def list_plugins(
 
     items = [
         _serialize_plugin(plugin)
-        for plugin in plugins
+        for plugin in [*plugins, *_studio(request).drafts()]
     ]
 
     summary = {
         "total": len(items),
         "enabled": sum(1 for item in items if item["enabled"]),
+        "drafts": sum(1 for item in items if item["draft"]),
         "namespaces": sorted(
             {item["namespace"] for item in items},
             key=str.casefold,
@@ -231,6 +237,13 @@ class PluginCreateRequest(BaseModel):
     namespace: str = Field(max_length=64)
     name: str = Field(max_length=64)
     description: str = Field(default="", max_length=200)
+    install: bool = False
+
+
+class PluginNamesRequest(BaseModel):
+    """Several plugins, for bulk export."""
+
+    names: list[str] = Field(min_length=1, max_length=500)
 
 
 class PluginFilesRequest(BaseModel):
@@ -243,6 +256,7 @@ class PluginSaveRequest(PluginFilesRequest):
     """Changed files plus the revision they were edited from."""
 
     revision: str
+    install: bool = False
 
 
 def _studio(request: Request) -> PluginStudio:
@@ -361,7 +375,7 @@ def create_plugin(
     session_record: tuple = Depends(_current_session),
     _: None = Depends(verify_csrf),
 ) -> dict[str, Any]:
-    """Scaffold a plugin from the template and install it."""
+    """Scaffold a plugin from the template as a draft (or install it)."""
 
     _, _, user = session_record
     _require_permission(request, user, "plugins.install")
@@ -371,11 +385,84 @@ def create_plugin(
             payload.namespace.strip(),
             payload.name.strip(),
             payload.description,
+            install=payload.install,
         )
     except Exception as exc:
         raise _translate(exc) from exc
 
     response.headers["Cache-Control"] = "no-store"
+    return _serialize_plugin(plugin)
+
+
+@router.post("/export")
+def export_plugins(
+    payload: PluginNamesRequest,
+    request: Request,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> Response:
+    """Download plugins (installed or draft) as one zip, a folder each."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.list")
+
+    try:
+        data = _studio(request).export(payload.names)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="entropy-plugins.zip"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.post("/import", status_code=201)
+async def import_plugins(
+    request: Request,
+    file: UploadFile = File(...),
+    install: bool = Form(False),
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Import plugin folders from a zip as drafts, or install them."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.install")
+
+    from core.web.plugin_studio.workspace import MAX_IMPORT_BYTES
+
+    data = await file.read(MAX_IMPORT_BYTES + 1)
+
+    try:
+        plugins = _studio(request).import_archive(data, install=install)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    return {"items": [_serialize_plugin(plugin) for plugin in plugins]}
+
+
+@router.post("/{qualified_name}/install")
+def install_draft(
+    qualified_name: str,
+    request: Request,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Install a draft so workflows can use it."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.install")
+
+    try:
+        plugin = _studio(request).install(qualified_name)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
     return _serialize_plugin(plugin)
 
 
@@ -445,6 +532,7 @@ def save_plugin_files(
             qualified_name,
             payload.files,
             payload.revision,
+            install=payload.install,
         )
     except Exception as exc:
         raise _translate(exc) from exc
