@@ -41,6 +41,7 @@ from .packaging import (
     cpython_archive,
     runtime_bundle,
 )
+from .reach import PROBE_SCRIPT, advice, classify, classify_log, is_loopback, server_addresses, url_host
 from .ssh import SSHError, SSHSession, forget_host_key
 
 HEARTBEAT_WAIT_SECONDS = 90
@@ -88,6 +89,12 @@ class ProvisionRequest:
             raise ProvisionError("Enter the SSH username.")
         if not re.match(r"^https?://[^\s/]+(/[^\s]*)?$", self.server_url or ""):
             raise ProvisionError("The main node URL must start with https:// (or http://).")
+        if is_loopback(url_host(self.server_url)) and not is_loopback(self.host):
+            raise ProvisionError(
+                f"The main node URL {self.server_url} points at the node itself: on the node, "
+                f"'{url_host(self.server_url)}' means \"this machine\". Use an address of this "
+                "Entropy server that the node can reach."
+            )
         if self.python not in ("auto", "system", "bundled"):
             raise ProvisionError("Python must be auto, system or bundled.")
         if not _INSTALL_DIR.match(self.install_dir or "") or ".." in self.install_dir:
@@ -261,6 +268,42 @@ class Provisioner:
         self.log(f"Connected. Host key {fingerprint or 'recorded'}.", "success")
         return session
 
+    @staticmethod
+    def _server() -> Dict[str, Any]:
+        try:
+            return server_addresses()
+        except Exception:  # noqa: BLE001 - advice works without it
+            return {}
+
+    def _check_reachable(self, ssh: SSHSession, request: ProvisionRequest) -> None:
+        """
+        Before installing anything, check from the node that the main node URL
+        answers, so an unreachable address fails in seconds with a reason.
+        """
+
+        url = request.server_url.rstrip("/") + "/api/health"
+        insecure = "1" if url.startswith("https://") and (not request.verify_tls or request.ca_cert) else "0"
+        self.log(f"Checking that the node can reach {request.server_url}…")
+        _, out, _ = ssh.run(
+            f"sh -c {_q(PROBE_SCRIPT)} entropy-probe {_q(url)} {insecure}", timeout=40
+        )
+        kind, detail = classify(out)
+        if kind == "ok":
+            self.log("The node reaches the main node.", "success")
+            return
+        if kind == "notool":
+            self.log(
+                "Could not check the main node URL from the node (no curl, wget or Python yet); "
+                "the agent's first heartbeat will tell.",
+                "warning",
+            )
+            return
+        message = advice(kind, request.server_url, self._server(), request.host)
+        raise ProvisionError(
+            f"The node cannot reach {request.server_url}. {message}"
+            + (f"\n(Node reported: {detail})" if detail else "")
+        )
+
     def _detect(self, ssh: SSHSession) -> Dict[str, Any]:
         script = r"""
 echo "os=$(uname -s)"
@@ -351,6 +394,8 @@ df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print "free_kb=" $4}'
                 raise ProvisionError(
                     "At least 400 MB of free disk space is needed in the home directory."
                 )
+
+            self._check_reachable(ssh, request)
 
             base = request.install_dir.replace("~", facts["home"], 1)
             if not base.startswith("/"):
@@ -592,10 +637,11 @@ esac
             _, tail, _ = ssh.run(
                 f"tail -n 15 {_q(base)}/agent.log {_q(base)}/agent.out 2>/dev/null"
             )
+            reason = advice(classify_log(tail), request.server_url, self._server(), request.host)
             raise ProvisionError(
                 f"The agent started but did not reach {request.server_url} within "
-                f"{HEARTBEAT_WAIT_SECONDS} seconds. Check that this URL is reachable from the node "
-                f"and its TLS settings. Agent log:\n{tail.strip()[-1500:] or '(empty)'}"
+                f"{HEARTBEAT_WAIT_SECONDS} seconds. {reason}\n"
+                f"Agent log:\n{tail.strip()[-1500:] or '(empty)'}"
             )
         except Exception:
             if restart_previous:

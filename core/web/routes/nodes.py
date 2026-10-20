@@ -192,6 +192,26 @@ def all_metrics(
     )
 
 
+@router.get("/server-address")
+def server_address(
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """How nodes can reach this server: where it listens and URLs to use."""
+
+    from lib.nodes.reach import local_only_advice, server_addresses
+
+    _, _, user = record
+    _require_permission(request, user, "nodes.manage")
+
+    info = server_addresses(request.url.scheme)
+    if info["local_only"]:
+        info["advice"] = local_only_advice(info["bind_host"], info["port"])
+    response.headers["Cache-Control"] = "no-store"
+    return info
+
+
 @router.get("/{name}")
 def get_node(
     name: str,

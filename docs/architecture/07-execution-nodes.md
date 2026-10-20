@@ -146,6 +146,25 @@ On the node itself: `~/.entropy-agent/bin/agent-ctl status`, and
 
 ---
 
+# When a node cannot reach the main node
+
+The node connects back to the **main node URL**, so that URL must work from
+the node, not from your browser:
+
+- `localhost` / `127.0.0.1` on the node means the node itself. The setup
+  dialog suggests this server's own addresses and refuses a loopback URL
+  for a remote host.
+- The Entropy server must listen on the network. It listens on
+  `127.0.0.1` by default; `ent web config --host 0.0.0.0` and
+  `ent web restart` change that (from a source checkout:
+  `ENTROPY_WEB_HOST=0.0.0.0 python -m core.web`). The dialog warns when
+  this server is local-only (`GET /api/nodes/server-address`).
+- Before installing anything, setup checks from the node (curl, wget or
+  Python) that `<url>/api/health` answers, and stops within seconds with
+  the cause: refused (nothing listening there), timeout (a firewall drops
+  the connection, e.g. the macOS firewall or ufw on the main node), DNS,
+  TLS, or another service on that port.
+
 # Run options: steps, tags and a node per step
 
 The run dialog's **Advanced** section (collapsed by default) narrows and

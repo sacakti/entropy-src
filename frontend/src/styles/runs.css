@@ -1933,3 +1933,12 @@
         animation: none;
     }
 }
+
+.entropy-app .node-url-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    color: var(--app-muted);
+    font-size: 12px;
+}

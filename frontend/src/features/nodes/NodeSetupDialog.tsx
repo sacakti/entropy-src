@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertCircle, ChevronDown, LoaderCircle, ServerCog } from 'lucide-react'
 
 import {
@@ -6,6 +6,7 @@ import {
     type EntropyNode,
     type NodeCredentials,
     type NodeSetupInput,
+    type ServerAddress,
 } from '../../api/runs.api'
 import Dialog from '../../components/layout/Dialog'
 import { errorMessage } from '../runs/format'
@@ -15,10 +16,15 @@ import ProvisioningLog from './ProvisioningLog'
 
 const NAME = /^[a-z0-9][a-z0-9._-]{0,62}$/
 
+/** A host that means "this machine": localhost, 127.x.x.x, ::1, 0.0.0.0. */
+function isLoopbackHost(host: string): boolean {
+    const name = host.trim().toLowerCase().replace(/^\[|\]$/g, '')
+    return name === 'localhost' || name === '::1' || name === '0.0.0.0' || /^127\./.test(name)
+}
+
 function isLoopback(url: string): boolean {
     try {
-        const host = new URL(url).hostname
-        return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]'
+        return isLoopbackHost(new URL(url).hostname)
     } catch {
         return false
     }
@@ -59,9 +65,35 @@ export default function NodeSetupDialog({
 
     const set = (patch: Partial<typeof values>) => setValues((current) => ({ ...current, ...patch }))
 
+    // How the node can reach this server; replaces a "localhost" default.
+    const [server, setServer] = useState<ServerAddress | null>(null)
+    useEffect(() => {
+        let active = true
+        nodesApi
+            .serverAddress()
+            .then((result) => {
+                if (!active) return
+                setServer(result)
+                const better = result.suggestions[0]
+                if (better) {
+                    setValues((current) =>
+                        isLoopback(current.server_url)
+                            ? { ...current, server_url: better }
+                            : current,
+                    )
+                }
+            })
+            .catch(() => undefined)
+        return () => {
+            active = false
+        }
+    }, [])
+
     const insecure = values.server_url.startsWith('http://') && !isLoopback(values.server_url)
-    const unreachable = isLoopback(values.server_url) && !['localhost', '127.0.0.1'].includes(values.host)
+    // On the node, a loopback address is the node itself.
+    const unreachable = isLoopback(values.server_url) && !isLoopbackHost(values.host)
     const ready =
+        !unreachable &&
         NAME.test(values.name) &&
         values.name !== 'local' &&
         values.host.trim() !== '' &&
@@ -202,7 +234,28 @@ export default function NodeSetupDialog({
                         />
                         {unreachable && (
                             <small className="node-field-warning">
-                                The node resolves this address to itself. Use an address of this server the node can reach.
+                                On the node, this address is the node itself. Use an address of this server the node
+                                can reach.
+                            </small>
+                        )}
+                        {server && !server.local_only && server.suggestions.length > 0 && (
+                            <span className="node-url-suggestions">
+                                This server:{' '}
+                                {server.suggestions.slice(0, 4).map((url) => (
+                                    <button
+                                        key={url}
+                                        type="button"
+                                        className={`run-tag${url === values.server_url ? ' is-active' : ''}`}
+                                        onClick={() => set({ server_url: url })}
+                                    >
+                                        {url}
+                                    </button>
+                                ))}
+                            </span>
+                        )}
+                        {server?.local_only && (
+                            <small className="node-field-warning" role="alert">
+                                {server.advice}
                             </small>
                         )}
                         {insecure && (

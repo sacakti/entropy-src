@@ -307,9 +307,23 @@ export interface MetricSample {
     agent_up: number
 }
 
+/** Where this server listens and how nodes can reach it. */
+export interface ServerAddress {
+    bind_host: string
+    port: number
+    /** Listens on loopback only: no other machine can connect. */
+    local_only: boolean
+    suggestions: string[]
+    advice?: string
+}
+
 export const nodesApi = {
     list(): Promise<{ items: EntropyNode[] }> {
         return apiRequest('/api/nodes')
+    },
+
+    serverAddress(): Promise<ServerAddress> {
+        return apiRequest('/api/nodes/server-address')
     },
 
     get(name: string, hours = 1): Promise<{ node: EntropyNode; history: MetricSample[] }> {
