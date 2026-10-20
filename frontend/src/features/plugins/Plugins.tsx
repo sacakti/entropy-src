@@ -16,6 +16,7 @@ import {
     Play,
     LoaderCircle,
     Package,
+    Eye,
     Pencil,
     RefreshCw,
     Search,
@@ -31,6 +32,8 @@ import {
 } from '../../api/plugins.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import AddMenu from '../../components/layout/AddMenu'
+import { missingPermission } from '../administration/permissionReason'
+import { usePermissions } from '../administration/usePermissions'
 import AppPortal from '../../components/layout/AppPortal'
 import FloatingMenu from '../../components/layout/FloatingMenu'
 import PickerDialog from '../../components/layout/PickerDialog'
@@ -141,8 +144,14 @@ function PluginRow({
     onViewDetails,
     onEdit,
     onDelete,
+    reasons,
+    viewOnly,
 }: {
     plugin: PluginItem
+    /** Why each action is unavailable (null when allowed). */
+    reasons: { run: string | null; install: string | null; edit: string | null; delete: string | null }
+    /** The user may read the source but not change it. */
+    viewOnly: boolean
     deleting: boolean
     selected: boolean
     checked: boolean
@@ -215,8 +224,11 @@ function PluginRow({
                             type="button"
                             className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
                             aria-label={`Install ${plugin.qualified_name}`}
-                            title="Install"
-                            onClick={() => onInstall(plugin)}
+                            title={reasons.install ?? 'Install'}
+                            aria-disabled={reasons.install ? true : undefined}
+                            onClick={() => {
+                                if (!reasons.install) onInstall(plugin)
+                            }}
                             disabled={deleting}
                         >
                             <PackageCheck size={15} />
@@ -226,8 +238,11 @@ function PluginRow({
                             type="button"
                             className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
                             aria-label={`Test run ${plugin.qualified_name}`}
-                            title="Test run"
-                            onClick={() => onRun(plugin)}
+                            title={reasons.run ?? 'Test run'}
+                            aria-disabled={reasons.run ? true : undefined}
+                            onClick={() => {
+                                if (!reasons.run) onRun(plugin)
+                            }}
                             disabled={deleting || !plugin.enabled}
                         >
                             <Play size={15} />
@@ -236,19 +251,25 @@ function PluginRow({
                     <button
                         type="button"
                         className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                        aria-label={`Edit ${plugin.qualified_name}`}
-                        title="Edit"
-                        onClick={() => onEdit(plugin)}
+                        aria-label={`${viewOnly ? 'View' : 'Edit'} ${plugin.qualified_name}`}
+                        title={viewOnly ? 'View (read only)' : reasons.edit ?? 'Edit'}
+                        aria-disabled={reasons.edit && !viewOnly ? true : undefined}
+                        onClick={() => {
+                            if (!reasons.edit || viewOnly) onEdit(plugin)
+                        }}
                         disabled={deleting}
                     >
-                        <Pencil size={15} />
+                        {viewOnly ? <Eye size={15} /> : <Pencil size={15} />}
                     </button>
                     <button
                         type="button"
                         className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                         aria-label={`Delete ${plugin.qualified_name}`}
-                        title="Delete"
-                        onClick={() => onDelete(plugin)}
+                        title={reasons.delete ?? 'Delete'}
+                        aria-disabled={reasons.delete ? true : undefined}
+                        onClick={() => {
+                            if (!reasons.delete) onDelete(plugin)
+                        }}
                         disabled={deleting}
                     >
                         {deleting ? (
@@ -307,6 +328,16 @@ function PluginRow({
 }
 
 export default function Plugins() {
+    const permissions = usePermissions()
+    const addReason = missingPermission(permissions, ['plugins.write'], 'creating or importing plugins')
+    const editReason = missingPermission(permissions, ['plugins.write'], 'editing plugins')
+    const deleteReason = missingPermission(permissions, ['plugins.delete'], 'deleting plugins')
+    const runReason = missingPermission(permissions, ['plugins.execute'], 'running plugins')
+    const restoreReason = missingPermission(permissions, ['plugins.write'], 'restoring earlier versions')
+    const viewOnly = Boolean(editReason) && !missingPermission(permissions, ['plugins.read'], 'viewing plugins')
+    const rowReasons = { run: runReason, install: editReason, edit: editReason, delete: deleteReason }
+    // Bumped to reopen the editor with fresh files after a restore.
+    const [editorKey, setEditorKey] = useState(0)
     const [plugins, setPlugins] = useState<PluginItem[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
@@ -599,7 +630,13 @@ export default function Plugins() {
         deletePickerOpen ||
         running !== null
 
-    const openCreate = () => setCreateOpen(true)
+    const openCreate = () => {
+        if (addReason) {
+            notify.error(addReason, { title: 'Cannot create plugin' })
+            return
+        }
+        setCreateOpen(true)
+    }
 
     useCreateIntent('plugin', openCreate)
 
@@ -612,6 +649,10 @@ export default function Plugins() {
                 searchRef.current?.select()
             },
             'mod+d': () => {
+                if (deleteReason) {
+                    notify.error(deleteReason, { title: 'Cannot delete plugin' })
+                    return
+                }
                 const selected = plugins.find((item) => item.qualified_name === selectedName)
 
                 if (selected) void handleDelete(selected)
@@ -691,6 +732,7 @@ export default function Plugins() {
                             onCreate={openCreate}
                             onImport={() => importRef.current?.click()}
                             importLabel="Import from zip…"
+                            disabledReason={addReason}
                         />
                         <input
                             ref={importRef}
@@ -795,8 +837,12 @@ export default function Plugins() {
                                 <button
                                     type="button"
                                     className="entropy-button entropy-button-secondary entropy-button-sm"
-                                    onClick={() => void bulk('install')}
+                                    onClick={() => {
+                                        if (!editReason) void bulk('install')
+                                    }}
                                     disabled={bulkBusy}
+                                    aria-disabled={editReason ? true : undefined}
+                                    title={editReason ?? undefined}
                                 >
                                     <PackageCheck size={14} /> Install drafts
                                 </button>
@@ -804,8 +850,12 @@ export default function Plugins() {
                             <button
                                 type="button"
                                 className="entropy-button entropy-button-danger-quiet entropy-button-sm"
-                                onClick={() => void bulk('delete')}
+                                onClick={() => {
+                                    if (!deleteReason) void bulk('delete')
+                                }}
                                 disabled={bulkBusy}
+                                aria-disabled={deleteReason ? true : undefined}
+                                title={deleteReason ?? undefined}
                             >
                                 {bulkBusy ? <LoaderCircle size={14} className="entropy-spin" /> : <Trash2 size={14} />}
                                 Delete
@@ -934,6 +984,8 @@ export default function Plugins() {
                                         onViewDetails={setSelectedPlugin}
                                         onEdit={setEditingPlugin}
                                         onDelete={(item) => void handleDelete(item)}
+                                        reasons={rowReasons}
+                                        viewOnly={viewOnly}
                                     />
                                 ))
                             ) : (
@@ -1152,11 +1204,18 @@ export default function Plugins() {
                         }
                     >
                         <PluginEditor
-                            key={editingPlugin.qualified_name}
+                            key={`${editingPlugin.qualified_name}:${editorKey}`}
                             plugin={editingPlugin}
                             onClose={() => setEditingPlugin(null)}
                             onSaved={() => {
                                 setEditingPlugin(null)
+                                refreshPlugins()
+                            }}
+                            readOnly={viewOnly}
+                            restoreReason={restoreReason}
+                            onRestored={(version) => {
+                                setEditingPlugin((current) => (current ? { ...current, version } : current))
+                                setEditorKey((value) => value + 1)
                                 refreshPlugins()
                             }}
                         />

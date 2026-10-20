@@ -31,7 +31,7 @@ FINISHED_STATES = ("completed", "failed", "cancelled", "error", "retried")
 RETRYABLE_STATES = ("failed", "cancelled", "error")
 
 # Permission a schedule owner needs for each kind.
-RUN_PERMISSION = {"workflow": "workflows.start", "plugin": "plugins.run"}
+RUN_PERMISSION = {"workflow": "workflows.execute", "plugin": "plugins.execute"}
 
 
 class ScheduleError(ValueError):

@@ -20,7 +20,7 @@ import threading
 import zipfile
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Callable, Optional, Sequence
 
 from core.constants import PLUGIN_DIRECTORIES, PLUGIN_FILES
 from core.generators.validators.plugin import PluginValidator
@@ -121,12 +121,18 @@ def revision(files: dict[str, str]) -> str:
     return digest.hexdigest()
 
 
-def _stage(source: Path, destination: Path, changes: dict[str, str]) -> Path:
+def _stage(
+    source: Path, destination: Path, changes: dict[str, str], removed: Sequence[str] = ()
+) -> Path:
     shutil.copytree(
         source,
         destination,
         ignore=shutil.ignore_patterns(*IGNORED_PARTS),
     )
+
+    for path in removed:
+        with contextlib.suppress(FileNotFoundError):
+            (destination / path).unlink()
 
     for path, content in changes.items():
         target = destination / path
@@ -154,6 +160,15 @@ def _normalize_changes(changes: dict[str, str]) -> dict[str, str]:
 # ----------------------------------------------------------------------
 # Studio
 # ----------------------------------------------------------------------
+
+
+# Called with a plugin's files and version just before they are replaced.
+Backup = Callable[[dict, str], None]
+
+
+def _manifest_version(files: dict[str, str]) -> str:
+    match = MANIFEST_VERSION.search(files.get("plugin.json", ""))
+    return match.group(2) if match else ""
 
 
 class PluginStudio:
@@ -414,10 +429,16 @@ class PluginStudio:
             return self._diagnostics(plugin, changes, Path(directory))
 
     def _diagnostics(
-        self, plugin: Any, changes: dict[str, str], directory: Path
+        self,
+        plugin: Any,
+        changes: dict[str, str],
+        directory: Path,
+        removed: Sequence[str] = (),
     ) -> list[Diagnostic]:
-        staged = _stage(plugin.path, directory / plugin.name, changes)
+        staged = _stage(plugin.path, directory / plugin.name, changes, removed)
         files = {**read_files(plugin.path), **changes}
+        for path in removed:
+            files.pop(path, None)
 
         return check_files(files) + check_manifest(
             staged,
@@ -435,12 +456,20 @@ class PluginStudio:
         changes: dict[str, str],
         base_revision: str,
         install: bool = False,
+        backup: Optional[Backup] = None,
+        removed: Sequence[str] = (),
     ) -> dict[str, Any]:
+        """
+        Apply changed files (and remove `removed` ones). `backup` receives the
+        files being replaced once the change is known to be valid.
+        """
+
         changes = _normalize_changes(changes)
+        removed = [normalize_path(path) for path in removed]
         plugin = self._resolve(qualified_name)
 
         if getattr(plugin, "draft", False):
-            return self._save_draft(plugin, changes, base_revision, install)
+            return self._save_draft(plugin, changes, base_revision, install, backup, removed)
 
         with self._lock:
             plugin = self._manager.get(qualified_name)
@@ -459,10 +488,13 @@ class PluginStudio:
                 source = root / "source"
                 source.mkdir()
 
-                diagnostics = self._diagnostics(plugin, changes, source)
+                diagnostics = self._diagnostics(plugin, changes, source, removed)
 
                 if any(item.severity == "error" for item in diagnostics):
                     raise PluginValidationFailed(diagnostics)
+
+                if backup is not None and self._changes(current, changes, removed):
+                    backup(current, _manifest_version(current))
 
                 staged = source / plugin.name
                 backup = shutil.copytree(plugin.path, root / "backup" / plugin.name)
@@ -505,15 +537,28 @@ class PluginStudio:
         )
         return {**changes, "plugin.json": bumped}
 
+    @staticmethod
+    def _changes(current: dict[str, str], changes: dict[str, str], removed: Sequence[str]) -> bool:
+        return any(current.get(path) != content for path, content in changes.items()) or any(
+            path in current for path in removed
+        )
+
     def _save_draft(
-        self, draft: Any, changes: dict[str, str], base_revision: str, install: bool
+        self,
+        draft: Any,
+        changes: dict[str, str],
+        base_revision: str,
+        install: bool,
+        backup: Optional[Backup] = None,
+        removed: Sequence[str] = (),
     ) -> dict[str, Any]:
         """Drafts keep work in progress even when it does not validate yet."""
 
         qualified_name = f"{draft.namespace}.{draft.name}"
 
         with self._lock:
-            if revision(read_files(draft.path)) != base_revision:
+            current = read_files(draft.path)
+            if revision(current) != base_revision:
                 raise PluginConflictError(
                     f"Draft '{qualified_name}' changed since it was opened. "
                     "Reload it and reapply your edits."
@@ -529,6 +574,13 @@ class PluginStudio:
                 if identity:
                     raise PluginValidationFailed(identity)
 
+            if backup is not None and self._changes(current, changes, removed):
+                backup(current, _manifest_version(current))
+
+            for path in removed:
+                with contextlib.suppress(FileNotFoundError):
+                    (draft.path / path).unlink()
+
             for path, content in changes.items():
                 target = draft.path / path
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -538,6 +590,33 @@ class PluginStudio:
             self.install(qualified_name)
 
         return self.files(qualified_name)
+
+    # -- restore --------------------------------------------------------
+
+    def restore(
+        self, qualified_name: str, files: dict[str, str], backup: Optional[Backup] = None
+    ) -> dict[str, Any]:
+        """
+        Make an earlier version's files current again, under the next version
+        number. Goes through the same checks as an edit.
+        """
+
+        plugin = self._resolve(qualified_name)
+        current = read_files(plugin.path)
+        files = dict(files)
+
+        version = _manifest_version(current)
+        if version and "plugin.json" in files:
+            files["plugin.json"] = MANIFEST_VERSION.sub(
+                lambda match: match.group(1) + bump_version(version) + match.group(3),
+                files["plugin.json"],
+                count=1,
+            )
+
+        removed = [path for path in current if path not in files]
+        return self.save(
+            qualified_name, files, revision(current), backup=backup, removed=removed
+        )
 
     # -- delete ---------------------------------------------------------
 

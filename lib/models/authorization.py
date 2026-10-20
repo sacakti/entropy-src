@@ -17,7 +17,10 @@ class PermissionType(str, Enum):
 
     READ = "read"
     WRITE = "write"
+    DELETE = "delete"
     EXECUTE = "execute"
+    # `<module>.all`: every permission of the module.
+    FULL = "full"
 
 
 class VaultVisibility(str, Enum):

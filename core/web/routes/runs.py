@@ -124,7 +124,7 @@ def list_runs(
     """List runs, newest first, filtered by tab (active/completed/failed/cancelled/all)."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.list")
+    _require_permission(request, current, "workflows.read")
 
     if tab != "all" and tab not in RUN_TABS:
         raise HTTPException(status_code=422, detail="Unknown tab.")
@@ -145,7 +145,7 @@ def get_run(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, current = record
-    _require_permission(request, current, "workflows.list")
+    _require_permission(request, current, "workflows.read")
 
     service = _service(request)
     run = service.store.get(job_id)
@@ -172,7 +172,7 @@ def run_events(
     """Events after a cursor plus the current state, for live following."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.list")
+    _require_permission(request, current, "workflows.read")
 
     service = _service(request)
     run = service.store.get(job_id)
@@ -213,7 +213,7 @@ def run_log(
     """Raw worker output (stdout/stderr) from a byte offset."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.list")
+    _require_permission(request, current, "workflows.read")
 
     service = _service(request)
     if service.store.get(job_id) is None:
@@ -230,7 +230,7 @@ def stop_run(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, current = record
-    _require_permission(request, current, "workflows.start")
+    _require_permission(request, current, "workflows.execute")
 
     try:
         return {"run": _service(request).stop(job_id)}
@@ -253,7 +253,7 @@ def run_workflow(
     """Validate and start a registered workflow as the current user."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.start")
+    _require_permission(request, current, "workflows.execute")
 
     try:
         run = _service(request).start_workflow(
@@ -282,7 +282,7 @@ def plan_workflow_run(
     """Which steps a run with these options would run, where, in which segments."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.start")
+    _require_permission(request, current, "workflows.execute")
 
     try:
         _, plan = _service(request).plan(
@@ -314,7 +314,7 @@ def run_plugin(
     """Run an installed plugin once (test run) as the current user."""
 
     _, _, current = record
-    _require_permission(request, current, "plugins.run")
+    _require_permission(request, current, "plugins.execute")
 
     try:
         run = _service(request).start_plugin(
@@ -347,7 +347,7 @@ def get_housekeeping(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, current = record
-    _require_permission(request, current, "workflows.list")
+    _require_permission(request, current, "workflows.read")
 
     service = _service(request)
     _no_store(response)
@@ -363,7 +363,7 @@ def update_housekeeping(
     """Change the archive policy and optionally apply it now."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.edit")
+    _require_permission(request, current, "workflows.write")
 
     service = _service(request)
     housekeeping = Housekeeping(service.store.connection)

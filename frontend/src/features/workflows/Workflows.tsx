@@ -4,6 +4,7 @@ import {
     Download,
     LoaderCircle,
     Pencil,
+    Eye,
     Play,
     RefreshCw,
     Search,
@@ -15,6 +16,7 @@ import {
 import { workflowsApi, type WorkflowFormat, type WorkflowSummary } from '../../api/workflows.api'
 import { ApiError } from '../../services/api'
 import AddMenu from '../../components/layout/AddMenu'
+import { missingPermission as missing } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
 import AppPortal from '../../components/layout/AppPortal'
 import StartRunDialog from '../runs/StartRunDialog'
@@ -40,20 +42,16 @@ function formatDate(value: string): string {
         : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
-/** Why an action is unavailable, or null; nothing is blocked until permissions load. */
-function missing(permissions: Set<string> | null, needed: string[], action: string): string | null {
-    if (!permissions) return null
-    const lacking = needed.filter((permission) => !permissions.has(permission))
-    return lacking.length ? `No permission: ${action} needs ${lacking.join(' and ')}.` : null
-}
-
 export default function Workflows() {
     const { notify, modal } = useFeedback()
     const permissions = usePermissions()
-    const addReason = missing(permissions, ['workflows.add', 'plugins.list'], 'creating or importing workflows')
-    const editReason = missing(permissions, ['workflows.edit', 'plugins.list'], 'editing workflows')
-    const deleteReason = missing(permissions, ['workflows.edit'], 'deleting workflows')
-    const runReason = missing(permissions, ['workflows.start'], 'running workflows')
+    const addReason = missing(permissions, ['workflows.write', 'plugins.read'], 'creating or importing workflows')
+    const editReason = missing(permissions, ['workflows.write', 'plugins.read'], 'editing workflows')
+    const deleteReason = missing(permissions, ['workflows.delete'], 'deleting workflows')
+    const runReason = missing(permissions, ['workflows.execute'], 'running workflows')
+    const restoreReason = missing(permissions, ['workflows.write', 'plugins.read'], 'restoring earlier versions')
+    // Without write access the definition can still be viewed.
+    const viewOnly = Boolean(editReason) && !missing(permissions, ['workflows.read'], 'viewing workflows')
 
     const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
     const [loading, setLoading] = useState(true)
@@ -498,15 +496,15 @@ export default function Workflows() {
                                                 <button
                                                     type="button"
                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                                                    aria-label={`Edit ${workflow.name}`}
-                                                    title={editReason ?? 'Edit'}
-                                                    aria-disabled={editReason ? true : undefined}
+                                                    aria-label={`${viewOnly ? 'View' : 'Edit'} ${workflow.name}`}
+                                                    title={viewOnly ? 'View (read only)' : editReason ?? 'Edit'}
+                                                    aria-disabled={editReason && !viewOnly ? true : undefined}
                                                     onClick={() => {
-                                                        if (!editReason) setBuilder({ mode: 'edit', name: workflow.name })
+                                                        if (!editReason || viewOnly) setBuilder({ mode: 'edit', name: workflow.name })
                                                     }}
                                                     disabled={deleting === workflow.name}
                                                 >
-                                                    <Pencil size={15} />
+                                                    {viewOnly ? <Eye size={15} /> : <Pencil size={15} />}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -580,6 +578,8 @@ export default function Workflows() {
                                 setBuilder(null)
                                 refresh()
                             }}
+                            readOnly={builder.mode === 'edit' && viewOnly}
+                            restoreReason={restoreReason}
                         />
                     </Suspense>
                 </AppPortal>

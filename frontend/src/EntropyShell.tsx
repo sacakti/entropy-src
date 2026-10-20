@@ -213,8 +213,8 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
 
     const quickCreate = (
         [
-            { target: 'plugin', label: 'Plugin', page: 'plugins', permission: 'plugins.install' },
-            { target: 'workflow', label: 'Workflow', page: 'workflows', permission: ['workflows.add', 'plugins.list'] },
+            { target: 'plugin', label: 'Plugin', page: 'plugins', permission: 'plugins.write' },
+            { target: 'workflow', label: 'Workflow', page: 'workflows', permission: ['workflows.write', 'plugins.read'] },
             { target: 'schedule', label: 'Schedule', page: 'schedulers', permission: 'schedules.manage' },
             { target: 'vault-entry', label: 'Vault secret', page: 'vault', permission: null },
             { target: 'vault-namespace', label: 'Vault namespace', page: 'vault', permission: 'vault.namespace.create' },

@@ -61,7 +61,7 @@ def get_dashboard(
 ) -> dict[str, Any]:
     """Return workflow execution summary for the authenticated user."""
     _, _, user = record
-    _require_permission(request, user, "workflows.list")
+    _require_permission(request, user, "workflows.read")
 
     context = request.app.state.entropy_context
     job_manager = context.workflow_job_manager

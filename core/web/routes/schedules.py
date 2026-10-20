@@ -68,7 +68,7 @@ def _check_target(request: Request, user: User, data: Dict[str, Any]) -> None:
 
     context = request.app.state.entropy_context
     if data.get("kind") == "workflow":
-        _require_permission(request, user, "workflows.start")
+        _require_permission(request, user, "workflows.execute")
         try:
             context.workflow_manager.get(data.get("target"))
         except Exception as exc:  # noqa: BLE001
@@ -76,7 +76,7 @@ def _check_target(request: Request, user: User, data: Dict[str, Any]) -> None:
                 status_code=422, detail=f"Workflow '{data.get('target')}' is not registered."
             ) from exc
     elif data.get("kind") == "plugin":
-        _require_permission(request, user, "plugins.run")
+        _require_permission(request, user, "plugins.execute")
         if not context.plugin_manager.exists(str(data.get("target"))):
             raise HTTPException(
                 status_code=422, detail=f"Plugin '{data.get('target')}' is not installed."
@@ -198,7 +198,7 @@ def delete_schedules(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    _require_permission(request, user, "schedules.manage")
+    _require_permission(request, user, "schedules.delete")
 
     return {"deleted": _store(request).delete(payload.ids)}
 

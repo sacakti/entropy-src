@@ -1,0 +1,149 @@
+/* History of a workflow or plugin: kept versions, diff, restore. */
+
+.entropy-app .history-dialog {
+    width: min(1180px, calc(100vw - 32px));
+    max-width: none;
+}
+
+.entropy-app .history-empty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    color: var(--app-muted);
+}
+
+.entropy-app .history-layout {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 14px;
+    min-height: 0;
+}
+
+.entropy-app .history-versions {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .history-versions li > button,
+.entropy-app .history-current {
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    padding: 9px 11px;
+    color: var(--app-text);
+    font: inherit;
+    text-align: left;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .history-versions li > button {
+    cursor: pointer;
+}
+
+.entropy-app .history-versions li > button:hover {
+    border-color: var(--app-muted);
+}
+
+.entropy-app .history-versions li > button.is-selected {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .history-current {
+    border-style: dashed;
+}
+
+.entropy-app .history-versions strong {
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .history-versions span {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .history-versions small {
+    color: var(--app-subtle);
+    font-size: 11.5px;
+}
+
+.entropy-app .history-compare {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+}
+
+.entropy-app .history-compare > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.entropy-app .history-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.entropy-app .history-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 12.5px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.entropy-app .history-file em {
+    color: var(--app-subtle);
+    font-size: 11px;
+    font-style: normal;
+}
+
+.entropy-app .history-file.is-active {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .history-diff {
+    position: relative;
+    height: min(56vh, 520px);
+    overflow: hidden;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .history-diff > p {
+    margin: 14px;
+}
+
+@media (max-width: 760px) {
+    .entropy-app .history-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .entropy-app .history-versions {
+        display: flex;
+        overflow-x: auto;
+    }
+
+    .entropy-app .history-versions li {
+        flex: 0 0 180px;
+    }
+}

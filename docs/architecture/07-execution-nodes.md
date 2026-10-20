@@ -189,18 +189,70 @@ the plan above the progress cards, tags on each card, and a **Diagram**
 view: a draggable bubble per step, dashed arrows for execution order and
 solid arrows for the step outputs each step reads.
 
-# Permissions for workflows and plugins
+# Permissions
 
-| Action | Needs |
+Every module's permissions have a type: **read**, **write**, **delete**,
+**execute**, or **full** (`<module>.all`). Built-in roles follow the types:
+`read`, `write`, `delete`, `execute` and `full` cover every module;
+`<module>-read`, `<module>-write`, `<module>-delete`, `<module>-execute` and
+`<module>-full` cover one. Deleting is never part of write.
+
+## Workflows and plugins
+
+| Permission | Allows |
 |---|---|
-| View workflows and runs | `workflows.list` |
-| Create, import, edit a workflow | `workflows.add` / `workflows.edit` **and** `plugins.list`; every step's plugin must be installed and enabled |
-| Delete a workflow | `workflows.edit` |
-| Run a workflow | `workflows.start` |
-| Run a plugin directly (test run) | `plugins.run` |
+| `workflows.read` | List workflows, view their definitions (read only), history and runs. |
+| `workflows.write` | Create, import, modify workflows; restore an earlier version. Also needs `plugins.read`. |
+| `workflows.delete` | Delete workflows. |
+| `workflows.execute` | Run and stop workflows. |
+| `workflows.all` | All of the above. |
+| `plugins.read` | List plugins, view their source (read only) and history. |
+| `plugins.write` | Create, import, install, modify, upgrade plugins; restore an earlier version. |
+| `plugins.delete` | Uninstall plugins, delete drafts. |
+| `plugins.execute` | Test-run plugins directly. |
+| `plugins.all` | All of the above. |
 
-A saved workflow is what grants its plugins: running it needs no plugin
-permission, the way a CI job's runner does not need rights to every tool
-the job uses. Choosing plugins is the privileged act, so authoring needs
-`plugins.list`. The Workflows page disables what the user may not do and
-says why on hover; the run dialog explains why **Start run** is unavailable.
+`<module>.all` stands for every permission of its module: checks for any
+of them pass, and `/api/auth/me` lists them all.
+
+A saved workflow is what grants its plugins: running it needs only
+`workflows.execute`. Choosing plugins is the privileged act, so authoring a
+workflow also needs `plugins.read`, and steps may not use disabled plugins.
+
+## Delete permissions in other modules
+
+`vault.delete`, `vault.namespace.delete`, `users.delete`, `groups.delete`,
+`roles.delete`, `nodes.delete` (remove a node) and `schedules.delete`.
+
+## Upgrading
+
+Reconciling the catalogue (at startup, `ent migrate` or an upgrade) moves
+grants of the old names to the new ones: `workflows.list` → `read`,
+`workflows.add` → `write`, `workflows.edit` → `write` + `delete` (editing
+used to include deleting), `workflows.run`/`start` → `execute`,
+`plugins.list` → `read`, `plugins.install`/`upgrade` → `write`,
+`plugins.uninstall` → `delete`, `plugins.run` → `execute`. Whoever held
+`nodes.manage` or `schedules.manage` also gets the new delete permission.
+Built-in type roles are re-derived, so `write` roles lose delete.
+
+The UI disables what the user may not do and says why on hover. Read-only
+users get **View** instead of **Edit**: the workflow builder and plugin
+editor open without Save, with every field read only.
+
+# Version history
+
+Before a workflow or plugin is changed, the version being replaced is kept
+(`definition_history`; the last **5** per workflow or plugin). **History**
+in the workflow builder and plugin editor lists them, compares any of them
+with the current version (per file for plugins), and restores one:
+
+- Restoring needs `workflows.write` / `plugins.write`, goes through the same
+  validation as an edit, keeps the current version in the history first,
+  and saves the restored content under the next version number.
+- Deleting a workflow or plugin drops its history.
+
+| Method | Path |
+|---|---|
+| GET | `/api/workflows/{name}/history`, `/api/plugins/{name}/history` |
+| GET | `/api/workflows/{name}/history/{id}?format=yaml`, `/api/plugins/{name}/history/{id}` |
+| POST | `/api/workflows/{name}/history/{id}/restore`, `/api/plugins/{name}/history/{id}/restore` |

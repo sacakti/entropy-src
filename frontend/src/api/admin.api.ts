@@ -4,7 +4,7 @@ export interface AdminSummary {
     charts: {
         groups: { name: string; members: number }[]
         roles: { name: string; users: number; groups: number; permissions: number }[]
-        modules: { name: string; read: number; write: number; execute: number }[]
+        modules: { name: string; read: number; write: number; execute: number; delete: number; full: number }[]
     }
     users: number
     active_users: number
@@ -55,7 +55,7 @@ export interface AdminPermission {
     id: number
     name: string
     description: string | null
-    type: 'read' | 'write' | 'execute'
+    type: 'read' | 'write' | 'delete' | 'execute' | 'full'
     roles: string[]
 }
 

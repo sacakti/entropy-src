@@ -290,7 +290,7 @@ class PluginCommand(
     ) -> None:
 
         self._require(
-            "plugins.install",
+            "plugins.write",
         )
 
         directory = Path(
@@ -346,7 +346,7 @@ class PluginCommand(
     ) -> None:
 
         self._require(
-            "plugins.uninstall",
+            "plugins.delete",
         )
 
         self._ui.rule(
@@ -371,7 +371,7 @@ class PluginCommand(
     ) -> None:
 
         self._require(
-            "plugins.list",
+            "plugins.read",
         )
 
         plugins = self._plugins.list()
@@ -417,7 +417,7 @@ class PluginCommand(
     ) -> None:
 
         self._require(
-            "plugins.run",
+            "plugins.execute",
         )
 
         if args.plugin is None and args.local is None:
@@ -472,7 +472,7 @@ class PluginCommand(
     ) -> None:
 
         self._require(
-            "plugins.list",
+            "plugins.read",
         )
 
         self._ui.rule(
@@ -497,7 +497,7 @@ class PluginCommand(
     ) -> None:
 
         self._require(
-            "plugins.install",
+            "plugins.write",
         )
 
         self._ui.rule(
@@ -525,7 +525,7 @@ class PluginCommand(
     ) -> None:
 
         self._require(
-            "plugins.install",
+            "plugins.write",
         )
 
         if args.enable:
@@ -624,7 +624,7 @@ class PluginCommand(
         """
 
         self._require(
-            "plugins.upgrade",
+            "plugins.write",
         )
 
         if args.show and args.confirm:

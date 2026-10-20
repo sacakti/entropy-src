@@ -160,7 +160,12 @@ def list_nodes(
         or authorization is None
         or not any(
             authorization.has_permission(user.id, permission)
-            for permission in ("nodes.list", "workflows.start", "plugins.run", "schedules.manage")
+            for permission in (
+                "nodes.list",
+                "workflows.execute",
+                "plugins.execute",
+                "schedules.manage",
+            )
         )
     ):
         raise HTTPException(status_code=403, detail="Permission denied.")
@@ -386,7 +391,7 @@ def remove_node(
     from lib.nodes.provision import Provisioner, ProvisionError
 
     _, _, user = record
-    _require_permission(request, user, "nodes.manage")
+    _require_permission(request, user, "nodes.delete")
 
     store = _store(request)
     node = store.get(name)

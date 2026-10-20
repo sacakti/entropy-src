@@ -4,6 +4,7 @@ import {
     ArrowLeft,
     CheckCircle2,
     Columns2,
+    History,
     LoaderCircle,
     Rows2,
     Save,
@@ -19,6 +20,7 @@ import { vaultApi } from '../../../api/vault.api'
 import { workflowsApi, type WorkflowFormat } from '../../../api/workflows.api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { useShortcuts } from '../../../components/layout/useShortcuts'
+import HistoryDialog from '../../history/HistoryDialog'
 import DiffView from '../../plugins/editor/DiffView'
 import CodeView from './CodeView'
 import FormView from './FormView'
@@ -80,16 +82,25 @@ export default function WorkflowBuilder({
     name,
     onClose,
     onSaved,
+    readOnly = false,
+    restoreReason = null,
 }: {
     /** Name of the workflow to edit; omit to create a new one. */
     name?: string
     onClose: () => void
     onSaved: (name: string) => void
+    /** View the definition without changing it (read access only). */
+    readOnly?: boolean
+    /** Why earlier versions may not be restored, or null when they may. */
+    restoreReason?: string | null
 }) {
     const { notify, modal } = useFeedback()
     const editing = name !== undefined
 
     const [loading, setLoading] = useState(true)
+    const [historyOpen, setHistoryOpen] = useState(false)
+    // Bumped to load the workflow again, e.g. after restoring a version.
+    const [reload, setReload] = useState(0)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [contracts, setContracts] = useState<PluginContract[]>([])
     const [vaultKeys, setVaultKeys] = useState<string[]>([])
@@ -157,7 +168,7 @@ export default function WorkflowBuilder({
         return () => {
             active = false
         }
-    }, [editing, name])
+    }, [editing, name, reload])
 
     // ------------------------------------------------------------------
     // Current definition
@@ -328,7 +339,11 @@ export default function WorkflowBuilder({
 
     useShortcuts(
         {
-            'mod+s': () => (reviewing ? void save() : requestSave()),
+            'mod+s': () => {
+                if (readOnly) return
+                if (reviewing) void save()
+                else requestSave()
+            },
         },
         !loading && !loadError,
     )
@@ -373,12 +388,13 @@ export default function WorkflowBuilder({
                     disabled={busy === 'save'}
                 >
                     <X size={16} />
-                    Cancel
+                    {readOnly ? 'Close' : 'Cancel'}
                 </button>
 
                 <div className="wf-builder-title">
                     <strong>{editing ? name : 'New workflow'}</strong>
-                    {dirty && !loading && <span className="wf-chip wf-chip-warning">Unsaved</span>}
+                    {readOnly && <span className="wf-chip">Read only</span>}
+                    {dirty && !loading && !readOnly && <span className="wf-chip wf-chip-warning">Unsaved</span>}
                 </div>
 
                 <div className="wf-builder-actions">
@@ -398,6 +414,21 @@ export default function WorkflowBuilder({
                         ))}
                     </div>
 
+                    {editing && (
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary"
+                            onClick={() => setHistoryOpen(true)}
+                            disabled={loading || !!loadError || busy !== null}
+                            title="Earlier versions of this workflow: compare and restore"
+                        >
+                            <History size={15} />
+                            History
+                        </button>
+                    )}
+
+                    {!readOnly && (
+                    <>
                     <button
                         type="button"
                         className="entropy-button entropy-button-secondary"
@@ -427,8 +458,22 @@ export default function WorkflowBuilder({
                         )}
                         {editing ? 'Save' : 'Create'}
                     </button>
+                    </>
+                    )}
                 </div>
             </header>
+
+            {historyOpen && name && (
+                <HistoryDialog
+                    kind="workflow"
+                    name={name}
+                    restoreReason={
+                        restoreReason ?? (dirty ? 'Save or discard your unsaved changes before restoring.' : null)
+                    }
+                    onRestored={() => setReload((value) => value + 1)}
+                    onClose={() => setHistoryOpen(false)}
+                />
+            )}
 
             {(serverResult || contractsError || errors.length > 0 || warnings.length > 0) &&
                 !loading &&
@@ -550,17 +595,20 @@ export default function WorkflowBuilder({
                         </footer>
                     </section>
                 ) : view === 'form' ? (
-                    <FormView
-                        state={form}
-                        onChange={(next) => {
-                            setForm(next)
-                            setServerResult(null)
-                        }}
-                        contracts={contracts}
-                        vaultKeys={vaultKeys}
-                        issues={issues}
-                        editing={editing}
-                    />
+                    // A disabled fieldset makes every control of the form read-only.
+                    <fieldset className="wf-form-fieldset" disabled={readOnly}>
+                        <FormView
+                            state={form}
+                            onChange={(next) => {
+                                setForm(next)
+                                setServerResult(null)
+                            }}
+                            contracts={contracts}
+                            vaultKeys={vaultKeys}
+                            issues={issues}
+                            editing={editing}
+                        />
+                    </fieldset>
                 ) : (
                     <CodeView
                         text={code}
@@ -572,6 +620,7 @@ export default function WorkflowBuilder({
                             setServerResult(null)
                         }}
                         onSaveShortcut={requestSave}
+                        readOnly={readOnly}
                     />
                 )}
             </div>

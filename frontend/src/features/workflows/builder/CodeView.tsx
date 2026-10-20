@@ -12,6 +12,7 @@ export default function CodeView({
     theme,
     onChange,
     onSaveShortcut,
+    readOnly = false,
 }: {
     text: string
     format: CodeFormat
@@ -19,6 +20,8 @@ export default function CodeView({
     theme: string
     onChange: (text: string) => void
     onSaveShortcut: () => void
+    /** View only: the definition cannot be changed. */
+    readOnly?: boolean
 }) {
     const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
     const saveRef = useRef(onSaveShortcut)
@@ -72,6 +75,7 @@ export default function CodeView({
                         scrollBeyondLastLine: false,
                         tabSize: format === 'json' ? 4 : 2,
                         insertSpaces: true,
+                        readOnly,
                     }}
                 />
             </div>

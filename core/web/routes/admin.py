@@ -250,13 +250,17 @@ def summary(
             "read": row["read"],
             "write": row["write"],
             "execute": row["execute"],
+            "delete": row["delete_count"],
+            "full": row["full_count"],
         }
         for row in connection.fetchall(
             """
             SELECT m.name,
                    SUM(p.permission_type = 'read') AS read,
                    SUM(p.permission_type = 'write') AS write,
-                   SUM(p.permission_type = 'execute') AS execute
+                   SUM(p.permission_type = 'execute') AS execute,
+                   SUM(p.permission_type = 'delete') AS delete_count,
+                   SUM(p.permission_type = 'full') AS full_count
             FROM modules m JOIN permissions p ON p.module_id = m.id
             GROUP BY m.id
             ORDER BY COUNT(p.id) DESC, m.name

@@ -66,6 +66,7 @@ import type {
 } from '../../api/vault.api'
 
 import UserSuggestInput from './UserSuggestInput'
+import { missingPermission } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import PickerDialog from '../../components/layout/PickerDialog'
@@ -232,6 +233,11 @@ export default function Vault() {
     const isNamespaceAdmin = selectedAccess === 'admin'
 
     const canWriteEntries = selectedAccess === 'admin' || selectedAccess === 'write'
+
+    // Deleting needs the delete permission besides access to the namespace.
+    const entryDeleteReason = missingPermission(permissions, ['vault.delete'], 'deleting secrets')
+
+    const namespaceDeleteReason = missingPermission(permissions, ['vault.namespace.delete'], 'deleting namespaces')
 
     // The effects below read the latest namespaces without re-running on each poll.
 
@@ -1026,6 +1032,14 @@ export default function Vault() {
 
     async function deleteEntry(entry: VaultEntry) {
 
+        if (entryDeleteReason) {
+
+            notify.error(entryDeleteReason, { title: 'Cannot delete secret' })
+
+            return
+
+        }
+
         if (!selectedNamespace) {
 
             return
@@ -1091,6 +1105,14 @@ export default function Vault() {
 
 
     async function deleteNamespace() {
+
+        if (namespaceDeleteReason) {
+
+            notify.error(namespaceDeleteReason, { title: 'Cannot delete namespace' })
+
+            return
+
+        }
 
         if (!selectedNamespace) {
 
@@ -1479,7 +1501,9 @@ export default function Vault() {
 
                             disabled={busy}
 
-                            title="Delete namespace (Ctrl+Shift+D)"
+                            aria-disabled={namespaceDeleteReason ? true : undefined}
+
+                            title={namespaceDeleteReason ?? 'Delete namespace (Ctrl+Shift+D)'}
 
                         >
 
@@ -1941,8 +1965,9 @@ export default function Vault() {
                                                                     className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                                                                     onClick={() => void deleteEntry(entry)}
                                                                     disabled={busy || !canWriteEntries}
+                                                                    aria-disabled={entryDeleteReason ? true : undefined}
                                                                     aria-label={`Delete ${entry.key}`}
-                                                                    title="Delete secret"
+                                                                    title={entryDeleteReason ?? 'Delete secret'}
                                                                 >
                                                                     <Trash2 size={15} />
                                                                 </button>

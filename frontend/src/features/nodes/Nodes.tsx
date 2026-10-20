@@ -27,6 +27,8 @@ import { errorMessage, formatBytes, formatDateTime, formatDuration, formatTime }
 import Dialog from '../../components/layout/Dialog'
 import FloatingMenu from '../../components/layout/FloatingMenu'
 import MetricChart from './MetricChart'
+import { missingPermission } from '../administration/permissionReason'
+import { usePermissions } from '../administration/usePermissions'
 import NodeSetupDialog from './NodeSetupDialog'
 import ProvisioningLog from './ProvisioningLog'
 import RemoveNodeDialog from './RemoveNodeDialog'
@@ -45,7 +47,12 @@ function NodeMenu({
 }) {
     const [open, setOpen] = useState(false)
     const triggerRef = useRef<HTMLButtonElement>(null)
-    const pick = (run: () => void) => () => {
+    const permissions = usePermissions()
+    const manageReason = missingPermission(permissions, ['nodes.manage'], 'managing nodes')
+    const deleteReason = missingPermission(permissions, ['nodes.delete'], 'removing nodes')
+    // Unavailable items explain themselves on hover instead of acting.
+    const pick = (run: () => void, reason: string | null = null) => () => {
+        if (reason) return
         setOpen(false)
         run()
     }
@@ -65,17 +72,35 @@ function NodeMenu({
                 <ChevronDown size={13} />
             </button>
             <FloatingMenu anchorRef={triggerRef} open={open} onClose={() => setOpen(false)} className="plugins-operation-menu">
-                <button type="button" role="menuitem" onClick={pick(() => onAction({ kind: 'setup', node }))}>
+                <button
+                    type="button"
+                    role="menuitem"
+                    aria-disabled={manageReason ? true : undefined}
+                    title={manageReason ?? undefined}
+                    onClick={pick(() => onAction({ kind: 'setup', node }), manageReason)}
+                >
                     <ServerCog size={15} /> Set up again
                 </button>
                 <button type="button" role="menuitem" onClick={pick(() => onAction({ kind: 'log', node }))}>
                     <ScrollText size={15} /> Last setup log
                 </button>
-                <button type="button" role="menuitem" onClick={pick(() => onToggle(node))}>
+                <button
+                    type="button"
+                    role="menuitem"
+                    aria-disabled={manageReason ? true : undefined}
+                    title={manageReason ?? undefined}
+                    onClick={pick(() => onToggle(node), manageReason)}
+                >
                     {node.enabled ? <Pause size={15} /> : <Play size={15} />}
                     {node.enabled ? 'Disable (no new runs)' : 'Enable'}
                 </button>
-                <button type="button" role="menuitem" onClick={pick(() => onAction({ kind: 'remove', node }))}>
+                <button
+                    type="button"
+                    role="menuitem"
+                    aria-disabled={deleteReason ? true : undefined}
+                    title={deleteReason ?? undefined}
+                    onClick={pick(() => onAction({ kind: 'remove', node }), deleteReason)}
+                >
                     <Trash2 size={15} /> Remove node
                 </button>
             </FloatingMenu>

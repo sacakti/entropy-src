@@ -107,7 +107,7 @@ PERMISSIONS = (
     PermissionDefinition(
         "vault",
         "vault.delete",
-        "write",
+        "delete",
         "Delete a Vault entry.",
     ),
     PermissionDefinition(
@@ -131,7 +131,7 @@ PERMISSIONS = (
     PermissionDefinition(
         "vault",
         "vault.namespace.delete",
-        "write",
+        "delete",
         "Delete Vault namespaces.",
     ),
     PermissionDefinition(
@@ -161,7 +161,7 @@ PERMISSIONS = (
     PermissionDefinition(
         "users",
         "users.delete",
-        "write",
+        "delete",
         "Delete users.",
     ),
     PermissionDefinition(
@@ -184,63 +184,63 @@ PERMISSIONS = (
     ),
     PermissionDefinition(
         "workflows",
-        "workflows.add",
-        "write",
-        "Create workflows.",
-    ),
-    PermissionDefinition(
-        "workflows",
-        "workflows.list",
+        "workflows.read",
         "read",
-        "List workflows.",
+        "View workflows, their definitions, history and runs.",
     ),
     PermissionDefinition(
         "workflows",
-        "workflows.edit",
+        "workflows.write",
         "write",
-        "Edit workflows.",
+        "Create, import and modify workflows; restore earlier versions.",
     ),
     PermissionDefinition(
         "workflows",
-        "workflows.run",
+        "workflows.delete",
+        "delete",
+        "Delete workflows.",
+    ),
+    PermissionDefinition(
+        "workflows",
+        "workflows.execute",
         "execute",
-        "Run workflows.",
+        "Run and stop workflows.",
     ),
     PermissionDefinition(
         "workflows",
-        "workflows.start",
-        "execute",
-        "Start workflows.",
+        "workflows.all",
+        "full",
+        "Every workflows permission (read, write, delete, execute).",
     ),
     PermissionDefinition(
         "plugins",
-        "plugins.install",
-        "write",
-        "Install plugins.",
-    ),
-    PermissionDefinition(
-        "plugins",
-        "plugins.uninstall",
-        "write",
-        "Uninstall plugins.",
-    ),
-    PermissionDefinition(
-        "plugins",
-        "plugins.list",
+        "plugins.read",
         "read",
-        "List plugins.",
+        "View plugins, their source files and history.",
     ),
     PermissionDefinition(
         "plugins",
-        "plugins.upgrade",
+        "plugins.write",
         "write",
-        "Upgrade plugins.",
+        "Create, import, install, modify and upgrade plugins; restore earlier versions.",
     ),
     PermissionDefinition(
         "plugins",
-        "plugins.run",
+        "plugins.delete",
+        "delete",
+        "Uninstall plugins and delete drafts.",
+    ),
+    PermissionDefinition(
+        "plugins",
+        "plugins.execute",
         "execute",
-        "Execute plugins.",
+        "Run plugins directly (test runs).",
+    ),
+    PermissionDefinition(
+        "plugins",
+        "plugins.all",
+        "full",
+        "Every plugins permission (read, write, delete, execute).",
     ),
     PermissionDefinition(
         "extensions",
@@ -317,7 +317,7 @@ PERMISSIONS = (
     PermissionDefinition(
         "roles",
         "roles.delete",
-        "write",
+        "delete",
         "Delete authorization roles.",
     ),
     PermissionDefinition(
@@ -347,7 +347,7 @@ PERMISSIONS = (
     PermissionDefinition(
         "groups",
         "groups.delete",
-        "write",
+        "delete",
         "Delete user groups.",
     ),
     PermissionDefinition(
@@ -384,7 +384,13 @@ PERMISSIONS = (
         "nodes",
         "nodes.manage",
         "write",
-        "Add, modify and remove execution nodes.",
+        "Add, set up, enable and modify execution nodes.",
+    ),
+    PermissionDefinition(
+        "nodes",
+        "nodes.delete",
+        "delete",
+        "Remove execution nodes (and uninstall their agents).",
     ),
     PermissionDefinition(
         "schedules",
@@ -396,9 +402,42 @@ PERMISSIONS = (
         "schedules",
         "schedules.manage",
         "write",
-        "Create, modify, delete and trigger schedules.",
+        "Create, modify, pause and trigger schedules.",
+    ),
+    PermissionDefinition(
+        "schedules",
+        "schedules.delete",
+        "delete",
+        "Delete schedules.",
     ),
 )
+
+
+# Permissions replaced by newer ones. Grants of an old permission (to roles
+# or users) move to its replacements when the catalogue is reconciled.
+# Editing a workflow used to include deleting it, so that grant keeps both.
+PERMISSION_RENAMES = {
+    "workflows.list": ("workflows.read",),
+    "workflows.add": ("workflows.write",),
+    "workflows.edit": ("workflows.write", "workflows.delete"),
+    "workflows.run": ("workflows.execute",),
+    "workflows.start": ("workflows.execute",),
+    "plugins.list": ("plugins.read",),
+    "plugins.install": ("plugins.write",),
+    "plugins.upgrade": ("plugins.write",),
+    "plugins.uninstall": ("plugins.delete",),
+    "plugins.run": ("plugins.execute",),
+}
+
+# New permissions split out of one that remains: whoever held the existing
+# permission when the new one first appears keeps what they could do.
+PERMISSION_SPLITS = {
+    "nodes.delete": "nodes.manage",
+    "schedules.delete": "schedules.manage",
+}
+
+# `<module>.all` grants every permission of its module.
+ALL_SUFFIX = ".all"
 
 
 ADMIN_ROLE = "admin"
@@ -406,6 +445,7 @@ ADMIN_ROLE = "admin"
 DEFAULT_ROLES = (
     "read",
     "write",
+    "delete",
     "execute",
     "full",
 )

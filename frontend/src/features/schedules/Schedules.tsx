@@ -23,6 +23,8 @@ import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { errorMessage, formatDateTime } from '../runs/format'
 import { openRun } from '../runs/navigation'
 import ScheduleDialog from './ScheduleDialog'
+import { missingPermission } from '../administration/permissionReason'
+import { usePermissions } from '../administration/usePermissions'
 
 const REFRESH_MS = 15_000
 
@@ -76,6 +78,8 @@ function SelectAll({
 }
 
 export default function Schedules() {
+    const permissions = usePermissions()
+    const deleteReason = missingPermission(permissions, ['schedules.delete'], 'deleting schedules')
     const { notify, modal } = useFeedback()
 
     const [tab, setTab] = useState<'schedules' | 'failed'>('schedules')
@@ -326,8 +330,12 @@ export default function Schedules() {
                                 <button
                                     type="button"
                                     className="entropy-button entropy-button-danger-quiet entropy-button-sm"
-                                    onClick={() => void removeSelected([...selected])}
+                                    onClick={() => {
+                                        if (!deleteReason) void removeSelected([...selected])
+                                    }}
                                     disabled={busy !== null}
+                                    aria-disabled={deleteReason ? true : undefined}
+                                    title={deleteReason ?? undefined}
                                 >
                                     <Trash2 size={14} /> Delete
                                 </button>
@@ -507,8 +515,11 @@ export default function Schedules() {
                                                         type="button"
                                                         className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                                                         aria-label={`Delete ${schedule.name}`}
-                                                        title="Delete"
-                                                        onClick={() => void removeSelected([schedule.id])}
+                                                        title={deleteReason ?? 'Delete'}
+                                                        aria-disabled={deleteReason ? true : undefined}
+                                                        onClick={() => {
+                                                            if (!deleteReason) void removeSelected([schedule.id])
+                                                        }}
                                                     >
                                                         <Trash2 size={15} />
                                                     </button>

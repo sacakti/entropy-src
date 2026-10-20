@@ -907,3 +907,12 @@
 .entropy-app .wf-review-footer {
     border-top: 1px solid var(--app-line);
 }
+
+/* Wraps the form view; disabled when the workflow is only viewed. */
+.entropy-app .wf-form-fieldset {
+    display: contents;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}

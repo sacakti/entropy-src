@@ -470,7 +470,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.run",
+            "workflows.execute",
         )
 
         workflow_name, workflow_file = self._workflow_source(
@@ -538,7 +538,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.start",
+            "workflows.execute",
         )
 
         workflow_name, workflow_file = self._workflow_source(
@@ -605,7 +605,7 @@ class WorkflowCommand(
     ) -> None:
 
         self._require(
-            "workflows.list",
+            "workflows.read",
         )
 
         jobs = self._workflows.jobs()
@@ -641,7 +641,7 @@ class WorkflowCommand(
     ) -> None:
 
         self._require(
-            "workflows.list",
+            "workflows.read",
         )
 
         self._workflows.follow(
@@ -661,7 +661,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.start",
+            "workflows.execute",
         )
 
         if args.pid is not None:
@@ -742,7 +742,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.add",
+            "workflows.write",
         )
 
         workflow = self._workflows.add(
@@ -762,7 +762,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.edit",
+            "workflows.delete",
         )
 
         self._workflows.remove(
@@ -782,7 +782,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.list",
+            "workflows.read",
         )
 
         workflows = self._workflows.list()
@@ -825,7 +825,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.list",
+            "workflows.read",
         )
 
         workflow = self._workflows.get(
@@ -926,7 +926,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.edit",
+            "workflows.write",
         )
 
         workflow = self._workflows.replace(
@@ -947,7 +947,7 @@ class WorkflowCommand(
         """
 
         self._require(
-            "workflows.edit",
+            "workflows.write",
         )
 
         result = self._workflows.edit(

@@ -29,6 +29,7 @@ from core.web.plugin_studio.workspace import (
 )
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
+from lib.history import DefinitionHistory
 from lib.plugins.exceptions import InvalidPluginNameError, PluginNotFoundError
 
 router = APIRouter(
@@ -137,7 +138,7 @@ def list_plugins(
     _require_permission(
         request,
         user,
-        "plugins.list",
+        "plugins.read",
     )
 
     manager = _plugin_manager(request)
@@ -269,6 +270,22 @@ class PluginSaveRequest(PluginFilesRequest):
     install: bool = False
 
 
+def _history(request: Request) -> DefinitionHistory:
+    connection = request.app.state.entropy_context.database_manager.connection
+    return DefinitionHistory(connection, "plugin")
+
+
+def _keep(request: Request, qualified_name: str, user: Any, reason: str = "edit"):
+    """A studio backup callback recording the replaced files in the history."""
+
+    history = _history(request)
+
+    def backup(files: dict, version: str) -> None:
+        history.record(qualified_name, version, files, user=user.username, reason=reason)
+
+    return backup
+
+
 def _studio(request: Request) -> PluginStudio:
     _plugin_manager(request)  # 503 when the plugin subsystem is unavailable
     return PluginStudio(request.app.state.entropy_context)
@@ -320,7 +337,7 @@ def plugin_sdk(
     """Describe the Plugin SDK for editor completion and hover help."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.list")
+    _require_permission(request, user, "plugins.read")
 
     response.headers["Cache-Control"] = "no-store"
     return build_catalog()
@@ -335,7 +352,7 @@ def plugin_contracts(
     """Arguments and outputs of every installed plugin, for the workflow builder."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.list")
+    _require_permission(request, user, "plugins.read")
 
     manager = _plugin_manager(request)
     items = []
@@ -365,7 +382,7 @@ def plugin_availability(
     """Report whether a namespace/name pair can be used for a new plugin."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.install")
+    _require_permission(request, user, "plugins.write")
 
     response.headers["Cache-Control"] = "no-store"
 
@@ -388,7 +405,7 @@ def create_plugin(
     """Scaffold a plugin from the template as a draft (or install it)."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.install")
+    _require_permission(request, user, "plugins.write")
 
     try:
         plugin = _studio(request).create(
@@ -414,7 +431,7 @@ def export_plugins(
     """Download plugins (installed or draft) as one zip, a folder each."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.list")
+    _require_permission(request, user, "plugins.read")
 
     try:
         data = _studio(request).export(payload.names)
@@ -442,7 +459,7 @@ async def import_plugins(
     """Import plugin folders from a zip as drafts, or install them."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.install")
+    _require_permission(request, user, "plugins.write")
 
     from core.web.plugin_studio.workspace import MAX_IMPORT_BYTES
 
@@ -466,7 +483,7 @@ def install_draft(
     """Install a draft so workflows can use it."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.install")
+    _require_permission(request, user, "plugins.write")
 
     try:
         plugin = _studio(request).install(qualified_name)
@@ -486,7 +503,7 @@ def plugin_files(
     """Return the editable source files of an installed plugin."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.list")
+    _require_permission(request, user, "plugins.read")
 
     try:
         result = _studio(request).files(qualified_name)
@@ -509,7 +526,7 @@ def validate_plugin(
     """Check changed files against the Plugin SDK without saving them."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.install")
+    _require_permission(request, user, "plugins.write")
 
     try:
         diagnostics = _studio(request).validate(qualified_name, payload.files)
@@ -535,7 +552,7 @@ def save_plugin_files(
     """Validate changed files and reinstall the plugin with them."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.install")
+    _require_permission(request, user, "plugins.write")
 
     try:
         result = _studio(request).save(
@@ -543,6 +560,7 @@ def save_plugin_files(
             payload.files,
             payload.revision,
             install=payload.install,
+            backup=_keep(request, qualified_name, user),
         )
     except Exception as exc:
         raise _translate(exc) from exc
@@ -562,12 +580,105 @@ def delete_plugin(
     """Uninstall a plugin and remove its module directory."""
 
     _, _, user = session_record
-    _require_permission(request, user, "plugins.uninstall")
+    _require_permission(request, user, "plugins.delete")
 
     try:
         _studio(request).delete(qualified_name)
     except Exception as exc:
         raise _translate(exc) from exc
 
+    _history(request).forget(qualified_name)
+
     response.headers["Cache-Control"] = "no-store"
     return {"deleted": True, "qualified_name": qualified_name}
+
+
+# ----------------------------------------------------------------------
+# History
+# ----------------------------------------------------------------------
+
+
+@router.get("/{qualified_name}/history")
+def plugin_history(
+    qualified_name: str,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Earlier versions kept before each change (the last five)."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.read")
+
+    try:
+        current = _studio(request).files(qualified_name)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "current_version": getattr(current["plugin"], "version", ""),
+        "items": _history(request).list(qualified_name),
+    }
+
+
+@router.get("/{qualified_name}/history/{entry_id}")
+def plugin_history_entry(
+    qualified_name: str,
+    entry_id: int,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """One kept version's files."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.read")
+
+    entry = _history(request).get(qualified_name, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="That version is no longer kept.")
+
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "id": entry["id"],
+        "version": entry["version"],
+        "reason": entry["reason"],
+        "created_by": entry["created_by"],
+        "created_at": entry["created_at"],
+        "files": entry["content"],
+    }
+
+
+@router.post("/{qualified_name}/history/{entry_id}/restore")
+def restore_plugin_version(
+    qualified_name: str,
+    entry_id: int,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """
+    Make a kept version current again (validated like an edit). The current
+    files are kept first; the restored version gets the next version number.
+    """
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.write")
+
+    entry = _history(request).get(qualified_name, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="That version is no longer kept.")
+
+    try:
+        result = _studio(request).restore(
+            qualified_name,
+            entry["content"],
+            backup=_keep(request, qualified_name, user, reason="restore"),
+        )
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    response.headers["Cache-Control"] = "no-store"
+    return {**_files_payload(result), "restored_from": entry["version"]}

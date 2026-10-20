@@ -683,6 +683,8 @@
     --series-1: #2a78d6;
     --series-2: #eb6834;
     --series-3: #1baf7a;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
     --series-neutral: #b8bcc4;
 
     display: grid;
@@ -694,6 +696,8 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
     --series-neutral: #4a515c;
 }
 
@@ -751,6 +755,8 @@
 .entropy-app .is-series-1 { --key-color: var(--series-1); }
 .entropy-app .is-series-2 { --key-color: var(--series-2); }
 .entropy-app .is-series-3 { --key-color: var(--series-3); }
+.entropy-app .is-series-4 { --key-color: var(--series-4); }
+.entropy-app .is-series-5 { --key-color: var(--series-5); }
 .entropy-app .is-neutral { --key-color: var(--series-neutral); }
 
 .entropy-app .admin-bars {

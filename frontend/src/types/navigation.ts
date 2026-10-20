@@ -97,10 +97,10 @@ export function pageFromHash(hash: string): PageId | null {
 
 /** Pages the API refuses without one of these permissions. */
 export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
-    dashboard: ['workflows.list'],
-    plugins: ['plugins.list'],
-    workflows: ['workflows.list'],
-    runs: ['workflows.list'],
+    dashboard: ['workflows.read'],
+    plugins: ['plugins.read'],
+    workflows: ['workflows.read'],
+    runs: ['workflows.read'],
     nodes: ['nodes.list'],
     schedulers: ['schedules.list'],
     administration: ['users.read', 'groups.read', 'roles.read'],

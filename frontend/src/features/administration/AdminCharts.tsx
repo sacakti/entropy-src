@@ -123,12 +123,18 @@ const TYPES = [
     { key: 'read', label: 'Read' },
     { key: 'write', label: 'Write' },
     { key: 'execute', label: 'Execute' },
+    // Later types take the next slots, so existing colours stay put.
+    { key: 'delete', label: 'Delete' },
+    { key: 'full', label: 'All' },
 ] as const
+
+const moduleTotal = (module: AdminSummary['charts']['modules'][number]) =>
+    TYPES.reduce((sum, type) => sum + module[type.key], 0)
 
 export default function AdminCharts({ summary }: { summary: AdminSummary }) {
     const { groups, roles, modules } = summary.charts
     const disabled = summary.users - summary.active_users
-    const moduleMax = Math.max(1, ...modules.map((module) => module.read + module.write + module.execute))
+    const moduleMax = Math.max(1, ...modules.map(moduleTotal))
 
     return (
         <div className="admin-charts">
@@ -256,11 +262,11 @@ export default function AdminCharts({ summary }: { summary: AdminSummary }) {
                 ))}
                 table={
                     <table>
-                        <thead><tr><th>Module</th><th>Read</th><th>Write</th><th>Execute</th></tr></thead>
+                        <thead><tr><th>Module</th>{TYPES.map((type) => <th key={type.key}>{type.label}</th>)}</tr></thead>
                         <tbody>
                             {modules.map((module) => (
                                 <tr key={module.name}>
-                                    <th>{module.name}</th><td>{module.read}</td><td>{module.write}</td><td>{module.execute}</td>
+                                    <th>{module.name}</th>{TYPES.map((type) => <td key={type.key}>{module[type.key]}</td>)}
                                 </tr>
                             ))}
                         </tbody>
@@ -270,7 +276,7 @@ export default function AdminCharts({ summary }: { summary: AdminSummary }) {
                 {(setTip) => (
                     <ul className="admin-bars">
                         {modules.map((module) => {
-                            const total = module.read + module.write + module.execute
+                            const total = moduleTotal(module)
 
                             return (
                                 <li

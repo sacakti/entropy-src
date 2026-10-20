@@ -7,6 +7,7 @@ from __future__ import annotations
 from lib.models.session import Session
 from lib.authorization.exceptions import AuthorizationRequiredError
 from lib.database.connection import DatabaseConnection
+from lib.authorization.constants import ALL_SUFFIX
 from lib.models.authorization import PermissionType
 
 
@@ -40,8 +41,11 @@ class AuthorizationService:
         permission: str,
     ) -> bool:
         """
-        Return True when the user has the requested permission.
+        Return True when the user has the requested permission, directly or
+        through the module's `<module>.all` permission.
         """
+
+        module_all = permission.split(".", 1)[0] + ALL_SUFFIX
 
         return (
             self._connection.fetchone(
@@ -49,7 +53,7 @@ class AuthorizationService:
             SELECT 1
             FROM permissions p
 
-            WHERE p.name = ?
+            WHERE p.name IN (?, ?)
 
             AND
             (
@@ -92,6 +96,7 @@ class AuthorizationService:
             """,
                 (
                     permission,
+                    module_all,
                     user_id,
                     user_id,
                     user_id,
@@ -124,7 +129,7 @@ class AuthorizationService:
               ON m.id = p.module_id
 
             WHERE m.name = ?
-              AND p.permission_type = ?
+              AND (p.permission_type = ? OR p.name = m.name || '.all')
 
             AND
             (
@@ -237,7 +242,24 @@ class AuthorizationService:
             ),
         )
 
-        return [row["name"] for row in rows]
+        names = {row["name"] for row in rows}
+
+        # `<module>.all` stands for every permission of its module.
+        for name in [name for name in names if name.endswith(ALL_SUFFIX)]:
+            module = name[: -len(ALL_SUFFIX)]
+            names.update(
+                row["name"]
+                for row in self._connection.fetchall(
+                    """
+                    SELECT p.name FROM permissions p
+                    JOIN modules m ON m.id = p.module_id
+                    WHERE m.name = ?
+                    """,
+                    (module,),
+                )
+            )
+
+        return sorted(names)
 
     # ------------------------------------------------------------------
     # Require

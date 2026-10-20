@@ -13,6 +13,7 @@ import {
     FilePlus2,
     FileText,
     Folder,
+    History,
     Info,
     LoaderCircle,
     Rows2,
@@ -32,6 +33,7 @@ import {
 import { ApiError } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import WallpaperLayer from '../../preferences/WallpaperLayer'
+import HistoryDialog from '../../history/HistoryDialog'
 import DiffView from './DiffView'
 import { monaco } from './monaco'
 import { registerSdkLanguage, toMarkers } from './sdkLanguage'
@@ -274,9 +276,22 @@ interface PluginEditorProps {
     plugin: PluginItem
     onClose: () => void
     onSaved: (plugin: PluginItem) => void
+    /** View the source without changing it (read access only). */
+    readOnly?: boolean
+    /** Why earlier versions may not be restored, or null when they may. */
+    restoreReason?: string | null
+    /** An earlier version was restored; the editor should reopen. */
+    onRestored?: (version: string) => void
 }
 
-export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorProps) {
+export default function PluginEditor({
+    plugin,
+    onClose,
+    onSaved,
+    readOnly = false,
+    restoreReason = null,
+    onRestored,
+}: PluginEditorProps) {
     const { notify, modal } = useFeedback()
     const qualifiedName = plugin.qualified_name
     const uriPrefix = `file:///${qualifiedName}/`
@@ -299,6 +314,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
     const [cursor, setCursor] = useState({ line: 1, column: 1 })
     const [newFileOpen, setNewFileOpen] = useState(false)
     const [newFilePath, setNewFilePath] = useState('')
+    const [historyOpen, setHistoryOpen] = useState(false)
 
     const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
     const theme = useMemo(
@@ -617,9 +633,11 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
     const handleMount: OnMount = (editor, instance) => {
         editorRef.current = editor
 
-        editor.addCommand(instance.KeyMod.CtrlCmd | instance.KeyCode.KeyS, () =>
-            previewRef.current(),
-        )
+        if (!readOnly) {
+            editor.addCommand(instance.KeyMod.CtrlCmd | instance.KeyCode.KeyS, () =>
+                previewRef.current(),
+            )
+        }
 
         editor.onDidChangeCursorPosition((event) =>
             setCursor({
@@ -643,7 +661,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
             className="plugin-ide"
             role="dialog"
             aria-modal="true"
-            aria-label={`Edit plugin ${qualifiedName}`}
+            aria-label={`${readOnly ? 'View' : 'Edit'} plugin ${qualifiedName}`}
         >
             <WallpaperLayer veil="var(--ide-bg-base)" />
             <header className="plugin-ide-topbar">
@@ -654,13 +672,14 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                     disabled={saving}
                 >
                     <X size={16} />
-                    Cancel
+                    {readOnly ? 'Close' : 'Cancel'}
                 </button>
 
                 <div className="plugin-ide-title">
                     <strong>{qualifiedName}</strong>
                     <span className="plugins-version">{plugin.version}</span>
                     {plugin.draft && <span className="plugin-ide-chip">Draft</span>}
+                    {readOnly && <span className="plugin-ide-chip">Read only</span>}
                     {mode === 'review' && (
                         <span className="plugin-ide-chip">Reviewing changes</span>
                     )}
@@ -671,13 +690,39 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                     )}
                 </div>
 
-                <SaveMenu
-                    disabled={!dirty || saving || loading}
-                    saving={saving}
-                    onPreview={preview}
-                    onSave={() => void save()}
-                />
+                <div className="plugin-ide-actions">
+                    <button
+                        type="button"
+                        className="entropy-button entropy-button-secondary"
+                        onClick={() => setHistoryOpen(true)}
+                        disabled={loading || saving}
+                        title="Earlier versions of this plugin: compare and restore"
+                    >
+                        <History size={15} />
+                        History
+                    </button>
+                    {!readOnly && (
+                        <SaveMenu
+                            disabled={!dirty || saving || loading}
+                            saving={saving}
+                            onPreview={preview}
+                            onSave={() => void save()}
+                        />
+                    )}
+                </div>
             </header>
+
+            {historyOpen && (
+                <HistoryDialog
+                    kind="plugin"
+                    name={qualifiedName}
+                    restoreReason={
+                        restoreReason ?? (dirty ? 'Save or discard your unsaved changes before restoring.' : null)
+                    }
+                    onRestored={(version) => onRestored?.(version)}
+                    onClose={() => setHistoryOpen(false)}
+                />
+            )}
 
             {loading ? (
                 <div className="plugin-ide-state">
@@ -699,14 +744,16 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                         <aside className="plugin-ide-explorer" aria-label="Plugin files">
                             <div className="plugin-ide-explorer-heading">
                                 <span>Explorer</span>
-                                <button
-                                    type="button"
-                                    aria-label="New file"
-                                    title="New file"
-                                    onClick={() => setNewFileOpen((value) => !value)}
-                                >
-                                    <FilePlus2 size={15} />
-                                </button>
+                                {!readOnly && (
+                                    <button
+                                        type="button"
+                                        aria-label="New file"
+                                        title="New file"
+                                        onClick={() => setNewFileOpen((value) => !value)}
+                                    >
+                                        <FilePlus2 size={15} />
+                                    </button>
+                                )}
                             </div>
 
                             {newFileOpen && (
@@ -838,6 +885,7 @@ export default function PluginEditor({ plugin, onClose, onSaved }: PluginEditorP
                                             renderWhitespace: 'selection',
                                             quickSuggestions: true,
                                             wordBasedSuggestions: 'currentDocument',
+                                            readOnly,
                                         }}
                                     />
                                 ) : (

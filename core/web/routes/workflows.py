@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.versioning import bump_version
+from lib.history import DefinitionHistory
 from lib.models.session import Session
 from lib.models.users import User
 from lib.workflow.exceptions import (
@@ -124,18 +125,18 @@ def _require_any_permission(
 
 def _check_plugin_access(request: Request, user: User, workflow) -> None:
     """
-    Authoring a workflow means choosing plugins, so it needs plugins.list;
+    Authoring a workflow means choosing plugins, so it needs plugins.read;
     every step's plugin must also be enabled. Running a workflow needs only
-    workflows.start: the saved workflow is what grants its plugins.
+    workflows.execute: the saved workflow is what grants its plugins.
     """
 
     authorization = request.app.state.entropy_context.authorization
-    if user.id is None or not authorization.has_permission(user.id, "plugins.list"):
+    if user.id is None or not authorization.has_permission(user.id, "plugins.read"):
         raise HTTPException(
             status_code=403,
             detail=(
                 "Workflows are built from plugins: creating, editing or importing "
-                "a workflow needs the plugins.list permission."
+                "a workflow needs the plugins.read permission."
             ),
         )
 
@@ -198,6 +199,18 @@ def _workflow_payload(workflow, manager, format_name: str) -> Dict[str, object]:
     }
 
 
+def _history(request: Request) -> DefinitionHistory:
+    connection = request.app.state.entropy_context.database_manager.connection
+    return DefinitionHistory(connection, "workflow")
+
+
+def _current(manager, name: str):
+    try:
+        return manager.get(name)
+    except WorkflowNotFoundError as exc:
+        raise _translate_workflow_error(exc) from exc
+
+
 def _translate_workflow_error(exc: Exception) -> HTTPException:
     if isinstance(exc, WorkflowNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -220,7 +233,7 @@ def list_workflows(
     """List registered workflows visible to the authenticated user."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.list")
+    _require_permission(request, user, "workflows.read")
 
     manager = _manager(request)
     entries = manager.list()
@@ -251,7 +264,7 @@ def export_workflows(
     """Download workflow definitions as one zip, a file each."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.list")
+    _require_permission(request, user, "workflows.read")
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -289,7 +302,7 @@ def get_workflow(
     """Return a validated registered workflow definition."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.list")
+    _require_permission(request, user, "workflows.read")
 
     normalized_format = _validate_format(format_name)
     manager = _manager(request)
@@ -317,7 +330,7 @@ def validate_workflow(
     """Validate a supplied workflow without saving it (authoring or starting a run)."""
 
     _, _, user = record
-    _require_any_permission(request, user, "workflows.add", "workflows.edit", "workflows.start")
+    _require_any_permission(request, user, "workflows.write", "workflows.execute")
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -347,7 +360,7 @@ def create_workflow(
     """Validate and register a new workflow."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.add")
+    _require_permission(request, user, "workflows.write")
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -385,7 +398,7 @@ def update_workflow(
     """Validate and replace an existing registered workflow."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.edit")
+    _require_permission(request, user, "workflows.write")
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -396,10 +409,19 @@ def update_workflow(
         except Exception as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         _check_plugin_access(request, user, candidate)
+        previous = _current(manager, name)
         _bump_if_unchanged_version(manager, name, path, normalized_format)
         try:
             workflow = manager.replace(name, path)
             result = _workflow_payload(workflow, manager, normalized_format)
+            # Keep the replaced version so it can be compared and restored.
+            if manager.serialize(workflow, "json") != manager.serialize(previous, "json"):
+                _history(request).record(
+                    name,
+                    previous.version,
+                    manager.serialize(previous, "json"),
+                    user=user.username,
+                )
         except Exception as exc:
             if isinstance(
                 exc,
@@ -426,7 +448,7 @@ def delete_workflow(
     """Remove a registered workflow."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.edit")
+    _require_permission(request, user, "workflows.delete")
 
     manager = _manager(request)
 
@@ -435,5 +457,124 @@ def delete_workflow(
     except WorkflowNotFoundError as exc:
         raise _translate_workflow_error(exc) from exc
 
+    _history(request).forget(name)
+
     response.headers["Cache-Control"] = "no-store"
     return {"deleted": True, "name": name}
+
+
+# ----------------------------------------------------------------------
+# History
+# ----------------------------------------------------------------------
+
+
+@router.get("/{name}/history")
+def workflow_history(
+    name: str,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, object]:
+    """Earlier versions kept before each change (the last five)."""
+
+    _, _, user = record
+    _require_permission(request, user, "workflows.read")
+    current = _current(_manager(request), name)
+
+    response.headers["Cache-Control"] = "no-store"
+    return {"current_version": current.version, "items": _history(request).list(name)}
+
+
+@router.get("/{name}/history/{entry_id}")
+def workflow_history_entry(
+    name: str,
+    entry_id: int,
+    request: Request,
+    response: Response,
+    format: str = Query("yaml"),
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, object]:
+    """One kept version's definition, in the requested format."""
+
+    _, _, user = record
+    _require_permission(request, user, "workflows.read")
+    normalized_format = _validate_format(format)
+    manager = _manager(request)
+
+    entry = _history(request).get(name, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="That version is no longer kept.")
+
+    definition, shown = entry["content"], "json"
+    for path in _definition_file(definition, "json"):
+        try:
+            definition = manager.serialize(manager.load(path), normalized_format)
+            shown = normalized_format
+        except Exception:  # noqa: BLE001 - e.g. a plugin it used is gone; show it as kept
+            pass
+
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "id": entry["id"],
+        "version": entry["version"],
+        "reason": entry["reason"],
+        "created_by": entry["created_by"],
+        "created_at": entry["created_at"],
+        "format": shown,
+        "definition": definition,
+    }
+
+
+@router.post("/{name}/history/{entry_id}/restore")
+def restore_workflow_version(
+    name: str,
+    entry_id: int,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> Dict[str, object]:
+    """
+    Make a kept version current again. The current version is kept first,
+    and the restored one gets the next version number.
+    """
+
+    _, _, user = record
+    _require_permission(request, user, "workflows.write")
+    manager = _manager(request)
+    history = _history(request)
+
+    entry = history.get(name, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="That version is no longer kept.")
+    current = _current(manager, name)
+
+    for path in _definition_file(entry["content"], "json"):
+        try:
+            restored = manager.load(path)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422, detail=f"Version {entry['version']} cannot be restored: {exc}"
+            ) from exc
+        if restored.name != name:
+            raise HTTPException(status_code=422, detail="That version belongs to another workflow.")
+        _check_plugin_access(request, user, restored)
+
+        restored = dataclasses.replace(restored, version=bump_version(current.version))
+        path.write_text(manager.serialize(restored, "json"), encoding="utf-8")
+
+        history.record(
+            name,
+            current.version,
+            manager.serialize(current, "json"),
+            user=user.username,
+            reason="restore",
+        )
+        try:
+            workflow = manager.replace(name, path)
+        except Exception as exc:
+            raise _translate_workflow_error(exc) from exc
+        result = _workflow_payload(workflow, manager, "yaml")
+
+    response.headers["Cache-Control"] = "no-store"
+    return {**result, "restored_from": entry["version"]}

@@ -191,6 +191,44 @@ class AuthorizationInitializer:
 
         self._initialize_module_roles()
 
+        self._prune_type_roles()
+
+    def _prune_type_roles(
+        self,
+    ) -> None:
+        """
+        Built-in type roles ('write', 'workflows-write', …) hold exactly the
+        permissions of their type: drop grants whose permission changed type
+        (e.g. deletes, once 'write', are now 'delete').
+        """
+
+        for permission_type in ("read", "write", "delete", "execute"):
+            self._connection.execute(
+                """
+                DELETE FROM role_permissions
+                WHERE role_id = (SELECT id FROM roles WHERE name = ?)
+                  AND permission_id IN (
+                      SELECT id FROM permissions WHERE permission_type != ?
+                  )
+                """,
+                (permission_type, permission_type),
+            )
+
+            self._connection.execute(
+                """
+                DELETE FROM role_permissions
+                WHERE id IN (
+                    SELECT rp.id
+                    FROM role_permissions rp
+                    JOIN roles r ON r.id = rp.role_id
+                    JOIN modules m ON r.name = m.name || '-' || ?
+                    JOIN permissions p ON p.id = rp.permission_id
+                    WHERE p.module_id != m.id OR p.permission_type != ?
+                )
+                """,
+                (permission_type, permission_type),
+            )
+
     def _initialize_global_roles(
         self,
     ) -> None:
@@ -206,6 +244,10 @@ class AuthorizationInitializer:
             (
                 "write",
                 "Write access to all Entropy modules.",
+            ),
+            (
+                "delete",
+                "Delete access to all Entropy modules.",
             ),
             (
                 "execute",
