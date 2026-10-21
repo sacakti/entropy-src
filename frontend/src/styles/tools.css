@@ -1,0 +1,803 @@
+/*
+ * ==========================================================
+ * Entropy — Tools
+ *
+ * Responsibilities:
+ * - Tools gallery (app-launcher cards)
+ * - Opened tool frame
+ * - Compare tools: inputs, drop zones, diff frame, folder tree
+ *
+ * Global ownership:
+ * - plugins.css: list-page, list-search, list-count
+ * - Dashboard.css: dashboard-section frame
+ * - diff-view.css: the Monaco diff fills .tools-diff-frame
+ * ==========================================================
+ */
+
+.entropy-app .tools-page {
+    --tools-editor-height: clamp(360px, calc(100vh - 360px), 1100px);
+}
+
+/* ----------------------------------------------------------
+   Gallery
+   ---------------------------------------------------------- */
+
+.entropy-app .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .tools-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    width: 100%;
+    height: 100%;
+    padding: 18px;
+    color: var(--app-text);
+    text-align: left;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 14px;
+    font: inherit;
+    cursor: pointer;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 160ms ease;
+}
+
+.entropy-app .tools-card:hover {
+    background: var(--app-hover-bg);
+    border-color: var(--app-hover-border);
+    box-shadow: 0 10px 26px rgb(0 0 0 / 14%);
+    transform: translateY(-2px);
+}
+
+.entropy-app .tools-card:active {
+    transform: translateY(0);
+}
+
+.entropy-app .tools-card:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 3px;
+}
+
+.entropy-app .tools-card-icon {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 14px;
+}
+
+.entropy-app .tools-card-icon-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+}
+
+.entropy-app .tools-card-text {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.entropy-app .tools-card-text strong {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.entropy-app .tools-card-text span {
+    color: var(--app-muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+/* ----------------------------------------------------------
+   Opened tool
+   ---------------------------------------------------------- */
+
+.entropy-app .tools-view-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    min-width: 0;
+}
+
+.entropy-app .tools-view-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .tools-view-title h2 {
+    margin: 0;
+    color: var(--app-text);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.25px;
+}
+
+/* Empty, loading and "nothing found" states. */
+.entropy-app .tools-empty {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    padding: 36px 20px;
+    color: var(--app-muted);
+    text-align: center;
+    background: color-mix(in srgb, var(--app-surface) 55%, transparent);
+    border: 1px dashed var(--app-line);
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.entropy-app .tools-empty strong {
+    color: var(--app-text);
+    font-size: 14px;
+}
+
+.entropy-app .tools-empty p {
+    max-width: 520px;
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* ----------------------------------------------------------
+   Toolbars and fields
+   ---------------------------------------------------------- */
+
+.entropy-app .tools-content-compare,
+.entropy-app .tools-file-compare,
+.entropy-app .tools-folder-compare,
+.entropy-app .tools-diff {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.entropy-app .tools-diff-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 14px;
+}
+
+.entropy-app .tools-diff-toolbar-start,
+.entropy-app .tools-diff-toolbar-end {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .tools-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--app-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .tools-field .entropy-select {
+    width: auto;
+    min-width: 130px;
+    min-height: 30px;
+}
+
+.entropy-app .tools-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--app-text);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.entropy-app .tools-check input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--app-accent);
+}
+
+/* ----------------------------------------------------------
+   Text inputs (Text compare)
+   ---------------------------------------------------------- */
+
+.entropy-app .tools-input-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.entropy-app .tools-input {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .tools-input:focus-within {
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 3px var(--app-focus-ring);
+}
+
+.entropy-app .tools-input-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--app-line);
+    font-size: 12px;
+}
+
+.entropy-app .tools-input-heading span {
+    color: var(--app-muted);
+}
+
+.entropy-app .tools-input-editor {
+    height: var(--tools-editor-height);
+    min-height: 0;
+}
+
+/* ----------------------------------------------------------
+   Diff
+   ---------------------------------------------------------- */
+
+.entropy-app .tools-diff-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+}
+
+.entropy-app .tools-diff-side {
+    overflow: hidden;
+    color: var(--app-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.entropy-app .tools-diff-side:last-child {
+    text-align: right;
+}
+
+.entropy-app .tools-diff-stats {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+}
+
+.entropy-app :is(.tools-diff-added, .tools-diff-removed, .tools-diff-hunks, .tools-diff-same, .tools-diff-computing) {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.entropy-app .tools-diff-added {
+    color: var(--app-success-text);
+    background: var(--app-success-soft);
+    border-color: var(--app-success-border);
+}
+
+.entropy-app .tools-diff-removed {
+    color: var(--app-danger-text);
+    background: var(--app-danger-soft);
+    border-color: var(--app-danger-border);
+}
+
+.entropy-app .tools-diff-hunks,
+.entropy-app .tools-diff-computing {
+    color: var(--app-muted);
+    font-weight: 600;
+}
+
+.entropy-app .tools-diff-same {
+    color: var(--app-success-text);
+    background: var(--app-success-soft);
+    border-color: var(--app-success-border);
+}
+
+/* Monaco outlines its root in the focus colour; the framed containers
+   already show focus (.tools-input:focus-within). */
+.entropy-app .tools-page .monaco-editor {
+    outline: none;
+}
+
+/* Positioned parent of the absolutely placed .diff-view. */
+.entropy-app .tools-diff-frame {
+    position: relative;
+    height: var(--tools-editor-height);
+    overflow: hidden;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+/* ----------------------------------------------------------
+   Drop zones (File and Folder compare)
+   ---------------------------------------------------------- */
+
+.entropy-app .tools-drop-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.entropy-app .tools-drop-slot {
+    min-width: 0;
+}
+
+.entropy-app .tools-drop {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 10px;
+    min-height: 168px;
+    height: 100%;
+    padding: 18px;
+    text-align: center;
+    background: color-mix(in srgb, var(--app-surface) 70%, transparent);
+    border: 1.5px dashed var(--app-line);
+    border-radius: 12px;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease;
+}
+
+.entropy-app .tools-drop.is-picked {
+    background: var(--app-surface);
+    border-style: solid;
+}
+
+.entropy-app .tools-drop.is-over {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent);
+}
+
+.entropy-app .tools-drop.has-error {
+    border-color: var(--app-danger-border);
+}
+
+.entropy-app .tools-drop-label {
+    position: absolute;
+    top: 10px;
+    left: 14px;
+    color: var(--app-subtle);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.entropy-app .tools-drop-icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 12px;
+}
+
+.entropy-app .tools-drop-text {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    max-width: 100%;
+    min-width: 0;
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .tools-drop-text[role="status"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.entropy-app .tools-drop-text strong {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--app-text);
+    font-size: 13px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.entropy-app .tools-drop-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.entropy-app .tools-drop-error {
+    margin: 0;
+    color: var(--app-danger-text);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+/* ----------------------------------------------------------
+   Folder compare
+   ---------------------------------------------------------- */
+
+.entropy-app .tools-folder-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.entropy-app .tools-folder-counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.entropy-app .tools-count-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 4px 10px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font-size: 12px;
+}
+
+.entropy-app .tools-count-chip strong {
+    color: var(--app-text);
+}
+
+.entropy-app .tools-count-chip.is-identical strong {
+    color: var(--app-success-text);
+}
+
+.entropy-app .tools-count-chip.is-different strong {
+    color: var(--app-warning-text);
+}
+
+.entropy-app .tools-count-chip.is-left-only strong {
+    color: var(--app-danger-text);
+}
+
+.entropy-app .tools-count-chip.is-right-only strong {
+    color: var(--app-info);
+}
+
+.entropy-app .tools-segmented {
+    display: inline-flex;
+    padding: 3px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+}
+
+.entropy-app .tools-segmented button {
+    min-height: 26px;
+    padding: 0 12px;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.entropy-app .tools-segmented button:hover {
+    color: var(--app-text);
+}
+
+.entropy-app .tools-segmented button[aria-pressed="true"] {
+    color: var(--app-accent-text);
+    background: var(--app-accent);
+}
+
+.entropy-app .tools-segmented button:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+.entropy-app .tools-progress {
+    display: grid;
+    gap: 8px;
+}
+
+.entropy-app .tools-progress-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .tools-progress-track {
+    height: 6px;
+    overflow: hidden;
+    background: var(--app-surface-hover);
+    border-radius: 999px;
+}
+
+.entropy-app .tools-progress-track span {
+    display: block;
+    height: 100%;
+    background: var(--app-accent);
+    border-radius: inherit;
+    transition: width 160ms ease;
+}
+
+.entropy-app .tools-folder-diff {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: color-mix(in srgb, var(--app-surface) 60%, transparent);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 12px;
+    scroll-margin: 16px;
+}
+
+.entropy-app .tools-folder-diff-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .tools-folder-diff-heading strong {
+    overflow: hidden;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Tree */
+
+.entropy-app .tools-tree-wrap {
+    overflow: hidden;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .tools-tree-head,
+.entropy-app .tools-tree-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 130px 96px 96px;
+    align-items: center;
+}
+
+.entropy-app .tools-tree-head {
+    padding: 0 4px;
+    color: var(--app-subtle);
+    border-bottom: 1px solid var(--app-line);
+    font-size: 10.5px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.entropy-app .tools-tree-head span {
+    overflow: hidden;
+    padding: 10px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.entropy-app .tools-tree-head span:nth-child(n + 3) {
+    text-align: right;
+}
+
+.entropy-app .tools-tree-wrap > .tools-empty {
+    border: 0;
+    border-radius: 0;
+}
+
+.entropy-app .tools-tree {
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+}
+
+.entropy-app .tools-tree-row {
+    min-height: 32px;
+    border-radius: 7px;
+    font-size: 12.5px;
+}
+
+.entropy-app .tools-tree-row:hover {
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .tools-tree-row.is-selected {
+    background: var(--app-accent-soft);
+}
+
+.entropy-app .tools-tree-cell {
+    min-width: 0;
+    padding: 6px 10px;
+}
+
+.entropy-app .tools-tree-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 32px;
+    color: var(--app-text);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font: inherit;
+}
+
+.entropy-app .tools-tree-label > svg {
+    flex-shrink: 0;
+    color: var(--app-muted);
+}
+
+.entropy-app button.tools-tree-label {
+    cursor: pointer;
+}
+
+.entropy-app button.tools-tree-label:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: -2px;
+}
+
+/* Different files open their diff: show them as links. */
+.entropy-app .tools-tree-row.is-different button.tools-tree-label:not([aria-expanded]) .tools-tree-name {
+    color: var(--app-accent-fg);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--app-accent-fg) 40%, transparent);
+    text-underline-offset: 3px;
+}
+
+.entropy-app .tools-tree-spacer {
+    flex-shrink: 0;
+    width: 14px;
+}
+
+.entropy-app .tools-tree-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.entropy-app .tools-tree-size {
+    color: var(--app-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.entropy-app .tools-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    color: var(--app-muted);
+    background: var(--app-surface-hover);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.entropy-app .tools-status.is-identical {
+    color: var(--app-success-text);
+    background: var(--app-success-soft);
+    border-color: var(--app-success-border);
+}
+
+.entropy-app .tools-status.is-different {
+    color: var(--app-warning-text);
+    background: var(--app-warning-soft);
+    border-color: var(--app-warning-border);
+}
+
+.entropy-app .tools-status.is-left-only {
+    color: var(--app-danger-text);
+    background: var(--app-danger-soft);
+    border-color: var(--app-danger-border);
+}
+
+.entropy-app .tools-status.is-right-only {
+    color: var(--app-info);
+    background: color-mix(in srgb, var(--app-info) 11%, var(--app-surface));
+    border-color: color-mix(in srgb, var(--app-info) 38%, var(--app-line));
+}
+
+.entropy-app .tools-tree-more {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    color: var(--app-muted);
+    border-top: 1px solid var(--app-line);
+    font-size: 12px;
+}
+
+/* ----------------------------------------------------------
+   Narrow screens
+   ---------------------------------------------------------- */
+
+@media (max-width: 760px) {
+    .entropy-app .tools-input-pair,
+    .entropy-app .tools-drop-pair {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .tools-tree-head,
+    .entropy-app .tools-tree-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .entropy-app .tools-tree-head span:nth-child(n + 3),
+    .entropy-app .tools-tree-row .tools-tree-size {
+        display: none;
+    }
+
+    .entropy-app .tools-diff-summary {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: start;
+    }
+
+    .entropy-app .tools-diff-side:last-child {
+        text-align: left;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app :is(.tools-card, .tools-drop, .tools-progress-track span) {
+        transition: none;
+    }
+
+    .entropy-app .tools-card:hover {
+        transform: none;
+    }
+}
