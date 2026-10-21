@@ -12,6 +12,7 @@ import {
     UserRound,
     UsersRound,
     Workflow,
+    Wrench,
 } from 'lucide-react'
 
 export type PageId =
@@ -22,6 +23,7 @@ export type PageId =
     | 'vault'
     | 'nodes'
     | 'schedulers'
+    | 'tools'
     | 'administration'
     | 'admin-users'
     | 'admin-groups'
@@ -41,6 +43,7 @@ export const navigation: NavigationItem[] = [
     { id: 'vault', label: 'Vault', icon: KeyRound },
     { id: 'nodes', label: 'Nodes', icon: Server },
     { id: 'schedulers', label: 'Schedulers', icon: Activity },
+    { id: 'tools', label: 'Tools', icon: Wrench },
     {
         id: 'administration',
         label: 'Administration',
@@ -75,6 +78,7 @@ const PAGE_IDS: readonly PageId[] = [
     'vault',
     'nodes',
     'schedulers',
+    'tools',
     'administration',
     'admin-users',
     'admin-groups',

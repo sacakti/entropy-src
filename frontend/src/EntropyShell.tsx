@@ -38,6 +38,7 @@ import RunDetail from './features/runs/RunDetail'
 import { runIdFromHash } from './features/runs/navigation'
 import Nodes from './features/nodes/Nodes'
 import Schedules from './features/schedules/Schedules'
+import Tools from './features/tools/Tools'
 import Plugins from './features/plugins/Plugins'
 import Administration from './features/administration/Administration'
 import AdminSystem from './features/administration/AdminSystem'
@@ -52,6 +53,11 @@ import { requestCreate, type CreateTarget } from './features/quickCreate'
 import { getCurrentUser } from './services/auth'
 
 const ShellPanel = lazy(() => import('./features/shell/ShellPanel'))
+
+/** The tool named by `#/tools/<id>`, if any. */
+function toolFromHash(hash: string): string | undefined {
+    return /^#\/?tools\/([a-z0-9-]+)/.exec(hash)?.[1]
+}
 
 interface EntropyShellProps {
     user: AuthUser
@@ -188,6 +194,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         vault: 'Vault',
         nodes: 'Nodes',
         schedulers: 'Schedulers',
+        tools: 'Tools',
         administration: 'Administration',
         'admin-users': 'Users',
         'admin-groups': 'Groups',
@@ -372,6 +379,14 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                             <Nodes />
                         ) : activePage === 'schedulers' ? (
                             <Schedules />
+                        ) : activePage === 'tools' ? (
+                            <Tools
+                                initialTool={toolFromHash(window.location.hash)}
+                                onToolChange={(id) => {
+                                    const hash = id ? `#/tools/${id}` : '#/tools'
+                                    if (window.location.hash !== hash) window.history.pushState(null, '', hash)
+                                }}
+                            />
                         ) : activePage === 'plugins' ? (
                             <Plugins />
                         ) : activePage === 'administration' ? (
