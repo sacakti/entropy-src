@@ -216,6 +216,11 @@ def delete_schedules(
     for schedule_id in payload.ids:
         _schedule(request, user, schedule_id, "schedules.delete")
 
+    from lib.runs.alerts import RunAlerts
+
+    alerts = RunAlerts(_store(request).connection)
+    for schedule_id in payload.ids:
+        alerts.forget("schedule", schedule_id)
     return {"deleted": _store(request).delete(payload.ids)}
 
 

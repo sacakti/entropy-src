@@ -498,6 +498,11 @@ def delete_workflow(
     _history(request).forget(name)
     _clear_drafts(request, name)
     projects(request).forget_workflow(name)
+    from lib.runs.alerts import RunAlerts
+
+    RunAlerts(request.app.state.entropy_context.database_manager.connection).forget(
+        "workflow", name
+    )
 
     response.headers["Cache-Control"] = "no-store"
     return {"deleted": True, "name": name}

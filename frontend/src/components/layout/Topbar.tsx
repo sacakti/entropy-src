@@ -24,6 +24,7 @@ import { openRun } from '../../features/runs/navigation'
 import Avatar from '../../features/settings/Avatar'
 import type { PageId } from '../../types/navigation'
 import FloatingMenu from './FloatingMenu'
+import ProjectSwitcher from './ProjectSwitcher'
 import { useDismiss } from './useDismiss'
 
 export type TopbarNotification = AppNotification
@@ -49,6 +50,8 @@ interface TopbarProps {
     /** Open or close the shell (ent commands in the browser). */
     onToggleShell: () => void
     shellOpen: boolean
+    /** Open project administration; omitted when the user may not manage projects. */
+    onManageProjects?: () => void
     /** Entries of the "+" menu, already filtered by permission. */
     quickCreate: { target: string; label: string; icon: LucideIcon; onSelect: () => void }[]
     pageTitle: string
@@ -72,6 +75,7 @@ export default function Topbar({
     onOpenHelp,
     onToggleShell,
     shellOpen,
+    onManageProjects,
     quickCreate,
     pageTitle,
     parentTitle,
@@ -111,7 +115,7 @@ export default function Topbar({
     return (
         <header className="entropy-topbar">
             <div className="topbar-context">
-                <span className="topbar-section">ENTROPY</span>
+                <ProjectSwitcher onManage={onManageProjects} />
                 <ChevronRight size={14} />
                 {parentTitle && (
                     <>
@@ -133,6 +137,7 @@ export default function Topbar({
                             className="entropy-button entropy-button-ghost entropy-button-icon"
                             onClick={() => setCreateOpen((open) => !open)}
                             aria-label="Create new…"
+                            data-tour="create"
                             aria-haspopup="menu"
                             aria-expanded={createOpen}
                             title="Create new…"
@@ -169,6 +174,7 @@ export default function Topbar({
                     className={`entropy-button entropy-button-ghost entropy-button-icon${shellOpen ? ' is-active' : ''}`}
                     onClick={onToggleShell}
                     aria-label="Shell: run ent commands"
+                    data-tour="shell"
                     aria-pressed={shellOpen}
                     title="Shell (Ctrl+`)"
                 >
@@ -180,6 +186,7 @@ export default function Topbar({
                     className="entropy-button entropy-button-ghost entropy-button-icon"
                     onClick={onOpenHelp}
                     aria-label="Help: keyboard shortcuts and CLI commands"
+                    data-tour="help"
                     title="Help (?)"
                 >
                     <HelpCircle size={18} />
@@ -205,6 +212,7 @@ export default function Topbar({
                     <button
                         type="button"
                         className="entropy-button entropy-button-ghost entropy-button-icon notification-trigger"
+                        data-tour="notifications"
                         onClick={() => {
                             setNotificationsOpen((open) => !open)
                             setProfileOpen(false)
@@ -364,6 +372,7 @@ export default function Topbar({
                     <button
                         type="button"
                         className="profile-trigger"
+                        data-tour="profile"
                         onClick={() => {
                             setProfileOpen((open) => !open)
                             setNotificationsOpen(false)

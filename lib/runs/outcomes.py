@@ -94,7 +94,7 @@ class RunOutcomes:
             """
             SELECT j.id AS job_id, j.workflow, j.state, j.user_id, j.username,
                    j.started_at, j.finished_at, j.exit_code,
-                   m.kind, m.target, m.node, m.trigger, m.schedule_id,
+                   m.kind, m.target, m.node, m.trigger, m.schedule_id, m.project_id,
                    s.name AS schedule_name, s.user_id AS schedule_owner
             FROM workflow_jobs j
             LEFT JOIN run_metadata m ON m.job_id = j.id
@@ -126,6 +126,7 @@ class RunOutcomes:
                         "node": row["node"],
                         "trigger": row["trigger"],
                         "schedule_id": row["schedule_id"],
+                        "project_id": row["project_id"],
                         "schedule_name": row["schedule_name"],
                         "schedule_owner": row["schedule_owner"],
                         "started_at": row["started_at"],

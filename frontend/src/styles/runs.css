@@ -1952,3 +1952,54 @@
     color: var(--app-muted);
     font-size: 12px;
 }
+
+/* ----------------------------------------------------------
+   Run alerts dialog (workflows and schedules)
+   ---------------------------------------------------------- */
+
+.entropy-app .run-alerts-dialog {
+    width: min(560px, calc(100vw - 32px));
+}
+
+.entropy-app .run-alerts {
+    display: grid;
+    gap: 16px;
+}
+
+.entropy-app .run-alerts-outcomes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.entropy-app .run-alerts-outcomes legend {
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .run-alerts-outcomes label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.entropy-app .run-alerts-outcomes input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .run-alerts-meta {
+    margin: 0;
+    color: var(--app-subtle);
+    font-size: 12px;
+}

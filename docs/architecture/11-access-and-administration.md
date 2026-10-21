@@ -1,0 +1,185 @@
+# Entropy Architecture Handbook
+
+# Stage 11 — Projects, Roles, Sign-in and Administration
+
+Version: 1.0
+
+Status: Implemented
+
+---
+
+# Purpose
+
+Make it obvious who can do what, and where:
+
+- **Projects** group workflows, schedules, runs and nodes. People get a
+  role *in a project*; what they may do in one project says nothing about
+  another.
+- **Roles** are named bundles of permissions. Entropy ships sensible
+  built-in roles; administrators add their own.
+- **Sign-in** with Entropy's own passwords, LDAP / Active Directory, or
+  single sign-on (OpenID Connect: Keycloak, Azure AD / Entra ID, Okta …).
+- **Administration** is for running Entropy itself: projects, people,
+  nodes, settings (e-mail, sign-in, retention) and upgrades.
+
+---
+
+# Projects
+
+Every workflow, schedule, run and draft belongs to exactly one project.
+Existing installations get a **Default** project that holds everything
+that existed before projects did.
+
+The project switcher in the top bar picks the *current project*. The web UI
+sends it with every request (`X-Entropy-Project` header); lists show that
+project's items, and new items are created in it. People see only the
+projects they belong to (administrators see all).
+
+A project's members are users or groups, each with one project role.
+
+## Nodes
+
+A node is either
+
+- **shared** — any project may run on it (the default), or
+- **assigned** — only the projects it is assigned to may run on it.
+
+Node administrators set this in *Administration → Nodes → Access*. A run is
+refused before it starts when its project may not use the chosen node.
+
+---
+
+# Roles
+
+A role has a **scope**:
+
+| Scope   | Given                          | Holds                                           |
+|---------|--------------------------------|-------------------------------------------------|
+| global  | to a user or group             | administration permissions, plugins, vault      |
+| project | to a project member (in a project) | work inside the project: workflows, schedules, runs |
+
+Built-in roles cannot be changed or removed:
+
+| Role               | Scope   | Can                                                        |
+|--------------------|---------|------------------------------------------------------------|
+| Administrator      | global  | everything, in every project                               |
+| User administrator | global  | users, groups, roles, projects and their members           |
+| Node administrator | global  | add, set up and remove nodes; assign them to projects      |
+| Plugin developer   | global  | create, install, change and remove plugins                 |
+| Vault user         | global  | use the vault                                              |
+| Viewer             | project | see workflows, schedules and runs                          |
+| Operator           | project | Viewer, and run workflows and plugins                      |
+| Developer          | project | Operator, and create and change workflows and schedules    |
+| Maintainer         | project | Developer, and delete them and manage the project's members|
+
+Custom roles pick any permissions their scope allows. A user's permissions
+in a project are their global roles' plus the project roles given to them
+or to their groups in that project.
+
+## Upgrading from the earlier model
+
+The first start after upgrading converts the old per-module type roles
+(`workflows-read`, …) and directly granted privileges: unused generated
+roles are removed, used ones become custom roles, and project-type grants
+become memberships of the Default project, so nobody loses access.
+
+---
+
+# Sign-in
+
+## Entropy passwords
+
+Local accounts sign in with their Entropy password, as before. The
+bootstrap `admin` is always a local account.
+
+## LDAP / Active Directory
+
+*Administration → Settings → LDAP / Active Directory.*
+
+1. Entropy binds with the service account (bind DN and password; empty for
+   an anonymous search) and finds the user under the base DN with the user
+   filter — `(uid={username})` for OpenLDAP,
+   `(sAMAccountName={username})` for Active Directory.
+2. It then binds as the user's entry with the password they typed. Empty
+   passwords are always refused.
+3. First-time users get an Entropy account (unless *Create accounts* is
+   off) with their name and e-mail from the directory.
+
+Use `ldaps://` or STARTTLS outside trusted networks. **Test with an
+account** shows what Entropy finds for a user, and which Entropy groups
+they would join, before anyone relies on it.
+
+## Single sign-on (OpenID Connect)
+
+*Administration → Settings → Single sign-on.* Register Entropy at the
+identity provider as a confidential web client with the redirect URI shown
+on that page:
+
+```
+https://<entropy address>/api/auth/oidc/callback
+```
+
+Give Entropy the issuer URL, client ID and secret. The login page then
+shows a **Sign in with …** button. Entropy uses the authorization code flow
+with PKCE, and checks the ID token's signature (from the provider's
+published keys), issuer, audience, expiry and nonce. The sign-in is tied to
+the browser that started it.
+
+Set *Address* (Administration → Settings → Address) to the URL people use
+when Entropy is behind a proxy, so the redirect URI and e-mail links are
+right.
+
+## Groups from the directory or identity provider
+
+Group mappings join users to Entropy groups when they sign in: an LDAP
+group (by DN or CN, from `memberOf`) or an identity provider group (from
+the `groups` claim). Give the Entropy groups their roles and project
+memberships as usual. Only mapped groups are managed this way: memberships
+given by hand in Entropy stay.
+
+## Accounts and safety
+
+- A directory or SSO account is linked to one Entropy user, by the entry's
+  DN or the token's subject. Linked users sign in only at their provider;
+  their Entropy password is random and unknown, and password changes are
+  refused.
+- An existing local account is never taken over by an outside identity
+  with the same name (a directory `admin` cannot become Entropy's `admin`).
+- Disabling a user in Entropy blocks them whatever the provider says.
+
+---
+
+# E-mail and run alerts
+
+*Administration → Settings → E-mail* sets the SMTP server (STARTTLS, SSL or
+none; optional sign-in). **Send test** checks it.
+
+Each workflow and schedule has **E-mail alerts** (the bell on its row):
+the addresses to write to, and for which outcomes — completed, failed,
+cancelled. A workflow's alerts cover all its runs (UI, schedules, CLI); a
+schedule's cover that schedule's runs. Failed runs include the last lines
+of their output and a link to the run.
+
+Every finished run also adds a notification for the person who started it.
+
+---
+
+# Data retention
+
+*Administration → Settings → Data retention:*
+
+- finished runs older than *Archive after* days are moved to the archive;
+- archived runs older than *Delete archive after* days are deleted;
+- notifications older than *Keep notifications* days are deleted
+  (0 keeps them).
+
+Housekeeping runs in the background; **Run now** applies the settings
+immediately.
+
+---
+
+# Secrets
+
+The SMTP password, LDAP bind password and OIDC client secret are encrypted
+with the vault's master key and never sent back to the browser — the API
+only says whether one is set.

@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Check, LoaderCircle, Pencil, Plus, Trash2, UsersRound } from 'lucide-react'
 
-import { adminApi, type AdminGroup, type AdminRole, type AdminUser } from '../../api/admin.api'
+import { adminApi, type AdminGroup, type AdminRole, type AdminUser, type MembershipInput } from '../../api/admin.api'
+import { projectsApi, type ProjectSummary } from '../../api/projects.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { AdminPanel, Checklist, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
 import { errorMessage, formatDate, sameSet } from './format'
+import { membershipLabels, sameMemberships, toMembershipInputs, uniqueMemberships } from './memberships'
+import { missingPermission } from './permissionReason'
+import { ProjectMembershipEditor } from './ProjectMemberships'
 import { usePermissions } from './usePermissions'
 
 export default function AdminGroups() {
@@ -18,6 +22,7 @@ export default function AdminGroups() {
     const [groups, setGroups] = useState<AdminGroup[]>([])
     const [users, setUsers] = useState<AdminUser[]>([])
     const [roles, setRoles] = useState<AdminRole[]>([])
+    const [projects, setProjects] = useState<ProjectSummary[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -30,14 +35,16 @@ export default function AdminGroups() {
 
     const load = useCallback(async () => {
         try {
-            const [groupList, userList, roleList] = await Promise.all([
+            const [groupList, userList, roleList, projectList] = await Promise.all([
                 adminApi.groups(),
                 adminApi.users().catch(() => ({ items: [] as AdminUser[] })),
                 adminApi.roles().catch(() => ({ items: [] as AdminRole[] })),
+                projectsApi.list().catch(() => ({ items: [] as ProjectSummary[] })),
             ])
             setGroups(groupList.items)
             setUsers(userList.items)
             setRoles(roleList.items)
+            setProjects(projectList.items)
             setError(null)
         } catch (cause) {
             setError(errorMessage(cause, 'Unable to load groups.'))
@@ -57,7 +64,13 @@ export default function AdminGroups() {
 
         return needle
             ? groups.filter((group) =>
-                  [group.name, group.description, ...group.users, ...group.roles]
+                  [
+                      group.name,
+                      group.description,
+                      ...group.users,
+                      ...group.roles,
+                      ...membershipLabels(group.projects ?? []),
+                  ]
                       .join(' ')
                       .toLowerCase()
                       .includes(needle),
@@ -137,7 +150,7 @@ export default function AdminGroups() {
                         inputRef={searchRef}
                         value={search}
                         onChange={setSearch}
-                        placeholder="Search groups, members or roles…"
+                        placeholder="Search groups, members, roles or projects…"
                     />
                 }
             >
@@ -147,7 +160,8 @@ export default function AdminGroups() {
                             <tr>
                                 <th>Group</th>
                                 <th>Members</th>
-                                <th>Roles</th>
+                                <th>Global roles</th>
+                                <th>Projects</th>
                                 <th>Updated</th>
                                 <th className="list-operations-cell">
                                     <span className="list-operations-heading">Operations</span>
@@ -156,10 +170,10 @@ export default function AdminGroups() {
                         </thead>
                         <tbody>
                             {loading && groups.length === 0 ? (
-                                <EmptyRow colSpan={5} title="Loading groups…" text="Fetching groups." />
+                                <EmptyRow colSpan={6} title="Loading groups…" text="Fetching groups." />
                             ) : filtered.length === 0 ? (
                                 <EmptyRow
-                                    colSpan={5}
+                                    colSpan={6}
                                     title={search ? 'No groups match' : 'No groups yet'}
                                     text={
                                         search
@@ -186,6 +200,9 @@ export default function AdminGroups() {
                                         </td>
                                         <td>
                                             <ChipList values={group.roles} tone="accent" empty="No roles" />
+                                        </td>
+                                        <td>
+                                            <ChipList values={membershipLabels(group.projects ?? [])} max={2} empty="None" />
                                         </td>
                                         <td className="list-cell-text">{formatDate(group.updated_at)}</td>
                                         <td>
@@ -230,7 +247,9 @@ export default function AdminGroups() {
                     group={editing === 'new' ? null : editing}
                     users={users}
                     roles={roles}
+                    projects={projects}
                     can={can}
+                    permissions={permissions}
                     onClose={() => setEditing(null)}
                     onSaved={() => {
                         setEditing(null)
@@ -242,20 +261,24 @@ export default function AdminGroups() {
     )
 }
 
-type GroupTab = 'details' | 'members' | 'roles'
+type GroupTab = 'details' | 'members' | 'roles' | 'projects'
 
 function GroupDialog({
     group,
     users,
     roles,
+    projects,
     can,
+    permissions,
     onClose,
     onSaved,
 }: {
     group: AdminGroup | null
     users: AdminUser[]
     roles: AdminRole[]
+    projects: ProjectSummary[]
     can: (permission: string) => boolean
+    permissions: Set<string> | null
     onClose: () => void
     onSaved: () => void
 }) {
@@ -267,17 +290,24 @@ function GroupDialog({
     const [description, setDescription] = useState(group?.description ?? '')
     const [members, setMembers] = useState<string[]>(group?.users ?? [])
     const [groupRoles, setGroupRoles] = useState<string[]>(group?.roles ?? [])
+    const [memberships, setMemberships] = useState<MembershipInput[]>(() =>
+        toMembershipInputs(group?.projects ?? []),
+    )
     const [saving, setSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
 
     const canDetails = creating ? can('groups.create') : can('groups.modify')
     const canMembers = can('groups.users')
     const canRoles = can('groups.roles')
+    const canProjects = can('projects.manage')
+    const globalRoles = roles.filter((role) => role.scope !== 'project')
+    const projectRoles = roles.filter((role) => role.scope === 'project')
 
     const detailsDirty =
         creating || name.trim() !== group.name || description.trim() !== (group.description ?? '')
     const membersDirty = !sameSet(members, group?.users ?? [])
     const rolesDirty = !sameSet(groupRoles, group?.roles ?? [])
+    const projectsDirty = canProjects && !sameMemberships(memberships, toMembershipInputs(group?.projects ?? []))
 
     const save = async (event?: FormEvent) => {
         event?.preventDefault()
@@ -304,6 +334,7 @@ function GroupDialog({
 
             if (canMembers && membersDirty) await adminApi.setGroupUsers(current, members)
             if (canRoles && rolesDirty) await adminApi.setGroupRoles(current, groupRoles)
+            if (projectsDirty) await adminApi.setGroupProjects(current, uniqueMemberships(memberships))
 
             notify.success(`Group '${current}' ${creating ? 'created' : 'updated'}.`)
             onSaved()
@@ -317,7 +348,7 @@ function GroupDialog({
     return (
         <Dialog
             title={creating ? 'Create group' : `Edit ${group.name}`}
-            subtitle="Members receive every role assigned to the group."
+            subtitle="Members receive every global role and project role given to the group."
             icon={<UsersRound size={18} />}
             onClose={onClose}
             className="admin-dialog"
@@ -330,7 +361,7 @@ function GroupDialog({
                         type="submit"
                         form="admin-group-form"
                         className="entropy-button entropy-button-primary"
-                        disabled={saving || !(detailsDirty || membersDirty || rolesDirty)}
+                        disabled={saving || !(detailsDirty || membersDirty || rolesDirty || projectsDirty)}
                     >
                         {saving ? <LoaderCircle size={15} className="entropy-spin" /> : <Check size={15} />}
                         {creating ? 'Create group' : 'Save changes'}
@@ -342,7 +373,10 @@ function GroupDialog({
                 tabs={[
                     { id: 'details' as const, label: 'Details' },
                     ...(canMembers ? [{ id: 'members' as const, label: 'Members', count: members.length }] : []),
-                    ...(canRoles ? [{ id: 'roles' as const, label: 'Roles', count: groupRoles.length }] : []),
+                    ...(canRoles ? [{ id: 'roles' as const, label: 'Global roles', count: groupRoles.length }] : []),
+                    ...(canProjects || memberships.length
+                        ? [{ id: 'projects' as const, label: 'Projects', count: memberships.length }]
+                        : []),
                 ]}
                 active={tab}
                 onChange={setTab}
@@ -392,15 +426,34 @@ function GroupDialog({
                 )}
 
                 {tab === 'roles' && (
-                    <Checklist
-                        items={roles.map((role) => ({
-                            value: role.name,
-                            detail: role.description ?? `${role.permissions.length} permissions`,
-                        }))}
-                        selected={groupRoles}
-                        onChange={setGroupRoles}
-                        placeholder="Search roles"
-                        emptyText="No roles exist yet."
+                    <>
+                        <p className="admin-muted">
+                            Global roles apply everywhere. Give project roles on the Projects tab.
+                        </p>
+                        <Checklist
+                            items={globalRoles.map((role) => ({
+                                value: role.name,
+                                label: role.title && role.title !== role.name ? `${role.title} (${role.name})` : role.name,
+                                detail: role.description ?? `${role.permissions.length} permissions`,
+                            }))}
+                            selected={groupRoles}
+                            onChange={setGroupRoles}
+                            placeholder="Search global roles"
+                            emptyText="No global roles exist yet."
+                        />
+                    </>
+                )}
+
+                {tab === 'projects' && (
+                    <ProjectMembershipEditor
+                        value={memberships}
+                        onChange={setMemberships}
+                        projects={projects}
+                        roles={projectRoles}
+                        known={group?.projects ?? []}
+                        readOnly={!canProjects}
+                        readOnlyReason={missingPermission(permissions, ['projects.manage'], 'Changing project roles')}
+                        subject="this group"
                     />
                 )}
             </form>

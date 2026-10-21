@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     AlertCircle,
+    BellRing,
     Download,
     FileWarning,
     LoaderCircle,
@@ -27,6 +28,7 @@ import { missingPermission as missing } from '../administration/permissionReason
 import { usePermissions } from '../administration/usePermissions'
 import AppPortal from '../../components/layout/AppPortal'
 import StartRunDialog from '../runs/StartRunDialog'
+import RunAlertsDialog from '../runs/RunAlertsDialog'
 import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
@@ -79,6 +81,7 @@ export default function Workflows() {
     const [selectedName, setSelectedName] = useState<string | null>(null)
     const [deletePickerOpen, setDeletePickerOpen] = useState(false)
     const [running, setRunning] = useState<string | null>(null)
+    const [alerting, setAlerting] = useState<string | null>(null)
     // Checkbox selection for bulk delete and export.
     const [checked, setChecked] = useState<Set<string>>(new Set())
     const [bulkBusy, setBulkBusy] = useState(false)
@@ -634,6 +637,16 @@ export default function Workflows() {
                                                 </button>
                                                 <button
                                                     type="button"
+                                                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                                                    aria-label={`Alerts for ${workflow.name}`}
+                                                    title="E-mail alerts"
+                                                    onClick={() => setAlerting(workflow.name)}
+                                                    disabled={deleting === workflow.name}
+                                                >
+                                                    <BellRing size={15} />
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                                                     aria-label={`Delete ${workflow.name}`}
                                                     title={deleteReason ?? 'Delete'}
@@ -687,6 +700,15 @@ export default function Workflows() {
             )}
 
             {running && <StartRunDialog kind="workflow" target={running} onClose={() => setRunning(null)} />}
+            {alerting && (
+                <RunAlertsDialog
+                    kind="workflow"
+                    target={alerting}
+                    name={alerting}
+                    canEdit={!editReason}
+                    onClose={() => setAlerting(null)}
+                />
+            )}
 
             {builder && (
                 <AppPortal>

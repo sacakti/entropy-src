@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 
 import {
+    canOpen,
     navigation,
     type PageId,
 } from '../../types/navigation'
@@ -18,6 +19,8 @@ interface SidebarProps {
     onPageChange: (page: PageId) => void
     onToggleCollapse: () => void
     version: string
+    /** The user's permissions; entries they cannot open are hidden. */
+    permissions: Set<string> | null
 }
 
 export default function Sidebar({
@@ -26,6 +29,7 @@ export default function Sidebar({
     onPageChange,
     onToggleCollapse,
     version,
+    permissions,
 }: SidebarProps) {
     // Sections the user closed; a section holding the current page stays open.
     const [closed, setClosed] = useState<Set<PageId>>(new Set())
@@ -63,9 +67,17 @@ export default function Sidebar({
 
             <nav
                 className="entropy-navigation"
+                data-tour="navigation"
                 aria-label="Main navigation"
             >
-                {navigation.map(({ id, label, icon: Icon, children }) => {
+                {navigation
+                    .map((item) => ({
+                        ...item,
+                        children: item.children?.filter((child) => canOpen(child.id, permissions)),
+                    }))
+                    // Sections without any page the user may open are not shown.
+                    .filter((item) => (item.children ? item.children.length > 0 : canOpen(item.id, permissions)))
+                    .map(({ id, label, icon: Icon, children }) => {
                     const childActive = children?.some((child) => child.id === activePage) ?? false
                     const expanded = Boolean(children) && (childActive || activePage === id) && !closed.has(id)
 

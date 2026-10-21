@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     AlertCircle,
+    BellRing,
     Blocks,
     CalendarClock,
     LoaderCircle,
@@ -23,6 +24,7 @@ import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { errorMessage, formatDateTime } from '../runs/format'
 import { openRun } from '../runs/navigation'
 import ScheduleDialog from './ScheduleDialog'
+import RunAlertsDialog from '../runs/RunAlertsDialog'
 import { missingPermission } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
 
@@ -80,6 +82,8 @@ function SelectAll({
 export default function Schedules() {
     const permissions = usePermissions()
     const deleteReason = missingPermission(permissions, ['schedules.delete'], 'deleting schedules')
+    const manageReason = missingPermission(permissions, ['schedules.manage'], 'changing schedules')
+    const [alerting, setAlerting] = useState<Schedule | null>(null)
     const { notify, modal } = useFeedback()
 
     const [tab, setTab] = useState<'schedules' | 'failed'>('schedules')
@@ -513,6 +517,15 @@ export default function Schedules() {
                                                     </button>
                                                     <button
                                                         type="button"
+                                                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                                                        aria-label={`Alerts for ${schedule.name}`}
+                                                        title="E-mail alerts"
+                                                        onClick={() => setAlerting(schedule)}
+                                                    >
+                                                        <BellRing size={15} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
                                                         className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                                                         aria-label={`Delete ${schedule.name}`}
                                                         title={deleteReason ?? 'Delete'}
@@ -631,6 +644,15 @@ export default function Schedules() {
                 </div>
             </section>
 
+            {alerting && (
+                <RunAlertsDialog
+                    kind="schedule"
+                    target={alerting.id}
+                    name={alerting.name}
+                    canEdit={!manageReason}
+                    onClose={() => setAlerting(null)}
+                />
+            )}
             {editing && (
                 <ScheduleDialog
                     schedule={editing === 'new' ? null : editing}

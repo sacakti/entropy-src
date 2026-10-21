@@ -24,8 +24,23 @@ export interface AdminUser {
     is_system: boolean
     created_at: string | null
     updated_at: string | null
+    /** Global roles only; project roles are in `projects`. */
     roles: string[]
     groups: string[]
+    /** Direct project memberships (not those inherited through groups). */
+    projects: ProjectMembership[]
+    /** Where the user signs in: Entropy's own password, LDAP, or single sign-on. */
+    source: 'local' | 'ldap' | 'oidc'
+}
+
+export type RoleScope = 'global' | 'project'
+
+/** One project role held in one project. */
+export interface ProjectMembership {
+    project: string
+    project_name: string
+    role: string
+    role_title: string
 }
 
 export interface AdminGroup {
@@ -35,15 +50,22 @@ export interface AdminGroup {
     created_at: string | null
     updated_at: string | null
     users: string[]
+    /** Global roles only; project roles are in `projects`. */
     roles: string[]
+    projects: ProjectMembership[]
 }
 
 export interface AdminRole {
     id: number
     name: string
+    title: string
     description: string | null
-    /** The built-in admin role; it cannot be changed. */
+    /** Global roles are given to users and groups; project roles inside a project. */
+    scope: RoleScope
+    /** Shipped with Entropy; cannot be changed or deleted. */
     is_builtin: boolean
+    /** How many project memberships use this (project) role. */
+    project_members: number
     created_at: string | null
     updated_at: string | null
     permissions: string[]
@@ -57,6 +79,8 @@ export interface AdminPermission {
     description: string | null
     type: 'read' | 'write' | 'delete' | 'execute' | 'full'
     roles: string[]
+    /** May be held by a project-scope role. */
+    project: boolean
 }
 
 export interface AdminModule {
@@ -67,6 +91,12 @@ export interface AdminModule {
 
 const BASE = '/api/admin'
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
+
+/** A membership to set: the project key and a project-scope role name. */
+export interface MembershipInput {
+    project: string
+    role: string
+}
 
 const path = (...parts: string[]) =>
     [BASE, ...parts.map((part) => encodeURIComponent(part))].join('/')
@@ -107,6 +137,9 @@ export const adminApi = {
         send<AdminUser>('PUT', path('users', username, 'roles'), { names }),
     setUserGroups: (username: string, names: string[]) =>
         send<AdminUser>('PUT', path('users', username, 'groups'), { names }),
+    /** Replaces the user's project roles in every project. */
+    setUserProjects: (username: string, memberships: MembershipInput[]) =>
+        send<AdminUser>('PUT', path('users', username, 'projects'), { memberships }),
 
     groups: () => apiRequest<{ items: AdminGroup[] }>(path('groups')),
     createGroup: (group: { name: string; description: string | null }) =>
@@ -118,11 +151,14 @@ export const adminApi = {
         send<AdminGroup>('PUT', path('groups', name, 'users'), { names }),
     setGroupRoles: (name: string, names: string[]) =>
         send<AdminGroup>('PUT', path('groups', name, 'roles'), { names }),
+    /** Replaces the group's project roles in every project. */
+    setGroupProjects: (name: string, memberships: MembershipInput[]) =>
+        send<AdminGroup>('PUT', path('groups', name, 'projects'), { memberships }),
 
     roles: () => apiRequest<{ items: AdminRole[] }>(path('roles')),
-    createRole: (role: { name: string; description: string | null }) =>
+    createRole: (role: { name: string; title?: string; description: string | null; scope: RoleScope }) =>
         send<AdminRole>('POST', path('roles'), role),
-    updateRole: (name: string, changes: { name?: string; description?: string }) =>
+    updateRole: (name: string, changes: { name?: string; title?: string; description?: string }) =>
         send<AdminRole>('PATCH', path('roles', name), changes),
     deleteRole: (name: string) => send<{ message: string }>('DELETE', path('roles', name)),
     setRolePermissions: (name: string, names: string[]) =>

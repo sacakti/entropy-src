@@ -485,3 +485,123 @@
     align-items: center;
     gap: 4px;
 }
+
+/* Project switcher (ProjectSwitcher.tsx), first in the topbar context. */
+.entropy-app .project-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 220px;
+    padding: 5px 9px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.entropy-app .project-switcher:hover,
+.entropy-app .project-switcher[aria-expanded="true"] {
+    border-color: var(--app-hover-border);
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .project-switcher > svg:first-child {
+    flex-shrink: 0;
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .project-switcher-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .project-switcher-menu {
+    min-width: 240px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.entropy-app .project-switcher-menu button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .project-switcher-menu button:hover,
+.entropy-app .project-switcher-menu button:focus-visible {
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .project-switcher-check {
+    display: inline-grid;
+    flex: 0 0 16px;
+    place-items: center;
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .project-switcher-item {
+    display: grid;
+    min-width: 0;
+}
+
+.entropy-app .project-switcher-item small {
+    overflow: hidden;
+    color: var(--app-subtle);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .project-switcher-divider {
+    display: block;
+    margin: 4px 6px;
+    border-top: 1px solid var(--app-line);
+}
+
+/* Phones: the switcher stands in for the breadcrumb, so the actions fit. */
+@media (max-width: 700px) {
+    .entropy-app .topbar-context {
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .entropy-app .topbar-context > :not(.project-switcher) {
+        display: none;
+    }
+
+    .entropy-app .project-switcher {
+        max-width: 132px;
+    }
+}
+
+@media (max-width: 480px) {
+    .entropy-app .topbar-context {
+        flex: 0 0 auto;
+        overflow: visible;
+    }
+
+    .entropy-app .project-switcher {
+        flex-shrink: 0;
+    }
+
+    /* Theme is in the profile menu (Preferences); the avatar says who. */
+    .entropy-app .project-switcher-name,
+    .entropy-app .topbar-actions .theme-toggle,
+    .entropy-app .profile-trigger .profile-name {
+        display: none;
+    }
+}

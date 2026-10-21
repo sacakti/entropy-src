@@ -45,16 +45,70 @@ import AdminSystem from './features/administration/AdminSystem'
 import AdminUsers from './features/administration/AdminUsers'
 import AdminGroups from './features/administration/AdminGroups'
 import AdminRoles from './features/administration/AdminRoles'
-import AdminPermissions from './features/administration/AdminPermissions'
+import AdminProjects from './features/administration/AdminProjects'
+import AdminSettings from './features/settings-admin/AdminSettings'
 
 import { PAGE_PERMISSIONS, pageFromHash, parentPage, type PageId } from './types/navigation'
 import AccessRestricted from './components/layout/AccessRestricted'
 import { requestCreate, type CreateTarget } from './features/quickCreate'
-import { getCurrentUser } from './services/auth'
+import { finishTour, getCurrentUser } from './services/auth'
+import Tour, { type TourStep } from './features/tour/Tour'
+import { PROJECT_CHANGED_EVENT } from './services/project'
 
 const ShellPanel = lazy(() => import('./features/shell/ShellPanel'))
 
 /** The tool named by `#/tools/<id>`, if any. */
+/** The welcome tour; steps for things the user cannot use are left out. */
+function tourSteps(name: string, permissions: Set<string> | null): TourStep[] {
+    const admin = Boolean(
+        permissions &&
+            ['users.read', 'nodes.manage', 'system.settings', 'projects.manage'].some((item) => permissions.has(item)),
+    )
+    return [
+        {
+            title: `Welcome to Entropy, ${name}`,
+            body: 'Entropy runs your deployment workflows and plugins on your nodes, on demand or on a schedule. Here is a one-minute look around.',
+        },
+        {
+            target: 'project',
+            title: 'Projects',
+            body: 'Workflows, schedules and runs live in projects. Pick the project you work in here; what you can do depends on your role in it.',
+        },
+        {
+            target: 'navigation',
+            title: 'Everything in one place',
+            body: admin
+                ? 'Workflows, plugins, runs, schedules, the vault and tools. Administration is at the bottom: projects, people, nodes and settings.'
+                : 'Workflows, plugins, runs, schedules, the vault and tools. Click a plugin to read how to use it.',
+        },
+        {
+            target: 'create',
+            title: 'Create something new',
+            body: 'Start a workflow, a plugin or a schedule from anywhere.',
+        },
+        {
+            target: 'shell',
+            title: 'Shell',
+            body: 'Type ent commands without "ent", e.g. "workflow list" or "users list". Ctrl+` opens it.',
+        },
+        {
+            target: 'notifications',
+            title: 'Notifications',
+            body: 'When a run you started finishes, you hear about it here, with a link to the run. Workflows and schedules can also send e-mail (the bell on their row).',
+        },
+        {
+            target: 'help',
+            title: 'Help',
+            body: 'Keyboard shortcuts, CLI commands and how to use ent from your own machine. You can replay this tour from here.',
+        },
+        {
+            target: 'profile',
+            title: 'You',
+            body: 'Your settings, theme and wallpaper, and Permissions: exactly what you may do, and in which projects.',
+        },
+    ]
+}
+
 function toolFromHash(hash: string): string | undefined {
     return /^#\/?tools\/([a-z0-9-]+)/.exec(hash)?.[1]
 }
@@ -77,6 +131,8 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         avatar_url: user.avatar_url ?? null,
     }))
     const [helpOpen, setHelpOpen] = useState(false)
+    const [tourOpen, setTourOpen] = useState(false)
+    const tourOffered = useRef(false)
     const [shellOpen, setShellOpen] = useState(false)
 
     useEffect(() => {
@@ -199,8 +255,9 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         'admin-users': 'Users',
         'admin-groups': 'Groups',
         'admin-roles': 'Roles',
-        'admin-permissions': 'Permissions',
-        'admin-system': 'System',
+        'admin-projects': 'Projects',
+        'admin-settings': 'Settings',
+        'admin-system': 'Upgrade',
         about: 'About',
         settings: 'Settings',
         preferences: 'Preferences',
@@ -211,20 +268,34 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
     // Effective permissions, re-read on navigation so role changes apply
     // without signing in again.
     const [permissions, setPermissions] = useState<Set<string> | null>(null)
+    // Bumped when the user switches project: pages reload in the new project.
+    const [projectVersion, setProjectVersion] = useState(0)
+
+    useEffect(() => {
+        const onChange = () => setProjectVersion((value) => value + 1)
+        window.addEventListener(PROJECT_CHANGED_EVENT, onChange)
+        return () => window.removeEventListener(PROJECT_CHANGED_EVENT, onChange)
+    }, [])
 
     useEffect(() => {
         let active = true
 
         getCurrentUser()
             .then((result) => {
-                if (active) setPermissions(new Set(result.permissions))
+                if (!active) return
+                setPermissions(new Set(result.permissions))
+                // New accounts get the welcome tour once, after the page has drawn.
+                if (result.tour && !tourOffered.current) {
+                    tourOffered.current = true
+                    window.setTimeout(() => setTourOpen(true), 400)
+                }
             })
             .catch(() => undefined)
 
         return () => {
             active = false
         }
-    }, [activePage])
+    }, [activePage, projectVersion])
 
     const requiredPermissions = PAGE_PERMISSIONS[activePage]
     const restricted = Boolean(
@@ -303,6 +374,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     onPageChange={setActivePage}
                     onToggleCollapse={() => setCollapsed((value) => !value)}
                     version={appVersion}
+                    permissions={permissions}
                 />
                 <div className="entropy-main">
                     <WallpaperLayer />
@@ -311,6 +383,9 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     onOpenHelp={() => setHelpOpen(true)}
                     onToggleShell={() => setShellOpen((open) => !open)}
                     shellOpen={shellOpen}
+                    onManageProjects={
+                        permissions?.has('projects.manage') ? () => setActivePage('admin-projects') : undefined
+                    }
                     quickCreate={quickCreate}
                     pageTitle={pageTitle}
                     parentTitle={parentPage(activePage)?.label}
@@ -337,7 +412,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     onMarkAllNotificationsRead={notifications.markAllRead}
                     onClearAllNotifications={notifications.clear}
                 />
-                    <main className="entropy-content">
+                    <main className="entropy-content" key={projectVersion}>
                         {restricted ? (
                         <AccessRestricted
                             page={pageTitle}
@@ -390,22 +465,41 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                         ) : activePage === 'plugins' ? (
                             <Plugins />
                         ) : activePage === 'administration' ? (
-                            <Administration onNavigate={setActivePage} />
+                            <Administration onNavigate={setActivePage} permissions={permissions} />
                         ) : activePage === 'admin-users' ? (
                             <AdminUsers />
                         ) : activePage === 'admin-groups' ? (
                             <AdminGroups />
                         ) : activePage === 'admin-roles' ? (
                             <AdminRoles />
-                        ) : activePage === 'admin-permissions' ? (
-                            <AdminPermissions />
+                        ) : activePage === 'admin-projects' ? (
+                            <AdminProjects />
+                        ) : activePage === 'admin-settings' ? (
+                            <AdminSettings />
                         ) : activePage === 'admin-system' ? (
                             <AdminSystem />
                         ) : null}
                     </main>
                 </div>
 
-                {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
+                {helpOpen && (
+                    <HelpDialog
+                        onClose={() => setHelpOpen(false)}
+                        onStartTour={() => {
+                            setHelpOpen(false)
+                            setTourOpen(true)
+                        }}
+                    />
+                )}
+                {tourOpen && (
+                    <Tour
+                        steps={tourSteps(profile.full_name || profile.username, permissions)}
+                        onFinish={() => {
+                            setTourOpen(false)
+                            void finishTour().catch(() => undefined)
+                        }}
+                    />
+                )}
                 {shellOpen && (
                     <Suspense fallback={null}>
                         <ShellPanel username={profile.username} onClose={() => setShellOpen(false)} />

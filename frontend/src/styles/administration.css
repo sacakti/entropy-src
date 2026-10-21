@@ -1029,3 +1029,364 @@
 .entropy-app .system-page td .list-version {
     margin-left: 8px;
 }
+
+/* ----------------------------------------------------------
+   Global and project roles; projects
+   ---------------------------------------------------------- */
+
+.entropy-app .admin-scope-intro {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.entropy-app .admin-scope-intro > div {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: color-mix(in srgb, var(--app-surface) 58%, transparent);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .admin-scope-intro p {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.entropy-app .admin-scope-intro strong {
+    color: var(--app-text);
+}
+
+.entropy-app .admin-scope-icon {
+    display: grid;
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 8px;
+}
+
+.entropy-app .admin-role-section {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .admin-role-section > h3 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin: 6px 0 0;
+    font-size: 14px;
+}
+
+.entropy-app .admin-role-section > h3 small {
+    flex-basis: 100%;
+    color: var(--app-muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.entropy-app .admin-role-name {
+    padding: 0 5px;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* Scope choice in the role dialog */
+.entropy-app .admin-scope-field {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.entropy-app .admin-scope-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.entropy-app .admin-scope-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 10px 12px;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.entropy-app .admin-scope-option.is-active {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .admin-scope-option svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .admin-scope-option input {
+    margin-top: 2px;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .admin-scope-option > span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.entropy-app .admin-scope-field:disabled .admin-scope-option {
+    cursor: default;
+}
+
+.entropy-app .admin-scope-field:disabled .admin-scope-option:not(.is-active) {
+    opacity: 0.55;
+}
+
+/* Project memberships of a user or group */
+.entropy-app .admin-memberships {
+    display: grid;
+    gap: 10px;
+}
+
+.entropy-app .admin-memberships > p {
+    margin: 0;
+}
+
+.entropy-app :is(.admin-membership-list, .admin-member-list) {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .admin-membership-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .admin-membership-row.is-readonly {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+}
+
+.entropy-app .admin-membership-row.is-readonly > svg {
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .admin-membership-row > span {
+    display: grid;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.entropy-app .admin-membership-row small {
+    color: var(--app-muted);
+    font-size: 11.5px;
+}
+
+.entropy-app .admin-membership-field {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.entropy-app .admin-membership-field > span {
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Projects page */
+.entropy-app .admin-row-selectable {
+    cursor: pointer;
+}
+
+.entropy-app .admin-link-button {
+    padding: 0;
+    color: inherit;
+    background: none;
+    border: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .admin-link-button:hover {
+    color: var(--app-accent-fg);
+    text-decoration: underline;
+}
+
+.entropy-app .admin-project-detail h2 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.entropy-app .admin-project-detail h2 .admin-role-name {
+    font-size: 12px;
+}
+
+.entropy-app .admin-project-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+    gap: 16px;
+}
+
+.entropy-app .admin-project-card {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px;
+    background: var(--list-panel, var(--app-panel-bg));
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .admin-project-card > header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.entropy-app .admin-project-card > header > div {
+    display: grid;
+    flex: 1 1 220px;
+    gap: 3px;
+}
+
+.entropy-app .admin-project-card h3 {
+    margin: 0;
+    font-size: 14px;
+}
+
+.entropy-app .admin-project-card :is(p, .entropy-alert) {
+    margin: 0;
+}
+
+.entropy-app .admin-project-card > footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.entropy-app .admin-project-card .admin-checklist-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px dashed var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .admin-member-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(120px, 180px) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .admin-member-row.is-node,
+.entropy-app .admin-member-row:not(:has(select)) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.entropy-app .admin-member-icon {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border-radius: 50%;
+}
+
+.entropy-app .admin-member-name {
+    display: grid;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.entropy-app .admin-member-name > * {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .admin-member-name small {
+    color: var(--app-muted);
+    font-size: 11.5px;
+}
+
+@media (max-width: 1100px) {
+    .entropy-app .admin-project-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .entropy-app .admin-scope-options {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .admin-membership-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .entropy-app .admin-membership-row > .admin-membership-field:nth-child(2) {
+        grid-row: 2;
+    }
+
+    .entropy-app .admin-member-row {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    .entropy-app .admin-member-row > select {
+        grid-column: 2;
+        grid-row: 2;
+    }
+}
+
+.entropy-app .admin-page .list-name-content strong > .admin-badge {
+    margin-left: 6px;
+}
+
+.entropy-app .admin-user-email {
+    overflow-wrap: anywhere;
+}
+
+/* Keep inputs their natural height when a neighbouring field has a hint. */
+.entropy-app .admin-form-grid > .admin-field {
+    align-content: start;
+}

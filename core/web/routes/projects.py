@@ -188,3 +188,48 @@ def set_project_members(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     return {"members": store.members(project["id"])}
+
+
+@router.get("/{key}/assignable")
+def assignable_members(
+    key: str,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """
+    Who can be added to the project and with which roles: what a project
+    maintainer needs, who may not list users, groups and roles otherwise.
+    """
+
+    _, _, user = record
+    project = _project(request, key)
+    if not _can_manage_members(request, user, project["id"]):
+        raise HTTPException(status_code=403, detail="Permission denied.")
+    connection = request.app.state.entropy_context.database_manager.connection
+    users = connection.fetchall(
+        "SELECT username, full_name FROM users WHERE is_active = 1 ORDER BY username COLLATE NOCASE"
+    )
+    groups = connection.fetchall(
+        "SELECT g.name, COUNT(ug.user_id) AS members FROM groups g"
+        " LEFT JOIN user_groups ug ON ug.group_id = g.id"
+        " GROUP BY g.id ORDER BY g.name COLLATE NOCASE"
+    )
+    roles = connection.fetchall(
+        "SELECT name, title, description FROM roles WHERE scope = 'project'"
+        " ORDER BY builtin DESC, CASE name WHEN 'viewer' THEN 0 WHEN 'operator' THEN 1"
+        " WHEN 'developer' THEN 2 WHEN 'maintainer' THEN 3 ELSE 4 END, title COLLATE NOCASE"
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "users": [{"username": row["username"], "full_name": row["full_name"]} for row in users],
+        "groups": [{"name": row["name"], "members": row["members"]} for row in groups],
+        "roles": [
+            {
+                "name": row["name"],
+                "title": row["title"] or row["name"],
+                "description": row["description"] or "",
+            }
+            for row in roles
+        ],
+    }

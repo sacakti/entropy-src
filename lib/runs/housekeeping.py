@@ -20,11 +20,14 @@ DEFAULTS = {
     "runs.archive_after_days": 30,
     # Archived runs older than this are deleted (0 keeps them forever).
     "runs.purge_archive_after_days": 365,
+    # Notifications older than this are deleted (0 keeps them forever).
+    "notifications.keep_days": 90,
 }
 
 LIMITS = {
     "runs.archive_after_days": (1, 3650),
     "runs.purge_archive_after_days": (0, 36500),
+    "notifications.keep_days": (0, 3650),
 }
 
 # Ad-hoc plugin run definitions are only needed while the worker starts.
@@ -49,7 +52,9 @@ class Housekeeping:
 
     def settings(self) -> Dict[str, int]:
         rows = self.connection.fetchall(
-            "SELECT key, value FROM settings WHERE key IN (?, ?)",
+            "SELECT key, value FROM settings WHERE key IN ("
+            + ", ".join("?" for _ in DEFAULTS)
+            + ")",
             tuple(DEFAULTS),
         )
         stored = {row["key"]: row["value"] for row in rows}
@@ -179,6 +184,22 @@ class Housekeeping:
                 continue
         return removed
 
+    def purge_notifications(self, keep_days: int) -> int:
+        if keep_days <= 0:
+            return 0
+        exists = self.connection.fetchone(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'notifications'"
+        )
+        if exists is None:
+            return 0
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        with self.connection.transaction():
+            return self.connection.execute(
+                "DELETE FROM notifications WHERE created_at < ?", (cutoff,)
+            ).rowcount
+
     def run(self, *, plugin_runs: Path, worker_logs: Path) -> Dict[str, int]:
         settings = self.settings()
         archived = self.archive(settings["runs.archive_after_days"])
@@ -200,7 +221,9 @@ class Housekeeping:
                         continue
 
         files = self.remove_files(plugin_runs, PLUGIN_RUN_FILE_AGE, "*.json")
+        notifications = self.purge_notifications(settings["notifications.keep_days"])
         return {
+            "removed_notifications": notifications,
             "archived_jobs": archived["jobs"],
             "archived_events": archived["events"],
             "purged_jobs": purged,

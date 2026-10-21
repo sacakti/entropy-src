@@ -1,3 +1,7 @@
+import { currentProject } from './project'
+
+const PROJECT_HEADER = 'X-Entropy-Project'
+
 interface ApiErrorResponse {
     detail?: unknown
     message?: string
@@ -82,6 +86,8 @@ export async function apiRequest<T>(
     if (method !== 'GET' && method !== 'HEAD') {
         headers.set('X-CSRF-Token', await getCsrfToken())
     }
+    const project = currentProject()
+    if (project && !headers.has(PROJECT_HEADER)) headers.set(PROJECT_HEADER, project)
 
     const response = await fetch(url, {
         ...init,
@@ -122,6 +128,7 @@ export async function downloadFile(
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-Token': await getCsrfToken(),
+            ...(currentProject() ? { [PROJECT_HEADER]: currentProject() as string } : {}),
         },
         body: JSON.stringify(body),
         credentials: 'same-origin',

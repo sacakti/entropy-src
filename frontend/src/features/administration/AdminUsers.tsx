@@ -15,13 +15,17 @@ import {
     Wand2,
 } from 'lucide-react'
 
-import { adminApi, type AdminGroup, type AdminRole, type AdminUser } from '../../api/admin.api'
+import { adminApi, type AdminGroup, type AdminRole, type AdminUser, type MembershipInput } from '../../api/admin.api'
+import { projectsApi, type ProjectSummary } from '../../api/projects.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { AdminPanel, Checklist, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
 import { errorMessage, formatDate, sameSet } from './format'
+import { membershipLabels, sameMemberships, toMembershipInputs, uniqueMemberships } from './memberships'
+import { missingPermission } from './permissionReason'
+import { ProjectMembershipEditor } from './ProjectMemberships'
 import { usePermissions } from './usePermissions'
 
 type StatusFilter = 'all' | 'active' | 'disabled'
@@ -61,6 +65,7 @@ export default function AdminUsers() {
     const [users, setUsers] = useState<AdminUser[]>([])
     const [roles, setRoles] = useState<AdminRole[]>([])
     const [groups, setGroups] = useState<AdminGroup[]>([])
+    const [projects, setProjects] = useState<ProjectSummary[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -74,15 +79,17 @@ export default function AdminUsers() {
 
     const load = useCallback(async () => {
         try {
-            const [userList, roleList, groupList] = await Promise.all([
+            const [userList, roleList, groupList, projectList] = await Promise.all([
                 adminApi.users(),
                 // Pickers only; a user without these permissions still sees users.
                 adminApi.roles().catch(() => ({ items: [] as AdminRole[] })),
                 adminApi.groups().catch(() => ({ items: [] as AdminGroup[] })),
+                projectsApi.list().catch(() => ({ items: [] as ProjectSummary[] })),
             ])
             setUsers(userList.items)
             setRoles(roleList.items)
             setGroups(groupList.items)
+            setProjects(projectList.items)
             setError(null)
         } catch (cause) {
             setError(errorMessage(cause, 'Unable to load users.'))
@@ -109,7 +116,14 @@ export default function AdminUsers() {
             (user) =>
                 (status === 'all' || (status === 'active') === user.is_active) &&
                 (!needle ||
-                    [user.username, user.full_name, user.email, ...user.roles, ...user.groups]
+                    [
+                        user.username,
+                        user.full_name,
+                        user.email,
+                        ...user.roles,
+                        ...user.groups,
+                        ...membershipLabels(user.projects ?? []),
+                    ]
                         .join(' ')
                         .toLowerCase()
                         .includes(needle)),
@@ -220,7 +234,7 @@ export default function AdminUsers() {
                             inputRef={searchRef}
                             value={search}
                             onChange={setSearch}
-                            placeholder="Search users, roles or groups…"
+                            placeholder="Search users, roles, groups or projects…"
                         />
                         <label className="list-filter">
                             <span>Status</span>
@@ -242,10 +256,10 @@ export default function AdminUsers() {
                         <thead>
                             <tr>
                                 <th>User</th>
-                                <th>Email</th>
                                 <th>Status</th>
                                 <th>Roles</th>
                                 <th>Groups</th>
+                                <th>Projects</th>
                                 <th>Created</th>
                                 <th className="list-operations-cell">
                                     <span className="list-operations-heading">Operations</span>
@@ -273,16 +287,21 @@ export default function AdminUsers() {
                                                     <strong>{user.full_name || user.username}</strong>
                                                     <span>
                                                         @{user.username}
+                                                        {user.email && <span className="admin-user-email"> · {user.email}</span>}
                                                         {user.is_system && (
                                                             <span className="admin-badge" title="Built-in administrator">
                                                                 <Lock size={10} /> System
+                                                            </span>
+                                                        )}
+                                                        {user.source !== 'local' && (
+                                                            <span className="admin-badge" title="Signs in outside Entropy">
+                                                                {user.source === 'ldap' ? 'LDAP' : 'SSO'}
                                                             </span>
                                                         )}
                                                     </span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="list-cell-text">{user.email || <span className="admin-muted">—</span>}</td>
                                         <td>
                                             <span className={`list-status ${user.is_active ? 'list-status-enabled' : 'list-status-disabled'}`}>
                                                 <span className="list-status-dot" />
@@ -294,6 +313,9 @@ export default function AdminUsers() {
                                         </td>
                                         <td>
                                             <ChipList values={user.groups} />
+                                        </td>
+                                        <td>
+                                            <ChipList values={membershipLabels(user.projects ?? [])} max={2} empty="None" />
                                         </td>
                                         <td className="list-cell-text">{formatDate(user.created_at)}</td>
                                         <td>
@@ -350,7 +372,9 @@ export default function AdminUsers() {
                     user={editing === 'new' ? null : editing}
                     roles={roles}
                     groups={groups}
+                    projects={projects}
                     can={can}
+                    permissions={permissions}
                     onClose={() => setEditing(null)}
                     onSaved={(saved, created) => {
                         if (created) setUsers((current) => [...current, saved].sort((a, b) => a.username.localeCompare(b.username)))
@@ -363,20 +387,24 @@ export default function AdminUsers() {
     )
 }
 
-type UserTab = 'profile' | 'roles' | 'groups' | 'password'
+type UserTab = 'profile' | 'roles' | 'projects' | 'groups' | 'password'
 
 function UserDialog({
     user,
     roles,
     groups,
+    projects,
     can,
+    permissions,
     onClose,
     onSaved,
 }: {
     user: AdminUser | null
     roles: AdminRole[]
     groups: AdminGroup[]
+    projects: ProjectSummary[]
     can: (permission: string) => boolean
+    permissions: Set<string> | null
     onClose: () => void
     onSaved: (user: AdminUser, created: boolean) => void
 }) {
@@ -391,6 +419,9 @@ function UserDialog({
     const [showPassword, setShowPassword] = useState(false)
     const [userRoles, setUserRoles] = useState<string[]>(user?.roles ?? [])
     const [userGroups, setUserGroups] = useState<string[]>(user?.groups ?? [])
+    const [memberships, setMemberships] = useState<MembershipInput[]>(() =>
+        toMembershipInputs(user?.projects ?? []),
+    )
     const [saving, setSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
     const [temporary, setTemporary] = useState<string | null>(null)
@@ -399,12 +430,16 @@ function UserDialog({
     const canProfile = creating ? can('users.create') : can('users.modify')
     const canRoles = can('users.roles')
     const canGroups = can('groups.users')
+    const canProjects = can('projects.manage')
+    const globalRoles = roles.filter((role) => role.scope !== 'project')
+    const projectRoles = roles.filter((role) => role.scope === 'project')
 
     const profileDirty =
         !creating && (fullName.trim() !== (user.full_name ?? '') || email.trim() !== (user.email ?? ''))
     const rolesDirty = !creating && !sameSet(userRoles, user.roles)
     const groupsDirty = !creating && !sameSet(userGroups, user.groups)
-    const dirty = creating || profileDirty || rolesDirty || groupsDirty
+    const projectsDirty = canProjects && !sameMemberships(memberships, toMembershipInputs(user?.projects ?? []))
+    const dirty = creating || profileDirty || rolesDirty || groupsDirty || projectsDirty
 
     const save = async (event?: FormEvent) => {
         event?.preventDefault()
@@ -427,8 +462,22 @@ function UserDialog({
                     roles: canRoles ? userRoles : [],
                     groups: canGroups ? userGroups : [],
                 })
+                let saved = created
+
+                if (projectsDirty) {
+                    try {
+                        saved = await adminApi.setUserProjects(created.username, uniqueMemberships(memberships))
+                    } catch (cause) {
+                        notify.error(
+                            `User '${created.username}' was created, but its projects were not saved: ${errorMessage(cause, 'unknown error')}`,
+                        )
+                        onSaved(created, true)
+                        return
+                    }
+                }
+
                 notify.success(`User '${created.username}' created.`)
-                onSaved(created, true)
+                onSaved(saved, true)
                 return
             }
 
@@ -442,6 +491,7 @@ function UserDialog({
             }
             if (rolesDirty) saved = await adminApi.setUserRoles(user.username, userRoles)
             if (groupsDirty) saved = await adminApi.setUserGroups(user.username, userGroups)
+            if (projectsDirty) saved = await adminApi.setUserProjects(user.username, uniqueMemberships(memberships))
 
             notify.success(`User '${user.username}' updated.`)
             onSaved(saved, false)
@@ -473,9 +523,12 @@ function UserDialog({
 
     const tabs: { id: UserTab; label: string; count?: number }[] = [
         { id: 'profile', label: creating ? 'Account' : 'Profile' },
-        ...(canRoles ? [{ id: 'roles' as const, label: 'Roles', count: userRoles.length }] : []),
+        ...(canRoles ? [{ id: 'roles' as const, label: 'Global roles', count: userRoles.length }] : []),
+        ...(canProjects || memberships.length
+            ? [{ id: 'projects' as const, label: 'Projects', count: memberships.length }]
+            : []),
         ...(canGroups ? [{ id: 'groups' as const, label: 'Groups', count: userGroups.length }] : []),
-        ...(!creating && can('users.modify') ? [{ id: 'password' as const, label: 'Password' }] : []),
+        ...(!creating && can('users.modify') && user?.source === 'local' ? [{ id: 'password' as const, label: 'Password' }] : []),
     ]
 
     return (
@@ -567,15 +620,34 @@ function UserDialog({
                 )}
 
                 {tab === 'roles' && (
-                    <Checklist
-                        items={roles.map((role) => ({
-                            value: role.name,
-                            detail: role.description ?? `${role.permissions.length} permissions`,
-                        }))}
-                        selected={userRoles}
-                        onChange={setUserRoles}
-                        placeholder="Search roles"
-                        emptyText="No roles exist yet."
+                    <>
+                        <p className="admin-muted">
+                            Global roles apply everywhere. Give project roles on the Projects tab.
+                        </p>
+                        <Checklist
+                            items={globalRoles.map((role) => ({
+                                value: role.name,
+                                label: role.title && role.title !== role.name ? `${role.title} (${role.name})` : role.name,
+                                detail: role.description ?? `${role.permissions.length} permissions`,
+                            }))}
+                            selected={userRoles}
+                            onChange={setUserRoles}
+                            placeholder="Search global roles"
+                            emptyText="No global roles exist yet."
+                        />
+                    </>
+                )}
+
+                {tab === 'projects' && (
+                    <ProjectMembershipEditor
+                        value={memberships}
+                        onChange={setMemberships}
+                        projects={projects}
+                        roles={projectRoles}
+                        known={user?.projects ?? []}
+                        readOnly={!canProjects}
+                        readOnlyReason={missingPermission(permissions, ['projects.manage'], 'Changing project roles')}
+                        subject="this user"
                     />
                 )}
 

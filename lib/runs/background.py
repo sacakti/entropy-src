@@ -141,7 +141,13 @@ class RunsBackground:
     def report_outcomes(self) -> None:
         """Notify (and e-mail) the people concerned when runs finish."""
 
-        for outcome in RunOutcomes(self._connection).collect():
+        outcomes = RunOutcomes(self._connection).collect()
+        if outcomes:
+            from .alerts import send_alerts
+
+            # E-mail alerts set on the workflows and schedules.
+            self._safely("alerts", lambda: send_alerts(self._context, outcomes))
+        for outcome in outcomes:
             text = describe(outcome)
             message = text["message"]
             if outcome.get("schedule_id") and outcome["state"] != "completed":
