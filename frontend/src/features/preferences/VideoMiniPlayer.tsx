@@ -31,6 +31,15 @@ const EDGE = 16
 const EDGE_PHONE = 12
 /** Pointer travel before a press on the player counts as a drag. */
 const DRAG_THRESHOLD = 4
+/** Length of the player's longer side: default, and the range it can be resized in. */
+const DEFAULT_LONG_SIDE = 320
+const MIN_LONG_SIDE = 160
+const MAX_LONG_SIDE = 1100
+/** Until the video reports its size. */
+const DEFAULT_RATIO = 16 / 9
+
+type Corner = 'nw' | 'ne' | 'sw' | 'se'
+const CORNERS: Corner[] = ['nw', 'ne', 'sw', 'se']
 
 type Mode = 'mini' | 'max' | 'pill'
 
@@ -43,9 +52,11 @@ interface Spot {
     x: number
     y: number
     minimized: boolean
+    /** Longer side in pixels, so a size suits portrait and landscape videos alike. */
+    size: number
 }
 
-const DEFAULT_SPOT: Spot = { x: 1, y: 1, minimized: false }
+const DEFAULT_SPOT: Spot = { x: 1, y: 1, minimized: false, size: DEFAULT_LONG_SIDE }
 
 function clamp01(value: number): number {
     return Math.min(1, Math.max(0, Number.isFinite(value) ? value : 1))
@@ -59,6 +70,7 @@ function readSpot(): Spot {
             x: clamp01(Number(saved.x)),
             y: clamp01(Number(saved.y)),
             minimized: saved.minimized === true,
+            size: Number.isFinite(Number(saved.size)) ? Number(saved.size) : DEFAULT_LONG_SIDE,
         }
     } catch {
         return DEFAULT_SPOT
@@ -99,11 +111,22 @@ function prefersReducedMotion(): boolean {
         && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-/** First guess at the player's size, until the element is measured. */
-function estimateSize(mode: Mode, viewportWidth: number) {
-    if (mode === 'pill') return { width: 150, height: 40 }
-    const width = Math.min(320, viewportWidth * 0.6)
-    return { width, height: (width * 9) / 16 }
+/**
+ * The player's box for a long-side length and the video's aspect ratio,
+ * kept inside the viewport (minus `edge` on every side).
+ */
+function frameSize(longSide: number, ratio: number, viewport: { width: number; height: number }, edge: number) {
+    const maxWidth = viewport.width - edge * 2
+    const maxHeight = viewport.height - edge * 2
+    let long = Math.min(Math.max(longSide, MIN_LONG_SIDE), MAX_LONG_SIDE)
+    let width = ratio >= 1 ? long : long * ratio
+    let height = ratio >= 1 ? long / ratio : long
+    // Shrink to fit; on small screens this can go below the usual minimum.
+    const fit = Math.min(1, maxWidth / width, maxHeight / height)
+    width *= fit
+    height *= fit
+    long = Math.max(width, height)
+    return { width: Math.round(width), height: Math.round(height), long }
 }
 
 /** The wallpaper video playing behind the page, if any. */
@@ -131,6 +154,9 @@ export default function VideoMiniPlayer({ background }: { background: Background
     const [playingUrl, setPlayingUrl] = useState<string | null>(null)
     const playing = playingUrl === background.url
     const [muted, setMuted] = useState(true)
+    // The video's own shape (width / height); the frame follows it, no letterboxing.
+    const [ratios, setRatios] = useState<Record<string, number>>({})
+    const ratio = ratios[background.url] ?? DEFAULT_RATIO
 
     const mode: Mode = maximized ? 'max' : spot.minimized ? 'pill' : 'mini'
 
@@ -146,6 +172,16 @@ export default function VideoMiniPlayer({ background }: { background: Background
         left: number
         top: number
         moved: boolean
+    } | null>(null)
+    const resize = useRef<{
+        pointerId: number
+        corner: Corner
+        startX: number
+        startY: number
+        left: number
+        top: number
+        width: number
+        height: number
     } | null>(null)
     const suppressClick = useRef(false)
     const focusAfterMode = useRef<'maximize' | 'restore' | 'pill' | null>(null)
@@ -208,8 +244,14 @@ export default function VideoMiniPlayer({ background }: { background: Background
 
     if (closed) return null
 
-    const size = measured?.mode === mode ? measured : estimateSize(mode, viewport.width)
     const edge = viewport.width <= 520 ? EDGE_PHONE : EDGE
+    const frame = frameSize(spot.size, ratio, viewport, edge)
+    const size =
+        mode === 'pill'
+            ? measured?.mode === 'pill'
+                ? measured
+                : { width: 150, height: 40 }
+            : frame
     const freeX = Math.max(0, viewport.width - size.width - edge * 2)
     const freeY = Math.max(0, viewport.height - size.height - edge * 2)
     const left = edge + spot.x * freeX
@@ -273,6 +315,11 @@ export default function VideoMiniPlayer({ background }: { background: Background
     // Arrow keys move the focused player; Shift moves it further.
     const moveWithKeys = (event: ReactKeyboardEvent<HTMLElement>) => {
         if (mode === 'max' || event.target !== event.currentTarget) return
+        if (event.key === '+' || event.key === '=' || event.key === '-' || event.key === '_') {
+            event.preventDefault()
+            resizeBy(event.key === '-' || event.key === '_' ? 1 / 1.15 : 1.15)
+            return
+        }
         const step = event.shiftKey ? 0.25 : 0.05
         const delta: Record<string, [number, number]> = {
             ArrowLeft: [-step, 0],
@@ -284,6 +331,81 @@ export default function VideoMiniPlayer({ background }: { background: Background
         if (!move) return
         event.preventDefault()
         updateSpot({ ...spot, x: clamp01(spot.x + move[0]), y: clamp01(spot.y + move[1]) }, true)
+    }
+
+    const startResize = (event: ReactPointerEvent<HTMLElement>, corner: Corner) => {
+        if (event.button !== 0) return
+        event.stopPropagation()
+        event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        resize.current = {
+            pointerId: event.pointerId,
+            corner,
+            startX: event.clientX,
+            startY: event.clientY,
+            left,
+            top,
+            width: frame.width,
+            height: frame.height,
+        }
+    }
+
+    /** The spot that puts a box of `width` x `height` at `boxLeft`, `boxTop`. */
+    const spotFor = (boxLeft: number, boxTop: number, width: number, height: number, long: number): Spot => {
+        const roomX = Math.max(0, viewport.width - width - edge * 2)
+        const roomY = Math.max(0, viewport.height - height - edge * 2)
+        return {
+            ...spot,
+            size: long,
+            x: roomX > 0 ? clamp01((boxLeft - edge) / roomX) : spot.x,
+            y: roomY > 0 ? clamp01((boxTop - edge) / roomY) : spot.y,
+        }
+    }
+
+    const moveResize = (event: ReactPointerEvent<HTMLElement>) => {
+        const state = resize.current
+        if (!state || state.pointerId !== event.pointerId) return
+        event.stopPropagation()
+        const west = state.corner.includes('w')
+        const north = state.corner.includes('n')
+        const dx = (event.clientX - state.startX) * (west ? -1 : 1)
+        const dy = (event.clientY - state.startY) * (north ? -1 : 1)
+        // Follow whichever direction the pointer moved further; the shape stays.
+        const grow = Math.abs(dx) >= Math.abs(dy * ratio) ? dx : dy * ratio
+        const wanted = state.width + grow
+        const longSide = ratio >= 1 ? wanted : wanted / ratio
+        // Keep the opposite corner where it is, and the box on screen.
+        const right = state.left + state.width
+        const bottom = state.top + state.height
+        const room = {
+            width: (west ? right : viewport.width - state.left) + edge,
+            height: (north ? bottom : viewport.height - state.top) + edge,
+        }
+        const next = frameSize(longSide, ratio, room, edge)
+        const boxLeft = west ? right - next.width : state.left
+        const boxTop = north ? bottom - next.height : state.top
+        updateSpot(spotFor(boxLeft, boxTop, next.width, next.height, next.long), false)
+    }
+
+    const endResize = (event: ReactPointerEvent<HTMLElement>) => {
+        const state = resize.current
+        if (!state || state.pointerId !== event.pointerId) return
+        event.stopPropagation()
+        resize.current = null
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+        }
+        writeSpot(spot)
+    }
+
+    /** Grow or shrink by keyboard (+ / -), keeping the player's centre. */
+    const resizeBy = (factor: number) => {
+        const next = frameSize(frame.long * factor, ratio, viewport, edge)
+        const centreX = left + frame.width / 2
+        const centreY = top + frame.height / 2
+        const boxLeft = Math.min(Math.max(edge, centreX - next.width / 2), viewport.width - edge - next.width)
+        const boxTop = Math.min(Math.max(edge, centreY - next.height / 2), viewport.height - edge - next.height)
+        updateSpot(spotFor(boxLeft, boxTop, next.width, next.height, next.long), true)
     }
 
     const togglePlay = () => {
@@ -366,13 +488,20 @@ export default function VideoMiniPlayer({ background }: { background: Background
                     isMax ? 'is-max' : '',
                     playing ? 'is-playing' : 'is-paused',
                 ].filter(Boolean).join(' ')}
-                style={isMax ? undefined : placed}
+                style={
+                    isMax
+                        ? {
+                              aspectRatio: String(ratio),
+                              width: `min(1200px, calc(100vw - 32px), calc((100vh - 48px) * ${ratio}))`,
+                          }
+                        : { ...placed, width: frame.width, height: frame.height }
+                }
                 role={isMax ? 'dialog' : 'region'}
                 aria-modal={isMax ? true : undefined}
                 aria-label={
                     isMax
                         ? `Wallpaper video: ${background.name}`
-                        : `Wallpaper video player: ${background.name}. Drag or use arrow keys to move.`
+                        : `Wallpaper video player: ${background.name}. Drag or use arrow keys to move, a corner or + and - to resize.`
                 }
                 tabIndex={isMax ? -1 : 0}
                 onPointerDown={startDrag}
@@ -391,7 +520,14 @@ export default function VideoMiniPlayer({ background }: { background: Background
                     loop
                     playsInline
                     preload="metadata"
-                    onLoadedMetadata={(event) => syncWithBackground(event.currentTarget)}
+                    onLoadedMetadata={(event) => {
+                        const video = event.currentTarget
+                        if (video.videoWidth > 0 && video.videoHeight > 0) {
+                            const shape = video.videoWidth / video.videoHeight
+                            setRatios((current) => ({ ...current, [background.url]: shape }))
+                        }
+                        syncWithBackground(video)
+                    }}
                     onPlay={() => setPlayingUrl(background.url)}
                     onPause={() => setPlayingUrl(null)}
                     onDoubleClick={() => {
@@ -487,6 +623,20 @@ export default function VideoMiniPlayer({ background }: { background: Background
                         {muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
                     </button>
                 </div>
+
+                {!isMax &&
+                    CORNERS.map((corner) => (
+                        <span
+                            key={corner}
+                            className={`video-mini-resize is-${corner}`}
+                            aria-hidden="true"
+                            title="Drag to resize"
+                            onPointerDown={(event) => startResize(event, corner)}
+                            onPointerMove={moveResize}
+                            onPointerUp={endResize}
+                            onPointerCancel={endResize}
+                        />
+                    ))}
             </div>
         </AppPortal>
     )
