@@ -175,44 +175,38 @@
     height: 64px;
 }
 
-/* Minimized: a chip that reopens the player. */
+/* Hidden: a round tab in a screen corner that brings the player back. */
 
 .entropy-app .video-mini-pill {
     position: fixed;
     z-index: 13500;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    height: 38px;
-    padding: 0 14px;
-    color: var(--app-text);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    color: var(--app-accent-fg);
     background: var(--app-surface);
-    border: 1px solid var(--app-line);
-    border-radius: 999px;
-    box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 50%;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 26%);
     cursor: pointer;
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    transition: transform 140ms ease, background 140ms ease;
 }
 
 .entropy-app .video-mini-pill:hover {
-    background: var(--app-surface-hover);
-    border-color: var(--app-accent-border);
-}
-
-.entropy-app .video-mini-pill svg {
-    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    transform: scale(1.06);
 }
 
 @media (prefers-reduced-motion: reduce) {
     .entropy-app .video-mini-bar,
     .entropy-app .video-mini-button,
-    .entropy-app .video-mini-center-play {
+    .entropy-app .video-mini-center-play,
+    .entropy-app .video-mini-pill {
         transition: none;
     }
 }

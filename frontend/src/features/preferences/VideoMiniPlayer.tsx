@@ -10,14 +10,13 @@ import {
     Film,
     Maximize2,
     Minimize2,
-    Minus,
+    EyeOff,
     Pause,
     Play,
     SkipBack,
     SkipForward,
     Volume2,
     VolumeX,
-    X,
 } from 'lucide-react'
 
 import type { BackgroundImage } from '../../api/backgrounds.api'
@@ -26,8 +25,8 @@ import '../../styles/video-mini-player.css'
 
 /** Where the player sits, remembered per browser. */
 const SPOT_KEY = 'entropy.videoPlayer.spot'
-/** Closed for this browser session only. */
-const CLOSED_KEY = 'entropy.videoPlayer.closed'
+/** Left by the old Close button (the player could not be brought back). */
+const OLD_CLOSED_KEY = 'entropy.videoPlayer.closed'
 /** Gap kept between the player and the viewport edges. */
 const EDGE = 16
 const EDGE_PHONE = 12
@@ -56,11 +55,14 @@ interface Spot {
     x: number
     y: number
     minimized: boolean
+    /** Corner the hidden player's tab sits in: 0 left/top, 1 right/bottom. */
+    tabX: number
+    tabY: number
     /** Longer side in pixels, so a size suits portrait and landscape videos alike. */
     size: number
 }
 
-const DEFAULT_SPOT: Spot = { x: 1, y: 1, minimized: false, size: DEFAULT_LONG_SIDE }
+const DEFAULT_SPOT: Spot = { x: 1, y: 1, minimized: false, tabX: 1, tabY: 1, size: DEFAULT_LONG_SIDE }
 
 function clamp01(value: number): number {
     return Math.min(1, Math.max(0, Number.isFinite(value) ? value : 1))
@@ -74,6 +76,8 @@ function readSpot(): Spot {
             x: clamp01(Number(saved.x)),
             y: clamp01(Number(saved.y)),
             minimized: saved.minimized === true,
+            tabX: Number(saved.tabX) === 0 ? 0 : 1,
+            tabY: Number(saved.tabY) === 0 ? 0 : 1,
             size: Number.isFinite(Number(saved.size)) ? Number(saved.size) : DEFAULT_LONG_SIDE,
         }
     } catch {
@@ -89,19 +93,11 @@ function writeSpot(spot: Spot) {
     }
 }
 
-function readClosed(): boolean {
+function forgetOldClose() {
     try {
-        return window.sessionStorage.getItem(CLOSED_KEY) === '1'
+        window.sessionStorage.removeItem(OLD_CLOSED_KEY)
     } catch {
-        return false
-    }
-}
-
-function writeClosed() {
-    try {
-        window.sessionStorage.setItem(CLOSED_KEY, '1')
-    } catch {
-        // Closed for this page load only.
+        // Nothing to forget.
     }
 }
 
@@ -149,7 +145,7 @@ function backgroundVideo(url: string): HTMLVideoElement | null {
 
 /**
  * The video wallpaper, also playing in a small floating window that can be
- * dragged, enlarged, collapsed to a chip, or closed for the session.
+ * dragged, resized, enlarged, or hidden to a tab in a corner of the screen.
  */
 export default function VideoMiniPlayer({
     background,
@@ -162,7 +158,6 @@ export default function VideoMiniPlayer({
     /** Switch the wallpaper to the previous (-1) or next (1) video. */
     onStep?: (direction: 1 | -1) => void
 }) {
-    const [closed, setClosed] = useState(readClosed)
     const [spot, setSpot] = useState(readSpot)
     const [maximized, setMaximized] = useState(false)
     const [viewport, setViewport] = useState(viewportSize)
@@ -231,7 +226,9 @@ export default function VideoMiniPlayer({
     useEffect(() => {
         if (mode === 'max') return undefined
         return observe(mode === 'pill' ? pillRef.current : frameRef.current, mode)
-    }, [mode, observe, closed])
+    }, [mode, observe])
+
+    useEffect(forgetOldClose, [])
 
     useEffect(() => {
         const video = videoRef.current
@@ -260,20 +257,22 @@ export default function VideoMiniPlayer({
         else if (target === 'pill') pillRef.current?.focus()
     }, [mode])
 
-    if (closed) return null
-
     const edge = viewport.width <= 520 ? EDGE_PHONE : EDGE
     const frame = frameSize(spot.size, ratio, viewport, edge)
     const size =
         mode === 'pill'
             ? measured?.mode === 'pill'
                 ? measured
-                : { width: 150, height: 40 }
+                : { width: 44, height: 44 }
             : frame
     const freeX = Math.max(0, viewport.width - size.width - edge * 2)
     const freeY = Math.max(0, viewport.height - size.height - edge * 2)
-    const left = edge + spot.x * freeX
-    const top = edge + spot.y * freeY
+    // The hidden player's tab has its own place: a corner.
+    const hidden = mode === 'pill'
+    const posX = hidden ? spot.tabX : spot.x
+    const posY = hidden ? spot.tabY : spot.y
+    const left = edge + posX * freeX
+    const top = edge + posY * freeY
 
     const updateSpot = (next: Spot, persist: boolean) => {
         setSpot(next)
@@ -282,9 +281,15 @@ export default function VideoMiniPlayer({
 
     const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
         if (mode === 'max' || event.button !== 0) return
-        // Buttons inside the player keep their own clicks.
-        if (event.currentTarget !== event.target && (event.target as HTMLElement).closest('button')) return
+        // Buttons inside the player keep their own clicks (the tab is itself a button).
+        const button = (event.target as HTMLElement).closest('button')
+        if (button && button !== event.currentTarget) return
 
+        // A new press: a click after it is a click unless this press drags.
+        suppressClick.current = false
+        // Follow the pointer from the press on: a quick first move can
+        // already be outside a small target such as the corner tab.
+        event.currentTarget.setPointerCapture(event.pointerId)
         drag.current = {
             pointerId: event.pointerId,
             startX: event.clientX,
@@ -305,28 +310,29 @@ export default function VideoMiniPlayer({
         if (!state.moved) {
             if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return
             state.moved = true
-            event.currentTarget.setPointerCapture(event.pointerId)
         }
 
         event.preventDefault()
-        updateSpot({
-            ...spot,
-            x: freeX > 0 ? clamp01((state.left + dx - edge) / freeX) : spot.x,
-            y: freeY > 0 ? clamp01((state.top + dy - edge) / freeY) : spot.y,
-        }, false)
+        const x = freeX > 0 ? clamp01((state.left + dx - edge) / freeX) : posX
+        const y = freeY > 0 ? clamp01((state.top + dy - edge) / freeY) : posY
+        updateSpot(hidden ? { ...spot, tabX: x, tabY: y } : { ...spot, x, y }, false)
     }
 
     const endDrag = (event: ReactPointerEvent<HTMLElement>) => {
         const state = drag.current
         if (!state || state.pointerId !== event.pointerId) return
         drag.current = null
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+        }
 
         if (state.moved) {
             suppressClick.current = true
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                event.currentTarget.releasePointerCapture(event.pointerId)
-            }
-            writeSpot(spot)
+            // A dropped tab snaps to the nearest corner.
+            updateSpot(
+                hidden ? { ...spot, tabX: Math.round(spot.tabX), tabY: Math.round(spot.tabY) } : spot,
+                true,
+            )
         }
     }
 
@@ -440,10 +446,21 @@ export default function VideoMiniPlayer({
         }
     }
 
-    const minimize = () => {
+    /** Tuck the player away as a tab in the screen corner nearest to it. */
+    const hide = () => {
         focusAfterMode.current = 'pill'
         setMaximized(false)
-        updateSpot({ ...spot, minimized: true }, true)
+        const centreX = left + frame.width / 2
+        const centreY = top + frame.height / 2
+        updateSpot(
+            {
+                ...spot,
+                minimized: true,
+                tabX: maximized || centreX >= viewport.width / 2 ? 1 : 0,
+                tabY: maximized || centreY >= viewport.height / 2 ? 1 : 0,
+            },
+            true,
+        )
     }
 
     const reopen = () => {
@@ -453,11 +470,6 @@ export default function VideoMiniPlayer({
         }
         focusAfterMode.current = 'maximize'
         updateSpot({ ...spot, minimized: false }, true)
-    }
-
-    const close = () => {
-        writeClosed()
-        setClosed(true)
     }
 
     const placed = { left, top }
@@ -470,16 +482,15 @@ export default function VideoMiniPlayer({
                     type="button"
                     className="video-mini-pill"
                     style={placed}
-                    aria-label="Show wallpaper video player"
-                    title="Show wallpaper video player"
+                    aria-label="Show the wallpaper video player (drag to another corner)"
+                    title="Show the wallpaper video (drag to another corner)"
                     onClick={reopen}
                     onPointerDown={startDrag}
                     onPointerMove={moveDrag}
                     onPointerUp={endDrag}
                     onPointerCancel={endDrag}
                 >
-                    <Film size={15} aria-hidden="true" />
-                    <span>Wallpaper video</span>
+                    <Film size={18} aria-hidden="true" />
                 </button>
             </AppPortal>
         )
@@ -573,11 +584,11 @@ export default function VideoMiniPlayer({
                         <button
                             type="button"
                             className="video-mini-button"
-                            aria-label="Minimize player"
-                            title="Minimize"
-                            onClick={minimize}
+                            aria-label="Hide to corner"
+                            title="Hide to corner"
+                            onClick={hide}
                         >
-                            <Minus size={15} aria-hidden="true" />
+                            <EyeOff size={15} aria-hidden="true" />
                         </button>
                         {isMax ? (
                             <button
@@ -608,15 +619,6 @@ export default function VideoMiniPlayer({
                                 <Maximize2 size={15} aria-hidden="true" />
                             </button>
                         )}
-                        <button
-                            type="button"
-                            className="video-mini-button"
-                            aria-label="Close player for this session"
-                            title="Close"
-                            onClick={close}
-                        >
-                            <X size={15} aria-hidden="true" />
-                        </button>
                     </div>
                 </div>
 
