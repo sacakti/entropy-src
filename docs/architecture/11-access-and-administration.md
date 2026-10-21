@@ -183,3 +183,50 @@ immediately.
 The SMTP password, LDAP bind password and OIDC client secret are encrypted
 with the vault's master key and never sent back to the browser — the API
 only says whether one is set.
+
+---
+
+# Moving work between projects
+
+Select workflows (or schedules) and choose **Move or copy**:
+
+- **Move** changes the project; names, history and alerts stay. The
+  schedules that run moved workflows can come along.
+- **Copy** creates new workflows with a free name (`deploy-2`), because
+  workflow names are unique across Entropy. Copied schedules start paused.
+
+Moving needs write and delete rights in the source project and write rights
+in the target; copying needs read in the source and write in the target.
+
+# Project dumps
+
+*Administration → Projects*, on a project's row:
+
+- **Dump** downloads a zip with the project's workflows, its schedules, the
+  plugins its workflows use, and (optionally) vault namespaces encrypted
+  with a passphrase.
+- **Restore** reads a dump into a project — on this Entropy or another one.
+  It first shows what is inside; nothing changes until you confirm. When a
+  workflow name exists you choose: restore under a new name, keep the
+  existing one, or replace it (its old version stays in History).
+  Schedules come back paused. Plugins are installed only where missing;
+  installed plugins are never replaced by a restore.
+
+# Vault export and import
+
+The Vault page's export button downloads chosen namespaces as an
+`.entvault` file, encrypted with a passphrase (at least 12 characters;
+scrypt and AES-256-GCM). Entropy's own key never leaves the server, so the
+file can be imported into any Entropy that is given the passphrase.
+Importing creates missing namespaces (owned by you) and keeps existing
+secrets unless you ask to replace them.
+
+# Plugins shipped with a release
+
+Each Entropy release brings plugins in `resources/plugins`. The server
+compares them with the installed plugins at start and every hour. People
+who may install plugins (`plugins.write`) get one notification per new
+plugin version, and the Plugins page shows what is new or newer. Nothing is
+installed until someone picks it; an upgrade keeps the previous version in
+the plugin's History. Installed plugins newer than the bundled ones are
+left alone.

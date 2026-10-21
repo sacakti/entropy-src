@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
+    ArchiveRestore,
     Check,
+    FileArchive,
     FolderKanban,
     LoaderCircle,
     Pencil,
@@ -29,6 +31,7 @@ import Dialog from '../../components/layout/Dialog'
 import PickerDialog, { type PickerItem } from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { notifyProjectsUpdated } from '../../services/project'
+import { ProjectDumpDialog, ProjectRestoreDialog } from '../transfer/TransferDialogs'
 import { AdminPanel, ChipList, EmptyRow, SearchField } from './AdminPanel'
 import { errorMessage, formatDate } from './format'
 import { defaultProjectRole } from './memberships'
@@ -79,6 +82,8 @@ export default function AdminProjects() {
     const [search, setSearch] = useState('')
     const [selected, setSelected] = useState<string | null>(null)
     const [editing, setEditing] = useState<ProjectSummary | 'new' | null>(null)
+    const [dumping, setDumping] = useState<ProjectSummary | null>(null)
+    const [restoring, setRestoring] = useState<ProjectSummary | null>(null)
     const [deleting, setDeleting] = useState<string | null>(null)
     const searchRef = useRef<HTMLInputElement>(null)
 
@@ -297,6 +302,24 @@ export default function AdminProjects() {
                                                 <button
                                                     type="button"
                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                                                    aria-label={`Dump ${item.name}`}
+                                                    title="Download a dump (workflows, schedules, plugins, vault)"
+                                                    onClick={() => setDumping(item)}
+                                                >
+                                                    <FileArchive size={15} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                                                    aria-label={`Restore into ${item.name}`}
+                                                    title="Restore a dump into this project"
+                                                    onClick={() => setRestoring(item)}
+                                                >
+                                                    <ArchiveRestore size={15} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                                     aria-label={`Edit ${item.name}`}
                                                     title={manageReason ?? 'Edit'}
                                                     disabled={Boolean(manageReason)}
@@ -348,6 +371,15 @@ export default function AdminProjects() {
                             items.map((item) => (item.key === project.key ? { ...item, members: count } : item)),
                         )
                     }
+                />
+            )}
+
+            {dumping && <ProjectDumpDialog project={dumping} onClose={() => setDumping(null)} />}
+            {restoring && (
+                <ProjectRestoreDialog
+                    project={restoring}
+                    onClose={() => setRestoring(null)}
+                    onDone={() => void load()}
                 />
             )}
 

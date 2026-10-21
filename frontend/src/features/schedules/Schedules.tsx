@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     AlertCircle,
+    ArrowRightLeft,
     BellRing,
     Blocks,
     CalendarClock,
@@ -25,6 +26,7 @@ import { errorMessage, formatDateTime } from '../runs/format'
 import { openRun } from '../runs/navigation'
 import ScheduleDialog from './ScheduleDialog'
 import RunAlertsDialog from '../runs/RunAlertsDialog'
+import { MoveToProjectDialog } from '../transfer/TransferDialogs'
 import { missingPermission } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
 
@@ -84,6 +86,7 @@ export default function Schedules() {
     const deleteReason = missingPermission(permissions, ['schedules.delete'], 'deleting schedules')
     const manageReason = missingPermission(permissions, ['schedules.manage'], 'changing schedules')
     const [alerting, setAlerting] = useState<Schedule | null>(null)
+    const [moving, setMoving] = useState<Schedule[] | null>(null)
     const { notify, modal } = useFeedback()
 
     const [tab, setTab] = useState<'schedules' | 'failed'>('schedules')
@@ -331,18 +334,29 @@ export default function Schedules() {
                         <div className="list-bulk" role="toolbar" aria-label="Selected items">
                             <span>{selection} selected</span>
                             {tab === 'schedules' ? (
-                                <button
-                                    type="button"
-                                    className="entropy-button entropy-button-danger-quiet entropy-button-sm"
-                                    onClick={() => {
-                                        if (!deleteReason) void removeSelected([...selected])
-                                    }}
-                                    disabled={busy !== null}
-                                    aria-disabled={deleteReason ? true : undefined}
-                                    title={deleteReason ?? undefined}
-                                >
-                                    <Trash2 size={14} /> Delete
-                                </button>
+                                <>
+                                    <button
+                                        type="button"
+                                        className="entropy-button entropy-button-secondary entropy-button-sm"
+                                        onClick={() => setMoving(schedules.filter((item) => selected.has(item.id)))}
+                                        disabled={busy !== null || Boolean(manageReason)}
+                                        title={manageReason ?? 'Move or copy to another project'}
+                                    >
+                                        <ArrowRightLeft size={14} /> Move or copy
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="entropy-button entropy-button-danger-quiet entropy-button-sm"
+                                        onClick={() => {
+                                            if (!deleteReason) void removeSelected([...selected])
+                                        }}
+                                        disabled={busy !== null}
+                                        aria-disabled={deleteReason ? true : undefined}
+                                        title={deleteReason ?? undefined}
+                                    >
+                                        <Trash2 size={14} /> Delete
+                                    </button>
+                                </>
                             ) : (
                                 <>
                                     <button
@@ -644,6 +658,18 @@ export default function Schedules() {
                 </div>
             </section>
 
+            {moving && (
+                <MoveToProjectDialog
+                    kind="schedules"
+                    schedules={moving.map((item) => item.id)}
+                    labels={moving.map((item) => item.name)}
+                    onClose={() => setMoving(null)}
+                    onDone={() => {
+                        setSelected(new Set())
+                        void load()
+                    }}
+                />
+            )}
             {alerting && (
                 <RunAlertsDialog
                     kind="schedule"

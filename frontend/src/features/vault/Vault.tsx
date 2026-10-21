@@ -41,6 +41,10 @@ import {
 
     FileJson,
 
+    Download,
+
+    Upload,
+
 } from 'lucide-react'
 
 
@@ -66,6 +70,7 @@ import type {
 } from '../../api/vault.api'
 
 import UserSuggestInput from './UserSuggestInput'
+import { VaultExportDialog, VaultImportDialog } from '../transfer/TransferDialogs'
 import { missingPermission } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
@@ -206,6 +211,8 @@ export default function Vault() {
     const [namespaces, setNamespaces] = useState<VaultNamespace[]>([])
 
     const [selectedNamespace, setSelectedNamespace] = useState('')
+
+    const [portable, setPortable] = useState<'export' | 'import' | null>(null)
 
     const [entries, setEntries] = useState<VaultEntry[]>([])
 
@@ -1488,6 +1495,42 @@ export default function Vault() {
                     </div>
 
                 <div className="entropy-panel-actions vault-topbar-actions">
+
+                    <button
+
+                        type="button"
+
+                        className="entropy-button entropy-button-secondary entropy-button-icon"
+
+                        onClick={() => setPortable('import')}
+
+                        aria-label="Import vault"
+
+                        title="Import an .entvault export"
+
+                    >
+
+                        <Upload size={15} />
+
+                    </button>
+
+                    <button
+
+                        type="button"
+
+                        className="entropy-button entropy-button-secondary entropy-button-icon"
+
+                        onClick={() => setPortable('export')}
+
+                        aria-label="Export vault"
+
+                        title="Export namespaces, encrypted with a passphrase"
+
+                    >
+
+                        <Download size={15} />
+
+                    </button>
 
                     {selectedNamespace && isNamespaceAdmin && (
 
@@ -2932,6 +2975,18 @@ export default function Vault() {
                     </section>
 
                 </div>
+
+            )}
+
+            {portable === 'export' && (
+
+                <VaultExportDialog preselected={selectedNamespace || null} onClose={() => setPortable(null)} />
+
+            )}
+
+            {portable === 'import' && (
+
+                <VaultImportDialog onClose={() => setPortable(null)} onDone={() => void refreshNamespaces()} />
 
             )}
 

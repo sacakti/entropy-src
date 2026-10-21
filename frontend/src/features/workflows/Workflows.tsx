@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     AlertCircle,
+    ArrowRightLeft,
     BellRing,
     Download,
     FileWarning,
@@ -29,6 +30,7 @@ import { usePermissions } from '../administration/usePermissions'
 import AppPortal from '../../components/layout/AppPortal'
 import StartRunDialog from '../runs/StartRunDialog'
 import RunAlertsDialog from '../runs/RunAlertsDialog'
+import { MoveToProjectDialog } from '../transfer/TransferDialogs'
 import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
@@ -84,6 +86,7 @@ export default function Workflows() {
     const [alerting, setAlerting] = useState<string | null>(null)
     // Checkbox selection for bulk delete and export.
     const [checked, setChecked] = useState<Set<string>>(new Set())
+    const [moving, setMoving] = useState<string[] | null>(null)
     const [bulkBusy, setBulkBusy] = useState(false)
     const searchRef = useRef<HTMLInputElement>(null)
     const importRef = useRef<HTMLInputElement>(null)
@@ -427,6 +430,15 @@ export default function Workflows() {
                         </button>
                         <button
                             type="button"
+                            className="entropy-button entropy-button-secondary entropy-button-sm"
+                            onClick={() => setMoving([...checked])}
+                            disabled={bulkBusy || Boolean(editReason)}
+                            title={editReason ?? 'Move or copy to another project'}
+                        >
+                            <ArrowRightLeft size={14} /> Move or copy
+                        </button>
+                        <button
+                            type="button"
                             className="entropy-button entropy-button-danger-quiet entropy-button-sm"
                             onClick={() => {
                                 if (!deleteReason) void removeChecked()
@@ -700,6 +712,18 @@ export default function Workflows() {
             )}
 
             {running && <StartRunDialog kind="workflow" target={running} onClose={() => setRunning(null)} />}
+            {moving && (
+                <MoveToProjectDialog
+                    kind="workflows"
+                    workflows={moving}
+                    labels={moving}
+                    onClose={() => setMoving(null)}
+                    onDone={() => {
+                        setChecked(new Set())
+                        refresh()
+                    }}
+                />
+            )}
             {alerting && (
                 <RunAlertsDialog
                     kind="workflow"

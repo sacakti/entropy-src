@@ -1,0 +1,209 @@
+/*
+ * ==========================================================
+ * Entropy — Transfers (TransferDialogs.tsx)
+ *
+ * Responsibilities:
+ * - Move/copy to project, vault export/import, project dump/restore dialogs
+ *
+ * Global ownership:
+ * - administration.css: admin-field
+ * - dialog.css: entropy-dialog frame
+ * ==========================================================
+ */
+
+.entropy-app .transfer-dialog {
+    width: min(620px, calc(100vw - 32px));
+}
+
+.entropy-app .transfer-form {
+    display: grid;
+    gap: 16px;
+}
+
+.entropy-app .transfer-form .entropy-select,
+.entropy-app .transfer-form .admin-field input {
+    width: 100%;
+    min-height: 40px;
+}
+
+.entropy-app .transfer-form fieldset {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+
+.entropy-app .transfer-form legend {
+    margin-bottom: 8px;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .transfer-list label,
+.entropy-app .transfer-check {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.entropy-app .transfer-list input,
+.entropy-app .transfer-check input,
+.entropy-app .transfer-choice input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .transfer-choice label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    cursor: pointer;
+}
+
+.entropy-app .transfer-choice label:has(input:checked) {
+    border-color: var(--app-accent-border);
+    background: var(--app-accent-soft);
+}
+
+.entropy-app .transfer-choice input {
+    margin-top: 2px;
+}
+
+.entropy-app .transfer-choice span {
+    display: grid;
+    gap: 2px;
+    font-size: 13px;
+}
+
+.entropy-app .transfer-choice small {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .transfer-passphrase {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+.entropy-app .transfer-passphrase small.is-error,
+.entropy-app .transfer-form small.is-error {
+    color: var(--app-danger-text);
+}
+
+.entropy-app .transfer-file {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    color: var(--app-text);
+    background: var(--app-bg);
+    border: 1px dashed var(--app-line);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.entropy-app .transfer-file:hover,
+.entropy-app .transfer-file:focus-within {
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .transfer-file > svg {
+    flex: none;
+    color: var(--app-muted);
+}
+
+.entropy-app .transfer-file span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.entropy-app .transfer-file strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .transfer-file small {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .transfer-file input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.entropy-app .transfer-summary {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    font-size: 12.5px;
+}
+
+.entropy-app .transfer-summary + .transfer-summary {
+    margin-top: 10px;
+}
+
+.entropy-app .transfer-summary > div {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 10px;
+}
+
+.entropy-app .transfer-summary dt {
+    color: var(--app-muted);
+}
+
+.entropy-app .transfer-summary dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .transfer-note {
+    margin: 10px 0 0;
+    color: var(--app-muted);
+    font-size: 12.5px;
+}
+
+.entropy-app .transfer-problems {
+    margin-top: 12px;
+}
+
+.entropy-app .transfer-problems ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+@media (max-width: 560px) {
+    .entropy-app .transfer-passphrase {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .transfer-summary > div {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+    }
+}

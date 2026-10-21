@@ -9,14 +9,17 @@ from typing import Any, Optional
 from fastapi import (
     APIRouter,
     Depends,
+    File,
+    Form,
     HTTPException,
     Query,
     Request,
     Response,
+    UploadFile,
 )
 from pydantic import BaseModel, Field
 
-from core.web.routes.auth import _current_session
+from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
 from lib.database.repositories.notifications import notify_user
 from lib.models.authorization import VaultAccess, VaultVisibility
@@ -951,3 +954,124 @@ def revoke_namespace_access(
         status_code=204,
         headers={"Cache-Control": "no-store"},
     )
+
+
+# ---------------------------------------------------------------------
+# Export and import (passphrase-encrypted files)
+# ---------------------------------------------------------------------
+
+
+class VaultExportRequest(BaseModel):
+    namespaces: list[str] = Field(min_length=1, max_length=500)
+    passphrase: str = Field(min_length=1, max_length=1024)
+
+
+def _readable_namespaces(request: Request, user: User, names: list[str]) -> list[Any]:
+    """The namespaces, each checked for read access (reveal-level)."""
+
+    _, namespace_manager = _vault_components(request)
+    found = []
+    for name in dict.fromkeys(names):
+        try:
+            namespace = _get_namespace(namespace_manager, name)
+            _require_namespace_access(
+                request, namespace_manager, namespace, user, VaultAccess.READ, "vault.read"
+            )
+        except VaultError as exc:
+            _raise_http_error(exc)
+        found.append(namespace)
+    return found
+
+
+def _may_write(request: Request, user: User):
+    _, namespace_manager = _vault_components(request)
+
+    def check(namespace: Any) -> bool:
+        try:
+            _require_namespace_access(
+                request, namespace_manager, namespace, user, VaultAccess.WRITE, "vault.add"
+            )
+        except HTTPException:
+            return False
+        return True
+
+    return check
+
+
+@router.post("/export")
+def export_vault(
+    payload: VaultExportRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> Response:
+    """Download namespaces with their secrets, encrypted with a passphrase."""
+
+    from datetime import date
+
+    from lib.vault.portable import PortableVaultError, collect, seal
+
+    _, _, user = record
+    vault_manager, _ = _vault_components(request)
+    namespaces = _readable_namespaces(request, user, payload.namespaces)
+    try:
+        data = seal(collect(vault_manager, namespaces, user.username), payload.passphrase)
+    except PortableVaultError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    except VaultError as exc:
+        _raise_http_error(exc)
+    name = namespaces[0].name if len(namespaces) == 1 else "entropy-vault"
+    return Response(
+        content=data,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{name}-{date.today().isoformat()}.entvault"'
+            ),
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.post("/import")
+async def import_vault(
+    request: Request,
+    file: UploadFile = File(...),
+    passphrase: str = Form(...),
+    overwrite: bool = Form(False),
+    namespaces: str = Form(""),
+    record: SessionRecord = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """
+    Restore an export: missing namespaces are created (yours), existing keys
+    are kept unless `overwrite`. `namespaces` (comma separated) limits it.
+    """
+
+    from lib.vault.portable import MAX_FILE, PortableVaultError, restore, unseal
+
+    _, _, user = record
+    vault_manager, namespace_manager = _vault_components(request)
+    raw = await file.read(MAX_FILE + 1)
+    try:
+        payload = unseal(raw, passphrase)
+    except PortableVaultError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    try:
+        summary = restore(
+            vault_manager,
+            namespace_manager,
+            payload,
+            owner_user_id=user.id,
+            can_create=_has_permission(request, user, "vault.namespace.create"),
+            can_write=_may_write(request, user),
+            overwrite=overwrite,
+            only=[name.strip() for name in namespaces.split(",") if name.strip()],
+        )
+    except VaultError as exc:
+        _raise_http_error(exc)
+    return {
+        **summary,
+        "exported_by": payload.get("exported_by"),
+        "exported_at": payload.get("exported_at"),
+    }
