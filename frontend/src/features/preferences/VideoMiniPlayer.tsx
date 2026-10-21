@@ -13,6 +13,8 @@ import {
     Minus,
     Pause,
     Play,
+    SkipBack,
+    SkipForward,
     Volume2,
     VolumeX,
     X,
@@ -35,6 +37,8 @@ const DRAG_THRESHOLD = 4
 const DEFAULT_LONG_SIDE = 320
 const MIN_LONG_SIDE = 160
 const MAX_LONG_SIDE = 1100
+/** Narrowest player that still fits its controls (tall videos get taller instead). */
+const MIN_WIDTH = 150
 /** Until the video reports its size. */
 const DEFAULT_RATIO = 16 / 9
 
@@ -121,6 +125,10 @@ function frameSize(longSide: number, ratio: number, viewport: { width: number; h
     let long = Math.min(Math.max(longSide, MIN_LONG_SIDE), MAX_LONG_SIDE)
     let width = ratio >= 1 ? long : long * ratio
     let height = ratio >= 1 ? long / ratio : long
+    if (width < MIN_WIDTH) {
+        height *= MIN_WIDTH / width
+        width = MIN_WIDTH
+    }
     // Shrink to fit; on small screens this can go below the usual minimum.
     const fit = Math.min(1, maxWidth / width, maxHeight / height)
     width *= fit
@@ -143,7 +151,17 @@ function backgroundVideo(url: string): HTMLVideoElement | null {
  * The video wallpaper, also playing in a small floating window that can be
  * dragged, enlarged, collapsed to a chip, or closed for the session.
  */
-export default function VideoMiniPlayer({ background }: { background: BackgroundImage }) {
+export default function VideoMiniPlayer({
+    background,
+    position = null,
+    onStep,
+}: {
+    background: BackgroundImage
+    /** "2 / 5" among the video wallpapers, when there are others to switch to. */
+    position?: string | null
+    /** Switch the wallpaper to the previous (-1) or next (1) video. */
+    onStep?: (direction: 1 | -1) => void
+}) {
     const [closed, setClosed] = useState(readClosed)
     const [spot, setSpot] = useState(readSpot)
     const [maximized, setMaximized] = useState(false)
@@ -622,6 +640,29 @@ export default function VideoMiniPlayer({ background }: { background: Background
                     >
                         {muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
                     </button>
+                    {onStep && (
+                        <div className="video-mini-step">
+                            <button
+                                type="button"
+                                className="video-mini-button"
+                                aria-label="Previous wallpaper"
+                                title="Previous wallpaper"
+                                onClick={() => onStep(-1)}
+                            >
+                                <SkipBack size={15} aria-hidden="true" />
+                            </button>
+                            {position && <span className="video-mini-position">{position}</span>}
+                            <button
+                                type="button"
+                                className="video-mini-button"
+                                aria-label="Next wallpaper"
+                                title="Next wallpaper"
+                                onClick={() => onStep(1)}
+                            >
+                                <SkipForward size={15} aria-hidden="true" />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {!isMax &&

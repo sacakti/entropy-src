@@ -50,6 +50,13 @@ export function useShuffledWallpaper(
         .map((item) => item.id)
     const poolKey = pool.join(',')
 
+    // A wallpaper chosen by hand shows until the next shuffle.
+    const [shownFor, setShownFor] = useState(selectedId)
+    if (shownFor !== selectedId) {
+        setShownFor(selectedId)
+        setShuffledId(null)
+    }
+
     useEffect(() => {
         if (!shuffle.enabled) return
 

@@ -233,6 +233,30 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         wallpaperId,
     ])
 
+    // The floating player's previous / next: the other video wallpapers, saved
+    // as the chosen wallpaper like picking one in Preferences.
+    const videoStep = useMemo(() => {
+        const videos = appearance.backgrounds.filter(isVideoBackground)
+        const index = videos.findIndex((item) => item.id === wallpaperId)
+        if (videos.length < 2 || index < 0) return { position: null, step: undefined }
+        return {
+            position: `${index + 1} / ${videos.length}`,
+            step: (direction: 1 | -1) => {
+                const next = videos[(index + direction + videos.length) % videos.length]
+                void appearance
+                    .saveAppearance(
+                        appearance.theme,
+                        appearance.accentColor,
+                        next.id,
+                        appearance.backgroundFit,
+                        appearance.backgroundOpacity,
+                        appearance.modalBackdropOpacity,
+                    )
+                    .catch(() => undefined)
+            },
+        }
+    }, [appearance, wallpaperId])
+
     // Mirror the theme on <html> for dialogs and toasts rendered outside .entropy-app.
     useEffect(() => {
         const root = document.documentElement
@@ -384,7 +408,11 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                         appearance.wallpaperSettings.floating_player !== false &&
                         wallpaper.background &&
                         isVideoBackground(wallpaper.background) && (
-                            <VideoMiniPlayer background={wallpaper.background} />
+                            <VideoMiniPlayer
+                                background={wallpaper.background}
+                                position={videoStep.position}
+                                onStep={videoStep.step}
+                            />
                         )}
                     <Topbar
                     profile={profile}

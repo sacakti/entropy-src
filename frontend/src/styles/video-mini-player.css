@@ -305,3 +305,50 @@
     border-bottom-width: 2px;
     border-bottom-right-radius: 4px;
 }
+
+/* Previous / next wallpaper, at the right of the bottom bar. */
+
+.entropy-app .video-mini-step {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.entropy-app .video-mini-position {
+    min-width: 0;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 60%);
+}
+
+.entropy-app .video-mini-player {
+    container-type: inline-size;
+}
+
+@container (max-width: 230px) {
+    .entropy-app .video-mini-position {
+        display: none;
+    }
+}
+
+/* Narrow players (tall videos, small sizes): compact controls. */
+@container (max-width: 200px) {
+    .entropy-app .video-mini-bar {
+        gap: 3px;
+        padding: 6px 8px;
+    }
+
+    .entropy-app .video-mini-actions,
+    .entropy-app .video-mini-step {
+        gap: 2px;
+    }
+
+    .entropy-app .video-mini-button {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+    }
+}
