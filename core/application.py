@@ -150,7 +150,7 @@ class Application:
         assert self.context.bootstrap is not None
         assert self.context.ui is not None
 
-        source = self.context.bootstrap.application.directory / "resources" / "plugins"
+        source = self.context.bootstrap.resources.plugins
 
         if not source.is_dir():
 

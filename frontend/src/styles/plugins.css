@@ -746,3 +746,134 @@ operation menu {
     background: transparent;
     border-color: var(--app-warning-border);
 }
+
+/* ----------------------------------------------------------
+   Bundled plugin updates (PluginUpdates.tsx)
+   ---------------------------------------------------------- */
+
+.entropy-app .plugin-updates-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 11px 14px;
+    color: var(--app-text);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 9px;
+    font-size: 13px;
+}
+
+.entropy-app .plugin-updates-banner > svg {
+    flex: none;
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .plugin-updates-banner > span {
+    flex: 1;
+    min-width: 0;
+}
+
+.entropy-app .plugin-updates-dialog {
+    width: min(720px, calc(100vw - 32px));
+}
+
+.entropy-app .plugin-updates-select {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.entropy-app .plugin-updates-group + .plugin-updates-group {
+    margin-top: 14px;
+}
+
+.entropy-app .plugin-updates-group h3 {
+    margin: 0 0 6px;
+    color: var(--app-muted);
+    font-size: 11.5px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.entropy-app .plugin-updates-group ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .plugin-updates-group label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 11px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    cursor: pointer;
+}
+
+.entropy-app .plugin-updates-group input {
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    flex: none;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .plugin-updates-name {
+    display: grid;
+    flex: 1;
+    gap: 2px;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.entropy-app .plugin-updates-name code {
+    color: var(--app-muted);
+    font-size: 11.5px;
+}
+
+.entropy-app .plugin-updates-name small {
+    color: var(--app-subtle);
+    font-size: 12px;
+}
+
+.entropy-app .plugin-updates-version {
+    flex: none;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.entropy-app .plugin-updates-version.is-upgrade {
+    color: var(--app-success-text);
+    background: var(--app-success-soft);
+    border: 1px solid var(--app-success-border);
+}
+
+.entropy-app .plugin-updates-version.is-new {
+    color: var(--app-muted);
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+}
+
+@media (max-width: 560px) {
+    .entropy-app .plugin-updates-banner {
+        flex-wrap: wrap;
+    }
+
+    .entropy-app .plugin-updates-group label {
+        flex-wrap: wrap;
+    }
+
+    .entropy-app .plugin-updates-version {
+        margin-left: 26px;
+    }
+}

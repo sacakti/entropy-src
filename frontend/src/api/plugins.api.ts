@@ -277,6 +277,35 @@ export const pluginsApi = {
     sdk(): Promise<PluginSdkCatalog> {
         return apiRequest<PluginSdkCatalog>('/api/plugins/sdk')
     },
+
+    /** Plugins shipped with this Entropy release that are new or newer than installed. */
+    updates(): Promise<BundledUpdates> {
+        return apiRequest<BundledUpdates>('/api/plugins/updates')
+    },
+
+    installUpdates(names: string[]): Promise<{ installed: PluginItem[]; failed: { qualified_name: string; error: string }[] }> {
+        return apiRequest('/api/plugins/updates/install', {
+            method: 'POST',
+            headers: jsonHeaders,
+            body: JSON.stringify({ names }),
+        })
+    },
+}
+
+export interface BundledUpdate {
+    qualified_name: string
+    kind: 'new' | 'upgrade'
+    installed_version: string | null
+    available_version: string
+    display_name: string
+    description: string
+}
+
+export interface BundledUpdates {
+    items: BundledUpdate[]
+    /** Set when the bundled plugin folder could not be read. */
+    error: string | null
+    can_install: boolean
 }
 
 /** A plugin's help page (GET /api/plugins/{name}/docs). */

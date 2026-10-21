@@ -10,6 +10,8 @@ export type CreateTarget =
     | 'group'
     | 'role'
     | 'schedule'
+    // Not a create form: the Plugins page's list of bundled plugin updates.
+    | 'plugin-updates'
 
 const EVENT = 'entropy:create'
 

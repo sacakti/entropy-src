@@ -40,6 +40,7 @@ import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import CreatePluginModal from './CreatePluginModal'
+import PluginUpdates from './PluginUpdates'
 import StartRunDialog from '../runs/StartRunDialog'
 
 // Monaco is large; load the editor only when a plugin is opened.
@@ -699,6 +700,8 @@ export default function Plugins() {
                     </button>
                 </div>
             )}
+
+            <PluginUpdates onInstalled={refreshPlugins} />
 
             <section className="dashboard-section list-section">
                 <div className="dashboard-section-heading list-section-heading">

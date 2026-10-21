@@ -33,6 +33,7 @@ TICK_SECONDS = 5
 METRICS_SECONDS = 30
 RECONCILE_SECONDS = 15
 HOUSEKEEPING_SECONDS = 3600
+PLUGIN_UPDATES_SECONDS = 3600
 
 
 class RunsBackground:
@@ -109,6 +110,8 @@ class RunsBackground:
                 self._safely("metrics", self.sample_metrics)
             if self._due("housekeeping", HOUSEKEEPING_SECONDS):
                 self._safely("housekeeping", self.housekeeping)
+            if self._due("plugin-updates", PLUGIN_UPDATES_SECONDS):
+                self._safely("plugin-updates", self.plugin_updates)
             self._stop.wait(TICK_SECONDS)
 
     # ------------------------------------------------------------------
@@ -178,6 +181,15 @@ class RunsBackground:
         )
         if any(result.values()):
             LOGGER.info("Run housekeeping: %s", result)
+
+    def plugin_updates(self) -> None:
+        """Tell plugin installers about plugins shipped with a new Entropy release."""
+
+        from lib.plugins.bundled import notify_installers
+
+        count = notify_installers(self._context)
+        if count:
+            LOGGER.info("Bundled plugins: %d new or newer plugin(s) announced.", count)
 
     def _notify(
         self, user_id: int, title: str, message: str, level: str, source: str = "schedules"

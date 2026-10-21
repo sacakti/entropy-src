@@ -20,6 +20,7 @@ import {
 
 import type { AppNotification } from '../../api/notifications.api'
 import type { Profile } from '../../api/profile.api'
+import { requestCreate } from '../../features/quickCreate'
 import { openRun } from '../../features/runs/navigation'
 import Avatar from '../../features/settings/Avatar'
 import type { PageId } from '../../types/navigation'
@@ -321,6 +322,20 @@ export default function Topbar({
                                                         }}
                                                     >
                                                         Open run
+                                                    </button>
+                                                )}
+
+                                                {notification.source === 'plugins:updates' && (
+                                                    <button
+                                                        type="button"
+                                                        className="notification-link"
+                                                        onClick={() => {
+                                                            if (!notification.read) onMarkNotificationRead(notification.id)
+                                                            requestCreate('plugin-updates')
+                                                            navigateTo('plugins')
+                                                        }}
+                                                    >
+                                                        Review plugins
                                                     </button>
                                                 )}
 

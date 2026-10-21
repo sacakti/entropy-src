@@ -329,6 +329,70 @@ def _files_payload(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@router.get("/updates")
+def bundled_updates(
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Plugins shipped with Entropy that are not installed, or newer than installed."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.read")
+    from lib.authorization.service import AuthorizationService
+    from lib.plugins.bundled import INSTALL_PERMISSION, available
+
+    context = request.app.state.entropy_context
+    result = available(context)
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        **result,
+        "can_install": AuthorizationService(context.database_manager.connection).has_permission(
+            user.id, INSTALL_PERMISSION
+        ),
+    }
+
+
+@router.post("/updates/install")
+def install_bundled_updates(
+    payload: PluginNamesRequest,
+    request: Request,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Install or upgrade the chosen bundled plugins; upgrades keep a backup in History."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.write")
+    from lib.plugins.bundled import changes_for
+
+    context = request.app.state.entropy_context
+    manager = _plugin_manager(request)
+    studio = _studio(request)
+    installed: list[dict[str, Any]] = []
+    failed: list[dict[str, str]] = []
+    changes = changes_for(context, payload.names)
+    found = {change.qualified_name for change in changes}
+    for name in payload.names:
+        if name not in found:
+            failed.append({"qualified_name": name, "error": "No newer version is bundled."})
+    with PluginStudio._lock:
+        for change in changes:
+            name = change.qualified_name
+            try:
+                upgrade = change.installed is not None
+                if upgrade:
+                    current = studio.files(name)
+                    _keep(request, name, user, reason="upgrade")(
+                        current["files"], change.installed_version or ""
+                    )
+                plugin = manager.install(change.source, reinstall=upgrade)
+                installed.append(_serialize_plugin(plugin))
+            except Exception as exc:  # noqa: BLE001 - report each plugin's own failure
+                failed.append({"qualified_name": name, "error": str(exc)})
+    return {"installed": installed, "failed": failed}
+
+
 @router.get("/sdk")
 def plugin_sdk(
     request: Request,
