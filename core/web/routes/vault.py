@@ -306,14 +306,46 @@ def _require_namespace_access(
     raise HTTPException(status_code=403, detail=detail)
 
 
+def _project_id(request: Request) -> int:
+    """The current project (the UI's project switcher)."""
+
+    from core.web.projects import current_project
+
+    record = _current_session(request)
+    return current_project(request, record[2])["id"]
+
+
+def _connection(request: Request) -> Any:
+    return request.app.state.entropy_context.database_manager.connection
+
+
+def _in_project(request: Request, namespace: Any, project_id: Optional[int] = None) -> bool:
+    from lib.vault.projects import namespace_project
+
+    wanted = project_id if project_id is not None else _project_id(request)
+    return (
+        namespace.id is not None
+        and namespace_project(_connection(request), namespace.id) == wanted
+    )
+
+
 def _get_namespace(
+    request: Request,
     namespace_manager: Any,
     namespace_name: str,
+    project_id: Optional[int] = None,
 ) -> Any:
+    """A namespace of the current (or given) project; others are 'not found' here."""
     try:
-        return namespace_manager.get(namespace_name)
+        namespace = namespace_manager.get(namespace_name)
     except VaultError as exc:
         _raise_http_error(exc)
+    if not _in_project(request, namespace, project_id):
+        raise HTTPException(
+            status_code=404,
+            detail="Vault namespace not found in this project.",
+        )
+    return namespace
 
 
 # ---------------------------------------------------------------------
@@ -335,8 +367,16 @@ def list_namespaces(
 
     _, namespace_manager = _vault_components(request)
 
+    from lib.vault.projects import namespaces_in
+
+    in_project = namespaces_in(_connection(request), _project_id(request))
+
     try:
-        namespaces = namespace_manager.list()
+        namespaces = [
+            namespace
+            for namespace in namespace_manager.list()
+            if namespace.id in in_project
+        ]
         visible = []
 
         for namespace in namespaces:
@@ -385,6 +425,10 @@ def create_namespace(
             owner_user_id=user.id,
             visibility=payload.visibility,
         )
+        from lib.vault.projects import set_namespace_project
+
+        # Created in the project the user is working in.
+        set_namespace_project(_connection(request), namespace.id, _project_id(request))
     except VaultError as exc:
         _raise_http_error(exc)
 
@@ -408,6 +452,7 @@ def update_namespace(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -450,6 +495,7 @@ def delete_namespace(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -492,6 +538,7 @@ def list_entries(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -544,6 +591,7 @@ def create_entry(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -597,6 +645,7 @@ def update_entry(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -649,6 +698,7 @@ def reveal_entry(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -708,6 +758,7 @@ def delete_entry(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -760,6 +811,7 @@ def list_namespace_access(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -862,6 +914,7 @@ def grant_namespace_access(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -918,6 +971,7 @@ def revoke_namespace_access(
 
     try:
         namespace = _get_namespace(
+            request,
             namespace_manager,
             namespace_name,
         )
@@ -966,14 +1020,16 @@ class VaultExportRequest(BaseModel):
     passphrase: str = Field(min_length=1, max_length=1024)
 
 
-def _readable_namespaces(request: Request, user: User, names: list[str]) -> list[Any]:
+def _readable_namespaces(
+    request: Request, user: User, names: list[str], project_id: Optional[int] = None
+) -> list[Any]:
     """The namespaces, each checked for read access (reveal-level)."""
 
     _, namespace_manager = _vault_components(request)
     found = []
     for name in dict.fromkeys(names):
         try:
-            namespace = _get_namespace(namespace_manager, name)
+            namespace = _get_namespace(request, namespace_manager, name, project_id)
             _require_namespace_access(
                 request, namespace_manager, namespace, user, VaultAccess.READ, "vault.read"
             )
@@ -981,6 +1037,19 @@ def _readable_namespaces(request: Request, user: User, names: list[str]) -> list
             _raise_http_error(exc)
         found.append(namespace)
     return found
+
+
+def _project_scope(request: Request, project_id: Optional[int] = None) -> dict[str, Any]:
+    """Restore into `project_id` (default: the current project) only."""
+
+    from lib.vault.projects import namespace_project, set_namespace_project
+
+    target = project_id if project_id is not None else _project_id(request)
+    connection = _connection(request)
+    return {
+        "in_scope": lambda namespace: namespace_project(connection, namespace.id) == target,
+        "on_create": lambda namespace: set_namespace_project(connection, namespace.id, target),
+    }
 
 
 def _may_write(request: Request, user: User):
@@ -1067,6 +1136,7 @@ async def import_vault(
             can_write=_may_write(request, user),
             overwrite=overwrite,
             only=[name.strip() for name in namespaces.split(",") if name.strip()],
+            **_project_scope(request),
         )
     except VaultError as exc:
         _raise_http_error(exc)

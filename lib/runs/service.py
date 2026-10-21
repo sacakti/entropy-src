@@ -80,6 +80,10 @@ def _parse(value: Optional[str]) -> Optional[datetime]:
 class RunService:
     """Starts runs as a given user and keeps job state honest."""
 
+    # The project of the run being started; workers get it in their
+    # environment so they read only that project's vault namespaces.
+    _project_id: Optional[int] = None
+
     def __init__(self, context: Any) -> None:
         assert context.database_manager is not None
         self._context = context
@@ -199,11 +203,19 @@ class RunService:
                 file=file,
                 options=WorkflowExecutionOptions(variables=dict(variables or {})),
                 session=session,
-                environment={SESSION_TOKEN_ENV: session.token},
+                environment=self._worker_environment(session.token),
             )
         except Exception:
             sessions.revoke(session.token)
             raise
+
+    def _worker_environment(self, token: str) -> Dict[str, str]:
+        from lib.vault.projects import PROJECT_ENV
+
+        environment = {SESSION_TOKEN_ENV: token}
+        if self._project_id is not None:
+            environment[PROJECT_ENV] = str(self._project_id)
+        return environment
 
     def launch(
         self,
@@ -282,6 +294,7 @@ class RunService:
         schedule_id: Optional[int] = None,
         project_id: Optional[int] = None,
     ) -> Dict[str, Any]:
+        self._project_id = project_id
         workflow, plan = self.plan(name, node=node, steps=steps, tags=tags, step_nodes=step_nodes)
         nodes = {item: self._executable_node(item, project_id) for item in plan.nodes}
         segments = plan.segments
@@ -344,6 +357,7 @@ class RunService:
     ) -> Dict[str, Any]:
         """Run one installed plugin as a single-step workflow."""
 
+        self._project_id = project_id
         if not _QUALIFIED_PLUGIN.match(qualified_name or ""):
             raise RunError("Plugin name must be namespace.name.")
 

@@ -12,6 +12,7 @@ import {
 import { vaultApi } from '../../api/vault.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
+import { apiRequest, PROJECT_HEADER } from '../../services/api'
 import { currentProject } from '../../services/project'
 import '../../styles/transfer.css'
 
@@ -458,11 +459,13 @@ export function ProjectDumpDialog({ project, onClose }: { project: { key: string
     const [error, setError] = useState('')
 
     useEffect(() => {
-        vaultApi
-            .listNamespaces()
+        // The dumped project's namespaces, whichever project is current.
+        apiRequest<{ items: { name: string }[] }>('/api/vault/namespaces', {
+            headers: { [PROJECT_HEADER]: project.key },
+        })
             .then((result) => setNames(result.items.map((item) => item.name)))
             .catch(() => setNames([]))
-    }, [])
+    }, [project.key])
 
     const needsPassphrase = vault.size > 0
     const ready = !needsPassphrase || passphraseReady(passphrase, confirm)

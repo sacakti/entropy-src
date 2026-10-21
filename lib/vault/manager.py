@@ -234,6 +234,10 @@ class VaultManager:
                 f"Permission denied for Vault namespace " f"'{namespace}'.",
             )
 
+        self._require_run_project(
+            namespace_entry,
+        )
+
         assert namespace_entry.id is not None
 
         return self.get(
@@ -266,12 +270,38 @@ class VaultManager:
                 f"Permission denied for Vault namespace " f"'{namespace}'.",
             )
 
+        self._require_run_project(
+            namespace_entry,
+        )
+
         assert namespace_entry.id is not None
 
         return self.get_matching(
             namespace_entry.id,
             pattern,
         )
+
+    def _require_run_project(
+        self,
+        namespace_entry,
+    ) -> None:
+        """
+        A run reads only its own project's namespaces.
+        """
+
+        from .projects import namespace_project, run_project
+
+        project_id = run_project()
+
+        if project_id is None or namespace_entry.id is None:
+
+            return
+
+        if namespace_project(self._repository.connection, namespace_entry.id) != project_id:
+
+            raise VaultAccessDeniedError(
+                f"Vault namespace '{namespace_entry.name}' belongs to another project.",
+            )
 
     # ------------------------------------------------------------------
     # Get Entry

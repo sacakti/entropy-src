@@ -37,6 +37,15 @@ projects they belong to (administrators see all).
 
 A project's members are users or groups, each with one project role.
 
+## Vault namespaces
+
+Vault namespaces belong to a project too: the Vault page shows the current
+project's namespaces, new ones are created in it, and another project's
+namespace cannot be opened from here. A run reads secrets only from its own
+project's namespaces (`${entv:namespace/key}` to another project's namespace
+fails with "belongs to another project"). Namespaces made before projects
+existed belong to Default. Namespace names stay unique across projects.
+
 ## Nodes
 
 A node is either

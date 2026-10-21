@@ -150,6 +150,8 @@ def restore(
     can_write: Any,
     overwrite: bool,
     only: List[str] = (),
+    in_scope: Any = None,
+    on_create: Any = None,
 ) -> Dict[str, Any]:
     """
     Put the payload's entries into namespaces of the same name: missing
@@ -192,7 +194,14 @@ def restore(
             namespace = namespace_manager.create(
                 name=name, owner_user_id=owner_user_id, visibility=visibility
             )
+            if on_create is not None:
+                on_create(namespace)
             report["created"] = True
+        elif in_scope is not None and not in_scope(namespace):
+            # Namespace names are unique across projects.
+            report["error"] = "A namespace with this name belongs to another project."
+            summary["namespaces"].append(report)
+            continue
         elif not can_write(namespace):
             report["error"] = "You may not write to this namespace."
             summary["namespaces"].append(report)

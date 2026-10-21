@@ -1,6 +1,6 @@
 import { currentProject } from './project'
 
-const PROJECT_HEADER = 'X-Entropy-Project'
+export const PROJECT_HEADER = 'X-Entropy-Project'
 
 interface ApiErrorResponse {
     detail?: unknown

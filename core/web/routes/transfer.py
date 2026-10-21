@@ -116,7 +116,7 @@ def dump(
 
     vault = None
     if payload.vault:
-        namespaces = _readable_namespaces(request, user, payload.vault)
+        namespaces = _readable_namespaces(request, user, payload.vault, project["id"])
         vault_manager, _ = _vault_components(request)
         try:
             vault = seal(collect(vault_manager, namespaces, user.username), payload.passphrase)
@@ -207,7 +207,12 @@ async def restore(
 
     result["vault"] = None
     if vault and "vault.entvault" in archive.namelist():
-        from core.web.routes.vault import _has_permission, _may_write, _vault_components
+        from core.web.routes.vault import (
+            _has_permission,
+            _may_write,
+            _project_scope,
+            _vault_components,
+        )
         from lib.vault.portable import PortableVaultError, unseal
         from lib.vault.portable import restore as restore_vault
 
@@ -222,6 +227,7 @@ async def restore(
                 can_create=_has_permission(request, user, "vault.namespace.create"),
                 can_write=_may_write(request, user),
                 overwrite=vault_overwrite,
+                **_project_scope(request, project["id"]),
             )
         except PortableVaultError as exc:
             result["errors"].append(f"Vault: {exc}")
