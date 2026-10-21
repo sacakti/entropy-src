@@ -19,6 +19,7 @@ import {
 
 import type { AppNotification } from '../../api/notifications.api'
 import type { Profile } from '../../api/profile.api'
+import { openRun } from '../../features/runs/navigation'
 import Avatar from '../../features/settings/Avatar'
 import type { PageId } from '../../types/navigation'
 import FloatingMenu from './FloatingMenu'
@@ -283,6 +284,20 @@ export default function Topbar({
                                                 </div>
 
                                                 <p>{notification.message}</p>
+
+                                                {notification.source?.startsWith('run:') && (
+                                                    <button
+                                                        type="button"
+                                                        className="notification-link"
+                                                        onClick={() => {
+                                                            setNotificationsOpen(false)
+                                                            if (!notification.read) onMarkNotificationRead(notification.id)
+                                                            openRun(Number(notification.source?.slice(4)))
+                                                        }}
+                                                    >
+                                                        Open run
+                                                    </button>
+                                                )}
 
                                                 <time dateTime={notification.created_at}>
                                                     {relativeTime(notification.created_at)}

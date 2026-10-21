@@ -593,3 +593,21 @@
 
   border-color: var(--app-line);
 }
+
+/* "Open run" under a run's notification. */
+.notification-item-content .notification-link {
+  display: block;
+  margin: 0 0 6px;
+  padding: 0;
+  color: var(--app-accent-fg);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notification-item-content .notification-link:hover {
+  text-decoration: underline;
+}

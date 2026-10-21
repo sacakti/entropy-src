@@ -22,6 +22,7 @@ except ImportError:  # pragma: no cover - non-Unix
 
 from .housekeeping import Housekeeping
 from .nodes import LocalMetrics, NodeStore, agent_up
+from .outcomes import RunOutcomes, describe
 from .schedules import RUN_PERMISSION, ScheduleStore, schedule_owner
 from .service import RunError, RunService
 from .store import LOCAL_NODE
@@ -103,6 +104,7 @@ class RunsBackground:
             if self._due("reconcile", RECONCILE_SECONDS):
                 self._safely("reconcile", self.reconcile)
             self._safely("schedules", self.fire_schedules)
+            self._safely("outcomes", self.report_outcomes)
             if self._due("metrics", METRICS_SECONDS):
                 self._safely("metrics", self.sample_metrics)
             if self._due("housekeeping", HOUSEKEEPING_SECONDS):
@@ -126,21 +128,28 @@ class RunsBackground:
     def fire_schedules(self) -> None:
         store = ScheduleStore(self._connection)
 
-        for run in store.sync():
-            schedule = store.get(run["schedule_id"])
-            if schedule is not None:
-                self._notify(
-                    schedule["user_id"],
-                    f"Schedule '{schedule['name']}' {run['state']}",
-                    f"Run #{run['job_id']} {run['state']}. Retrigger it from Schedulers.",
-                    "error" if run["state"] == "failed" else "warning",
-                )
+        # Finished schedule runs are reported with every other run
+        # (report_outcomes); this only records their state.
+        store.sync()
 
         now = datetime.now(timezone.utc)
         for schedule in store.due(now):
             # Advance first: a failing start must not refire every tick.
             store.advance(schedule, now)
             fire(self._context, store, schedule, trigger="schedule")
+
+    def report_outcomes(self) -> None:
+        """Notify (and e-mail) the people concerned when runs finish."""
+
+        for outcome in RunOutcomes(self._connection).collect():
+            text = describe(outcome)
+            message = text["message"]
+            if outcome.get("schedule_id") and outcome["state"] != "completed":
+                message += " Retrigger it from Schedulers."
+            # The web UI opens the run from a notification whose source names it.
+            source = f"run:{outcome['job_id']}"
+            for user_id in RunOutcomes.recipients(outcome):
+                self._notify(user_id, text["title"], message, text["level"], source)
 
     def sample_metrics(self) -> None:
         nodes = NodeStore(self._connection)
@@ -164,10 +173,12 @@ class RunsBackground:
         if any(result.values()):
             LOGGER.info("Run housekeeping: %s", result)
 
-    def _notify(self, user_id: int, title: str, message: str, level: str) -> None:
+    def _notify(
+        self, user_id: int, title: str, message: str, level: str, source: str = "schedules"
+    ) -> None:
         from lib.database.repositories.notifications import notify_user
 
-        notify_user(self._context, user_id, title, message, level, "schedules")
+        notify_user(self._context, user_id, title, message, level, source)
 
 
 def fire(
