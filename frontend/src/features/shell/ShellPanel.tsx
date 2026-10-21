@@ -104,6 +104,11 @@ export default function ShellPanel({ username, onClose }: { username: string; on
         outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight })
     }, [entries, busy])
 
+    // Ready for the next command as soon as one finishes.
+    useEffect(() => {
+        if (!busy) inputRef.current?.focus()
+    }, [busy])
+
     const execute = async (raw: string) => {
         const command = raw.trim()
         if (!command) return
@@ -147,7 +152,6 @@ export default function ShellPanel({ username, onClose }: { username: string; on
             )
         } finally {
             setBusy(false)
-            window.setTimeout(() => inputRef.current?.focus(), 0)
         }
     }
 
@@ -294,7 +298,10 @@ export default function ShellPanel({ username, onClose }: { username: string; on
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     onKeyDown={onKeyDown}
-                    disabled={busy}
+                    // Read-only, not disabled, while a command runs: a disabled
+                    // field loses keyboard focus.
+                    readOnly={busy}
+                    aria-busy={busy}
                     spellCheck={false}
                     autoComplete="off"
                     autoCapitalize="off"
