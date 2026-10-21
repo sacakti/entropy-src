@@ -1,0 +1,352 @@
+/*
+ * Plugin help page (PluginHelp.tsx): full screen over the app, a section
+ * index on the left and the documentation on the right.
+ */
+
+.entropy-app .plugin-help *,
+.entropy-app .plugin-help *::before,
+.entropy-app .plugin-help *::after {
+    box-sizing: border-box;
+}
+
+.entropy-app .plugin-help {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    isolation: isolate;
+    color: var(--app-text);
+    background: var(--app-bg);
+}
+
+.entropy-app .plugin-help-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 18px;
+    background: var(--app-surface);
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .plugin-help-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.entropy-app .plugin-help-state {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--app-muted);
+}
+
+.entropy-app .plugin-help-layout {
+    display: grid;
+    flex: 1;
+    grid-template-columns: 200px minmax(0, 1fr);
+    min-height: 0;
+}
+
+.entropy-app .plugin-help-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 24px 12px;
+    overflow-y: auto;
+    border-right: 1px solid var(--app-line);
+}
+
+.entropy-app .plugin-help-nav a {
+    padding: 7px 10px;
+    color: var(--app-muted);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.entropy-app .plugin-help-nav a:hover {
+    color: var(--app-text);
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .plugin-help-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 16px;
+    width: 100%;
+    min-width: 0;
+    padding: 24px max(28px, calc((100% - 1000px) / 2)) 64px;
+    overflow-y: auto;
+}
+
+.entropy-app .plugin-help-main > section {
+    scroll-margin-top: 16px;
+}
+
+.entropy-app .plugin-help-hero {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.entropy-app .plugin-help-icon {
+    display: grid;
+    flex: 0 0 52px;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    color: var(--app-accent-fg);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 12px;
+}
+
+.entropy-app .plugin-help-hero h1 {
+    margin: 0;
+    font-size: 26px;
+    letter-spacing: -0.02em;
+}
+
+.entropy-app .plugin-help-qualified {
+    margin: 4px 0 0;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+.entropy-app .plugin-help-description {
+    margin: 10px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.entropy-app .plugin-help-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    margin: 14px 0 0;
+}
+
+.entropy-app .plugin-help-facts dt {
+    color: var(--app-subtle);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.entropy-app .plugin-help-facts dd {
+    margin: 2px 0 0;
+    font-size: 13px;
+}
+
+.entropy-app .plugin-help-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.entropy-app .plugin-help-card {
+    padding: 18px 20px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 14px;
+}
+
+.entropy-app .plugin-help-card h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    font-size: 16px;
+}
+
+.entropy-app .plugin-help-card h2 small {
+    margin-left: 4px;
+    color: var(--app-subtle);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.entropy-app .plugin-help-card h3 {
+    margin: 16px 0 8px;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.entropy-app .plugin-help-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.entropy-app .plugin-help-card-head h2 {
+    margin: 0;
+}
+
+.entropy-app .plugin-help-lead,
+.entropy-app .plugin-help-muted {
+    margin: 0 0 10px;
+    color: var(--app-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.entropy-app .plugin-help-muted:last-child {
+    margin-bottom: 0;
+}
+
+.entropy-app .plugin-help code {
+    color: var(--app-accent-fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .plugin-help-table {
+    width: 100%;
+    margin-bottom: 12px;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.entropy-app .plugin-help-table th {
+    padding: 6px 10px;
+    color: var(--app-subtle);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .plugin-help-table td {
+    padding: 8px 10px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .plugin-help-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.entropy-app .plugin-help-copy-cell {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.entropy-app .plugin-help-code {
+    margin: 0;
+    padding: 14px 16px;
+    overflow-x: auto;
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .plugin-help-code code {
+    color: var(--app-text);
+    white-space: pre;
+    overflow-wrap: normal;
+}
+
+.entropy-app .plugin-help-used-by {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .plugin-help-used-by li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+/* The manual (MAN.md / README.md), rendered on the server. */
+.entropy-app .plugin-help-manual {
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .plugin-help-manual h1 {
+    display: none;
+}
+
+.entropy-app .plugin-help-manual h2 {
+    margin: 22px 0 8px;
+    font-size: 15px;
+}
+
+.entropy-app .plugin-help-manual h3,
+.entropy-app .plugin-help-manual h4 {
+    margin: 16px 0 6px;
+    font-size: 14px;
+}
+
+.entropy-app .plugin-help-manual hr {
+    margin: 18px 0;
+    border: 0;
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .plugin-help-manual pre {
+    padding: 12px 14px;
+    overflow-x: auto;
+    background: var(--app-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .plugin-help-manual pre code {
+    color: var(--app-text);
+    white-space: pre;
+    overflow-wrap: normal;
+}
+
+.entropy-app .plugin-help-manual table {
+    width: 100%;
+    margin: 10px 0;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.entropy-app .plugin-help-manual th,
+.entropy-app .plugin-help-manual td {
+    padding: 6px 10px;
+    text-align: left;
+    border: 1px solid var(--app-line);
+}
+
+.entropy-app .plugin-help-manual a {
+    color: var(--app-accent-fg);
+}
+
+@media (max-width: 760px) {
+    .entropy-app .plugin-help-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .entropy-app .plugin-help-nav {
+        display: none;
+    }
+
+    .entropy-app .plugin-help-main {
+        padding: 16px;
+    }
+}

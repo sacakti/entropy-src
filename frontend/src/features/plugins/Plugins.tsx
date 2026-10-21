@@ -44,6 +44,7 @@ import StartRunDialog from '../runs/StartRunDialog'
 
 // Monaco is large; load the editor only when a plugin is opened.
 const PluginEditor = lazy(() => import('./editor/PluginEditor'))
+const PluginHelp = lazy(() => import('./PluginHelp'))
 
 type PluginStatusFilter = 'all' | 'enabled' | 'disabled' | 'draft'
 type PluginSortField = NonNullable<PluginListParams['sort_by']>
@@ -366,6 +367,8 @@ export default function Plugins() {
     const [selectedName, setSelectedName] = useState<string | null>(null)
     const [deletePickerOpen, setDeletePickerOpen] = useState(false)
     const [running, setRunning] = useState<string | null>(null)
+    // The plugin whose help page is open.
+    const [helpFor, setHelpFor] = useState<PluginItem | null>(null)
     // Checkbox selection (across pages) for bulk delete, export and install.
     const [checked, setChecked] = useState<Map<string, PluginItem>>(new Map())
     const [bulkBusy, setBulkBusy] = useState(false)
@@ -979,9 +982,12 @@ export default function Plugins() {
                                         onInstall={(item) => void installPlugin(item)}
                                         deleting={deletingName === plugin.qualified_name}
                                         selected={selectedName === plugin.qualified_name}
-                                        onSelect={(item) => setSelectedName(item.qualified_name)}
+                                        onSelect={(item) => {
+                                            setSelectedName(item.qualified_name)
+                                            setHelpFor(item)
+                                        }}
                                         onCopy={(value) => void handleCopy(value)}
-                                        onViewDetails={setSelectedPlugin}
+                                        onViewDetails={setHelpFor}
                                         onEdit={setEditingPlugin}
                                         onDelete={(item) => void handleDelete(item)}
                                         reasons={rowReasons}
@@ -1176,6 +1182,27 @@ export default function Plugins() {
             )}
 
             {running && <StartRunDialog kind="plugin" target={running} onClose={() => setRunning(null)} />}
+
+            {helpFor && !editingPlugin && (
+                <AppPortal>
+                    <Suspense
+                        fallback={
+                            <div className="plugins-modal-backdrop" role="status">
+                                <LoaderCircle size={24} className="entropy-spin" />
+                            </div>
+                        }
+                    >
+                        <PluginHelp
+                            qualifiedName={helpFor.qualified_name}
+                            onClose={() => setHelpFor(null)}
+                            onRun={helpFor.draft ? undefined : () => setRunning(helpFor.qualified_name)}
+                            runReason={runReason}
+                            onEdit={editReason && !viewOnly ? undefined : () => setEditingPlugin(helpFor)}
+                            editLabel={viewOnly ? 'View source' : 'Edit'}
+                        />
+                    </Suspense>
+                </AppPortal>
+            )}
 
             {createOpen && (
                 <AppPortal>

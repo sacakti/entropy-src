@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from core.web.plugin_studio.analysis import Diagnostic
 from core.web.plugin_studio.contract import plugin_contract
+from core.web.plugin_studio.docs import plugin_docs
 from core.web.plugin_studio.sdk import build_catalog
 from core.web.plugin_studio.workspace import (
     PluginStudio,
@@ -491,6 +492,38 @@ def install_draft(
         raise _translate(exc) from exc
 
     return _serialize_plugin(plugin)
+
+
+@router.get("/{qualified_name}/docs")
+def plugin_help(
+    qualified_name: str,
+    request: Request,
+    response: Response,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Help page: description, inputs, outputs, a usage example, the manual, users."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.read")
+
+    try:
+        plugin = _studio(request)._resolve(qualified_name)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+    context = request.app.state.entropy_context
+    authorization = context.authorization
+    # Which workflows use it is only shown to those who may read workflows.
+    workflows = (
+        context.workflow_manager
+        if authorization is not None
+        and user.id is not None
+        and authorization.has_permission(user.id, "workflows.read")
+        else None
+    )
+
+    response.headers["Cache-Control"] = "no-store"
+    return {**_serialize_plugin(plugin), **plugin_docs(plugin, workflows)}
 
 
 @router.get("/{qualified_name}/files")

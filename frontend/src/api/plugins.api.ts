@@ -278,3 +278,28 @@ export const pluginsApi = {
         return apiRequest<PluginSdkCatalog>('/api/plugins/sdk')
     },
 }
+
+/** A plugin's help page (GET /api/plugins/{name}/docs). */
+export interface PluginDocs extends PluginItem {
+    description: string | null
+    author: string | null
+    license: string | null
+    tags: string[]
+    dependencies: string[]
+    /** Entropy versions the plugin supports, e.g. ">=1.0.0". */
+    entropy: string | null
+    arguments: PluginArgumentSpec[]
+    outputs: string[]
+    /** A workflow step using the plugin. */
+    usage: Record<string, unknown>
+    /** The step comes from the plugin's own example workflow. */
+    usage_from_example: boolean
+    /** MAN.md or README.md rendered as safe HTML (no raw HTML, safe links only). */
+    manual: { file: string; html: string } | null
+    /** Workflows with steps using it; empty without workflow read access. */
+    used_by: { name: string; version: string; steps: string[] }[]
+}
+
+export function getPluginDocs(qualifiedName: string): Promise<PluginDocs> {
+    return apiRequest<PluginDocs>(`/api/plugins/${encodeURIComponent(qualifiedName)}/docs`)
+}
