@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+    BadgeCheck,
+    Blocks,
+    CalendarClock,
+    FolderLock,
+    KeyRound,
+    UserRound,
+    UsersRound,
+    Workflow as WorkflowIcon,
+    type LucideIcon,
+} from 'lucide-react'
 
 import './EntropyShell.css'
 import { getApplicationVersion } from './api/version'
@@ -213,15 +224,21 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
 
     const quickCreate = (
         [
-            { target: 'plugin', label: 'Plugin', page: 'plugins', permission: 'plugins.write' },
-            { target: 'workflow', label: 'Workflow', page: 'workflows', permission: ['workflows.write', 'plugins.read'] },
-            { target: 'schedule', label: 'Schedule', page: 'schedulers', permission: 'schedules.manage' },
-            { target: 'vault-entry', label: 'Vault secret', page: 'vault', permission: null },
-            { target: 'vault-namespace', label: 'Vault namespace', page: 'vault', permission: 'vault.namespace.create' },
-            { target: 'user', label: 'User', page: 'admin-users', permission: 'users.create' },
-            { target: 'group', label: 'Group', page: 'admin-groups', permission: 'groups.create' },
-            { target: 'role', label: 'Role', page: 'admin-roles', permission: 'roles.create' },
-        ] as { target: CreateTarget; label: string; page: PageId; permission: string | string[] | null }[]
+            { target: 'plugin', label: 'Plugin', icon: Blocks, page: 'plugins', permission: 'plugins.write' },
+            { target: 'workflow', label: 'Workflow', icon: WorkflowIcon, page: 'workflows', permission: ['workflows.write', 'plugins.read'] },
+            { target: 'schedule', label: 'Schedule', icon: CalendarClock, page: 'schedulers', permission: 'schedules.manage' },
+            { target: 'vault-entry', label: 'Vault secret', icon: KeyRound, page: 'vault', permission: null },
+            { target: 'vault-namespace', label: 'Vault namespace', icon: FolderLock, page: 'vault', permission: 'vault.namespace.create' },
+            { target: 'user', label: 'User', icon: UserRound, page: 'admin-users', permission: 'users.create' },
+            { target: 'group', label: 'Group', icon: UsersRound, page: 'admin-groups', permission: 'groups.create' },
+            { target: 'role', label: 'Role', icon: BadgeCheck, page: 'admin-roles', permission: 'roles.create' },
+        ] as {
+            target: CreateTarget
+            label: string
+            icon: LucideIcon
+            page: PageId
+            permission: string | string[] | null
+        }[]
     )
         .filter(
             (item) =>

@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.versioning import bump_version
 from lib.history import DefinitionHistory
+from lib.workflow.drafts import WorkflowDrafts
 from lib.models.session import Session
 from lib.models.users import User
 from lib.workflow.exceptions import (
@@ -151,6 +152,14 @@ def _check_plugin_access(request: Request, user: User, workflow) -> None:
                 status_code=422,
                 detail=f"Step '{step.name}' uses plugin '{step.plugin}', which is disabled.",
             )
+
+
+def _clear_drafts(request: Request, name: str) -> None:
+    """A workflow saved (or deleted) for real has no draft left."""
+
+    context = request.app.state.entropy_context
+    if context.database_manager is not None:
+        WorkflowDrafts(context.database_manager.connection).delete_for_workflow(name)
 
 
 def _validate_format(format_name: str) -> str:
@@ -374,6 +383,7 @@ def create_workflow(
         try:
             workflow = manager.add(path)
             result = _workflow_payload(workflow, manager, normalized_format)
+            _clear_drafts(request, workflow.name)
         except Exception as exc:
             if isinstance(exc, WorkflowAlreadyExistsError):
                 raise _translate_workflow_error(exc) from exc
@@ -414,6 +424,7 @@ def update_workflow(
         try:
             workflow = manager.replace(name, path)
             result = _workflow_payload(workflow, manager, normalized_format)
+            _clear_drafts(request, name)
             # Keep the replaced version so it can be compared and restored.
             if manager.serialize(workflow, "json") != manager.serialize(previous, "json"):
                 _history(request).record(
@@ -458,6 +469,7 @@ def delete_workflow(
         raise _translate_workflow_error(exc) from exc
 
     _history(request).forget(name)
+    _clear_drafts(request, name)
 
     response.headers["Cache-Control"] = "no-store"
     return {"deleted": True, "name": name}

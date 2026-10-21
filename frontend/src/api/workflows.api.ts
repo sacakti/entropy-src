@@ -105,3 +105,49 @@ export const workflowsApi = {
         )
     },
 }
+
+/** A definition saved with errors ("Save with errors"); it cannot run. */
+export interface WorkflowDraftSummary {
+    id: number
+    /** The registered workflow it edits, or null for a new workflow. */
+    workflow: string | null
+    title: string
+    format: 'json' | 'yaml'
+    errors: string[]
+    created_by: string | null
+    updated_by: string | null
+    created_at: string
+    updated_at: string
+}
+
+export interface WorkflowDraft extends WorkflowDraftSummary {
+    definition: string
+}
+
+export const workflowDraftsApi = {
+    list(): Promise<{ items: WorkflowDraftSummary[] }> {
+        return apiRequest<{ items: WorkflowDraftSummary[] }>('/api/workflow-drafts')
+    },
+
+    get(id: number): Promise<WorkflowDraft> {
+        return apiRequest<WorkflowDraft>(`/api/workflow-drafts/${id}`)
+    },
+
+    save(draft: {
+        id?: number | null
+        workflow?: string | null
+        definition: string
+        format: 'json' | 'yaml'
+        errors: string[]
+    }): Promise<WorkflowDraft> {
+        return apiRequest<WorkflowDraft>('/api/workflow-drafts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(draft),
+        })
+    },
+
+    delete(id: number): Promise<{ deleted: boolean }> {
+        return apiRequest<{ deleted: boolean }>(`/api/workflow-drafts/${id}`, { method: 'DELETE' })
+    },
+}

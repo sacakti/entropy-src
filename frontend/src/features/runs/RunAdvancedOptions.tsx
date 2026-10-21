@@ -166,13 +166,15 @@ export default function RunAdvancedOptions({
                                                     : ''}
                                                 {note ? ` · ${note}` : ''}
                                             </small>
-                                        </span>
-                                        <span className="run-advanced-step-tags">
-                                            {(step.tags ?? []).map((tag) => (
-                                                <span key={tag} className="run-tag">
-                                                    {tag}
+                                            {(step.tags ?? []).length > 0 && (
+                                                <span className="run-advanced-step-tags">
+                                                    {(step.tags ?? []).map((tag) => (
+                                                        <span key={tag} className="run-tag">
+                                                            {tag}
+                                                        </span>
+                                                    ))}
                                                 </span>
-                                            ))}
+                                            )}
                                         </span>
                                     </label>
                                     <select

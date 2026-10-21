@@ -888,6 +888,12 @@
    Start-run dialog and parameter editor
    ---------------------------------------------------------- */
 
+/* Wide: the advanced options list every step with its tags and node. */
+.entropy-app .entropy-dialog.start-run-dialog,
+.entropy-modal .entropy-dialog.start-run-dialog {
+    width: min(860px, 100%);
+}
+
 .entropy-app .start-run-dialog .entropy-dialog-body {
     display: grid;
     gap: 16px;
@@ -1562,7 +1568,7 @@
 .entropy-app .run-advanced-steps li,
 .entropy-modal .run-advanced-steps li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 150px;
+    grid-template-columns: minmax(0, 1fr) 200px;
     align-items: center;
     gap: 10px;
     padding: 6px 8px;
@@ -1610,12 +1616,20 @@
     white-space: nowrap;
 }
 
+.entropy-app .run-advanced-name strong,
+.entropy-modal .run-advanced-name strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Tags sit on their own row under the step name and wrap. */
 .entropy-app .run-advanced-step-tags,
 .entropy-modal .run-advanced-step-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    margin-left: auto;
+    margin-top: 4px;
 }
 
 .entropy-app .run-advanced-node,
@@ -1656,10 +1670,6 @@
         grid-template-columns: 1fr;
     }
 
-    .entropy-app .run-advanced-step-tags,
-    .entropy-modal .run-advanced-step-tags {
-        display: none;
-    }
 }
 
 /* Run screen: options the run was started with */

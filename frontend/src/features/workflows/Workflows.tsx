@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
     AlertCircle,
     Download,
+    FileWarning,
     LoaderCircle,
     Pencil,
     Eye,
@@ -13,7 +14,13 @@ import {
     X,
 } from 'lucide-react'
 
-import { workflowsApi, type WorkflowFormat, type WorkflowSummary } from '../../api/workflows.api'
+import {
+    workflowDraftsApi,
+    workflowsApi,
+    type WorkflowDraftSummary,
+    type WorkflowFormat,
+    type WorkflowSummary,
+} from '../../api/workflows.api'
 import { ApiError } from '../../services/api'
 import AddMenu from '../../components/layout/AddMenu'
 import { missingPermission as missing } from '../administration/permissionReason'
@@ -28,7 +35,12 @@ import { useFeedback } from '../../components/feedback/FeedbackProvider'
 // The builder pulls in Monaco and YAML; load it only when opened.
 const WorkflowBuilder = lazy(() => import('./builder/WorkflowBuilder'))
 
-type BuilderTarget = { mode: 'create' } | { mode: 'edit'; name: string } | null
+type BuilderTarget =
+    | { mode: 'create' }
+    | { mode: 'edit'; name: string }
+    // A draft saved with errors; `workflow` is the registered workflow it edits.
+    | { mode: 'draft'; id: number; workflow: string | null }
+    | null
 
 function errorMessage(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback
@@ -54,6 +66,7 @@ export default function Workflows() {
     const viewOnly = Boolean(editReason) && !missing(permissions, ['workflows.read'], 'viewing workflows')
 
     const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
+    const [drafts, setDrafts] = useState<WorkflowDraftSummary[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -72,7 +85,20 @@ export default function Workflows() {
     const searchRef = useRef<HTMLInputElement>(null)
     const importRef = useRef<HTMLInputElement>(null)
 
+    const loadDrafts = useCallback(() => {
+        // Drafts are a convenience: the list works without them.
+        workflowDraftsApi
+            .list()
+            .then((response) => setDrafts(response.items))
+            .catch(() => setDrafts([]))
+    }, [])
+
+    useEffect(() => {
+        loadDrafts()
+    }, [loadDrafts])
+
     const loadWorkflows = useCallback(async () => {
+        loadDrafts()
         try {
             const response = await workflowsApi.list()
             setWorkflows(response.items)
@@ -83,7 +109,7 @@ export default function Workflows() {
             setLoading(false)
             setRefreshing(false)
         }
-    }, [])
+    }, [loadDrafts])
 
     useEffect(() => {
         let active = true
@@ -266,6 +292,37 @@ export default function Workflows() {
         builder === null && !deletePickerOpen && running === null,
     )
 
+    const draftOf = useMemo(
+        () => new Map(drafts.filter((item) => item.workflow).map((item) => [item.workflow as string, item])),
+        [drafts],
+    )
+
+    // Drafts of workflows that were never saved, listed before the workflows.
+    const newDrafts = useMemo(() => {
+        const query = search.trim().toLowerCase()
+        return drafts.filter(
+            (item) => item.workflow === null && (!query || item.title.toLowerCase().includes(query)),
+        )
+    }, [drafts, search])
+
+    const discardDraft = async (item: WorkflowDraftSummary) => {
+        const confirmed = await modal.confirm({
+            title: `Discard the draft '${item.title}'?`,
+            message: 'The workflow saved with errors is deleted. This cannot be undone.',
+            confirmText: 'Discard draft',
+            cancelText: 'Cancel',
+            destructive: true,
+        })
+        if (!confirmed) return
+        try {
+            await workflowDraftsApi.delete(item.id)
+            notify.success(`Draft '${item.title}' discarded.`)
+            loadDrafts()
+        } catch (cause) {
+            notify.error(errorMessage(cause, 'Unable to discard the draft.'))
+        }
+    }
+
     const filtered = useMemo(() => {
         const query = search.trim().toLowerCase()
 
@@ -430,7 +487,7 @@ export default function Workflows() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filtered.length === 0 ? (
+                            ) : filtered.length === 0 && newDrafts.length === 0 ? (
                                 <tr>
                                     <td colSpan={5}>
                                         <div className="list-empty">
@@ -447,7 +504,63 @@ export default function Workflows() {
                                     </td>
                                 </tr>
                             ) : (
-                                filtered.map((workflow) => (
+                                <>
+                                {newDrafts.map((item) => (
+                                    <tr key={`draft-${item.id}`} className="wf-draft-row">
+                                        <td className="list-check-cell" />
+                                        <td>
+                                            <div className="list-name">
+                                                <span className="list-name-icon is-warning" aria-hidden="true">
+                                                    <FileWarning size={16} />
+                                                </span>
+                                                <div className="list-name-content">
+                                                    <strong>
+                                                        {item.title}{' '}
+                                                        <span className="list-chip list-chip-warning">Draft</span>
+                                                    </strong>
+                                                    <span>
+                                                        Saved with {item.errors.length} problem
+                                                        {item.errors.length === 1 ? '' : 's'} by {item.updated_by ?? 'someone'}; it
+                                                        cannot run until fixed.
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span className="list-version">—</span>
+                                        </td>
+                                        <td className="list-cell-text">{formatDate(item.updated_at)}</td>
+                                        <td>
+                                            <div className="list-operations">
+                                                <button
+                                                    type="button"
+                                                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                                                    aria-label={`Continue editing ${item.title}`}
+                                                    title={editReason ?? 'Continue editing'}
+                                                    aria-disabled={editReason ? true : undefined}
+                                                    onClick={() => {
+                                                        if (!editReason) setBuilder({ mode: 'draft', id: item.id, workflow: null })
+                                                    }}
+                                                >
+                                                    <Pencil size={15} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
+                                                    aria-label={`Discard draft ${item.title}`}
+                                                    title={editReason ?? 'Discard draft'}
+                                                    aria-disabled={editReason ? true : undefined}
+                                                    onClick={() => {
+                                                        if (!editReason) void discardDraft(item)
+                                                    }}
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filtered.map((workflow) => (
                                     <tr
                                         key={workflow.name}
                                         className={selectedName === workflow.name ? 'is-selected' : undefined}
@@ -469,7 +582,20 @@ export default function Workflows() {
                                                     <WorkflowIcon size={16} />
                                                 </span>
                                                 <div className="list-name-content">
-                                                    <strong>{workflow.name}</strong>
+                                                    <strong>
+                                                        {workflow.name}
+                                                        {draftOf.has(workflow.name) && (
+                                                            <>
+                                                                {' '}
+                                                                <span
+                                                                    className="list-chip list-chip-warning"
+                                                                    title="Has a version saved with errors; open it to continue"
+                                                                >
+                                                                    Draft
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </strong>
                                                     <span>{workflow.description || 'No description'}</span>
                                                 </div>
                                             </div>
@@ -526,7 +652,8 @@ export default function Workflows() {
                                             </div>
                                         </td>
                                     </tr>
-                                ))
+                                ))}
+                                </>
                             )}
                         </tbody>
                     </table>
@@ -571,8 +698,21 @@ export default function Workflows() {
                         }
                     >
                         <WorkflowBuilder
-                            key={builder.mode === 'edit' ? builder.name : 'new'}
-                            name={builder.mode === 'edit' ? builder.name : undefined}
+                            key={
+                                builder.mode === 'edit'
+                                    ? builder.name
+                                    : builder.mode === 'draft'
+                                      ? `draft-${builder.id}`
+                                      : 'new'
+                            }
+                            name={
+                                builder.mode === 'edit'
+                                    ? builder.name
+                                    : builder.mode === 'draft'
+                                      ? builder.workflow ?? undefined
+                                      : undefined
+                            }
+                            draftId={builder.mode === 'draft' ? builder.id : null}
                             onClose={() => setBuilder(null)}
                             onSaved={() => {
                                 setBuilder(null)

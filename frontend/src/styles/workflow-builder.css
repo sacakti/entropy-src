@@ -916,3 +916,15 @@
     padding: 0;
     border: 0;
 }
+
+/* "A version saved with errors exists": text, then its actions. */
+.entropy-app .wf-draft-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.entropy-app .wf-draft-banner > span {
+    flex: 1 1 260px;
+}

@@ -14,6 +14,7 @@ import {
     Sun,
     Settings,
     Trash2,
+    type LucideIcon,
 } from 'lucide-react'
 
 import type { AppNotification } from '../../api/notifications.api'
@@ -44,7 +45,7 @@ interface TopbarProps {
     profile: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>
     onOpenHelp: () => void
     /** Entries of the "+" menu, already filtered by permission. */
-    quickCreate: { target: string; label: string; onSelect: () => void }[]
+    quickCreate: { target: string; label: string; icon: LucideIcon; onSelect: () => void }[]
     pageTitle: string
     /** Section the page belongs to, e.g. Administration for Users. */
     parentTitle?: string
@@ -148,7 +149,7 @@ export default function Topbar({
                                         item.onSelect()
                                     }}
                                 >
-                                    <Plus size={14} />
+                                    <item.icon size={15} aria-hidden="true" />
                                     {item.label}
                                 </button>
                             ))}

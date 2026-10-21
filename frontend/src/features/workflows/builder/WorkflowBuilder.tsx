@@ -4,6 +4,7 @@ import {
     ArrowLeft,
     CheckCircle2,
     Columns2,
+    FileWarning,
     History,
     LoaderCircle,
     Rows2,
@@ -17,7 +18,12 @@ import WallpaperLayer from '../../preferences/WallpaperLayer'
 import '../../../styles/workflow-builder.css'
 import { listPlugins, pluginsApi, type PluginContract } from '../../../api/plugins.api'
 import { vaultApi } from '../../../api/vault.api'
-import { workflowsApi, type WorkflowFormat } from '../../../api/workflows.api'
+import {
+    workflowDraftsApi,
+    workflowsApi,
+    type WorkflowDraftSummary,
+    type WorkflowFormat,
+} from '../../../api/workflows.api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { useShortcuts } from '../../../components/layout/useShortcuts'
 import HistoryDialog from '../../history/HistoryDialog'
@@ -84,9 +90,12 @@ export default function WorkflowBuilder({
     onSaved,
     readOnly = false,
     restoreReason = null,
+    draftId = null,
 }: {
     /** Name of the workflow to edit; omit to create a new one. */
     name?: string
+    /** Open this draft (saved with errors) instead of the registered definition. */
+    draftId?: number | null
     onClose: () => void
     onSaved: (name: string) => void
     /** View the definition without changing it (read access only). */
@@ -116,6 +125,11 @@ export default function WorkflowBuilder({
     const [reviewing, setReviewing] = useState(false)
     const [sideBySide, setSideBySide] = useState(true)
     const [serverResult, setServerResult] = useState<{ ok: boolean; message: string } | null>(null)
+    // The draft being edited (saved with errors), if any.
+    const [draft, setDraft] = useState<WorkflowDraftSummary | null>(null)
+    // A draft of this workflow that was not opened; offered in a banner.
+    const [pendingDraft, setPendingDraft] = useState<WorkflowDraftSummary | null>(null)
+    const [draftText, setDraftText] = useState('')
 
     const theme = useMemo(
         () =>
@@ -145,8 +159,12 @@ export default function WorkflowBuilder({
             }),
             loadVaultKeys(),
             editing ? workflowsApi.get(name, 'json') : Promise.resolve(null),
+            draftId !== null ? workflowDraftsApi.get(draftId) : Promise.resolve(null),
+            editing && draftId === null && !readOnly
+                ? workflowDraftsApi.list().catch(() => ({ items: [] as WorkflowDraftSummary[] }))
+                : Promise.resolve({ items: [] as WorkflowDraftSummary[] }),
         ])
-            .then(([contractList, keys, workflow]) => {
+            .then(([contractList, keys, workflow, openedDraft, drafts]) => {
                 if (!active) return
 
                 const state = workflow
@@ -156,7 +174,16 @@ export default function WorkflowBuilder({
                 setContracts(contractList.items)
                 setVaultKeys(keys)
                 setForm(state)
-                setInitial(JSON.stringify(definitionFromState(state)))
+                setInitial(workflow ? JSON.stringify(definitionFromState(state)) : '')
+                if (openedDraft) {
+                    // A draft may not parse, so it opens as text in its own format.
+                    setDraft(openedDraft)
+                    setDraftText(openedDraft.definition)
+                    setCode(openedDraft.definition)
+                    setView(openedDraft.format)
+                } else {
+                    setPendingDraft(drafts.items.find((item) => item.workflow === name) ?? null)
+                }
             })
             .catch((error: unknown) => {
                 if (active) setLoadError(errorMessage(error, 'Unable to open the workflow.'))
@@ -168,7 +195,7 @@ export default function WorkflowBuilder({
         return () => {
             active = false
         }
-    }, [editing, name, reload])
+    }, [draftId, editing, name, readOnly, reload])
 
     // ------------------------------------------------------------------
     // Current definition
@@ -212,7 +239,10 @@ export default function WorkflowBuilder({
         return codeParse && 'value' in codeParse ? JSON.stringify(codeParse.value) : null
     }, [codeParse, form, view])
 
-    const dirty = currentDefinitionJson !== initial
+    // A draft may not parse; it is unchanged while its text is as it was opened.
+    const dirty = draft
+        ? !(view === draft.format && code === draftText)
+        : currentDefinitionJson !== initial
 
     // ------------------------------------------------------------------
     // View switching
@@ -300,6 +330,8 @@ export default function WorkflowBuilder({
                 ? await workflowsApi.update(name, body)
                 : await workflowsApi.create(body)
 
+            // The server drops drafts of a saved workflow; a new one's goes by id.
+            if (draft && !draft.workflow) await workflowDraftsApi.delete(draft.id).catch(() => undefined)
             notify.success(`Workflow '${saved.name}' saved as version ${saved.version}.`, { title: 'Workflow saved' })
             onSaved(saved.name)
         } catch (error) {
@@ -307,19 +339,93 @@ export default function WorkflowBuilder({
         } finally {
             setBusy(null)
         }
-    }, [busy, code, editing, errors.length, form, name, notify, onSaved, view])
+    }, [busy, code, draft, editing, errors.length, form, name, notify, onSaved, view])
+
+    /** Keep the definition as it is, problems and all; it cannot run until fixed. */
+    const saveWithErrors = async () => {
+        if (busy) return
+
+        const body =
+            view === 'form'
+                ? { definition: serialize(definitionFromState(form), 'json'), format: 'json' as const }
+                : { definition: code, format: view }
+        const problems = errors.map((issue) => issue.message)
+        if (serverResult && !serverResult.ok) problems.push(serverResult.message)
+
+        setBusy('save')
+        try {
+            const saved = await workflowDraftsApi.save({
+                id: draft?.id ?? pendingDraft?.id ?? null,
+                workflow: editing ? name : null,
+                errors: problems,
+                ...body,
+            })
+            notify.success(
+                saved.errors.length > 0
+                    ? `Saved '${saved.title}' with ${saved.errors.length} problem${saved.errors.length === 1 ? '' : 's'}. It cannot run until they are fixed.`
+                    : `Saved '${saved.title}' as a draft.`,
+                { title: 'Draft saved' },
+            )
+            onSaved(saved.title)
+        } catch (error) {
+            notify.error(errorMessage(error, 'Unable to save the draft.'), { title: 'Draft not saved' })
+        } finally {
+            setBusy(null)
+        }
+    }
+
+    const openPendingDraft = async () => {
+        if (!pendingDraft) return
+        try {
+            const opened = await workflowDraftsApi.get(pendingDraft.id)
+            setDraft(opened)
+            setDraftText(opened.definition)
+            setPendingDraft(null)
+            setCode(opened.definition)
+            setView(opened.format)
+            setServerResult(null)
+        } catch (error) {
+            notify.error(errorMessage(error, 'Unable to open the draft.'))
+        }
+    }
+
+    const discardDraft = async (target: WorkflowDraftSummary) => {
+        const confirmed = await modal.confirm({
+            title: 'Discard the draft?',
+            message: `The version saved with errors on ${new Date(target.updated_at).toLocaleString()} is deleted.`,
+            confirmText: 'Discard draft',
+            cancelText: 'Keep it',
+            destructive: true,
+        })
+        if (!confirmed) return
+        try {
+            await workflowDraftsApi.delete(target.id)
+            if (draft?.id === target.id) {
+                notify.success('Draft discarded.')
+                onSaved(target.title)
+                return
+            }
+            setPendingDraft(null)
+            notify.success('Draft discarded.')
+        } catch (error) {
+            notify.error(errorMessage(error, 'Unable to discard the draft.'))
+        }
+    }
+
+    const canSaveWithErrors = errors.length > 0 || (serverResult !== null && !serverResult.ok)
 
     const requestSave = () => {
         if (busy) return
 
         if (errors.length > 0) {
-            notify.error(`Fix ${errors.length} problem${errors.length === 1 ? '' : 's'} before saving.`, {
-                title: 'Workflow not saved',
-            })
+            notify.error(
+                `Fix ${errors.length} problem${errors.length === 1 ? '' : 's'} before saving, or use Save with errors to keep it as a draft.`,
+                { title: 'Workflow not saved' },
+            )
             return
         }
 
-        if (editing && !dirty) {
+        if (editing && !dirty && !draft) {
             notify.info('There are no changes to save.')
             return
         }
@@ -392,8 +498,13 @@ export default function WorkflowBuilder({
                 </button>
 
                 <div className="wf-builder-title">
-                    <strong>{editing ? name : 'New workflow'}</strong>
+                    <strong>{editing ? name : draft ? draft.title : 'New workflow'}</strong>
                     {readOnly && <span className="wf-chip">Read only</span>}
+                    {draft && (
+                        <span className="wf-chip wf-chip-warning" title="Saved with errors; it cannot run until fixed">
+                            Draft
+                        </span>
+                    )}
                     {dirty && !loading && !readOnly && <span className="wf-chip wf-chip-warning">Unsaved</span>}
                 </div>
 
@@ -444,11 +555,35 @@ export default function WorkflowBuilder({
                         Validate
                     </button>
 
+                    {(canSaveWithErrors || draft) && (
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary"
+                            onClick={() => void saveWithErrors()}
+                            disabled={loading || !!loadError || busy !== null || reviewing}
+                            title="Keep the workflow as a draft with its problems; it cannot run until they are fixed"
+                        >
+                            <FileWarning size={15} />
+                            Save with errors
+                        </button>
+                    )}
+
+                    {draft && (
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-danger-quiet"
+                            onClick={() => void discardDraft(draft)}
+                            disabled={busy !== null}
+                        >
+                            Discard draft
+                        </button>
+                    )}
+
                     <button
                         type="button"
                         className="entropy-button entropy-button-primary"
                         onClick={requestSave}
-                        disabled={loading || !!loadError || busy !== null || reviewing || (editing && !dirty)}
+                        disabled={loading || !!loadError || busy !== null || reviewing || (editing && !dirty && !draft)}
                         title="Review changes, then save (Ctrl+S)"
                     >
                         {busy === 'save' ? (
@@ -475,10 +610,35 @@ export default function WorkflowBuilder({
                 />
             )}
 
-            {(serverResult || contractsError || errors.length > 0 || warnings.length > 0) &&
+            {(serverResult || contractsError || errors.length > 0 || warnings.length > 0 || pendingDraft) &&
                 !loading &&
                 !loadError && (
                 <div className="wf-builder-banner">
+                    {pendingDraft && (
+                        <div className="entropy-alert entropy-alert-warning wf-draft-banner" role="status">
+                            <FileWarning size={15} />
+                            <span>
+                                A version saved with errors exists ({pendingDraft.errors.length} problem
+                                {pendingDraft.errors.length === 1 ? '' : 's'}, by {pendingDraft.updated_by ?? 'someone'}
+                                {' on '}
+                                {new Date(pendingDraft.updated_at).toLocaleString()}).
+                            </span>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-secondary entropy-button-sm"
+                                onClick={() => void openPendingDraft()}
+                            >
+                                Open draft
+                            </button>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-ghost entropy-button-sm"
+                                onClick={() => void discardDraft(pendingDraft)}
+                            >
+                                Discard
+                            </button>
+                        </div>
+                    )}
                     {contractsError && (
                         <div className="entropy-alert entropy-alert-warning" role="status">
                             <TriangleAlert size={15} />
