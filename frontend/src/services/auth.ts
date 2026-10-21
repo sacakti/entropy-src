@@ -12,6 +12,8 @@ interface CurrentUserResponse {
   user: AuthUser
   permissions: string[]
   expires_at: string
+  /** Show the welcome tour (a new account that has not finished it). */
+  tour?: boolean
 }
 
 interface CsrfResponse {
@@ -104,4 +106,13 @@ export async function changePassword(
             }),
         },
     )
+}
+/** The welcome tour was finished or skipped. */
+export async function finishTour(): Promise<void> {
+  const csrfToken = await getCsrfToken()
+  await fetch('/api/auth/tour', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'X-CSRF-Token': csrfToken },
+  })
 }

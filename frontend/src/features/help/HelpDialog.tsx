@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Copy, HelpCircle, Keyboard, Laptop, Terminal } from 'lucide-react'
+import { Check, Copy, HelpCircle, Keyboard, Laptop, Sparkles, Terminal } from 'lucide-react'
 
 import Dialog from '../../components/layout/Dialog'
 import RemoteCliPanel from './RemoteCliPanel'
@@ -7,7 +7,7 @@ import { CLI_GROUPS, SHORTCUT_GROUPS } from './helpContent'
 
 type Tab = 'shortcuts' | 'cli' | 'remote'
 
-export default function HelpDialog({ onClose }: { onClose: () => void }) {
+export default function HelpDialog({ onClose, onStartTour }: { onClose: () => void; onStartTour?: () => void }) {
     const [tab, setTab] = useState<Tab>('shortcuts')
     const [copied, setCopied] = useState<string | null>(null)
 
@@ -28,6 +28,13 @@ export default function HelpDialog({ onClose }: { onClose: () => void }) {
             icon={<HelpCircle size={18} />}
             onClose={onClose}
             className="help-dialog"
+            footer={
+                onStartTour && (
+                    <button type="button" className="entropy-button entropy-button-secondary" onClick={onStartTour}>
+                        <Sparkles size={15} /> Take the tour
+                    </button>
+                )
+            }
         >
             <div className="help-tabs" role="tablist">
                 <button

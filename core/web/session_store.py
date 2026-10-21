@@ -47,7 +47,10 @@ class WebSessionStore:
     ) -> Tuple[Session, str]:
         """Authenticate credentials and create a separate browser session."""
 
-        user = self._authentication.authenticate(username, password)
+        from lib.auth.external import sign_in
+
+        # Local accounts check their password here; LDAP accounts the directory.
+        user = sign_in(self._context, username, password)
         return self.issue(user, seconds=seconds)
 
     def issue(self, user: User, *, seconds: Optional[int] = None) -> Tuple[Session, str]:

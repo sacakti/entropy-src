@@ -186,6 +186,8 @@ addopts = [
 
 filterwarnings = [
     "error",
+    # ldap3 2.9 still uses pyasn1's old names.
+    "ignore:.* is deprecated. Please use .* instead.:DeprecationWarning:pyasn1",
 ]
 
 ##########################################################

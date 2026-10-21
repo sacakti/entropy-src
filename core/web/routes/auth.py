@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, ConfigDict
 
 from lib.auth.exceptions import AuthenticationRequiredError
+from lib.auth.external import SignInRefused
+from lib.users.onboarding import Onboarding
 from lib.models.session import Session
 from lib.models.users import User
 from lib.users.exceptions import AuthenticationError, CurrentPasswordMismatchError, PasswordReuseError, UserInactiveError, WeakPasswordError
@@ -126,6 +128,8 @@ async def login(
 
     try:
         session, csrf = store.login(payload.username, payload.password)
+    except SignInRefused as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from None
     except (AuthenticationError, UserInactiveError):
         raise HTTPException(
             status_code=401,
@@ -214,7 +218,24 @@ async def me(
             {"key": project["key"], "name": project["name"]} if project else None
         ),
         "expires_at": session.expires_at.isoformat(),
+        # Show the welcome tour (new accounts, until they finish or skip it).
+        "tour": Onboarding(context.database_manager.connection).pending(user.id)
+        if context.database_manager is not None
+        else False,
     }
+
+
+@router.post("/tour", dependencies=[Depends(verify_csrf)])
+async def finish_tour(
+    request: Request,
+    record: Tuple[Session, str, User] = Depends(_current_session),
+) -> dict:
+    """The welcome tour was finished or skipped; do not show it again."""
+
+    _, _, user = record
+    assert user.id is not None
+    Onboarding(request.app.state.entropy_context.database_manager.connection).finish(user.id)
+    return {"tour": False}
 
 
 @router.post("/logout")
@@ -246,6 +267,15 @@ async def change_password(
     _, _, user = record
 
     context = request.app.state.entropy_context
+
+    from lib.auth.external import ExternalAccounts
+
+    assert user.id is not None
+    if ExternalAccounts(context).provider_of(user.id):
+        raise HTTPException(
+            status_code=409,
+            detail="You sign in with LDAP or single sign-on; change your password there.",
+        )
 
     try:
         context.user_manager.change_password(
@@ -304,6 +334,8 @@ async def create_token(payload: TokenRequest, request: Request, response: Respon
         session, _ = store.login(
             payload.username, payload.password, seconds=store.cli_timeout_seconds
         )
+    except SignInRefused as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from None
     except (AuthenticationError, UserInactiveError):
         raise HTTPException(status_code=401, detail="Invalid username or password.") from None
 

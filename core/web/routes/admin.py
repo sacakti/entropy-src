@@ -330,6 +330,9 @@ def _user_payloads(request: Request) -> List[dict]:
         )
     )
     projects = _memberships(connection, "user_id")
+    from lib.auth.external import ExternalAccounts
+
+    sources = ExternalAccounts(_context(request)).providers()
 
     return [
         {
@@ -345,6 +348,8 @@ def _user_payloads(request: Request) -> List[dict]:
             "groups": groups.get(user.id, []),
             # Project roles given to the user directly (groups add their own).
             "projects": projects.get(user.id, []),
+            # local, ldap or oidc: where the user signs in.
+            "source": sources.get(user.id, "local"),
         }
         for user in sorted(
             _context(request).user_manager.list(),
@@ -470,6 +475,15 @@ def set_user_password(
 
     try:
         user = manager.get(username)
+        assert user.id is not None
+        from lib.auth.external import ExternalAccounts
+
+        if ExternalAccounts(_context(request)).provider_of(user.id):
+            raise HTTPException(
+                status_code=409,
+                detail=f"{username} signs in with LDAP or single sign-on; "
+                "change the password there.",
+            )
 
         if payload.password:
             manager.admin_change_password(user, payload.password)

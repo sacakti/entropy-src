@@ -944,3 +944,36 @@
   font-size: 13px;
   line-height: 1.5;
 }
+
+.login-hint {
+  margin: 0 0 4px;
+  color: var(--entropy-muted);
+  font-size: 12.5px;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: var(--entropy-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.login-divider::before,
+.login-divider::after {
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.35;
+  content: "";
+}
+
+.login-sso {
+  min-height: 46px;
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+}
