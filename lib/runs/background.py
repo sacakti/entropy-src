@@ -200,11 +200,13 @@ def fire(
     actor = user or schedule_owner(store.connection, schedule["user_id"])
     error = None
     job_id = None
+    # A schedule runs in its project, with that project's permissions and nodes.
+    project_id = store.project_of(schedule)
 
     if actor is None:
         error = f"Owner '{schedule['username']}' no longer exists or is disabled."
     elif context.authorization is None or not context.authorization.has_permission(
-        actor.id, RUN_PERMISSION[schedule["kind"]]
+        actor.id, RUN_PERMISSION[schedule["kind"]], project_id
     ):
         error = f"'{actor.username}' is not allowed to run this {schedule['kind']}."
     else:
@@ -219,6 +221,7 @@ def fire(
                 node=schedule["node"],
                 trigger=trigger,
                 schedule_id=schedule["id"],
+                project_id=project_id,
                 **{keyword: parameters},
             )
             job_id = run.get("id")

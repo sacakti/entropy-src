@@ -82,6 +82,14 @@ MODULES = (
         name="schedules",
         description="Scheduled workflow and plugin runs.",
     ),
+    ModuleDefinition(
+        name="projects",
+        description="Projects: who may do what with whose workflows, schedules and nodes.",
+    ),
+    ModuleDefinition(
+        name="system",
+        description="Entropy settings: e-mail, sign-in, data retention.",
+    ),
 )
 
 
@@ -409,6 +417,30 @@ PERMISSIONS = (
         "schedules.delete",
         "delete",
         "Delete schedules.",
+    ),
+    PermissionDefinition(
+        "projects",
+        "projects.read",
+        "read",
+        "See every project and its members.",
+    ),
+    PermissionDefinition(
+        "projects",
+        "projects.manage",
+        "write",
+        "Create, change and delete projects; manage any project's members and nodes.",
+    ),
+    PermissionDefinition(
+        "projects",
+        "projects.members",
+        "write",
+        "Manage the members of a project (in a project role: that project).",
+    ),
+    PermissionDefinition(
+        "system",
+        "system.settings",
+        "write",
+        "Change Entropy settings: e-mail (SMTP), sign-in (LDAP, SSO), data retention.",
     ),
 )
 

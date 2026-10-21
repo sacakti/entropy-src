@@ -61,7 +61,10 @@ def get_dashboard(
 ) -> dict[str, Any]:
     """Return workflow execution summary for the authenticated user."""
     _, _, user = record
-    _require_permission(request, user, "workflows.read")
+    from core.web.projects import current_project
+
+    project = current_project(request, user)
+    _require_permission(request, user, "workflows.read", project["id"])
 
     context = request.app.state.entropy_context
     job_manager = context.workflow_job_manager
@@ -86,7 +89,19 @@ def get_dashboard(
             "SELECT job_id FROM run_metadata WHERE parent_job_id IS NOT NULL"
         )
     }
-    jobs = [job for job in jobs if job.id not in segments]
+    # The current project's runs; runs without a project are the Default project's.
+    from lib.authorization.projects import default_project_id
+
+    default_id = default_project_id(connection)
+    owners = {
+        row["job_id"]: row["project_id"] or default_id
+        for row in connection.fetchall("SELECT job_id, project_id FROM run_metadata")
+    }
+    jobs = [
+        job
+        for job in jobs
+        if job.id not in segments and owners.get(job.id, default_id) == project["id"]
+    ]
 
     counts = {state: 0 for state in ALL_STATES}
     for job in jobs:

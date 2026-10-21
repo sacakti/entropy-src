@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
+from core.web.projects import current_project, projects
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
 from lib.models.session import Session
@@ -59,24 +60,42 @@ def _store(request: Request) -> ScheduleStore:
     return ScheduleStore(context.database_manager.connection)
 
 
+def _schedule(request: Request, user: User, schedule_id: int, permission: str) -> Dict:
+    """The schedule, if the user has `permission` in its project."""
+
+    store = _store(request)
+    schedule = store.get(schedule_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Schedule not found.")
+    _require_permission(request, user, permission, store.project_of(schedule))
+    return schedule
+
+
 def _http(exc: ScheduleError) -> HTTPException:
     return HTTPException(status_code=exc.status, detail=str(exc))
 
 
-def _check_target(request: Request, user: User, data: Dict[str, Any]) -> None:
-    """The author must be able to run what they schedule."""
+def _check_target(
+    request: Request, user: User, data: Dict[str, Any], project_id: int
+) -> None:
+    """The author must be able to run what they schedule, in the schedule's project."""
 
     context = request.app.state.entropy_context
     if data.get("kind") == "workflow":
-        _require_permission(request, user, "workflows.execute")
+        _require_permission(request, user, "workflows.execute", project_id)
         try:
             context.workflow_manager.get(data.get("target"))
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(
                 status_code=422, detail=f"Workflow '{data.get('target')}' is not registered."
             ) from exc
+        if projects(request).workflow_project(str(data.get("target"))) != project_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Workflow '{data.get('target')}' belongs to another project.",
+            )
     elif data.get("kind") == "plugin":
-        _require_permission(request, user, "plugins.execute")
+        _require_permission(request, user, "plugins.execute", project_id)
         if not context.plugin_manager.exists(str(data.get("target"))):
             raise HTTPException(
                 status_code=422, detail=f"Plugin '{data.get('target')}' is not installed."
@@ -90,13 +109,14 @@ def list_schedules(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    _require_permission(request, user, "schedules.list")
+    project = current_project(request, user)
+    _require_permission(request, user, "schedules.list", project["id"])
 
     store = _store(request)
     response.headers["Cache-Control"] = "no-store"
     return {
-        "items": store.list(),
-        "failed": store.runs(failed_only=True, limit=200),
+        "items": store.list(project["id"]),
+        "failed": store.runs(failed_only=True, limit=200, project_id=project["id"]),
     }
 
 
@@ -135,12 +155,8 @@ def get_schedule(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    _require_permission(request, user, "schedules.list")
-
+    schedule = _schedule(request, user, schedule_id, "schedules.list")
     store = _store(request)
-    schedule = store.get(schedule_id)
-    if schedule is None:
-        raise HTTPException(status_code=404, detail="Schedule not found.")
 
     response.headers["Cache-Control"] = "no-store"
     return {"schedule": schedule, "runs": store.runs(schedule_id=schedule_id)}
@@ -153,13 +169,16 @@ def create_schedule(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    _require_permission(request, user, "schedules.manage")
+    project = current_project(request, user)
+    _require_permission(request, user, "schedules.manage", project["id"])
 
     data = payload.model_dump()
-    _check_target(request, user, data)
+    _check_target(request, user, data, project["id"])
 
     try:
-        schedule = _store(request).create(data, int(user.id or 0), user.username)
+        schedule = _store(request).create(
+            data, int(user.id or 0), user.username, project_id=project["id"]
+        )
     except ScheduleError as exc:
         raise _http(exc) from exc
     return {"schedule": schedule}
@@ -173,16 +192,12 @@ def update_schedule(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    _require_permission(request, user, "schedules.manage")
-
+    current = _schedule(request, user, schedule_id, "schedules.manage")
     store = _store(request)
-    current = store.get(schedule_id)
-    if current is None:
-        raise HTTPException(status_code=404, detail="Schedule not found.")
 
     changes = {key: value for key, value in payload.model_dump().items() if value is not None}
     if "kind" in changes or "target" in changes:
-        _check_target(request, user, {**current, **changes})
+        _check_target(request, user, {**current, **changes}, store.project_of(current))
 
     try:
         schedule = store.update(schedule_id, changes)
@@ -198,7 +213,8 @@ def delete_schedules(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    _require_permission(request, user, "schedules.delete")
+    for schedule_id in payload.ids:
+        _schedule(request, user, schedule_id, "schedules.delete")
 
     return {"deleted": _store(request).delete(payload.ids)}
 
@@ -212,12 +228,8 @@ def trigger_schedule(
     """Run a schedule now, as the current user."""
 
     _, _, user = record
-    _require_permission(request, user, "schedules.manage")
-
+    schedule = _schedule(request, user, schedule_id, "schedules.manage")
     store = _store(request)
-    schedule = store.get(schedule_id)
-    if schedule is None:
-        raise HTTPException(status_code=404, detail="Schedule not found.")
 
     return {
         "run": fire(request.app.state.entropy_context, store, schedule, trigger="manual", user=user)
@@ -233,7 +245,6 @@ def retry_runs(
     """Retrigger failed schedule runs, as the current user."""
 
     _, _, user = record
-    _require_permission(request, user, "schedules.manage")
 
     store = _store(request)
     context = request.app.state.entropy_context
@@ -246,6 +257,7 @@ def retry_runs(
         schedule = store.get(run["schedule_id"])
         if schedule is None:
             continue
+        _require_permission(request, user, "schedules.manage", store.project_of(schedule))
         store.mark_retried(run_id)
         results.append(fire(context, store, schedule, trigger="retry", user=user, retry_of=run_id))
 
@@ -259,6 +271,11 @@ def dismiss_runs(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    _require_permission(request, user, "schedules.manage")
+    store = _store(request)
+    for run_id in payload.ids:
+        run = store.get_run(run_id)
+        schedule = store.get(run["schedule_id"]) if run else None
+        if schedule is not None:
+            _require_permission(request, user, "schedules.manage", store.project_of(schedule))
 
-    return {"dismissed": _store(request).dismiss(payload.ids)}
+    return {"dismissed": store.dismiss(payload.ids)}

@@ -53,9 +53,11 @@ def ensure_run_schema(connection: DatabaseConnection) -> None:
         return
 
     from lib.authorization.initializer import AuthorizationInitializer
+    from lib.authorization.projects import add_project_columns
 
     with connection.transaction():
         create_run_tables(connection)
+        add_project_columns(connection)
 
     # Adds the nodes.* and schedules.* permissions and grants them to admin.
     AuthorizationInitializer(connection).reconcile()
@@ -90,6 +92,8 @@ def run_payload(row: Any) -> Dict[str, Any]:
         "schedule_id": value("schedule_id"),
         "options": _json(value("options")),
         "parent_job_id": value("parent_job_id"),
+        # None for runs from before projects (they belong to Default).
+        "project_id": value("project_id"),
         # Spans several nodes: the main node runs its segments one by one.
         "coordinated": bool(value("heartbeat_at")),
     }
@@ -231,7 +235,7 @@ class RunStore:
 
     _SELECT = """
         SELECT j.*, m.node, m.kind, m.target, m.trigger, m.schedule_id,
-               m.options, m.parent_job_id, m.heartbeat_at
+               m.options, m.parent_job_id, m.heartbeat_at, m.project_id
         FROM workflow_jobs j
         LEFT JOIN run_metadata m ON m.job_id = j.id
     """
@@ -252,10 +256,15 @@ class RunStore:
         user: str = "",
         limit: int = 50,
         offset: int = 0,
+        project_id: Optional[int] = None,
     ) -> Tuple[List[Dict[str, Any]], int]:
         # Segments of a multi-node run show up as part of that run.
         where: List[str] = ["m.parent_job_id IS NULL"]
         parameters: List[Any] = []
+
+        if project_id is not None:
+            where.append(self._PROJECT_CLAUSE)
+            parameters.extend([self._default_project(), project_id])
 
         states = RUN_TABS.get(tab)
         if states:
@@ -293,11 +302,32 @@ class RunStore:
 
         return [run_payload(row) for row in rows], int(total_row["n"])
 
-    def counts(self) -> Dict[str, int]:
+    # Runs without a project (from before projects, or the CLI) are Default's.
+    _PROJECT_CLAUSE = "IFNULL(m.project_id, ?) = ?"
+
+    def _default_project(self) -> int:
+        from lib.authorization.projects import default_project_id
+
+        return default_project_id(self.connection)
+
+    def set_project(self, job_id: int, project_id: Optional[int]) -> None:
+        if project_id is None:
+            return
+        with self.connection.transaction():
+            self.connection.execute(
+                "UPDATE run_metadata SET project_id = ? WHERE job_id = ?", (project_id, job_id)
+            )
+
+    def counts(self, project_id: Optional[int] = None) -> Dict[str, int]:
+        clause, parameters = "", ()
+        if project_id is not None:
+            clause = " AND " + self._PROJECT_CLAUSE
+            parameters = (self._default_project(), project_id)
         rows = self.connection.fetchall(
             "SELECT j.state, COUNT(*) AS n FROM workflow_jobs j"
             " LEFT JOIN run_metadata m ON m.job_id = j.id"
-            " WHERE m.parent_job_id IS NULL GROUP BY j.state",
+            " WHERE m.parent_job_id IS NULL" + clause + " GROUP BY j.state",
+            parameters,
         )
         by_state = {row["state"]: int(row["n"]) for row in rows}
 

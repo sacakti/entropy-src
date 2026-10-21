@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
+from core.web.projects import current_project, projects
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
 from lib.models.session import Session
@@ -60,6 +61,15 @@ def _service(request: Request) -> RunService:
 
 def _http(exc: RunError) -> HTTPException:
     return HTTPException(status_code=exc.status, detail=str(exc))
+
+
+def _run_project(request: Request, job_id: int) -> int:
+    """The project a run belongs to (404 if there is no such run)."""
+
+    run = _service(request).store.get(job_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
+    return run.get("project_id") or projects(request).get("default")["id"]
 
 
 def _no_store(response: Response) -> None:
@@ -124,17 +134,24 @@ def list_runs(
     """List runs, newest first, filtered by tab (active/completed/failed/cancelled/all)."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.read")
+    project = current_project(request, current)
+    _require_permission(request, current, "workflows.read", project["id"])
 
     if tab != "all" and tab not in RUN_TABS:
         raise HTTPException(status_code=422, detail="Unknown tab.")
 
     service = _service(request)
     items, total = service.store.list(
-        tab=tab, search=search, node=node, user=user, limit=limit, offset=offset
+        tab=tab,
+        search=search,
+        node=node,
+        user=user,
+        limit=limit,
+        offset=offset,
+        project_id=project["id"],
     )
     _no_store(response)
-    return {"items": items, "total": total, "counts": service.store.counts()}
+    return {"items": items, "total": total, "counts": service.store.counts(project["id"])}
 
 
 @router.get("/api/runs/{job_id}")
@@ -145,7 +162,7 @@ def get_run(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, current = record
-    _require_permission(request, current, "workflows.read")
+    _require_permission(request, current, "workflows.read", _run_project(request, job_id))
 
     service = _service(request)
     run = service.store.get(job_id)
@@ -172,7 +189,7 @@ def run_events(
     """Events after a cursor plus the current state, for live following."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.read")
+    _require_permission(request, current, "workflows.read", _run_project(request, job_id))
 
     service = _service(request)
     run = service.store.get(job_id)
@@ -213,7 +230,7 @@ def run_log(
     """Raw worker output (stdout/stderr) from a byte offset."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.read")
+    _require_permission(request, current, "workflows.read", _run_project(request, job_id))
 
     service = _service(request)
     if service.store.get(job_id) is None:
@@ -230,7 +247,7 @@ def stop_run(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, current = record
-    _require_permission(request, current, "workflows.execute")
+    _require_permission(request, current, "workflows.execute", _run_project(request, job_id))
 
     try:
         return {"run": _service(request).stop(job_id)}
@@ -253,7 +270,8 @@ def run_workflow(
     """Validate and start a registered workflow as the current user."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.execute")
+    project_id = projects(request).workflow_project(name)
+    _require_permission(request, current, "workflows.execute", project_id)
 
     try:
         run = _service(request).start_workflow(
@@ -264,6 +282,7 @@ def run_workflow(
             steps=payload.steps,
             tags=payload.tags,
             step_nodes=payload.step_nodes,
+            project_id=project_id,
         )
     except RunError as exc:
         raise _http(exc) from exc
@@ -282,7 +301,8 @@ def plan_workflow_run(
     """Which steps a run with these options would run, where, in which segments."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.execute")
+    project_id = projects(request).workflow_project(name)
+    _require_permission(request, current, "workflows.execute", project_id)
 
     try:
         _, plan = _service(request).plan(
@@ -314,11 +334,16 @@ def run_plugin(
     """Run an installed plugin once (test run) as the current user."""
 
     _, _, current = record
-    _require_permission(request, current, "plugins.execute")
+    project = current_project(request, current)
+    _require_permission(request, current, "plugins.execute", project["id"])
 
     try:
         run = _service(request).start_plugin(
-            current, qualified_name, node=payload.node, arguments=payload.arguments
+            current,
+            qualified_name,
+            node=payload.node,
+            arguments=payload.arguments,
+            project_id=project["id"],
         )
     except RunError as exc:
         raise _http(exc) from exc

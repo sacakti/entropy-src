@@ -91,11 +91,19 @@ class RunService:
     # Start
     # ------------------------------------------------------------------
 
-    def _executable_node(self, name: str) -> Dict[str, Any]:
+    def _executable_node(self, name: str, project_id: Optional[int] = None) -> Dict[str, Any]:
         node = self.nodes.get(name or "local")
 
         if node is None:
             raise RunError(f"Node '{name}' does not exist.", 404)
+
+        if project_id is not None:
+            from lib.authorization.projects import Projects
+
+            if not Projects(self.store.connection).node_available(node["name"], project_id):
+                raise RunError(
+                    f"Node '{node['name']}' is not available to this project.", 403
+                )
 
         if not node["enabled"]:
             raise RunError(f"Node '{node['name']}' is disabled.", 409)
@@ -272,16 +280,17 @@ class RunService:
         step_nodes: Optional[Dict[str, str]] = None,
         trigger: str = "manual",
         schedule_id: Optional[int] = None,
+        project_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         workflow, plan = self.plan(name, node=node, steps=steps, tags=tags, step_nodes=step_nodes)
-        nodes = {item: self._executable_node(item) for item in plan.nodes}
+        nodes = {item: self._executable_node(item, project_id) for item in plan.nodes}
         segments = plan.segments
         options = plan.snapshot(variables)
 
         if len(segments) > 1:
             from .coordinator import Coordinator
 
-            return Coordinator.begin(
+            run = Coordinator.begin(
                 self,
                 user,
                 workflow,
@@ -290,6 +299,10 @@ class RunService:
                 trigger=trigger,
                 schedule_id=schedule_id,
             )
+            if run.get("id") is not None:
+                self.store.set_project(run["id"], project_id)
+                run["project_id"] = project_id
+            return run
 
         target = nodes[segments[0]["node"]]
         try:
@@ -315,6 +328,7 @@ class RunService:
             schedule_id=schedule_id,
             options=options,
         )
+        self.store.set_project(job_id, project_id)
         return self.store.get(job_id) or {}
 
     def start_plugin(
@@ -326,6 +340,7 @@ class RunService:
         arguments: Optional[Dict[str, Any]] = None,
         trigger: str = "manual",
         schedule_id: Optional[int] = None,
+        project_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Run one installed plugin as a single-step workflow."""
 
@@ -339,7 +354,7 @@ class RunService:
         if not plugins.exists(qualified_name):
             raise RunError(f"Plugin '{qualified_name}' is not installed.", 404)
 
-        target = self._executable_node(node)
+        target = self._executable_node(node, project_id)
 
         definition = {
             "name": f"plugin.{qualified_name}",
@@ -396,6 +411,7 @@ class RunService:
             trigger=trigger,
             schedule_id=schedule_id,
         )
+        self.store.set_project(job_id, project_id)
         return self.store.get(job_id) or {}
 
     def plugin_run_directory(self) -> Path:

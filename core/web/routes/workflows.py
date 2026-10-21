@@ -15,12 +15,13 @@ from typing import Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
+from core.web.projects import allowed, current_project, projects
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.versioning import bump_version
 from lib.history import DefinitionHistory
-from lib.workflow.drafts import WorkflowDrafts
 from lib.models.session import Session
 from lib.models.users import User
+from lib.workflow.drafts import WorkflowDrafts
 from lib.workflow.exceptions import (
     WorkflowAlreadyExistsError,
     WorkflowNotFoundError,
@@ -87,8 +88,9 @@ def _require_permission(
     request: Request,
     user: User,
     permission: str,
+    project_id: Optional[int] = None,
 ) -> None:
-    """Enforce Entropy's effective permissions for the browser user."""
+    """Enforce Entropy's effective permissions for the browser user (in a project)."""
 
     context = request.app.state.entropy_context
     authorization = context.authorization
@@ -99,7 +101,7 @@ def _require_permission(
             detail="Authorization service unavailable.",
         )
 
-    if user.id is None or not authorization.has_permission(user.id, permission):
+    if user.id is None or not authorization.has_permission(user.id, permission, project_id):
         raise HTTPException(
             status_code=403,
             detail="Permission denied.",
@@ -110,6 +112,7 @@ def _require_any_permission(
     request: Request,
     user: User,
     *permissions: str,
+    project_id: Optional[int] = None,
 ) -> None:
     """Allow the request when the user holds any one of the permissions."""
 
@@ -119,9 +122,16 @@ def _require_any_permission(
         raise HTTPException(status_code=503, detail="Authorization service unavailable.")
 
     if user.id is None or not any(
-        authorization.has_permission(user.id, permission) for permission in permissions
+        authorization.has_permission(user.id, permission, project_id)
+        for permission in permissions
     ):
         raise HTTPException(status_code=403, detail="Permission denied.")
+
+
+def _workflow_project(request: Request, name: str) -> int:
+    """The project a registered workflow belongs to."""
+
+    return projects(request).workflow_project(name)
 
 
 def _check_plugin_access(request: Request, user: User, workflow) -> None:
@@ -242,10 +252,16 @@ def list_workflows(
     """List registered workflows visible to the authenticated user."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.read")
+    project = current_project(request, user)
+    _require_permission(request, user, "workflows.read", project["id"])
 
     manager = _manager(request)
-    entries = manager.list()
+    owners = projects(request).workflow_projects()
+    default_id = projects(request).get("default")["id"]
+    # The current project's workflows.
+    entries = [
+        entry for entry in manager.list() if owners.get(entry.name, default_id) == project["id"]
+    ]
 
     response.headers["Cache-Control"] = "no-store"
 
@@ -273,7 +289,10 @@ def export_workflows(
     """Download workflow definitions as one zip, a file each."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.read")
+    readable = allowed(request, user, "workflows.read")
+    for name in payload.names:
+        if readable is not None and _workflow_project(request, name) not in readable:
+            raise HTTPException(status_code=403, detail=f"You may not read '{name}'.")
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -311,7 +330,7 @@ def get_workflow(
     """Return a validated registered workflow definition."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.read")
+    _require_permission(request, user, "workflows.read", _workflow_project(request, name))
 
     normalized_format = _validate_format(format_name)
     manager = _manager(request)
@@ -339,7 +358,13 @@ def validate_workflow(
     """Validate a supplied workflow without saving it (authoring or starting a run)."""
 
     _, _, user = record
-    _require_any_permission(request, user, "workflows.write", "workflows.execute")
+    _require_any_permission(
+        request,
+        user,
+        "workflows.write",
+        "workflows.execute",
+        project_id=current_project(request, user)["id"],
+    )
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -369,7 +394,8 @@ def create_workflow(
     """Validate and register a new workflow."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.write")
+    project = current_project(request, user)
+    _require_permission(request, user, "workflows.write", project["id"])
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -382,6 +408,7 @@ def create_workflow(
         _check_plugin_access(request, user, candidate)
         try:
             workflow = manager.add(path)
+            projects(request).set_workflow_project(workflow.name, project["id"])
             result = _workflow_payload(workflow, manager, normalized_format)
             _clear_drafts(request, workflow.name)
         except Exception as exc:
@@ -408,7 +435,7 @@ def update_workflow(
     """Validate and replace an existing registered workflow."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.write")
+    _require_permission(request, user, "workflows.write", _workflow_project(request, name))
 
     normalized_format = _validate_format(payload.format)
     manager = _manager(request)
@@ -459,7 +486,7 @@ def delete_workflow(
     """Remove a registered workflow."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.delete")
+    _require_permission(request, user, "workflows.delete", _workflow_project(request, name))
 
     manager = _manager(request)
 
@@ -470,6 +497,7 @@ def delete_workflow(
 
     _history(request).forget(name)
     _clear_drafts(request, name)
+    projects(request).forget_workflow(name)
 
     response.headers["Cache-Control"] = "no-store"
     return {"deleted": True, "name": name}
@@ -490,7 +518,7 @@ def workflow_history(
     """Earlier versions kept before each change (the last five)."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.read")
+    _require_permission(request, user, "workflows.read", _workflow_project(request, name))
     current = _current(_manager(request), name)
 
     response.headers["Cache-Control"] = "no-store"
@@ -509,7 +537,7 @@ def workflow_history_entry(
     """One kept version's definition, in the requested format."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.read")
+    _require_permission(request, user, "workflows.read", _workflow_project(request, name))
     normalized_format = _validate_format(format)
     manager = _manager(request)
 
@@ -552,7 +580,7 @@ def restore_workflow_version(
     """
 
     _, _, user = record
-    _require_permission(request, user, "workflows.write")
+    _require_permission(request, user, "workflows.write", _workflow_project(request, name))
     manager = _manager(request)
     history = _history(request)
 

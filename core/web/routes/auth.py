@@ -176,7 +176,13 @@ async def me(
         raise HTTPException(status_code=503, detail="Authorization unavailable.")
 
     assert user.id is not None
-    permissions = context.authorization.permissions(user.id)
+    # Global permissions plus those of the user's roles in the current project.
+    from core.web.projects import current_project
+
+    project = current_project(request, user)
+    permissions = context.authorization.permissions(
+        user.id, project["id"] if project else None
+    )
 
     response.headers["Cache-Control"] = "no-store"
 
@@ -204,6 +210,9 @@ async def me(
             ),
         },
         "permissions": permissions,
+        "project": (
+            {"key": project["key"], "name": project["name"]} if project else None
+        ),
         "expires_at": session.expires_at.isoformat(),
     }
 

@@ -94,6 +94,8 @@ def _payload(row: Any) -> Dict[str, Any]:
         "updated_at": row["updated_at"],
         "next_run_at": row["next_run_at"],
         "last_run_at": row["last_run_at"],
+        # None for schedules from before projects (they belong to Default).
+        "project_id": row["project_id"] if "project_id" in row.keys() else None,  # noqa: SIM118
     }
 
 
@@ -124,8 +126,23 @@ class ScheduleStore:
     # Definitions
     # ------------------------------------------------------------------
 
-    def list(self) -> List[Dict[str, Any]]:
-        rows = self.connection.fetchall("SELECT * FROM schedules ORDER BY name COLLATE NOCASE")
+    def _default_project(self) -> int:
+        from lib.authorization.projects import default_project_id
+
+        return default_project_id(self.connection)
+
+    def project_of(self, schedule: Dict[str, Any]) -> int:
+        return schedule.get("project_id") or self._default_project()
+
+    def list(self, project_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        if project_id is None:
+            rows = self.connection.fetchall("SELECT * FROM schedules ORDER BY name COLLATE NOCASE")
+        else:
+            rows = self.connection.fetchall(
+                "SELECT * FROM schedules WHERE IFNULL(project_id, ?) = ?"
+                " ORDER BY name COLLATE NOCASE",
+                (self._default_project(), project_id),
+            )
         schedules = [_payload(row) for row in rows]
 
         # Latest run per schedule, for the list's status column.
@@ -200,7 +217,13 @@ class ScheduleStore:
         )
         return row is not None
 
-    def create(self, data: Dict[str, Any], user_id: int, username: str) -> Dict[str, Any]:
+    def create(
+        self,
+        data: Dict[str, Any],
+        user_id: int,
+        username: str,
+        project_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
         values = self.validate(data)
         if self._name_taken(values["name"]):
             raise ScheduleError(f"A schedule named '{values['name']}' already exists.", 409)
@@ -213,8 +236,8 @@ class ScheduleStore:
                 """
                 INSERT INTO schedules
                 (name, description, kind, target, cron, timezone, node, parameters,
-                 enabled, user_id, username, created_at, updated_at, next_run_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 enabled, user_id, username, created_at, updated_at, next_run_at, project_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     values["name"],
@@ -231,6 +254,7 @@ class ScheduleStore:
                     now.isoformat(),
                     now.isoformat(),
                     upcoming.isoformat() if upcoming else None,
+                    project_id,
                 ),
             )
             schedule_id = cursor.lastrowid
@@ -348,9 +372,13 @@ class ScheduleStore:
         schedule_id: Optional[int] = None,
         failed_only: bool = False,
         limit: int = 100,
+        project_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         where = []
         parameters: List[Any] = []
+        if project_id is not None:
+            where.append("IFNULL(s.project_id, ?) = ?")
+            parameters.extend([self._default_project(), project_id])
         if schedule_id is not None:
             where.append("r.schedule_id = ?")
             parameters.append(schedule_id)

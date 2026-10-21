@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
+from core.web.projects import current_project, projects
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import (
     MAX_DEFINITION_LENGTH,
@@ -46,6 +47,17 @@ def _drafts(request: Request) -> WorkflowDrafts:
     if context.database_manager is None:
         raise HTTPException(status_code=503, detail="Database is unavailable.")
     return WorkflowDrafts(context.database_manager.connection)
+
+
+def _draft_for(request: Request, user: User, draft_id: int, permission: str) -> Dict:
+    """The draft, if the user has `permission` in its project."""
+
+    draft = _drafts(request).get(draft_id)
+    if draft is None:
+        raise HTTPException(status_code=404, detail="Draft not found.")
+    project_id = draft.get("project_id") or projects(request).get("default")["id"]
+    _require_permission(request, user, permission, project_id)
+    return draft
 
 
 def _title(definition: str, workflow: Optional[str]) -> str:
@@ -85,9 +97,10 @@ def list_drafts(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, object]:
     _, _, user = record
-    _require_permission(request, user, "workflows.read")
+    project = current_project(request, user)
+    _require_permission(request, user, "workflows.read", project["id"])
     response.headers["Cache-Control"] = "no-store"
-    return {"items": _drafts(request).list()}
+    return {"items": _drafts(request).list(project["id"])}
 
 
 @router.get("/{draft_id}")
@@ -98,10 +111,7 @@ def get_draft(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, object]:
     _, _, user = record
-    _require_permission(request, user, "workflows.read")
-    draft = _drafts(request).get(draft_id)
-    if draft is None:
-        raise HTTPException(status_code=404, detail="Draft not found.")
+    draft = _draft_for(request, user, draft_id, "workflows.read")
     response.headers["Cache-Control"] = "no-store"
     return draft
 
@@ -116,7 +126,16 @@ def save_draft(
     """Save a definition as it is, with its problems listed."""
 
     _, _, user = record
-    _require_permission(request, user, "workflows.write")
+    project_id = (
+        projects(request).workflow_project(payload.workflow)
+        if payload.workflow
+        else current_project(request, user)["id"]
+    )
+    if payload.id is not None:
+        project_id = _draft_for(request, user, payload.id, "workflows.write")["project_id"] or (
+            project_id
+        )
+    _require_permission(request, user, "workflows.write", project_id)
     format_name = payload.format.strip().lower()
     if format_name not in ("json", "yaml"):
         raise HTTPException(status_code=422, detail="Format must be json or yaml.")
@@ -140,6 +159,7 @@ def save_draft(
         definition=payload.definition,
         errors=[str(item)[:1000] for item in errors],
         user=user.username,
+        project_id=project_id,
     )
     response.headers["Cache-Control"] = "no-store"
     return draft
@@ -152,7 +172,6 @@ def delete_draft(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, object]:
     _, _, user = record
-    _require_permission(request, user, "workflows.write")
-    if not _drafts(request).delete(draft_id):
-        raise HTTPException(status_code=404, detail="Draft not found.")
+    _draft_for(request, user, draft_id, "workflows.write")
+    _drafts(request).delete(draft_id)
     return {"deleted": True}

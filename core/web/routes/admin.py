@@ -7,7 +7,7 @@ Mutations go through the same managers as the `ent user`, `ent groups` and
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,18 +15,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
 from lib.authorization.exceptions import (
-    AuthGenericError,
     AuthorizationException,
     GroupNotFoundError,
     PermissionNotFoundError,
     RoleNotFoundError,
 )
-from lib.authorization.role_manager import ADMIN_ROLE
 from lib.database.repositories.notifications import NotificationRepository, notify_user
 from lib.models.session import Session
 from lib.models.users import SYSTEM_USERNAME, User
 from lib.users.exceptions import (
-    InvalidUsernameError,
     PasswordReuseError,
     SystemUserError,
     UserAlreadyExistsError,
@@ -77,6 +74,33 @@ class NamedCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=100)
     description: Optional[str] = Field(default=None, max_length=500)
+
+
+class RoleCreate(NamedCreate):
+    title: Optional[str] = Field(default=None, max_length=100)
+    # Where the role applies: everywhere, or in the projects it is given in.
+    scope: Literal["global", "project"] = "project"
+
+
+class RoleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    title: Optional[str] = Field(default=None, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+
+
+class Membership(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: str = Field(min_length=1, max_length=40)
+    role: str = Field(min_length=1, max_length=100)
+
+
+class MembershipList(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    memberships: List[Membership] = Field(default_factory=list, max_length=1000)
 
 
 class NamedUpdate(BaseModel):
@@ -305,6 +329,7 @@ def _user_payloads(request: Request) -> List[dict]:
             """
         )
     )
+    projects = _memberships(connection, "user_id")
 
     return [
         {
@@ -318,6 +343,8 @@ def _user_payloads(request: Request) -> List[dict]:
             "updated_at": _iso(user.updated_at),
             "roles": roles.get(user.id, []),
             "groups": groups.get(user.id, []),
+            # Project roles given to the user directly (groups add their own).
+            "projects": projects.get(user.id, []),
         }
         for user in sorted(
             _context(request).user_manager.list(),
@@ -508,6 +535,7 @@ def set_user_roles(
 ) -> dict:
     actor = _require(request, record, "users.roles")
     context = _context(request)
+    _check_global_roles(_connection(request), payload.names)
 
     try:
         user = context.user_manager.get(username)
@@ -587,6 +615,7 @@ def _group_payloads(request: Request) -> List[dict]:
             """
         )
     )
+    projects = _memberships(connection, "group_id")
 
     return [
         {
@@ -597,6 +626,7 @@ def _group_payloads(request: Request) -> List[dict]:
             "updated_at": _iso(group.updated_at),
             "users": users.get(group.id, []),
             "roles": roles.get(group.id, []),
+            "projects": projects.get(group.id, []),
         }
         for group in sorted(
             _context(request).group_manager.list(),
@@ -716,6 +746,7 @@ def set_group_roles(
     record: SessionRecord = Depends(_current_session),
 ) -> dict:
     _require(request, record, "groups.roles")
+    _check_global_roles(_connection(request), payload.names)
     manager = _context(request).group_manager
 
     try:
@@ -737,8 +768,98 @@ def set_group_roles(
 # ---------------------------------------------------------------------
 
 
+def _role_rows(connection: Any) -> Dict[str, Any]:
+    """Scope, title and built-in flag of every role, by name."""
+
+    return {
+        row["name"]: row
+        for row in connection.fetchall("SELECT name, scope, builtin, title FROM roles")
+    }
+
+
+def _check_global_roles(connection: Any, names: List[str]) -> None:
+    """Users and groups hold global roles directly; project roles via projects."""
+
+    rows = _role_rows(connection)
+    project_roles = [name for name in names if name in rows and rows[name]["scope"] == "project"]
+    if project_roles:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{', '.join(project_roles)}: project roles are given in a project"
+                " (Projects, or the user's project memberships)."
+            ),
+        )
+
+
+def _set_memberships(
+    request: Request, kind: str, principal: str, memberships: List[Membership]
+) -> None:
+    """Replace a user's or group's project roles across all projects."""
+
+    from lib.authorization.projects import Projects
+
+    connection = _connection(request)
+    store = Projects(connection)
+    column = "group_id" if kind == "group" else "user_id"
+    table, key = ("groups", "name") if kind == "group" else ("users", "username")
+    row = connection.fetchone(f"SELECT id FROM {table} WHERE {key} = ?", (principal,))
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"{kind.title()} '{principal}' does not exist.")
+    wanted = []
+    for item in memberships:
+        project = store.get(item.project)
+        if project is None:
+            raise HTTPException(status_code=422, detail=f"Project '{item.project}' not found.")
+        role = connection.fetchone("SELECT id, scope FROM roles WHERE name = ?", (item.role,))
+        if role is None or role["scope"] != "project":
+            raise HTTPException(
+                status_code=422, detail=f"'{item.role}' is not a project role."
+            )
+        wanted.append((project["id"], role["id"]))
+    with connection.transaction():
+        connection.execute(f"DELETE FROM project_members WHERE {column} = ?", (row["id"],))
+        for project_id, role_id in dict.fromkeys(wanted):
+            connection.execute(
+                f"INSERT OR IGNORE INTO project_members (project_id, {column}, role_id,"
+                " created_at) VALUES (?, ?, ?, datetime('now'))",
+                (project_id, row["id"], role_id),
+            )
+
+
+def _memberships(connection: Any, column: str) -> Dict[int, List[dict]]:
+    found: Dict[int, List[dict]] = {}
+    for row in connection.fetchall(
+        f"""
+        SELECT pm.{column} AS owner, p.key AS project, p.name AS project_name,
+               r.name AS role, COALESCE(r.title, r.name) AS role_title
+        FROM project_members pm
+        JOIN projects p ON p.id = pm.project_id
+        JOIN roles r ON r.id = pm.role_id
+        WHERE pm.{column} IS NOT NULL
+        ORDER BY p.name, r.name
+        """
+    ):
+        found.setdefault(row["owner"], []).append(
+            {
+                "project": row["project"],
+                "project_name": row["project_name"],
+                "role": row["role"],
+                "role_title": row["role_title"],
+            }
+        )
+    return found
+
+
 def _role_payloads(request: Request) -> List[dict]:
     connection = _connection(request)
+    extras = _role_rows(connection)
+    in_projects = {
+        row["role_id"]: int(row["n"])
+        for row in connection.fetchall(
+            "SELECT role_id, COUNT(*) AS n FROM project_members GROUP BY role_id"
+        )
+    }
 
     permissions = _names(
         connection.fetchall(
@@ -773,7 +894,11 @@ def _role_payloads(request: Request) -> List[dict]:
             "id": role.id,
             "name": role.name,
             "description": role.description,
-            "is_builtin": role.name == ADMIN_ROLE,
+            "title": (extras[role.name]["title"] if role.name in extras else None) or role.name,
+            "scope": extras[role.name]["scope"] if role.name in extras else "global",
+            "is_builtin": bool(extras[role.name]["builtin"]) if role.name in extras else False,
+            # How many project memberships use it.
+            "project_members": in_projects.get(role.id, 0),
             "created_at": _iso(role.created_at),
             "updated_at": _iso(role.updated_at),
             "permissions": permissions.get(role.id, []),
@@ -785,6 +910,15 @@ def _role_payloads(request: Request) -> List[dict]:
             key=lambda item: item.name.casefold(),
         )
     ]
+
+
+def _refuse_builtin(request: Request, name: str) -> None:
+    row = _role_rows(_connection(request)).get(name)
+    if row is not None and row["builtin"]:
+        raise HTTPException(
+            status_code=409,
+            detail=f"'{name}' is a built-in role and cannot be changed; create a custom role.",
+        )
 
 
 def _role_payload(request: Request, name: str) -> dict:
@@ -808,7 +942,7 @@ def list_roles(
 
 @router.post("/roles", status_code=201, dependencies=[Depends(verify_csrf)])
 def create_role(
-    payload: NamedCreate,
+    payload: RoleCreate,
     request: Request,
     record: SessionRecord = Depends(_current_session),
 ) -> dict:
@@ -819,17 +953,24 @@ def create_role(
     except AuthorizationException as exc:
         raise _http_error(exc) from None
 
+    with _connection(request).transaction() as connection:
+        connection.execute(
+            "UPDATE roles SET scope = ?, title = ?, builtin = 0 WHERE id = ?",
+            (payload.scope, (payload.title or "").strip() or role.name, role.id),
+        )
+
     return _role_payload(request, role.name)
 
 
 @router.patch("/roles/{name}", dependencies=[Depends(verify_csrf)])
 def update_role(
     name: str,
-    payload: NamedUpdate,
+    payload: RoleUpdate,
     request: Request,
     record: SessionRecord = Depends(_current_session),
 ) -> dict:
     _require(request, record, "roles.modify")
+    _refuse_builtin(request, name)
     manager = _context(request).role_manager
 
     try:
@@ -841,6 +982,13 @@ def update_role(
     except AuthorizationException as exc:
         raise _http_error(exc) from None
 
+    if payload.title is not None:
+        with _connection(request).transaction() as connection:
+            connection.execute(
+                "UPDATE roles SET title = ? WHERE id = ?",
+                (payload.title.strip() or role.name, role.id),
+            )
+
     return _role_payload(request, role.name)
 
 
@@ -851,6 +999,7 @@ def delete_role(
     record: SessionRecord = Depends(_current_session),
 ) -> dict:
     _require(request, record, "roles.delete")
+    _refuse_builtin(request, name)
     context = _context(request)
 
     try:
@@ -860,7 +1009,7 @@ def delete_role(
         raise _http_error(exc) from None
 
     with context.database_manager.connection.transaction() as connection:
-        for table in ("user_roles", "group_roles", "role_permissions"):
+        for table in ("user_roles", "group_roles", "role_permissions", "project_members"):
             connection.execute(f"DELETE FROM {table} WHERE role_id = ?", (role.id,))
 
     return {"message": f"Role '{name}' deleted."}
@@ -874,7 +1023,19 @@ def set_role_permissions(
     record: SessionRecord = Depends(_current_session),
 ) -> dict:
     _require(request, record, "roles.permissions")
+    _refuse_builtin(request, name)
     manager = _context(request).role_manager
+
+    from lib.authorization.projects import PROJECT_PERMISSIONS
+
+    row = _role_rows(_connection(request)).get(name)
+    if row is not None and row["scope"] == "project":
+        outside = sorted(set(payload.names) - PROJECT_PERMISSIONS)
+        if outside:
+            raise HTTPException(
+                status_code=422,
+                detail=f"A project role cannot hold {', '.join(outside)}; make it a global role.",
+            )
 
     try:
         role = manager.get(name)
@@ -905,6 +1066,7 @@ def list_permissions(
 
     _require(request, record, "roles.read")
     connection = _connection(request)
+    from lib.authorization.projects import PROJECT_PERMISSIONS
 
     roles = _names(
         connection.fetchall(
@@ -937,6 +1099,8 @@ def list_permissions(
                 "description": row["description"],
                 "type": row["permission_type"],
                 "roles": roles.get(row["id"], []),
+                # May be part of a project role (else only of global roles).
+                "project": row["name"] in PROJECT_PERMISSIONS,
             }
         )
 
@@ -945,46 +1109,33 @@ def list_permissions(
     return {"modules": list(modules.values())}
 
 
-@router.put("/permissions/{name}/roles", dependencies=[Depends(verify_csrf)])
-def set_permission_roles(
-    name: str,
-    payload: NameList,
+@router.put("/users/{username}/projects", dependencies=[Depends(verify_csrf)])
+def set_user_projects(
+    username: str,
+    payload: MembershipList,
     request: Request,
     record: SessionRecord = Depends(_current_session),
 ) -> dict:
-    """Choose which roles hold one permission."""
+    """The user's roles in each project."""
 
-    _require(request, record, "roles.permissions")
-    connection = _connection(request)
-    manager = _context(request).role_manager
+    actor = _require(request, record, "projects.manage")
+    _set_memberships(request, "user", username, payload.memberships)
+    summary = ", ".join(f"{item.role} in {item.project}" for item in payload.memberships) or "none"
+    _notify_account(
+        request, actor, username, "Your projects changed", f"Your project roles: {summary}."
+    )
+    return _user_payload(request, username)
 
-    current = [
-        row["name"]
-        for row in connection.fetchall(
-            """
-            SELECT r.name FROM role_permissions rp
-            JOIN roles r ON r.id = rp.role_id
-            JOIN permissions p ON p.id = rp.permission_id
-            WHERE p.name = ?
-            """,
-            (name,),
-        )
-    ]
 
-    if ADMIN_ROLE in set(current) ^ {item.strip() for item in payload.names}:
-        raise HTTPException(
-            status_code=400,
-            detail=str(AuthGenericError("The built-in 'admin' role cannot be modified.")),
-        )
+@router.put("/groups/{name}/projects", dependencies=[Depends(verify_csrf)])
+def set_group_projects(
+    name: str,
+    payload: MembershipList,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> dict:
+    """The group's roles in each project (every member gets them)."""
 
-    try:
-        _sync(
-            current,
-            payload.names,
-            lambda role: manager.grant_permission(manager.get(role), name),
-            lambda role: manager.revoke_permission(manager.get(role), name),
-        )
-    except AuthorizationException as exc:
-        raise _http_error(exc) from None
-
-    return {"name": name, "roles": sorted({item.strip() for item in payload.names if item.strip()})}
+    _require(request, record, "projects.manage")
+    _set_memberships(request, "group", name, payload.memberships)
+    return _group_payload(request, name)

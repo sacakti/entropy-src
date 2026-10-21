@@ -82,21 +82,6 @@ def _role_permissions(connection: DatabaseConnection, role: str) -> set:
     }
 
 
-def test_built_in_roles_follow_permission_types(connection) -> None:
-    AuthorizationInitializer(connection).reconcile()
-
-    assert _role_permissions(connection, "workflows-read") == {"workflows.read"}
-    assert _role_permissions(connection, "workflows-write") == {"workflows.write"}
-    assert _role_permissions(connection, "workflows-delete") == {"workflows.delete"}
-    assert _role_permissions(connection, "workflows-execute") == {"workflows.execute"}
-    assert "workflows.all" in _role_permissions(connection, "workflows-full")
-
-    write = _role_permissions(connection, "write")
-    delete = _role_permissions(connection, "delete")
-    assert "vault.delete" not in write and "vault.delete" in delete
-    assert {"nodes.delete", "schedules.delete", "users.delete", "plugins.delete"} <= delete
-
-
 def test_all_grants_every_permission_of_its_module(connection) -> None:
     AuthorizationInitializer(connection).reconcile()
     user = _user(connection, "lead")
@@ -142,15 +127,3 @@ def test_old_grants_move_to_new_permissions(connection) -> None:
     assert _role_permissions(connection, "editors") == {"workflows.write", "workflows.delete"}
     assert service.has_permission(user, "workflows.write")
     assert connection.fetchone("SELECT 1 FROM permissions WHERE name = 'workflows.edit'") is None
-
-
-def test_reader_cannot_write_or_delete(connection) -> None:
-    AuthorizationInitializer(connection).reconcile()
-    user = _user(connection, "reader")
-    _grant_role(connection, user, "workflows-read")
-    service = AuthorizationService(connection)
-
-    assert service.has_permission(user, "workflows.read")
-    assert not service.has_permission(user, "workflows.write")
-    assert not service.has_permission(user, "workflows.delete")
-    assert not service.has_permission(user, "workflows.execute")

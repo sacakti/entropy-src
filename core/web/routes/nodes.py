@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
+from core.web.projects import current_project, projects
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
 from lib.models.session import Session
@@ -171,8 +172,22 @@ def list_nodes(
     ):
         raise HTTPException(status_code=403, detail="Permission denied.")
 
+    store = projects(request)
+    keys = {project["id"]: project["key"] for project in store.list()}
+    nodes = _store(request).list()
+    for node in nodes:
+        access = store.node_access(node["name"])
+        node["access"] = {
+            "scope": access["scope"],
+            "projects": [keys[item] for item in access["projects"] if item in keys],
+        }
+    # Without nodes.list, only the nodes the current project may run on.
+    if not authorization.has_permission(user.id, "nodes.list"):
+        project = current_project(request, user)
+        nodes = [node for node in nodes if store.node_available(node["name"], project["id"])]
+
     response.headers["Cache-Control"] = "no-store"
-    return {"items": _with_metrics(request, _store(request).list())}
+    return {"items": _with_metrics(request, nodes)}
 
 
 @router.get("/metrics", response_class=PlainTextResponse)
@@ -283,6 +298,44 @@ def update_node(
         raise HTTPException(status_code=404, detail=f"Node '{name}' does not exist.")
 
     return {"node": _with_metrics(request, [node])[0]}
+
+
+class NodeAccessRequest(BaseModel):
+    # 'shared': every project may run on the node; 'assigned': only `projects`.
+    scope: str = Field(pattern="^(shared|assigned)$")
+    projects: List[str] = Field(default_factory=list, max_length=500)
+
+
+@router.put("/{name}/access", dependencies=[Depends(verify_csrf)])
+def set_node_access(
+    name: str,
+    payload: NodeAccessRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Which projects may run on a node."""
+
+    _, _, user = record
+    authorization = _context(request).authorization
+    if user.id is None or not (
+        authorization.has_permission(user.id, "nodes.manage")
+        or authorization.has_permission(user.id, "projects.manage")
+    ):
+        raise HTTPException(status_code=403, detail="Permission denied.")
+    if _store(request).get(name) is None:
+        raise HTTPException(status_code=404, detail=f"Node '{name}' does not exist.")
+
+    store = projects(request)
+    ids = []
+    for key in payload.projects:
+        project = store.get(key)
+        if project is None:
+            raise HTTPException(status_code=422, detail=f"Project '{key}' not found.")
+        ids.append(project["id"])
+    if payload.scope == "assigned" and not ids:
+        raise HTTPException(status_code=422, detail="Choose at least one project, or share it.")
+    store.set_node_access(name, payload.scope, ids)
+    return {"access": {"scope": payload.scope, "projects": payload.projects}}
 
 
 # ----------------------------------------------------------------------

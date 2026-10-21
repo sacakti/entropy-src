@@ -27,6 +27,7 @@ def ensure_drafts_schema(connection: DatabaseConnection) -> None:
                 format      TEXT NOT NULL CHECK (format IN ('json', 'yaml')),
                 definition  TEXT NOT NULL,
                 errors      TEXT NOT NULL DEFAULT '[]',
+                project_id  INTEGER,
                 created_by  TEXT,
                 updated_by  TEXT,
                 created_at  TEXT NOT NULL,
@@ -46,6 +47,10 @@ def _now() -> str:
 class WorkflowDrafts:
     def __init__(self, connection: DatabaseConnection) -> None:
         ensure_drafts_schema(connection)
+        from lib.authorization.projects import add_project_columns
+
+        # Databases with drafts from before projects.
+        add_project_columns(connection)
         self.connection = connection
 
     @staticmethod
@@ -62,13 +67,27 @@ class WorkflowDrafts:
             "updated_by": row["updated_by"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
+            "project_id": row["project_id"] if "project_id" in row.keys() else None,  # noqa: SIM118
         }
         if full:
             item["definition"] = row["definition"]
         return item
 
-    def list(self) -> List[Dict[str, Any]]:
-        rows = self.connection.fetchall("SELECT * FROM workflow_drafts ORDER BY updated_at DESC")
+    def list(self, project_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Drafts, or only one project's (drafts from before projects belong to Default)."""
+
+        if project_id is None:
+            rows = self.connection.fetchall(
+                "SELECT * FROM workflow_drafts ORDER BY updated_at DESC"
+            )
+        else:
+            from lib.authorization.projects import default_project_id
+
+            rows = self.connection.fetchall(
+                "SELECT * FROM workflow_drafts WHERE IFNULL(project_id, ?) = ?"
+                " ORDER BY updated_at DESC",
+                (default_project_id(self.connection), project_id),
+            )
         return [self._row(row) for row in rows]
 
     def get(self, draft_id: int) -> Optional[Dict[str, Any]]:
@@ -92,6 +111,7 @@ class WorkflowDrafts:
         definition: str,
         errors: List[str],
         user: str,
+        project_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         import json
 
@@ -104,15 +124,37 @@ class WorkflowDrafts:
             if draft_id is not None and self.get(draft_id) is not None:
                 self.connection.execute(
                     "UPDATE workflow_drafts SET workflow = ?, title = ?, format = ?,"
-                    " definition = ?, errors = ?, updated_by = ?, updated_at = ? WHERE id = ?",
-                    (workflow, title, format, definition, json.dumps(errors), user, now, draft_id),
+                    " definition = ?, errors = ?, updated_by = ?, updated_at = ?,"
+                    " project_id = ? WHERE id = ?",
+                    (
+                        workflow,
+                        title,
+                        format,
+                        definition,
+                        json.dumps(errors),
+                        user,
+                        now,
+                        project_id,
+                        draft_id,
+                    ),
                 )
             else:
                 cursor = self.connection.execute(
                     "INSERT INTO workflow_drafts (workflow, title, format, definition, errors,"
-                    " created_by, updated_by, created_at, updated_at)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (workflow, title, format, definition, json.dumps(errors), user, user, now, now),
+                    " created_by, updated_by, created_at, updated_at, project_id)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        workflow,
+                        title,
+                        format,
+                        definition,
+                        json.dumps(errors),
+                        user,
+                        user,
+                        now,
+                        now,
+                        project_id,
+                    ),
                 )
                 draft_id = int(cursor.lastrowid)
         saved = self.get(draft_id)

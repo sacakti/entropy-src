@@ -4,11 +4,13 @@ Authorization service.
 
 from __future__ import annotations
 
-from lib.models.session import Session
+from typing import Optional, Set
+
+from lib.authorization.constants import ALL_SUFFIX
 from lib.authorization.exceptions import AuthorizationRequiredError
 from lib.database.connection import DatabaseConnection
-from lib.authorization.constants import ALL_SUFFIX
 from lib.models.authorization import PermissionType
+from lib.models.session import Session
 
 
 class AuthorizationService:
@@ -39,14 +41,22 @@ class AuthorizationService:
         self,
         user_id: int,
         permission: str,
+        project_id: Optional[int] = None,
     ) -> bool:
         """
         Return True when the user has the requested permission, directly or
         through the module's `<module>.all` permission.
+
+        Global roles count everywhere. Project roles count in their project;
+        without `project_id`, in any project (e.g. to show a "Create" button).
         """
 
-        module_all = permission.split(".", 1)[0] + ALL_SUFFIX
+        names = (permission, permission.split(".", 1)[0] + ALL_SUFFIX)
+        return self._global_grant(user_id, names) or self._project_grant(
+            user_id, names, project_id
+        )
 
+    def _global_grant(self, user_id: int, names: tuple) -> bool:
         return (
             self._connection.fetchone(
                 """
@@ -94,16 +104,84 @@ class AuthorizationService:
 
             LIMIT 1
             """,
-                (
-                    permission,
-                    module_all,
-                    user_id,
-                    user_id,
-                    user_id,
-                ),
+                (*names, user_id, user_id, user_id),
             )
             is not None
         )
+
+    def _project_grant(self, user_id: int, names: tuple, project_id: Optional[int]) -> bool:
+        if not self._has_projects():
+            return False
+        project_clause = "" if project_id is None else "AND pm.project_id = ?"
+        parameters = (*names, user_id, user_id) + (() if project_id is None else (project_id,))
+        return (
+            self._connection.fetchone(
+                f"""
+            SELECT 1
+            FROM project_members pm
+            JOIN role_permissions rp ON rp.role_id = pm.role_id
+            JOIN permissions p ON p.id = rp.permission_id
+            WHERE p.name IN (?, ?)
+              AND (pm.user_id = ?
+                   OR pm.group_id IN (SELECT group_id FROM user_groups WHERE user_id = ?))
+              {project_clause}
+            LIMIT 1
+            """,
+                parameters,
+            )
+            is not None
+        )
+
+    def _has_projects(self) -> bool:
+        if getattr(self._connection, "_entropy_projects_ready", False):
+            return True
+        return (
+            self._connection.fetchone(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_members'"
+            )
+            is not None
+        )
+
+    def projects_with(self, user_id: int, permission: str) -> Optional[Set[int]]:
+        """
+        Projects where the user has `permission`: None means every project
+        (a global grant), otherwise the ids of the projects.
+        """
+
+        names = (permission, permission.split(".", 1)[0] + ALL_SUFFIX)
+        if self._global_grant(user_id, names):
+            return None
+        if not self._has_projects():
+            return set()
+        rows = self._connection.fetchall(
+            """
+            SELECT DISTINCT pm.project_id
+            FROM project_members pm
+            JOIN role_permissions rp ON rp.role_id = pm.role_id
+            JOIN permissions p ON p.id = rp.permission_id
+            WHERE p.name IN (?, ?)
+              AND (pm.user_id = ?
+                   OR pm.group_id IN (SELECT group_id FROM user_groups WHERE user_id = ?))
+            """,
+            (*names, user_id, user_id),
+        )
+        return {int(row["project_id"]) for row in rows}
+
+    def member_projects(self, user_id: int) -> Optional[Set[int]]:
+        """Projects the user belongs to; None when a global role sees them all."""
+
+        if self._global_grant(user_id, ("projects.read", "projects.all")) or self._global_grant(
+            user_id, ("projects.manage", "projects.all")
+        ):
+            return None
+        if not self._has_projects():
+            return set()
+        rows = self._connection.fetchall(
+            "SELECT DISTINCT project_id FROM project_members WHERE user_id = ?"
+            " OR group_id IN (SELECT group_id FROM user_groups WHERE user_id = ?)",
+            (user_id, user_id),
+        )
+        return {int(row["project_id"]) for row in rows}
 
     # ------------------------------------------------------------------
     # Permission type
@@ -188,9 +266,11 @@ class AuthorizationService:
     def permissions(
         self,
         user_id: int,
+        project_id: Optional[int] = None,
     ) -> list[str]:
         """
-        Return all effective permissions for a user.
+        Return all effective permissions for a user: global ones, plus those
+        of their roles in `project_id` (or in any project when None).
         """
 
         rows = self._connection.fetchall(
@@ -243,6 +323,24 @@ class AuthorizationService:
         )
 
         names = {row["name"] for row in rows}
+
+        if self._has_projects():
+            project_clause = "" if project_id is None else "AND pm.project_id = ?"
+            names.update(
+                row["name"]
+                for row in self._connection.fetchall(
+                    f"""
+                    SELECT DISTINCT p.name
+                    FROM project_members pm
+                    JOIN role_permissions rp ON rp.role_id = pm.role_id
+                    JOIN permissions p ON p.id = rp.permission_id
+                    WHERE (pm.user_id = ?
+                           OR pm.group_id IN (SELECT group_id FROM user_groups WHERE user_id = ?))
+                      {project_clause}
+                    """,
+                    (user_id, user_id) + (() if project_id is None else (project_id,)),
+                )
+            )
 
         # `<module>.all` stands for every permission of its module.
         for name in [name for name in names if name.endswith(ALL_SUFFIX)]:
