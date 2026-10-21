@@ -47,11 +47,17 @@ export interface WallpaperSettings {
     /** Keyed by background id; wallpapers without one fit automatically. */
     placements: Record<string, WallpaperPlacement>
     shuffle: WallpaperShuffle
+    /**
+     * Also play a video wallpaper in a small floating player window.
+     * Missing from older servers; treat anything but `false` as on.
+     */
+    floating_player?: boolean
 }
 
 export const DEFAULT_WALLPAPER_SETTINGS: WallpaperSettings = {
     placements: {},
     shuffle: { enabled: false, interval_minutes: 15, source: 'all' },
+    floating_player: true,
 }
 
 export async function getWallpaperSettings(): Promise<WallpaperSettings> {

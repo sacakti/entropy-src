@@ -920,6 +920,10 @@
     outline-offset: 2px;
 }
 
+.entropy-app .wallpaper-shuffle + .wallpaper-floating-player {
+    margin-top: 10px;
+}
+
 /* ==========================================================
    Wallpaper gallery viewer (full screen)
    ========================================================== */

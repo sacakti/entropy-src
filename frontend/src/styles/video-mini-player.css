@@ -1,0 +1,215 @@
+/* ==========================================================
+   Floating player for video wallpapers
+   Above page content and the web shell (900), below the
+   wallpaper viewer (1000), dialogs (1100) and toasts (12000).
+   ========================================================== */
+
+.entropy-app .video-mini-player {
+    position: fixed;
+    z-index: 950;
+    width: min(320px, 60vw);
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    color: #fff;
+    background: #000;
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+    box-shadow: 0 14px 40px rgb(0 0 0 / 34%);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.entropy-app .video-mini-player:active {
+    cursor: grabbing;
+}
+
+.entropy-app .video-mini-player:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+.entropy-app .video-mini-player.is-max {
+    top: 50%;
+    left: 50%;
+    z-index: 1050;
+    width: min(1200px, calc(100vw - 32px), calc((100vh - 48px) * 16 / 9));
+    border-radius: 14px;
+    box-shadow: 0 24px 80px rgb(0 0 0 / 50%);
+    cursor: default;
+    touch-action: auto;
+    transform: translate(-50%, -50%);
+}
+
+.entropy-app .video-mini-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background: rgb(0 0 0 / 72%);
+}
+
+.entropy-app .video-mini-media {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+    pointer-events: none;
+}
+
+.entropy-app .video-mini-player.is-max .video-mini-media {
+    pointer-events: auto;
+}
+
+/* Controls: shown on hover, keyboard focus, while paused, and always on touch screens. */
+
+.entropy-app .video-mini-bar {
+    position: absolute;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    opacity: 0;
+    transition: opacity 160ms ease;
+}
+
+.entropy-app .video-mini-bar-top {
+    top: 0;
+    justify-content: space-between;
+    background: linear-gradient(rgb(0 0 0 / 62%), transparent);
+}
+
+.entropy-app .video-mini-bar-bottom {
+    bottom: 0;
+    background: linear-gradient(transparent, rgb(0 0 0 / 62%));
+}
+
+.entropy-app .video-mini-player:hover .video-mini-bar,
+.entropy-app .video-mini-player:focus-within .video-mini-bar,
+.entropy-app .video-mini-player.is-paused .video-mini-bar,
+.entropy-app .video-mini-player.is-max .video-mini-bar {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .entropy-app .video-mini-bar {
+        opacity: 1;
+    }
+}
+
+.entropy-app .video-mini-title {
+    min-width: 0;
+    overflow: hidden;
+    padding-left: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 60%);
+}
+
+.entropy-app .video-mini-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 4px;
+}
+
+.entropy-app .video-mini-button,
+.entropy-app .video-mini-center-play {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    color: #fff;
+    background: rgb(0 0 0 / 45%);
+    border: 1px solid rgb(255 255 255 / 18%);
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease;
+}
+
+.entropy-app .video-mini-button {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+}
+
+.entropy-app .video-mini-button:hover,
+.entropy-app .video-mini-center-play:hover {
+    background: rgb(0 0 0 / 68%);
+    border-color: rgb(255 255 255 / 34%);
+}
+
+.entropy-app .video-mini-button:focus-visible,
+.entropy-app .video-mini-center-play:focus-visible,
+.entropy-app .video-mini-pill:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+.entropy-app .video-mini-player.is-max .video-mini-bar {
+    padding: 10px;
+}
+
+.entropy-app .video-mini-player.is-max .video-mini-button {
+    width: 34px;
+    height: 34px;
+}
+
+.entropy-app .video-mini-center-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.entropy-app .video-mini-player.is-max .video-mini-center-play {
+    width: 64px;
+    height: 64px;
+}
+
+/* Minimized: a chip that reopens the player. */
+
+.entropy-app .video-mini-pill {
+    position: fixed;
+    z-index: 950;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.entropy-app .video-mini-pill:hover {
+    background: var(--app-surface-hover);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .video-mini-pill svg {
+    color: var(--app-accent-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .video-mini-bar,
+    .entropy-app .video-mini-button,
+    .entropy-app .video-mini-center-play {
+        transition: none;
+    }
+}

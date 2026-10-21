@@ -217,6 +217,8 @@ class WallpaperSettings(BaseModel):
     # Keyed by background id; images without an entry fit automatically.
     placements: Dict[str, WallpaperPlacement] = Field(default_factory=dict)
     shuffle: WallpaperShuffle = Field(default_factory=WallpaperShuffle)
+    # Also play a video wallpaper in a small floating player window.
+    floating_player: bool = True
 
 
 def _wallpaper_repository(request: Request) -> UserWebSettingsRepository:

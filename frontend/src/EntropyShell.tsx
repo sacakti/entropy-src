@@ -16,6 +16,8 @@ import { getApplicationVersion } from './api/version'
 import { accentTokens } from './features/preferences/accent'
 import { useAppearance } from './features/preferences/useAppearance'
 import WallpaperLayer from './features/preferences/WallpaperLayer'
+import VideoMiniPlayer from './features/preferences/VideoMiniPlayer'
+import { isVideoBackground } from './api/backgrounds.api'
 import { WallpaperContext, useShuffledWallpaper, type WallpaperState } from './features/preferences/wallpaper'
 import Topbar from './components/layout/Topbar'
 import { NotificationCenterContext } from './features/notifications/context'
@@ -378,6 +380,12 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                 />
                 <div className="entropy-main">
                     <WallpaperLayer />
+                    {appearance.themeEnabled &&
+                        appearance.wallpaperSettings.floating_player !== false &&
+                        wallpaper.background &&
+                        isVideoBackground(wallpaper.background) && (
+                            <VideoMiniPlayer background={wallpaper.background} />
+                        )}
                     <Topbar
                     profile={profile}
                     onOpenHelp={() => setHelpOpen(true)}

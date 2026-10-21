@@ -11,6 +11,7 @@ import {
     Download,
     Film,
     Moon,
+    PictureInPicture2,
     Shuffle,
     Sun,
     Trash2,
@@ -353,6 +354,17 @@ export default function Preferences({
             notify.success(message)
         } catch {
             notify.error('Unable to save shuffle settings.')
+        }
+    }
+
+    const floatingPlayer = wallpaperSettings.floating_player !== false
+
+    const saveFloatingPlayer = async (enabled: boolean) => {
+        try {
+            await saveWallpaperSettings({ ...wallpaperSettings, floating_player: enabled })
+            notify.success(enabled ? 'Floating video player on.' : 'Floating video player off.')
+        } catch {
+            notify.error('Unable to save the floating player setting.')
         }
     }
 
@@ -1053,6 +1065,37 @@ export default function Preferences({
                                     <option value="all">All wallpapers</option>
                                     <option value="uploads">My uploads</option>
                                 </select>
+                            </label>
+                        </div>
+                    </div>
+                    <div className="wallpaper-shuffle wallpaper-floating-player">
+                        <div className="wallpaper-shuffle-copy">
+                            <span className="wallpaper-shuffle-icon">
+                                <PictureInPicture2 size={16} />
+                            </span>
+                            <div>
+                                <strong id="floating-player-label">
+                                    Show video wallpapers in a floating player
+                                </strong>
+                                <span>
+                                    When your wallpaper is a video, also play it in a small window
+                                    you can move, enlarge or close.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="wallpaper-shuffle-controls">
+                            <label className="wallpaper-shuffle-switch">
+                                <input
+                                    type="checkbox"
+                                    role="switch"
+                                    aria-labelledby="floating-player-label"
+                                    checked={floatingPlayer}
+                                    disabled={!preferencesLoaded}
+                                    onChange={(event) => void saveFloatingPlayer(event.target.checked)}
+                                />
+                                <span aria-hidden="true" />
+                                {floatingPlayer ? 'On' : 'Off'}
                             </label>
                         </div>
                     </div>
