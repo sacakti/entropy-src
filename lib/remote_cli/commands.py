@@ -547,6 +547,119 @@ def cmd_schedule_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_user_list(args: argparse.Namespace) -> int:
+    items = _client(args).get("/admin/users")["items"]
+    if args.output == "json":
+        emit_json(items)
+        return 0
+    table(
+        ("username", "name", "email", "active", "roles", "groups"),
+        (
+            (
+                u["username"],
+                u.get("full_name"),
+                u.get("email"),
+                "yes" if u.get("is_active") else "no",
+                ", ".join(u.get("roles") or []),
+                ", ".join(u.get("groups") or []),
+            )
+            for u in items
+        ),
+    )
+    return 0
+
+
+def cmd_group_list(args: argparse.Namespace) -> int:
+    items = _client(args).get("/admin/groups")["items"]
+    if args.output == "json":
+        emit_json(items)
+        return 0
+    table(
+        ("name", "description", "members", "roles"),
+        (
+            (
+                g["name"],
+                g.get("description"),
+                len(g.get("members") or g.get("users") or []),
+                ", ".join(g.get("roles") or []),
+            )
+            for g in items
+        ),
+    )
+    return 0
+
+
+def cmd_role_list(args: argparse.Namespace) -> int:
+    items = _client(args).get("/admin/roles")["items"]
+    if args.output == "json":
+        emit_json(items)
+        return 0
+    table(
+        ("name", "built-in", "permissions", "description"),
+        (
+            (
+                r["name"],
+                "yes" if r.get("is_builtin") else "no",
+                len(r.get("permissions") or []),
+                r.get("description"),
+            )
+            for r in items
+        ),
+    )
+    return 0
+
+
+def cmd_vault_namespaces(args: argparse.Namespace) -> int:
+    items = _client(args).get("/vault/namespaces")["items"]
+    if args.output == "json":
+        emit_json(items)
+        return 0
+    table(
+        ("namespace", "visibility", "your access", "created"),
+        (
+            (n["name"], n.get("visibility"), n.get("access") or "read", when(n.get("created_at")))
+            for n in items
+        ),
+    )
+    return 0
+
+
+def cmd_vault_list(args: argparse.Namespace) -> int:
+    """Keys of a namespace; values are never shown here."""
+
+    items = _client(args).get(path("vault", "namespaces", args.namespace, "entries"))["items"]
+    if args.output == "json":
+        emit_json(items)
+        return 0
+    table(
+        ("key", "type", "sensitive", "updated"),
+        (
+            (
+                e["key"],
+                e.get("type"),
+                "yes" if e.get("sensitive") else "no",
+                when(e.get("updated_at")),
+            )
+            for e in items
+        ),
+    )
+    return 0
+
+
+def cmd_notification_list(args: argparse.Namespace) -> int:
+    items = _client(args).get("/notifications", limit=args.limit)["items"]
+    if args.unread:
+        items = [n for n in items if not n.get("read")]
+    if args.output == "json":
+        emit_json(items)
+        return 0
+    table(
+        ("when", "level", "title", "message"),
+        ((when(n.get("created_at")), n["level"], n["title"], n.get("message")) for n in items),
+    )
+    return 0
+
+
 # ----------------------------------------------------------------------
 # Parser
 # ----------------------------------------------------------------------
@@ -706,6 +819,38 @@ def build_parser() -> argparse.ArgumentParser:
     item = sc.add_parser("list", aliases=["ls"], help="List schedules.")
     _output(item)
     item.set_defaults(func=cmd_schedule_list)
+
+    # Administration and the vault (read only here; manage them in the web UI)
+    for noun, aliases, handler, label in (
+        ("user", ["users"], cmd_user_list, "Users."),
+        ("group", ["groups"], cmd_group_list, "Groups."),
+        ("role", ["roles"], cmd_role_list, "Roles."),
+    ):
+        group = commands.add_parser(noun, aliases=aliases, help=label)
+        actions = group.add_subparsers(dest=f"{noun}_command", metavar="ACTION")
+        item = actions.add_parser("list", aliases=["ls"], help=f"List {noun}s.")
+        _output(item)
+        item.set_defaults(func=handler)
+
+    vault = commands.add_parser("vault", help="Vault namespaces and keys (never values).")
+    va = vault.add_subparsers(dest="vault_command", metavar="ACTION")
+    item = va.add_parser("namespaces", aliases=["ns"], help="Namespaces you can see.")
+    _output(item)
+    item.set_defaults(func=cmd_vault_namespaces)
+    item = va.add_parser("list", aliases=["ls"], help="Keys in a namespace.")
+    item.add_argument("namespace")
+    _output(item)
+    item.set_defaults(func=cmd_vault_list)
+
+    notification = commands.add_parser(
+        "notification", aliases=["notifications"], help="Your notifications."
+    )
+    nt = notification.add_subparsers(dest="notification_command", metavar="ACTION")
+    item = nt.add_parser("list", aliases=["ls"], help="Recent notifications.")
+    item.add_argument("--unread", action="store_true", help="Only unread ones.")
+    item.add_argument("--limit", type=int, default=20)
+    _output(item)
+    item.set_defaults(func=cmd_notification_list)
 
     return parser
 

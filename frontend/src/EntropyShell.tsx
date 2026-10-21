@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     BadgeCheck,
     Blocks,
@@ -51,6 +51,8 @@ import AccessRestricted from './components/layout/AccessRestricted'
 import { requestCreate, type CreateTarget } from './features/quickCreate'
 import { getCurrentUser } from './services/auth'
 
+const ShellPanel = lazy(() => import('./features/shell/ShellPanel'))
+
 interface EntropyShellProps {
     user: AuthUser
     /** Display name to greet, right after signing in. */
@@ -69,6 +71,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         avatar_url: user.avatar_url ?? null,
     }))
     const [helpOpen, setHelpOpen] = useState(false)
+    const [shellOpen, setShellOpen] = useState(false)
 
     useEffect(() => {
         let active = true
@@ -100,6 +103,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
             if (isTyping(event)) return false
             setHelpOpen(true)
         },
+        'mod+`': () => setShellOpen((open) => !open),
     })
 
     const [activePage, setActivePageState] = useState<PageId>(
@@ -298,6 +302,8 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     <Topbar
                     profile={profile}
                     onOpenHelp={() => setHelpOpen(true)}
+                    onToggleShell={() => setShellOpen((open) => !open)}
+                    shellOpen={shellOpen}
                     quickCreate={quickCreate}
                     pageTitle={pageTitle}
                     parentTitle={parentPage(activePage)?.label}
@@ -385,6 +391,11 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                 </div>
 
                 {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
+                {shellOpen && (
+                    <Suspense fallback={null}>
+                        <ShellPanel username={profile.username} onClose={() => setShellOpen(false)} />
+                    </Suspense>
+                )}
             </div>
         </WallpaperContext.Provider>
         </NotificationCenterContext.Provider>

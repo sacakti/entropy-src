@@ -13,6 +13,7 @@ import {
     ShieldCheck,
     Sun,
     Settings,
+    SquareTerminal,
     Trash2,
     type LucideIcon,
 } from 'lucide-react'
@@ -45,6 +46,9 @@ function relativeTime(value: string): string {
 interface TopbarProps {
     profile: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>
     onOpenHelp: () => void
+    /** Open or close the shell (ent commands in the browser). */
+    onToggleShell: () => void
+    shellOpen: boolean
     /** Entries of the "+" menu, already filtered by permission. */
     quickCreate: { target: string; label: string; icon: LucideIcon; onSelect: () => void }[]
     pageTitle: string
@@ -66,6 +70,8 @@ interface TopbarProps {
 export default function Topbar({
     profile,
     onOpenHelp,
+    onToggleShell,
+    shellOpen,
     quickCreate,
     pageTitle,
     parentTitle,
@@ -157,6 +163,17 @@ export default function Topbar({
                         </FloatingMenu>
                     </>
                 )}
+
+                <button
+                    type="button"
+                    className={`entropy-button entropy-button-ghost entropy-button-icon${shellOpen ? ' is-active' : ''}`}
+                    onClick={onToggleShell}
+                    aria-label="Shell: run ent commands"
+                    aria-pressed={shellOpen}
+                    title="Shell (Ctrl+`)"
+                >
+                    <SquareTerminal size={18} />
+                </button>
 
                 <button
                     type="button"
