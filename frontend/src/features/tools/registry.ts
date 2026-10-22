@@ -7,7 +7,7 @@
  * main bundle until the tool is opened.
  */
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
-import { FileDiff, FolderTree, GitCompareArrows, type LucideIcon } from 'lucide-react'
+import { Bird, FileDiff, FolderTree, GitCompareArrows, type LucideIcon } from 'lucide-react'
 
 export type ToolDefinition = {
     /** Stable identifier, safe to keep in URLs and preferences. */
@@ -45,6 +45,14 @@ export const TOOLS: ToolDefinition[] = [
         icon: FolderTree,
         keywords: ['diff', 'directory', 'tree', 'hash', 'checksum'],
         component: lazy(() => import('./FolderCompare')),
+    },
+    {
+        id: 'eagleapi',
+        name: 'EagleAPI',
+        description: 'Send API requests with vault environments and polling',
+        icon: Bird,
+        keywords: ['api', 'http', 'rest', 'postman', 'request', 'oauth', 'certificate', 'poll'],
+        component: lazy(() => import('./eagleapi/EagleApi')),
     },
 ]
 

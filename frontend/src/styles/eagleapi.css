@@ -1,0 +1,1140 @@
+/*
+ * ==========================================================
+ * Entropy — EagleAPI (Tools gallery)
+ *
+ * Responsibilities:
+ * - Environment top bar
+ * - Collections tree (left) and request editor (right)
+ * - Request tabs, key/value tables, polling form
+ * - Response viewer (body, headers, sent request, poll timeline)
+ * - Environment dialog
+ *
+ * Global ownership:
+ * - buttons.css: entropy-button*
+ * - dialog.css: entropy-dialog*
+ * - tools.css: the opened tool frame
+ * ==========================================================
+ */
+
+.entropy-app .eagle-app {
+    --eagle-tree-width: 280px;
+    --eagle-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --eagle-get: var(--app-success);
+    --eagle-post: var(--app-warning);
+    --eagle-put: var(--app-info);
+    --eagle-patch: color-mix(in srgb, #a371f7 80%, var(--app-text));
+    --eagle-delete: var(--app-danger);
+
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    color: var(--app-text);
+}
+
+.entropy-app .eagle-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.entropy-app .eagle-muted {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.entropy-app .eagle-warn-text {
+    margin: 0;
+    color: var(--app-warning-text);
+    font-size: 12px;
+}
+
+.entropy-app .eagle-pad {
+    padding: 12px;
+}
+
+.entropy-app .eagle-app code {
+    font-family: var(--eagle-mono);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+/* Shared inputs ------------------------------------------------------ */
+
+.entropy-app .eagle-app :is(input[type="text"], input[type="number"], input[type="password"], input:not([type]), select),
+.entropy-app .eagle-env-dialog :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select),
+.entropy-app .eagle-small-dialog input:not([type="radio"]) {
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    padding: 0 10px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+}
+
+.entropy-app .eagle-app :is(input, select):focus-visible,
+.entropy-app .eagle-env-dialog :is(input, select):focus-visible,
+.entropy-app .eagle-small-dialog input:focus-visible {
+    border-color: var(--app-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--app-focus-ring);
+}
+
+.entropy-app .eagle-app :is(input, select):is([readonly], :disabled) {
+    color: var(--app-muted);
+}
+
+.entropy-app .eagle-app input[type="checkbox"],
+.entropy-app .eagle-env-dialog input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .eagle-field {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    align-content: start;
+}
+
+.entropy-app .eagle-field > span {
+    color: var(--app-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .eagle-field small {
+    color: var(--app-subtle);
+    font-size: 11.5px;
+}
+
+.entropy-app .eagle-field-wide {
+    grid-column: 1 / -1;
+}
+
+.entropy-app .eagle-field-grow {
+    flex: 1 1 240px;
+}
+
+.entropy-app .eagle-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.entropy-app .eagle-inline-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Method badges ------------------------------------------------------ */
+
+.entropy-app .eagle-method {
+    flex-shrink: 0;
+    min-width: 42px;
+    font-family: var(--eagle-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: var(--app-muted);
+}
+
+.entropy-app .eagle-method-get {
+    color: var(--eagle-get);
+}
+
+.entropy-app .eagle-method-post {
+    color: var(--eagle-post);
+}
+
+.entropy-app .eagle-method-put {
+    color: var(--eagle-put);
+}
+
+.entropy-app .eagle-method-patch {
+    color: var(--eagle-patch);
+}
+
+.entropy-app .eagle-method-delete {
+    color: var(--eagle-delete);
+}
+
+/* Top bar ------------------------------------------------------------ */
+
+.entropy-app .eagle-topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 8px 10px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .eagle-env-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .eagle-env-select select {
+    width: auto;
+    min-width: 170px;
+    font-weight: 600;
+}
+
+.entropy-app .eagle-topbar-ns {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    color: var(--app-muted);
+    font-family: var(--eagle-mono);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .eagle-topbar-readonly {
+    padding: 3px 9px;
+    color: var(--app-warning-text);
+    background: var(--app-warning-soft);
+    border: 1px solid var(--app-warning-border);
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+/* Layout ------------------------------------------------------------- */
+
+.entropy-app .eagle-layout {
+    display: grid;
+    grid-template-columns: var(--eagle-tree-width) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    min-width: 0;
+}
+
+.entropy-app .eagle-sidebar,
+.entropy-app .eagle-main {
+    min-width: 0;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .eagle-sidebar {
+    position: sticky;
+    top: 12px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 120px);
+    overflow: hidden;
+}
+
+.entropy-app .eagle-sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 8px 8px 14px;
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .eagle-sidebar-head h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.entropy-app .eagle-main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+}
+
+.entropy-app .eagle-blank {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    padding: 48px 20px;
+    color: var(--app-muted);
+    text-align: center;
+}
+
+.entropy-app .eagle-blank strong {
+    color: var(--app-text);
+    font-size: 14px;
+}
+
+.entropy-app .eagle-blank p {
+    max-width: 440px;
+    margin: 0 0 6px;
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+
+/* Tree --------------------------------------------------------------- */
+
+.entropy-app .eagle-tree {
+    flex: 1;
+    min-height: 120px;
+    padding: 6px;
+    overflow: auto;
+    border-radius: 0 0 12px 12px;
+}
+
+.entropy-app .eagle-tree.is-drop-target {
+    box-shadow: inset 0 0 0 2px var(--app-accent-border);
+}
+
+.entropy-app .eagle-tree ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .eagle-tree-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-radius: 7px;
+}
+
+.entropy-app .eagle-tree-row:hover {
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .eagle-tree-row.is-selected {
+    background: var(--app-accent-soft);
+    box-shadow: inset 0 0 0 1px var(--app-accent-border);
+}
+
+.entropy-app .eagle-tree-row.is-drop-target {
+    box-shadow: inset 0 0 0 2px var(--app-accent);
+}
+
+.entropy-app .eagle-tree-label {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 30px;
+    padding: 0 4px;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .eagle-tree-label:focus-visible,
+.entropy-app .eagle-tree-more:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: -2px;
+    border-radius: 6px;
+}
+
+.entropy-app .eagle-tree-label svg {
+    flex-shrink: 0;
+    color: var(--app-muted);
+}
+
+.entropy-app .eagle-tree-chevron {
+    transition: transform 120ms ease;
+}
+
+.entropy-app .eagle-tree-chevron.is-open {
+    transform: rotate(90deg);
+}
+
+.entropy-app .eagle-tree-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .eagle-tree-more {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    opacity: 0;
+}
+
+.entropy-app .eagle-tree-row:is(:hover, :focus-within, .is-selected) .eagle-tree-more,
+.entropy-app .eagle-tree-more[aria-expanded="true"] {
+    opacity: 1;
+}
+
+.entropy-app .eagle-tree-more:hover {
+    color: var(--app-text);
+    background: var(--app-hover-bg);
+}
+
+.entropy-app .eagle-tree-empty {
+    margin: 2px 0 4px;
+    color: var(--app-subtle);
+    font-size: 11.5px;
+    font-style: italic;
+}
+
+.entropy-app .eagle-tree-blank {
+    padding: 14px 10px;
+    font-size: 13px;
+}
+
+.entropy-app .eagle-tree-blank p {
+    margin: 0 0 4px;
+}
+
+.entropy-app .eagle-dirty-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    margin-left: auto;
+    background: var(--app-warning);
+    border-radius: 50%;
+}
+
+@media (hover: none) {
+    .entropy-app .eagle-tree-more {
+        opacity: 1;
+    }
+}
+
+/* Menus -------------------------------------------------------------- */
+
+.entropy-app .eagle-menu {
+    min-width: 200px;
+}
+
+.entropy-app .eagle-menu button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 10px;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .eagle-menu button:hover {
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .eagle-menu button[aria-disabled="true"] {
+    color: var(--app-subtle);
+    cursor: not-allowed;
+}
+
+.entropy-app .eagle-menu .eagle-menu-danger:not([aria-disabled="true"]) {
+    color: var(--app-danger-text);
+}
+
+/* Request head and URL bar ------------------------------------------ */
+
+.entropy-app .eagle-request-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.entropy-app .eagle-request-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    font-size: 14px;
+}
+
+.entropy-app .eagle-request-title strong {
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .eagle-unsaved {
+    padding: 1px 8px;
+    color: var(--app-warning-text);
+    background: var(--app-warning-soft);
+    border: 1px solid var(--app-warning-border);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.entropy-app .eagle-urlbar {
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+}
+
+.entropy-app .eagle-app .eagle-method-select {
+    flex: 0 0 112px;
+    width: 112px;
+    min-height: 38px;
+    font-family: var(--eagle-mono);
+    font-weight: 700;
+}
+
+.entropy-app .eagle-app .eagle-url-input {
+    flex: 1;
+    min-height: 38px;
+    font-family: var(--eagle-mono);
+    font-size: 13px;
+}
+
+.entropy-app .eagle-send {
+    flex-shrink: 0;
+    min-width: 92px;
+}
+
+.entropy-app .eagle-url-hint {
+    margin: -6px 0 0;
+    color: var(--app-muted);
+    font-family: var(--eagle-mono);
+    font-size: 11.5px;
+    overflow-wrap: anywhere;
+}
+
+/* Tabs --------------------------------------------------------------- */
+
+.entropy-app .eagle-tabs {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--app-line);
+    scrollbar-width: thin;
+}
+
+.entropy-app .eagle-tabs button {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.entropy-app .eagle-tabs button:hover {
+    color: var(--app-text);
+}
+
+.entropy-app .eagle-tabs button.is-active {
+    color: var(--app-text);
+    border-bottom-color: var(--app-accent);
+}
+
+.entropy-app .eagle-tabs-sm button {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.entropy-app .eagle-tab-badge {
+    padding: 0 6px;
+    color: var(--app-accent-text);
+    background: var(--app-accent-soft);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+}
+
+.entropy-app .eagle-tab-panel {
+    padding-top: 12px;
+}
+
+.entropy-app .eagle-editor {
+    min-width: 0;
+}
+
+.entropy-app .eagle-stack {
+    display: grid;
+    gap: 10px;
+}
+
+.entropy-app .eagle-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
+}
+
+.entropy-app .eagle-form .eagle-muted {
+    grid-column: 1 / -1;
+}
+
+.entropy-app .eagle-segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 2px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    justify-self: start;
+}
+
+.entropy-app .eagle-segmented button {
+    padding: 5px 11px;
+    color: var(--app-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.entropy-app .eagle-segmented button.is-active {
+    color: var(--app-accent-text);
+    background: var(--app-accent-soft);
+}
+
+.entropy-app .eagle-segmented button:disabled {
+    cursor: default;
+}
+
+/* Key/value rows ----------------------------------------------------- */
+
+.entropy-app .eagle-kv {
+    display: grid;
+    gap: 6px;
+}
+
+.entropy-app .eagle-kv-head,
+.entropy-app .eagle-kv-row {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 2fr) minmax(0, 3fr) 30px;
+    gap: 6px;
+    align-items: center;
+}
+
+.entropy-app .eagle-kv-head {
+    color: var(--app-muted);
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.entropy-app .eagle-kv-row input[type="text"] {
+    font-family: var(--eagle-mono);
+    font-size: 12.5px;
+}
+
+.entropy-app .eagle-kv-add {
+    justify-self: start;
+}
+
+/* Code (Monaco) ------------------------------------------------------ */
+
+.entropy-app .eagle-code {
+    position: relative;
+    height: clamp(200px, 40vh, 520px);
+    overflow: hidden;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .eagle-code-input {
+    height: clamp(160px, 28vh, 380px);
+}
+
+.entropy-app .eagle-code-editor {
+    position: absolute;
+    inset: 0;
+}
+
+.entropy-app .eagle-pre {
+    max-height: 520px;
+    margin: 0;
+    padding: 12px;
+    overflow: auto;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    font-family: var(--eagle-mono);
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* Response ----------------------------------------------------------- */
+
+.entropy-app .eagle-response {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .eagle-response-empty {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 12px;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+.entropy-app .eagle-response-empty p {
+    margin: 0;
+}
+
+.entropy-app .eagle-response-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    color: var(--app-muted);
+    font-size: 12.5px;
+}
+
+.entropy-app .eagle-response-summary strong {
+    color: var(--app-text);
+}
+
+.entropy-app .eagle-status {
+    padding: 2px 9px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-family: var(--eagle-mono);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.entropy-app .eagle-status-ok {
+    color: var(--app-success-text);
+    background: var(--app-success-soft);
+    border-color: var(--app-success-border);
+}
+
+.entropy-app .eagle-status-info {
+    color: var(--app-accent-text);
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .eagle-status-warn {
+    color: var(--app-warning-text);
+    background: var(--app-warning-soft);
+    border-color: var(--app-warning-border);
+}
+
+.entropy-app .eagle-status-error {
+    color: var(--app-danger-text);
+    background: var(--app-danger-soft);
+    border-color: var(--app-danger-border);
+}
+
+.entropy-app .eagle-body-view {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+}
+
+.entropy-app .eagle-body-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.entropy-app .eagle-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.entropy-app .eagle-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.entropy-app .eagle-table th {
+    padding: 6px 8px;
+    color: var(--app-muted);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-align: left;
+    border-bottom: 1px solid var(--app-line);
+}
+
+.entropy-app .eagle-table td {
+    padding: 6px 8px;
+    vertical-align: top;
+    border-bottom: 1px solid color-mix(in srgb, var(--app-line) 60%, transparent);
+    font-family: var(--eagle-mono);
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .eagle-table td:first-child {
+    width: 34%;
+    color: var(--app-muted);
+    font-weight: 600;
+}
+
+.entropy-app .eagle-sent {
+    display: grid;
+    gap: 8px;
+}
+
+.entropy-app .eagle-sent-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 10px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+}
+
+/* Poll timeline ------------------------------------------------------ */
+
+.entropy-app .eagle-poll {
+    display: grid;
+    gap: 10px;
+}
+
+.entropy-app .eagle-poll-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12.5px;
+}
+
+.entropy-app .eagle-poll-head > span {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.entropy-app .eagle-timeline {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0 0 0 14px;
+    list-style: none;
+    border-left: 2px solid var(--app-line);
+}
+
+.entropy-app .eagle-timeline li button {
+    display: grid;
+    grid-template-columns: auto auto auto auto minmax(0, 1fr);
+    align-items: center;
+    gap: 4px 10px;
+    width: 100%;
+    padding: 6px 8px;
+    color: var(--app-text);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .eagle-timeline li button:hover {
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .eagle-timeline li.is-selected button {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .eagle-timeline-n {
+    font-weight: 700;
+}
+
+.entropy-app .eagle-timeline time,
+.entropy-app .eagle-timeline-ms {
+    color: var(--app-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .eagle-timeline-body {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--app-muted);
+    font-family: var(--eagle-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .eagle-timeline-done {
+    grid-column: 1 / -1;
+    color: var(--app-success-text);
+    font-weight: 600;
+}
+
+/* Environment dialog ------------------------------------------------- */
+
+.entropy-app .eagle-env-dialog {
+    width: min(760px, calc(100vw - 32px));
+}
+
+.entropy-app .eagle-small-dialog {
+    width: min(480px, calc(100vw - 32px));
+}
+
+.entropy-app .eagle-env-dialog .entropy-dialog-body {
+    display: grid;
+    gap: 18px;
+}
+
+.entropy-app .eagle-env-section {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+
+.entropy-app .eagle-env-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.entropy-app .eagle-env-section-head h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.entropy-app .eagle-env-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .eagle-env-chips li {
+    padding: 3px 10px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font-family: var(--eagle-mono);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .eagle-env-chips li.is-selected {
+    color: var(--app-accent-text);
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .eagle-inline-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 10px;
+    padding: 12px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .eagle-inline-form > .eagle-field:first-child {
+    flex: 0 1 200px;
+}
+
+.entropy-app .eagle-inline-form .eagle-check {
+    min-height: 34px;
+}
+
+.entropy-app .eagle-file-pick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+}
+
+.entropy-app .eagle-env-table td:first-child {
+    width: 40%;
+    color: var(--app-text);
+}
+
+.entropy-app .eagle-env-table td:last-child {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.entropy-app .eagle-env-file {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.entropy-app .eagle-env-value {
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .eagle-row-actions {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.entropy-app .eagle-move-list {
+    display: grid;
+    gap: 2px;
+    max-height: 50vh;
+    overflow: auto;
+}
+
+.entropy-app .eagle-move-list label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.entropy-app .eagle-move-list label:hover {
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .eagle-move-list label.is-selected {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .eagle-move-list input {
+    accent-color: var(--app-accent);
+}
+
+/* Narrow screens ----------------------------------------------------- */
+
+@media (max-width: 900px) {
+    .entropy-app .eagle-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .eagle-sidebar {
+        position: static;
+        max-height: 320px;
+    }
+}
+
+@media (max-width: 560px) {
+    .entropy-app .eagle-main {
+        padding: 10px;
+    }
+
+    .entropy-app .eagle-urlbar {
+        flex-wrap: wrap;
+    }
+
+    .entropy-app .eagle-app .eagle-method-select {
+        flex: 0 0 100px;
+        width: 100px;
+    }
+
+    .entropy-app .eagle-app .eagle-url-input {
+        flex: 1 1 160px;
+    }
+
+    .entropy-app .eagle-send {
+        flex: 1 1 100%;
+    }
+
+    .entropy-app .eagle-form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .eagle-kv-head {
+        display: none;
+    }
+
+    .entropy-app .eagle-kv-row {
+        grid-template-columns: 22px minmax(0, 1fr) 30px;
+    }
+
+    .entropy-app .eagle-kv-row input[type="text"]:nth-of-type(2) {
+        grid-column: 2 / 3;
+        grid-row: 2;
+    }
+
+    .entropy-app .eagle-topbar-ns {
+        margin-left: 0;
+    }
+
+    .entropy-app .eagle-env-select {
+        flex: 1 1 100%;
+    }
+
+    .entropy-app .eagle-env-select select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .entropy-app .eagle-timeline li button {
+        grid-template-columns: auto auto minmax(0, 1fr);
+    }
+
+    .entropy-app .eagle-timeline-body {
+        grid-column: 1 / -1;
+    }
+}

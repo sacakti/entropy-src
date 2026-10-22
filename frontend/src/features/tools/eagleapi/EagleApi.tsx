@@ -1,0 +1,697 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+    AlertCircle,
+    Bird,
+    FilePlus,
+    FolderPlus,
+    Globe,
+    LoaderCircle,
+    Lock,
+    Save,
+    Send,
+    Square,
+} from 'lucide-react'
+
+import { useFeedback } from '../../../components/feedback/FeedbackProvider'
+import { missingPermission } from '../../administration/permissionReason'
+import { usePermissions } from '../../administration/usePermissions'
+import { currentProject } from '../../../services/project'
+import {
+    eagleApi,
+    type EagleEnvironment,
+    type EagleItem,
+    type EagleRequestData,
+    type EagleResult,
+} from '../../../api/eagleapi.api'
+import CollectionTree, { type TreeAction } from './CollectionTree'
+import EnvironmentDialog from './EnvironmentDialog'
+import { MoveDialog, NameDialog } from './ItemDialogs'
+import RequestEditor, { FILE_SUGGESTIONS, VALUE_SUGGESTIONS } from './RequestEditor'
+import ResponseViewer, { type PollRun } from './ResponseViewer'
+import { defaultRequest, ENV_STORAGE_KEY, itemPath, METHODS, sameRequest, vaultRef } from './model'
+import '../../../styles/eagleapi.css'
+
+type NameRequest =
+    | { kind: 'new-folder' | 'new-request'; parentId: number | null }
+    | { kind: 'rename'; item: EagleItem }
+
+function errorText(cause: unknown, fallback: string): string {
+    return cause instanceof Error && cause.message ? cause.message : fallback
+}
+
+function envStorageKey(): string {
+    return `${ENV_STORAGE_KEY}.${currentProject() ?? 'default'}`
+}
+
+function storedEnvironment(): string | null {
+    try {
+        return window.localStorage.getItem(envStorageKey())
+    } catch {
+        return null
+    }
+}
+
+function rememberEnvironment(name: string | null) {
+    try {
+        if (name) window.localStorage.setItem(envStorageKey(), name)
+        else window.localStorage.removeItem(envStorageKey())
+    } catch {
+        // Storage refused (private window): the choice lasts this visit.
+    }
+}
+
+/** Resolves after `ms`, or rejects at once when `signal` aborts. */
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if (signal.aborted) {
+            reject(new DOMException('Aborted', 'AbortError'))
+            return
+        }
+        const timer = window.setTimeout(resolve, ms)
+        signal.addEventListener(
+            'abort',
+            () => {
+                window.clearTimeout(timer)
+                reject(new DOMException('Aborted', 'AbortError'))
+            },
+            { once: true },
+        )
+    })
+}
+
+const isAbort = (cause: unknown) => cause instanceof DOMException && cause.name === 'AbortError'
+
+/**
+ * EagleAPI: a Postman-like API tester. Collections (folders and requests)
+ * are kept per project on the server; environment values (base URLs,
+ * client ids, secrets, certificates) live in the project's vault namespace
+ * `eagleapi-<project>`. Requests are sent by the Entropy server.
+ */
+export default function EagleApi() {
+    const { notify, modal } = useFeedback()
+    const permissions = usePermissions()
+    const writeReason = missingPermission(permissions, ['workflows.write'], 'Changing collections and the environment')
+    const sendReason = missingPermission(permissions, ['workflows.execute'], 'Sending requests')
+
+    const [items, setItems] = useState<EagleItem[]>([])
+    const [loading, setLoading] = useState(true)
+    const [loadError, setLoadError] = useState<string | null>(null)
+    const [expanded, setExpanded] = useState<Set<number>>(new Set())
+
+    const [selected, setSelected] = useState<EagleItem | null>(null)
+    const [saved, setSaved] = useState<EagleRequestData | null>(null)
+    const [draft, setDraft] = useState<EagleRequestData | null>(null)
+    const [opening, setOpening] = useState(false)
+    const [saving, setSaving] = useState(false)
+
+    const [environment, setEnvironment] = useState<EagleEnvironment | null>(null)
+    const [envName, setEnvName] = useState<string | null>(storedEnvironment)
+    const [envOpen, setEnvOpen] = useState(false)
+
+    const [result, setResult] = useState<EagleResult | null>(null)
+    const [sendError, setSendError] = useState<string | null>(null)
+    const [sending, setSending] = useState(false)
+    const [poll, setPoll] = useState<PollRun | null>(null)
+    const [shown, setShown] = useState<number | null>(null)
+    const abortRef = useRef<AbortController | null>(null)
+
+    const [nameRequest, setNameRequest] = useState<NameRequest | null>(null)
+    const [moving, setMoving] = useState<EagleItem | null>(null)
+
+    const dirty = Boolean(selected && draft && !sameRequest(draft, saved))
+
+    // ------------------------------------------------------------------
+    // Loading
+    // ------------------------------------------------------------------
+
+    // The feedback functions change every render; effects read the latest.
+    const notifyRef = useRef(notify)
+    useEffect(() => {
+        notifyRef.current = notify
+    })
+
+    const applyEnvironment = useCallback((next: EagleEnvironment) => {
+        setEnvironment(next)
+        setEnvName((current) => {
+            const chosen = current && next.environments.includes(current) ? current : (next.environments[0] ?? null)
+            rememberEnvironment(chosen)
+            return chosen
+        })
+    }, [])
+
+    const loadEnvironment = useCallback(async () => {
+        try {
+            applyEnvironment(await eagleApi.environment())
+        } catch (cause) {
+            notifyRef.current.error(errorText(cause, 'The environment could not be loaded.'))
+        }
+    }, [applyEnvironment])
+
+    useEffect(() => {
+        let active = true
+        eagleApi
+            .listItems()
+            .then((list) => {
+                if (!active) return
+                setItems(list)
+                // Open the folders on the first visit.
+                setExpanded(new Set(list.filter((item) => item.kind === 'folder').map((item) => item.id)))
+            })
+            .catch((cause) => {
+                if (active) setLoadError(errorText(cause, 'Collections could not be loaded.'))
+            })
+            .finally(() => {
+                if (active) setLoading(false)
+            })
+        eagleApi
+            .environment()
+            .then((next) => {
+                if (active) applyEnvironment(next)
+            })
+            .catch((cause) => {
+                if (active) notifyRef.current.error(errorText(cause, 'The environment could not be loaded.'))
+            })
+        return () => {
+            active = false
+        }
+    }, [applyEnvironment])
+
+    useEffect(
+        () => () => {
+            abortRef.current?.abort()
+        },
+        [],
+    )
+
+    useEffect(() => {
+        if (!dirty) return
+        const warn = (event: BeforeUnloadEvent) => {
+            event.preventDefault()
+        }
+        window.addEventListener('beforeunload', warn)
+        return () => window.removeEventListener('beforeunload', warn)
+    }, [dirty])
+
+    const refreshItems = async () => {
+        try {
+            setItems(await eagleApi.listItems())
+        } catch (cause) {
+            notify.error(errorText(cause, 'Collections could not be loaded.'))
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Opening and saving
+    // ------------------------------------------------------------------
+
+    const confirmDiscard = async (): Promise<boolean> => {
+        if (!dirty) return true
+        return modal.confirm({
+            title: 'Discard unsaved changes?',
+            message: `${selected?.name ?? 'The request'} has changes that are not saved.`,
+            confirmText: 'Discard',
+            destructive: true,
+        })
+    }
+
+    const stopSending = () => {
+        abortRef.current?.abort()
+        abortRef.current = null
+    }
+
+    const openItem = async (item: EagleItem, force = false) => {
+        if (item.kind !== 'request') return
+        if (!force && item.id === selected?.id) return
+        if (!force && !(await confirmDiscard())) return
+        setOpening(true)
+        try {
+            const full = await eagleApi.getItem(item.id)
+            const data = full.data ?? defaultRequest()
+            stopSending()
+            setSelected(full)
+            setSaved(data)
+            setDraft(data)
+            setResult(null)
+            setPoll(null)
+            setSendError(null)
+            setShown(null)
+        } catch (cause) {
+            notify.error(errorText(cause, 'The request could not be opened.'))
+        } finally {
+            setOpening(false)
+        }
+    }
+
+    const save = async () => {
+        if (!selected || !draft || writeReason || saving) return
+        setSaving(true)
+        try {
+            const item = await eagleApi.updateItem(selected.id, { data: draft })
+            setSelected(item)
+            setSaved(item.data ?? draft)
+            setDraft(item.data ?? draft)
+            setItems((list) => list.map((entry) => (entry.id === item.id ? { ...entry, method: item.method, updated_at: item.updated_at } : entry)))
+            notify.success(`${item.name} saved.`)
+        } catch (cause) {
+            notify.error(errorText(cause, 'The request was not saved.'))
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const saveRef = useRef(save)
+    useEffect(() => {
+        saveRef.current = save
+    })
+
+    useEffect(() => {
+        const handler = (event: KeyboardEvent) => {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+                event.preventDefault()
+                void saveRef.current()
+            }
+        }
+        window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [])
+
+    // ------------------------------------------------------------------
+    // Tree actions
+    // ------------------------------------------------------------------
+
+    const submitName = async (request: NameRequest, name: string): Promise<boolean> => {
+        try {
+            if (request.kind === 'rename') {
+                const item = await eagleApi.updateItem(request.item.id, { name })
+                setItems((list) => list.map((entry) => (entry.id === item.id ? { ...entry, name: item.name } : entry)))
+                if (selected?.id === item.id) setSelected((current) => (current ? { ...current, name: item.name } : current))
+                return true
+            }
+            if (request.kind === 'new-request' && !(await confirmDiscard())) return false
+            const item = await eagleApi.createItem({
+                kind: request.kind === 'new-folder' ? 'folder' : 'request',
+                name,
+                parent_id: request.parentId,
+                data: request.kind === 'new-request' ? defaultRequest() : undefined,
+            })
+            await refreshItems()
+            if (request.parentId !== null) {
+                const parentId = request.parentId
+                setExpanded((current) => new Set(current).add(parentId))
+            }
+            if (item.kind === 'folder') setExpanded((current) => new Set(current).add(item.id))
+            else await openItem(item, true)
+            return true
+        } catch (cause) {
+            notify.error(errorText(cause, 'The change was not saved.'))
+            return false
+        }
+    }
+
+    const moveItem = async (id: number, parentId: number | null, position?: number) => {
+        try {
+            await eagleApi.moveItem(id, parentId, position)
+            await refreshItems()
+            if (parentId !== null) setExpanded((current) => new Set(current).add(parentId))
+        } catch (cause) {
+            notify.error(errorText(cause, 'The item could not be moved.'))
+        }
+    }
+
+    const onTreeAction = async (action: TreeAction) => {
+        if (action.kind === 'new-folder' || action.kind === 'new-request') {
+            setNameRequest(action)
+        } else if (action.kind === 'rename') {
+            setNameRequest({ kind: 'rename', item: action.item })
+        } else if (action.kind === 'move') {
+            setMoving(action.item)
+        } else if (action.kind === 'duplicate') {
+            try {
+                const copy = await eagleApi.duplicateItem(action.item.id)
+                await refreshItems()
+                notify.success(`${copy.name} created.`)
+            } catch (cause) {
+                notify.error(errorText(cause, 'The item could not be duplicated.'))
+            }
+        } else if (action.kind === 'delete') {
+            const folder = action.item.kind === 'folder'
+            const confirmed = await modal.confirm({
+                title: `Delete ${action.item.name}?`,
+                message: folder ? 'The folder and everything in it are deleted.' : 'The request is deleted.',
+                confirmText: 'Delete',
+                destructive: true,
+            })
+            if (!confirmed) return
+            try {
+                await eagleApi.deleteItem(action.item.id)
+                const list = await eagleApi.listItems()
+                setItems(list)
+                if (selected && !list.some((item) => item.id === selected.id)) {
+                    stopSending()
+                    setSelected(null)
+                    setSaved(null)
+                    setDraft(null)
+                    setResult(null)
+                    setPoll(null)
+                }
+            } catch (cause) {
+                notify.error(errorText(cause, 'The item could not be deleted.'))
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Sending and polling
+    // ------------------------------------------------------------------
+
+    const runPolling = async (request: EagleRequestData, url: string, signal: AbortSignal) => {
+        const { interval, max_attempts: maxAttempts } = request.polling
+        const run: PollRun = { url, attempts: [], finished: null }
+        setPoll({ ...run })
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            await wait(interval * 1000, signal)
+            const response = await eagleApi.send(request, envName, url, signal)
+            run.attempts = [...run.attempts, { attempt, at: new Date(), result: response }]
+            if (response.poll?.done) {
+                run.finished = response.poll.reason ?? 'Stop condition reached.'
+            } else if (attempt === maxAttempts) {
+                run.finished = `Stopped after ${maxAttempts} attempts (${response.poll?.reason ?? 'no stop condition reached'}).`
+            }
+            setPoll({ ...run })
+            setShown(attempt)
+            if (run.finished) return
+        }
+    }
+
+    const send = async () => {
+        if (!draft || sendReason) return
+        stopSending()
+        const controller = new AbortController()
+        abortRef.current = controller
+        const request = draft
+        setSending(true)
+        setSendError(null)
+        setResult(null)
+        setPoll(null)
+        setShown(null)
+        try {
+            const response = await eagleApi.send(request, envName, undefined, controller.signal)
+            setResult(response)
+            if (request.polling.enabled && response.poll) {
+                if (response.poll.url) await runPolling(request, response.poll.url, controller.signal)
+                else setPoll({ url: null, attempts: [], finished: null, error: response.poll.error ?? 'No poll URL found.' })
+            }
+        } catch (cause) {
+            if (isAbort(cause)) {
+                setPoll((current) => (current && !current.finished && !current.error ? { ...current, finished: 'Stopped by you.' } : current))
+            } else {
+                setSendError(errorText(cause, 'The request could not be sent.'))
+            }
+        } finally {
+            if (abortRef.current === controller) abortRef.current = null
+            setSending(false)
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
+
+    const namespace = environment?.namespace ?? ''
+    const suggestions = useMemo(() => {
+        const values: string[] = []
+        const files: string[] = []
+        for (const entry of environment?.entries ?? []) {
+            const target = entry.type === 'file' ? files : values
+            target.push(vaultRef(namespace, entry.key, entry.type === 'file'))
+            const match = /^([A-Z0-9]+)_(.+)$/.exec(entry.key)
+            if (match && environment?.environments.includes(match[1])) {
+                const generic = vaultRef(namespace, `{{ENV}}_${match[2]}`, entry.type === 'file')
+                if (!target.includes(generic)) target.push(generic)
+            }
+        }
+        return { values, files }
+    }, [environment, namespace])
+
+    const absolute = /^[a-z][a-z0-9+.-]*:\/\//i.test(draft?.url.trim() ?? '')
+    const urlHint = !draft
+        ? null
+        : absolute
+          ? 'Full URL: the environment base URL is not used.'
+          : envName
+            ? `Sent to ${envName}_URL + ${draft.url.trim() || '/'}`
+            : 'Choose an environment (or type a full URL starting with https://).'
+
+    const path = selected ? itemPath(items, selected.parent_id) : ''
+    const readOnly = Boolean(writeReason)
+
+    return (
+        <div className="eagle-app">
+            <datalist id={VALUE_SUGGESTIONS}>
+                {suggestions.values.map((value) => (
+                    <option key={value} value={value} />
+                ))}
+            </datalist>
+            <datalist id={FILE_SUGGESTIONS}>
+                {suggestions.files.map((value) => (
+                    <option key={value} value={value} />
+                ))}
+            </datalist>
+
+            <div className="eagle-topbar">
+                <label className="eagle-env-select">
+                    <Globe size={15} aria-hidden="true" />
+                    <span className="eagle-sr">Environment</span>
+                    <select
+                        value={envName ?? ''}
+                        onChange={(event) => {
+                            const next = event.target.value || null
+                            setEnvName(next)
+                            rememberEnvironment(next)
+                        }}
+                        aria-label="Environment"
+                    >
+                        <option value="">No environment</option>
+                        {(environment?.environments ?? []).map((name) => (
+                            <option key={name} value={name}>
+                                {name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setEnvOpen(true)}>
+                    Environment…
+                </button>
+                <span className="eagle-topbar-ns" title="The vault namespace that holds this project's EagleAPI values">
+                    <Lock size={13} aria-hidden="true" /> {namespace || '…'}
+                </span>
+                {(writeReason || sendReason) && (
+                    <span className="eagle-topbar-readonly" title={[writeReason, sendReason].filter(Boolean).join(' ')}>
+                        {writeReason ? 'Read only' : 'Cannot send'}
+                    </span>
+                )}
+            </div>
+
+            <div className="eagle-layout">
+                <aside className="eagle-sidebar" aria-label="Collections">
+                    <div className="eagle-sidebar-head">
+                        <h3>Collections</h3>
+                        <div className="eagle-inline-actions">
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
+                                aria-label="New folder"
+                                title={writeReason ?? 'New folder (top level)'}
+                                disabled={readOnly}
+                                onClick={() => setNameRequest({ kind: 'new-folder', parentId: null })}
+                            >
+                                <FolderPlus size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
+                                aria-label="New request"
+                                title={writeReason ?? 'New request (top level)'}
+                                disabled={readOnly}
+                                onClick={() => setNameRequest({ kind: 'new-request', parentId: null })}
+                            >
+                                <FilePlus size={16} />
+                            </button>
+                        </div>
+                    </div>
+                    {loading ? (
+                        <p className="eagle-muted eagle-pad" role="status">
+                            <LoaderCircle size={14} className="entropy-spin" aria-hidden="true" /> Loading…
+                        </p>
+                    ) : loadError ? (
+                        <div className="entropy-alert entropy-alert-error" role="alert">
+                            <AlertCircle size={16} />
+                            <span>{loadError}</span>
+                        </div>
+                    ) : (
+                        <CollectionTree
+                            items={items}
+                            selectedId={selected?.id ?? null}
+                            dirtyId={dirty ? (selected?.id ?? null) : null}
+                            expanded={expanded}
+                            onToggle={(id) =>
+                                setExpanded((current) => {
+                                    const next = new Set(current)
+                                    if (next.has(id)) next.delete(id)
+                                    else next.add(id)
+                                    return next
+                                })
+                            }
+                            onSelect={(item) => void openItem(item)}
+                            onAction={(action) => void onTreeAction(action)}
+                            onMove={(id, parentId, position) => void moveItem(id, parentId, position)}
+                            readOnlyReason={writeReason}
+                        />
+                    )}
+                </aside>
+
+                <section className="eagle-main" aria-label="Request">
+                    {!selected || !draft ? (
+                        <div className="eagle-blank">
+                            {opening ? <LoaderCircle size={22} className="entropy-spin" aria-hidden="true" /> : <Bird size={28} aria-hidden="true" />}
+                            <strong>{opening ? 'Opening…' : 'Pick a request'}</strong>
+                            <p>Choose a request in the collections, or create one. Values such as base URLs and secrets go in the environment.</p>
+                            {!readOnly && (
+                                <button
+                                    type="button"
+                                    className="entropy-button entropy-button-primary entropy-button-sm"
+                                    onClick={() => setNameRequest({ kind: 'new-request', parentId: null })}
+                                >
+                                    <FilePlus size={14} /> New request
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            <div className="eagle-request-head">
+                                <div className="eagle-request-title">
+                                    {path && <span className="eagle-muted">{path} /</span>}
+                                    <strong>{selected.name}</strong>
+                                    {dirty && <span className="eagle-unsaved">Unsaved</span>}
+                                </div>
+                                <button
+                                    type="button"
+                                    className="entropy-button entropy-button-secondary entropy-button-sm"
+                                    onClick={() => void save()}
+                                    disabled={!dirty || saving || readOnly}
+                                    title={writeReason ?? 'Save (Ctrl+S)'}
+                                >
+                                    {saving ? <LoaderCircle size={14} className="entropy-spin" /> : <Save size={14} />} Save
+                                </button>
+                            </div>
+
+                            <form
+                                className="eagle-urlbar"
+                                onSubmit={(event) => {
+                                    event.preventDefault()
+                                    void send()
+                                }}
+                            >
+                                <select
+                                    className={`eagle-method-select eagle-method-${draft.method.toLowerCase()}`}
+                                    value={draft.method}
+                                    aria-label="Method"
+                                    disabled={readOnly}
+                                    onChange={(event) => setDraft({ ...draft, method: event.target.value })}
+                                >
+                                    {METHODS.map((method) => (
+                                        <option key={method}>{method}</option>
+                                    ))}
+                                </select>
+                                <input
+                                    className="eagle-url-input"
+                                    value={draft.url}
+                                    placeholder="/context/uri  or  https://host/path"
+                                    aria-label="URL or path"
+                                    spellCheck={false}
+                                    autoComplete="off"
+                                    readOnly={readOnly}
+                                    list={VALUE_SUGGESTIONS}
+                                    onChange={(event) => setDraft({ ...draft, url: event.target.value })}
+                                />
+                                {sending ? (
+                                    <button type="button" className="entropy-button entropy-button-danger eagle-send" onClick={stopSending}>
+                                        <Square size={14} /> Stop
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="submit"
+                                        className="entropy-button entropy-button-primary eagle-send"
+                                        disabled={Boolean(sendReason)}
+                                        title={sendReason ?? 'Send the request'}
+                                    >
+                                        <Send size={14} /> Send
+                                    </button>
+                                )}
+                            </form>
+                            {urlHint && <p className={`eagle-url-hint${!absolute && !envName ? ' eagle-warn-text' : ''}`}>{urlHint}</p>}
+
+                            <RequestEditor draft={draft} onChange={setDraft} readOnly={readOnly} />
+
+                            {sendError && (
+                                <div className="entropy-alert entropy-alert-error" role="alert">
+                                    <AlertCircle size={16} />
+                                    <span>{sendError}</span>
+                                </div>
+                            )}
+                            <ResponseViewer
+                                result={result}
+                                sending={sending}
+                                poll={poll}
+                                onStopPolling={stopSending}
+                                shown={shown}
+                                onShow={setShown}
+                            />
+                        </>
+                    )}
+                </section>
+            </div>
+
+            {envOpen && (
+                <EnvironmentDialog
+                    environment={environment}
+                    selected={envName}
+                    readOnlyReason={writeReason}
+                    onChanged={loadEnvironment}
+                    onClose={() => setEnvOpen(false)}
+                />
+            )}
+            {nameRequest && (
+                <NameDialog
+                    title={
+                        nameRequest.kind === 'rename'
+                            ? `Rename ${nameRequest.item.name}`
+                            : nameRequest.kind === 'new-folder'
+                              ? 'New folder'
+                              : 'New request'
+                    }
+                    subtitle={
+                        nameRequest.kind !== 'rename' && nameRequest.parentId !== null
+                            ? `In ${itemPath(items, nameRequest.parentId)}`
+                            : undefined
+                    }
+                    initial={nameRequest.kind === 'rename' ? nameRequest.item.name : ''}
+                    confirmText={nameRequest.kind === 'rename' ? 'Rename' : 'Create'}
+                    onSubmit={(name) => submitName(nameRequest, name)}
+                    onClose={() => setNameRequest(null)}
+                />
+            )}
+            {moving && (
+                <MoveDialog
+                    item={moving}
+                    items={items}
+                    onClose={() => setMoving(null)}
+                    onSubmit={(parentId) => {
+                        setMoving(null)
+                        void moveItem(moving.id, parentId)
+                    }}
+                />
+            )}
+        </div>
+    )
+}

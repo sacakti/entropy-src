@@ -138,7 +138,10 @@ export default function Tools({
                                 {TOOLS.length}
                             </span>
                         </h2>
-                        <p>Utilities that run in your browser. Files and text you use here are never uploaded.</p>
+                        <p>
+                            Everyday utilities. The compare tools run in your browser and never upload what you
+                            compare; EagleAPI sends requests from the Entropy server.
+                        </p>
                     </div>
                 </div>
 
