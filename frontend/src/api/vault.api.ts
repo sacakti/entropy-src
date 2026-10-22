@@ -1,4 +1,5 @@
-import { apiRequest } from "../services/api"
+import { apiRequest, PROJECT_HEADER } from "../services/api"
+import { currentProject } from "../services/project"
 
 export type VaultVisibility = "private" | "shared"
 
@@ -9,6 +10,8 @@ export type VaultValueType =
     | "array"
     | "object"
     | "json"
+    // A file (certificate, keystore, key ...); uploaded and downloaded, not typed.
+    | "file"
 
 export type VaultAccess = "read" | "write" | "admin"
 
@@ -23,6 +26,12 @@ export interface VaultNamespace {
     updated_at: string | null
 }
 
+export interface VaultFileInfo {
+    filename: string
+    content_type: string
+    size: number
+}
+
 export interface VaultEntry {
     id: number
     key: string
@@ -30,6 +39,8 @@ export interface VaultEntry {
     sensitive: boolean
     created_at: string | null
     updated_at: string | null
+    /** For file entries: the file's name, type and size (never its content). */
+    file?: VaultFileInfo
 }
 
 export interface VaultEntryWithValue extends VaultEntry {
@@ -287,5 +298,48 @@ export const vaultApi = {
         return apiRequest<{ items: VaultUserSuggestion[] }>(
             `${BASE_URL}/users?${new URLSearchParams({ q: query }).toString()}`,
         )
+    },
+
+    /** Keep a file in the vault; `replace` overwrites the file under `key`. */
+    uploadFile(
+        namespaceName: string,
+        key: string,
+        file: File,
+        sensitive: boolean,
+        replace: boolean,
+    ): Promise<VaultEntryResponse> {
+        const body = new FormData()
+        body.append("key", key)
+        body.append("file", file)
+        body.append("sensitive", String(sensitive))
+        body.append("replace", String(replace))
+        return apiRequest<VaultEntryResponse>(
+            `${BASE_URL}/namespaces/${encodeURIComponent(namespaceName)}/files`,
+            { method: "POST", body },
+        )
+    },
+
+    /** Download a file entry under its original name. */
+    async downloadFile(namespaceName: string, key: string, filename: string): Promise<void> {
+        const project = currentProject()
+        const response = await fetch(
+            `${BASE_URL}/namespaces/${encodeURIComponent(namespaceName)}/entries/${encodeURIComponent(key)}/download`,
+            {
+                credentials: "same-origin",
+                cache: "no-store",
+                headers: project ? { [PROJECT_HEADER]: project } : {},
+            },
+        )
+        if (!response.ok) {
+            const data = await response.json().catch(() => null)
+            throw new Error(data?.detail ?? "Unable to download the file.")
+        }
+        const link = document.createElement("a")
+        link.href = URL.createObjectURL(await response.blob())
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        setTimeout(() => URL.revokeObjectURL(link.href), 10_000)
     },
 }

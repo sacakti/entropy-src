@@ -21,6 +21,8 @@ class VaultValueType(str, Enum):
     ARRAY = "array"
     OBJECT = "object"
     JSON = "json"
+    # A file (certificate, keystore, key, ...): see lib/vault/files.py.
+    FILE = "file"
 
 
 @dataclass

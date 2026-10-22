@@ -441,6 +441,42 @@ class WorkflowVariableResolver:
     # Reference
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _vault_value(
+        value: Any,
+        name: str,
+        as_file: bool,
+    ) -> Any:
+        """
+        A vault value as a step sees it. Files are text (base64 when binary)
+        with ${entv:...}, or a path to a private copy with ${entvfile:...}.
+        """
+
+        from lib.vault import files
+
+        is_file = isinstance(value, dict) and set(value) == set(files.FIELDS)
+
+        if as_file:
+
+            if not is_file:
+
+                raise VariableNotFoundError(
+                    f"Entropy Vault entry '{name}' is not a file; use ${{entv:{name}}}.",
+                )
+
+            return files.materialize(
+                value,
+                name.replace("/", "-"),
+            )
+
+        if is_file:
+
+            return files.as_text(
+                value,
+            )
+
+        return value
+
     def _resolve_reference(
         self,
         reference: str,
@@ -454,9 +490,12 @@ class WorkflowVariableResolver:
 
         reference = reference.strip()
 
-        if reference.startswith("entv:"):
+        # ${entvfile:namespace/key}: a vault file, as the path to a private copy.
+        as_file = reference.startswith("entvfile:")
 
-            target = reference[5:].strip()
+        if reference.startswith("entv:") or as_file:
+
+            target = reference[len("entvfile:" if as_file else "entv:") :].strip()
 
             if not target:
 
@@ -521,7 +560,7 @@ class WorkflowVariableResolver:
                         self._user_id,
                     )
 
-                return self._vault.resolve(
+                value = self._vault.resolve(
                     namespace,
                     key,
                     self._user_id,
@@ -532,6 +571,12 @@ class WorkflowVariableResolver:
                 raise VariableNotFoundError(
                     f"Entropy Vault entry " f"'{namespace}/{key}' could not be resolved.",
                 ) from exc
+
+            return self._vault_value(
+                value,
+                f"{namespace}/{key}",
+                as_file,
+            )
 
         path = self._parse_path(
             reference,

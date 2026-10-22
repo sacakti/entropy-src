@@ -41,6 +41,8 @@ import {
 
     FileJson,
 
+    FileKey2,
+
     Download,
 
     Upload,
@@ -70,6 +72,7 @@ import type {
 } from '../../api/vault.api'
 
 import UserSuggestInput from './UserSuggestInput'
+import VaultFileDialog from './VaultFileDialog'
 import { VaultExportDialog, VaultImportDialog } from '../transfer/TransferDialogs'
 import { missingPermission } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
@@ -192,6 +195,12 @@ function previewValue(value: string, maxLength = 72): string {
 
 
 
+function fileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function isStructuredType(type: VaultValueType): boolean {
 
     return type === 'array' || type === 'object' || type === 'json'
@@ -213,6 +222,9 @@ export default function Vault() {
     const [selectedNamespace, setSelectedNamespace] = useState('')
 
     const [portable, setPortable] = useState<'export' | 'import' | null>(null)
+
+    // Upload a new file entry ('') or replace the file of an entry (its key).
+    const [fileDialog, setFileDialog] = useState<string | null>(null)
 
     const [entries, setEntries] = useState<VaultEntry[]>([])
 
@@ -970,6 +982,14 @@ export default function Vault() {
 
 
 
+    async function downloadVaultFile(key: string, filename: string) {
+        try {
+            await vaultApi.downloadFile(selectedNamespace, key, filename)
+        } catch (error) {
+            notify.error(error instanceof Error ? error.message : 'Unable to download the file.')
+        }
+    }
+
     async function revealEntry(key: string) {
 
         if (!selectedNamespace) {
@@ -1622,6 +1642,36 @@ export default function Vault() {
 
                                         role="menuitem"
 
+                                        disabled={!selectedNamespace || !canWriteEntries}
+
+                                        onClick={() => {
+
+                                            setCreateMenuOpen(false)
+
+                                            setFileDialog('')
+
+                                        }}
+
+                                    >
+
+                                        <FileKey2 size={16} />
+
+                                        <span>
+
+                                            <strong>Upload a file</strong>
+
+                                            <small>Certificate, keystore, key or any file</small>
+
+                                        </span>
+
+                                    </button>
+
+                                    <button
+
+                                        type="button"
+
+                                        role="menuitem"
+
                                         disabled={!permissions?.has('vault.namespace.create')}
 
                                         onClick={openNamespaceModal}
@@ -1923,7 +1973,7 @@ export default function Vault() {
                                                     >
                                                         <td>
                                                             <div className="vault-key-cell">
-                                                                <KeyRound size={15} />
+                                                                {entry.type === 'file' ? <FileKey2 size={15} /> : <KeyRound size={15} />}
                                                                 <span>{entry.key}</span>
                                                             </div>
                                                         </td>
@@ -1948,7 +1998,23 @@ export default function Vault() {
                                                             </span>
                                                         </td>
                                                         <td className="vault-value-cell">
-                                                            {entry.sensitive ? (
+                                                            {entry.type === 'file' ? (
+                                                                <div className="vault-file-value">
+                                                                    <span title={entry.file?.content_type}>
+                                                                        {entry.file?.filename ?? 'file'}
+                                                                        {entry.file && <small>{fileSize(entry.file.size)}</small>}
+                                                                    </span>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                                                                        onClick={() => void downloadVaultFile(entry.key, entry.file?.filename ?? entry.key)}
+                                                                        aria-label={`Download ${entry.key}`}
+                                                                        title="Download file"
+                                                                    >
+                                                                        <Download size={15} />
+                                                                    </button>
+                                                                </div>
+                                                            ) : entry.sensitive ? (
                                                                 <div className="vault-hidden-value">
                                                                     <span>{isRevealed ? previewValue(revealedValue, 48) : '••••••••••••'}</span>
                                                                     <button
@@ -1996,10 +2062,10 @@ export default function Vault() {
                                                                 <button
                                                                     type="button"
                                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                                                                    onClick={() => editEntry(entry)}
+                                                                    onClick={() => (entry.type === 'file' ? setFileDialog(entry.key) : editEntry(entry))}
                                                                     disabled={busy || !canWriteEntries}
                                                                     aria-label={`Edit ${entry.key}`}
-                                                                    title="Edit secret"
+                                                                    title={entry.type === 'file' ? 'Replace file' : 'Edit secret'}
                                                                 >
                                                                     <Pencil size={15} />
                                                                 </button>
@@ -2984,6 +3050,14 @@ export default function Vault() {
 
             )}
 
+            {fileDialog !== null && selectedNamespace && (
+                <VaultFileDialog
+                    namespace={selectedNamespace}
+                    replaceKey={fileDialog || undefined}
+                    onClose={() => setFileDialog(null)}
+                    onSaved={() => void refreshEntries(selectedNamespace)}
+                />
+            )}
             {portable === 'import' && (
 
                 <VaultImportDialog onClose={() => setPortable(null)} onDone={() => void refreshNamespaces()} />

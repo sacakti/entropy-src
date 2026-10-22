@@ -915,3 +915,123 @@
   color: var(--app-subtle);
   font-size: 11px;
 }
+
+/* ----------------------------------------------------------
+   Files in the vault (VaultFileDialog.tsx, file entries)
+   ---------------------------------------------------------- */
+
+.entropy-app .vault-file-dialog {
+    width: min(560px, calc(100vw - 32px));
+}
+
+.entropy-app .vault-file-form {
+    display: grid;
+    gap: 14px;
+}
+
+.entropy-app .vault-file-drop {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    color: var(--app-text);
+    background: var(--app-bg);
+    border: 1px dashed var(--app-line);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.entropy-app .vault-file-drop:hover,
+.entropy-app .vault-file-drop:focus-within {
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .vault-file-drop > svg {
+    flex: none;
+    color: var(--app-muted);
+}
+
+.entropy-app .vault-file-drop span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.entropy-app .vault-file-drop strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .vault-file-drop small {
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .vault-file-drop input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.entropy-app .vault-file-form .vault-form-field {
+    display: grid;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.entropy-app .vault-file-form .vault-form-field input {
+    min-height: 40px;
+    padding: 0 12px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    font: inherit;
+    font-weight: 400;
+}
+
+.entropy-app .vault-file-error {
+    color: var(--app-danger-text);
+    font-weight: 400;
+}
+
+.entropy-app .vault-file-check {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.entropy-app .vault-file-check input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .vault-file-value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.entropy-app .vault-file-value > span {
+    display: grid;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .vault-file-value small {
+    color: var(--app-muted);
+    font-size: 11.5px;
+}

@@ -196,6 +196,16 @@ def _entry_metadata(entry: Any) -> dict[str, Any]:
     }
 
 
+def _entry_payload(vault_manager: Any, namespace_id: int, entry: Any) -> dict[str, Any]:
+    """Metadata, plus a file's name, type and size (never its content)."""
+    payload = _entry_metadata(entry)
+    if entry.type is VaultValueType.FILE:
+        from lib.vault.files import metadata
+
+        payload["file"] = metadata(vault_manager.get(namespace_id, entry.key))
+    return payload
+
+
 def _users_by_id(request: Request) -> dict[int, User]:
     """Every user keyed by id, for labelling assignments."""
     user_manager = getattr(request.app.state.entropy_context, "user_manager", None)
@@ -567,7 +577,7 @@ def list_entries(
 
     return {
         "items": [
-            _entry_metadata(entry)
+            _entry_payload(vault_manager, namespace.id, entry)
             for entry in entries
         ]
     }
@@ -733,9 +743,15 @@ def reveal_entry(
 
     response.headers["Cache-Control"] = "no-store"
 
+    if entry.type is VaultValueType.FILE:
+        # Files are downloaded, not shown: the value is the file's details.
+        from lib.vault.files import metadata
+
+        value = metadata(value)
+
     return {
         "entry": {
-            **_entry_metadata(entry),
+            **_entry_payload(vault_manager, namespace.id, entry),
             "value": value,
         }
     }
@@ -1145,3 +1161,97 @@ async def import_vault(
         "exported_by": payload.get("exported_by"),
         "exported_at": payload.get("exported_at"),
     }
+
+
+# ---------------------------------------------------------------------
+# Files (certificates, keystores, keys, ...)
+# ---------------------------------------------------------------------
+
+
+@router.post("/namespaces/{namespace_name}/files", status_code=201)
+async def upload_file(
+    namespace_name: str,
+    request: Request,
+    response: Response,
+    key: str = Form(..., min_length=1, max_length=255),
+    file: UploadFile = File(...),
+    sensitive: bool = Form(True),
+    replace: bool = Form(False),
+    record: SessionRecord = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Keep a file in the vault (or replace the one under `key`)."""
+
+    from lib.vault.files import MAX_FILE_BYTES, VaultFileError, make_value
+
+    _, _, user = record
+    vault_manager, namespace_manager = _vault_components(request)
+    content = await file.read(MAX_FILE_BYTES + 1)
+    try:
+        value = make_value(file.filename or key, content, file.content_type)
+    except VaultFileError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from None
+
+    try:
+        namespace = _get_namespace(request, namespace_manager, namespace_name)
+        exists = vault_manager.exists(namespace.id, key)
+        if exists and not replace:
+            raise VaultEntryExistsError(f"Vault entry '{key}' already exists.")
+        _require_namespace_access(
+            request,
+            namespace_manager,
+            namespace,
+            user,
+            VaultAccess.WRITE,
+            "vault.modify" if exists else "vault.add",
+        )
+        store = vault_manager.update if exists else vault_manager.add
+        entry = store(
+            namespace_id=namespace.id,
+            key=key,
+            value=value,
+            value_type=VaultValueType.FILE,
+            sensitive=sensitive,
+        )
+    except VaultError as exc:
+        _raise_http_error(exc)
+
+    response.headers["Cache-Control"] = "no-store"
+    return {"entry": _entry_payload(vault_manager, namespace.id, entry)}
+
+
+@router.get("/namespaces/{namespace_name}/entries/{key}/download")
+def download_file(
+    namespace_name: str,
+    key: str,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Response:
+    """The file kept under `key`, as it was uploaded."""
+
+    from lib.vault.files import content, safe_filename
+
+    _, _, user = record
+    vault_manager, namespace_manager = _vault_components(request)
+    try:
+        namespace = _get_namespace(request, namespace_manager, namespace_name)
+        _require_namespace_access(
+            request, namespace_manager, namespace, user, VaultAccess.READ, "vault.read"
+        )
+        entry = vault_manager.get_entry(namespace.id, key)
+        if entry.type is not VaultValueType.FILE:
+            raise HTTPException(status_code=422, detail=f"'{key}' is not a file.")
+        value = vault_manager.get(namespace.id, key)
+    except VaultError as exc:
+        _raise_http_error(exc)
+
+    filename = safe_filename(value["filename"]).replace('"', "")
+    return Response(
+        content=content(value),
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

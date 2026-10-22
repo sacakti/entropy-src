@@ -193,4 +193,15 @@ class VaultSerializer:
 
             return
 
+        if value_type is VaultValueType.FILE:
+            from .files import VaultFileError, validate
+
+            try:
+                validate(
+                    value,
+                )
+            except VaultFileError as exc:
+                raise VaultSerializationError(str(exc)) from exc
+            return
+
         raise VaultSerializationError(f"Unsupported Vault value type: {value_type!r}")
