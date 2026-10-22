@@ -4,6 +4,13 @@ export const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTION
 
 export const ENV_STORAGE_KEY = 'entropy.eagleapi.environment'
 
+const READ_ONLY_COLLECTION = 'You have read-only access to this collection.'
+
+/** Why the item cannot be changed, if it cannot. */
+export function itemReadOnlyReason(item: EagleItem, projectReason: string | null): string | null {
+    return projectReason ?? (item.access === 'read' ? READ_ONLY_COLLECTION : null)
+}
+
 export function emptyRow(): EagleRow {
     return { key: '', value: '', enabled: true }
 }

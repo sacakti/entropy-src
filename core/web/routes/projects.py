@@ -127,13 +127,38 @@ def delete_project(
 ) -> Dict[str, Any]:
     _, _, user = record
     require(request, user, "projects.manage")
+    project = projects(request).get(key)
+    tools = _tool_data(request)
+    if project is not None:
+        count = tools[0].count(project["id"])
+        if count:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Project '{key}' still has {count} EagleAPI folder(s) and request(s);"
+                " export and delete them first.",
+            )
     try:
         projects(request).delete(key)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
+    # Tool data belongs to the project too (project ids are never reused).
+    if project is not None:
+        for store in tools:
+            store.delete_project(project["id"])
     return {"deleted": True}
+
+
+def _tool_data(request: Request) -> list:
+    """Stores of the Tools gallery that keep data per project (EagleAPI)."""
+
+    from lib.tools.eagleapi.access import EagleAccess
+    from lib.tools.eagleapi.history import EagleHistory
+    from lib.tools.eagleapi.store import EagleStore
+
+    connection = request.app.state.entropy_context.database_manager.connection
+    return [EagleStore(connection), EagleHistory(connection), EagleAccess(connection)]
 
 
 @router.get("/{key}/members")

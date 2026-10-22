@@ -1,4 +1,4 @@
-import { apiRequest } from '../services/api'
+import { apiRequest, downloadFile } from '../services/api'
 
 /** One key/value row (params, headers, form fields). */
 export interface EagleRow {
@@ -100,6 +100,58 @@ export interface EagleItem {
     updated_at: string
     /** Present when fetched one by one (requests). */
     data?: EagleRequestData
+    /** Your access to the item's collection; "manage" also changes who may use it. */
+    access: 'read' | 'write' | 'manage'
+    /** Top-level items: only some project members may use it. */
+    restricted?: boolean
+}
+
+export interface EagleAccessEntry {
+    kind: 'user' | 'group'
+    name: string
+    full_name?: string | null
+    level: 'read' | 'write'
+}
+
+export interface EagleAccessInfo {
+    restricted: boolean
+    owner: string | null
+    entries: EagleAccessEntry[]
+    can_manage: boolean
+    candidates: { users: { name: string; full_name?: string | null }[]; groups: { name: string }[] }
+}
+
+export interface EagleHistorySummary {
+    id: number
+    item_id: number | null
+    item_name: string | null
+    environment: string | null
+    method: string
+    url: string
+    status: number | null
+    error: string | null
+    elapsed_ms: number
+    poll: boolean
+    created_at: string
+}
+
+export interface EagleHistoryEntry extends EagleHistorySummary {
+    definition: EagleRequestData | null
+    result: EagleResult | null
+}
+
+export type ExportFormat = 'eagleapi' | 'postman' | 'soapui'
+
+export interface ImportSummary {
+    format: 'eagleapi' | 'postman' | 'soapui' | 'insomnia'
+    name: string
+    collections: string[]
+    folders: number
+    requests: number
+    warnings: string[]
+    tls_profiles: number
+    created?: number[]
+    added_profiles?: string[]
 }
 
 export interface EagleEnvEntry {
@@ -145,6 +197,8 @@ export interface EagleResult {
     poll?: { url?: string; error?: string; done?: boolean; reason?: string; value?: unknown }
     /** Where the TLS settings came from: "request", "profile <name>", "default <name>" or "none". */
     tls_source?: string
+    /** The history entry of this call, when it was recorded. */
+    history_id?: number
 }
 
 const BASE = '/api/eagleapi'
@@ -216,9 +270,56 @@ export const eagleApi = {
             json('POST', { name, base_url: baseUrl, sensitive }),
         ),
 
-    send: (request: EagleRequestData, environment: string | null, pollUrl?: string, signal?: AbortSignal) =>
+    send: (
+        request: EagleRequestData,
+        environment: string | null,
+        options: { pollUrl?: string; itemId?: number | null; record?: boolean; signal?: AbortSignal } = {},
+    ) =>
         apiRequest<EagleResult>(`${BASE}/send`, {
-            ...json('POST', { request, environment, poll_url: pollUrl ?? null }),
-            signal,
+            ...json('POST', {
+                request,
+                environment,
+                poll_url: options.pollUrl ?? null,
+                item_id: options.itemId ?? null,
+                record_history: options.record ?? true,
+            }),
+            signal: options.signal,
         }),
+
+    access: (id: number) => apiRequest<EagleAccessInfo>(`${BASE}/items/${id}/access`),
+
+    setAccess: (id: number, restricted: boolean, entries: EagleAccessEntry[]) =>
+        apiRequest<EagleAccessInfo>(
+            `${BASE}/items/${id}/access`,
+            json('PUT', { restricted, entries: entries.map(({ kind, name, level }) => ({ kind, name, level })) }),
+        ),
+
+    history: (query = '', limit = 200) =>
+        apiRequest<{ entries: EagleHistorySummary[]; total: number }>(
+            `${BASE}/history?limit=${limit}&q=${encodeURIComponent(query)}`,
+        ),
+
+    historyEntry: (id: number) => apiRequest<{ entry: EagleHistoryEntry }>(`${BASE}/history/${id}`).then((r) => r.entry),
+
+    purgeHistory: (ids: number[] | null) =>
+        apiRequest<{ deleted: number }>(`${BASE}/history/purge`, json('POST', { ids })),
+
+    exportHistory: (ids: number[] | null, format: 'json' | 'har') =>
+        downloadFile(
+            `${BASE}/history/export`,
+            { ids, format },
+            `eagleapi-history-${new Date().toISOString().slice(0, 10)}.${format === 'har' ? 'har' : 'json'}`,
+        ),
+
+    exportCollections: (ids: number[], format: ExportFormat, preserve: boolean, filename: string) =>
+        downloadFile(`${BASE}/export`, { ids, format, preserve }, filename),
+
+    importCollections: (file: File, options: { parentId: number | null; preserve: boolean; preview: boolean }) => {
+        const form = new FormData()
+        form.append('file', file)
+        if (options.parentId !== null) form.append('parent_id', String(options.parentId))
+        form.append('preserve', String(options.preserve))
+        form.append('preview', String(options.preview))
+        return apiRequest<ImportSummary>(`${BASE}/import`, { method: 'POST', body: form })
+    },
 }

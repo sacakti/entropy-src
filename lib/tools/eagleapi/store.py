@@ -535,3 +535,101 @@ class EagleStore:
             self.connection.execute(
                 "DELETE FROM eagleapi_items WHERE project_id = ?", (project_id,)
             )
+            self.connection.execute(
+                "DELETE FROM eagleapi_settings WHERE project_id = ?", (project_id,)
+            )
+
+    def count(self, project_id: int) -> int:
+        return int(
+            self.connection.fetchone(
+                "SELECT COUNT(*) AS n FROM eagleapi_items WHERE project_id = ?", (project_id,)
+            )["n"]
+        )
+
+    # -- collections ---------------------------------------------------
+
+    def roots(self, project_id: int) -> Dict[int, Dict[str, Any]]:
+        """Every item's collection: the top-level item it is in (itself at the top)."""
+
+        rows = {
+            int(row["id"]): row
+            for row in self.connection.fetchall(
+                "SELECT id, parent_id, kind, name, created_by FROM eagleapi_items"
+                " WHERE project_id = ?",
+                (project_id,),
+            )
+        }
+        found: Dict[int, Dict[str, Any]] = {}
+        for item_id in rows:
+            current, seen = item_id, set()
+            while rows[current]["parent_id"] is not None and current not in seen:
+                seen.add(current)
+                parent = int(rows[current]["parent_id"])
+                if parent not in rows:
+                    break
+                current = parent
+            top = rows[current]
+            found[item_id] = {
+                "id": current,
+                "kind": top["kind"],
+                "name": top["name"],
+                "created_by": top["created_by"],
+            }
+        return found
+
+    def tree(self, project_id: int, ids: List[int]) -> List[Dict[str, Any]]:
+        """Items with everything below them, as exchange nodes (see formats)."""
+
+        def node(row: Any) -> Dict[str, Any]:
+            if row["kind"] == "folder":
+                return {
+                    "kind": "folder",
+                    "name": row["name"],
+                    "children": [
+                        node(child) for child in self._children(project_id, int(row["id"]))
+                    ],
+                }
+            try:
+                data = normalize_request(json.loads(row["data"] or "{}"))
+            except ValueError:
+                data = default_request()
+            return {"kind": "request", "name": row["name"], "data": data}
+
+        return [node(self._row(project_id, item_id)) for item_id in ids]
+
+    def free_name(self, project_id: int, parent_id: Optional[int], name: str) -> str:
+        """`name`, or `name 2`, `name 3`… when a sibling already has it."""
+
+        taken = {str(row["name"]).lower() for row in self._children(project_id, parent_id)}
+        if name.lower() not in taken:
+            return name
+        for number in range(2, 10000):
+            candidate = f"{name[: MAX_NAME - 6]} {number}"
+            if candidate.lower() not in taken:
+                return candidate
+        return name
+
+    def add_tree(
+        self,
+        project_id: int,
+        parent_id: Optional[int],
+        nodes: List[Dict[str, Any]],
+        user: str,
+        remap: Any = None,
+    ) -> List[int]:
+        """Create exchange nodes below `parent_id`; returns the new top items' ids."""
+
+        self._check_parent(project_id, parent_id)
+        created = []
+        for node in nodes:
+            name = self.free_name(project_id, parent_id, _clean_name(node.get("name")))
+            data = node.get("data") if node["kind"] == "request" else None
+            if data is not None and remap is not None:
+                data = remap(data)
+            item = self.create(
+                project_id, kind=node["kind"], name=name, parent_id=parent_id, data=data, user=user
+            )
+            if node["kind"] == "folder":
+                self.add_tree(project_id, item["id"], node.get("children") or [], user, remap)
+            created.append(item["id"])
+        return created

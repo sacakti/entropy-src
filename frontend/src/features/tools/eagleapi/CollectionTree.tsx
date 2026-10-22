@@ -2,19 +2,22 @@ import { useRef, useState, type DragEvent } from 'react'
 import {
     ChevronRight,
     Copy,
+    Download,
     FilePlus,
     Folder,
     FolderInput,
     FolderOpen,
     FolderPlus,
+    Lock,
     MoreHorizontal,
     Pencil,
     Trash2,
+    Users,
 } from 'lucide-react'
 
 import FloatingMenu from '../../../components/layout/FloatingMenu'
 import type { EagleItem } from '../../../api/eagleapi.api'
-import { buildTree, type TreeNode } from './model'
+import { buildTree, itemReadOnlyReason, type TreeNode } from './model'
 
 export type TreeAction =
     | { kind: 'new-folder'; parentId: number | null }
@@ -23,6 +26,9 @@ export type TreeAction =
     | { kind: 'duplicate'; item: EagleItem }
     | { kind: 'move'; item: EagleItem }
     | { kind: 'delete'; item: EagleItem }
+    | { kind: 'access'; item: EagleItem }
+    | { kind: 'export'; item: EagleItem }
+
 
 const DRAG_TYPE = 'application/x-entropy-eagle-item'
 
@@ -37,10 +43,11 @@ function ItemMenu({
 }) {
     const [open, setOpen] = useState(false)
     const triggerRef = useRef<HTMLButtonElement>(null)
-    const pick = (action: TreeAction) => () => {
+    const pick = (action: TreeAction, always = false) => () => {
         setOpen(false)
-        if (!readOnlyReason) onAction(action)
+        if (always || !readOnlyReason) onAction(action)
     }
+    const topLevel = item.parent_id === null
     const disabled = readOnlyReason ? true : undefined
 
     return (
@@ -109,6 +116,14 @@ function ItemMenu({
                 >
                     <FolderInput size={15} /> Move to…
                 </button>
+                <button type="button" role="menuitem" onClick={pick({ kind: 'export', item }, true)}>
+                    <Download size={15} /> Export…
+                </button>
+                {topLevel && (
+                    <button type="button" role="menuitem" onClick={pick({ kind: 'access', item }, true)}>
+                        <Users size={15} /> Access…
+                    </button>
+                )}
                 <button
                     type="button"
                     role="menuitem"
@@ -154,6 +169,8 @@ export default function CollectionTree({
     const [dropTarget, setDropTarget] = useState<string | null>(null)
     const tree = buildTree(items)
     const canDrag = !readOnlyReason
+    const byId = new Map(items.map((item) => [item.id, item]))
+    const writable = (id: number | null) => id === null || byId.get(id)?.access !== 'read'
 
     const dragStart = (event: DragEvent, item: EagleItem) => {
         event.dataTransfer.setData(DRAG_TYPE, String(item.id))
@@ -172,7 +189,7 @@ export default function CollectionTree({
         event.stopPropagation()
         setDropTarget(null)
         const id = Number(event.dataTransfer.getData(DRAG_TYPE))
-        if (id && id !== parentId) onMove(id, parentId, position)
+        if (id && id !== parentId && writable(id) && writable(parentId)) onMove(id, parentId, position)
     }
 
     const renderNode = (node: TreeNode, depth: number) => {
@@ -191,7 +208,7 @@ export default function CollectionTree({
                         .filter(Boolean)
                         .join(' ')}
                     style={{ paddingLeft: 6 + depth * 14 }}
-                    draggable={canDrag}
+                    draggable={canDrag && node.access !== 'read'}
                     onDragStart={(event) => dragStart(event, node)}
                     onDragEnd={() => setDropTarget(null)}
                     onDragOver={(event) => allowDrop(event, target)}
@@ -217,9 +234,12 @@ export default function CollectionTree({
                             </span>
                         )}
                         <span className="eagle-tree-name">{node.name}</span>
+                        {node.restricted && (
+                            <Lock size={12} className="eagle-tree-lock" aria-label="Only some project members can see this" />
+                        )}
                         {node.id === dirtyId && <span className="eagle-dirty-dot" aria-label="Unsaved changes" />}
                     </button>
-                    <ItemMenu item={node} onAction={onAction} readOnlyReason={readOnlyReason} />
+                    <ItemMenu item={node} onAction={onAction} readOnlyReason={itemReadOnlyReason(node, readOnlyReason)} />
                 </div>
                 {isFolder && open && node.children.length > 0 && (
                     <ul role="group">{node.children.map((child) => renderNode(child, depth + 1))}</ul>

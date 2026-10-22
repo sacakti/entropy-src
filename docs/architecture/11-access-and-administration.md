@@ -239,3 +239,26 @@ plugin version, and the Plugins page shows what is new or newer. Nothing is
 installed until someone picks it; an upgrade keeps the previous version in
 the plugin's History. Installed plugins newer than the bundled ones are
 left alone.
+
+# Tools: EagleAPI
+
+EagleAPI (Tools → EagleAPI) keeps everything per project: collections, TLS
+profiles, the environment's vault namespace (`eagleapi-<project key>`) and
+history. A project with EagleAPI collections cannot be deleted until they
+are exported and deleted; its TLS profiles and history go with it.
+
+- **Collection access.** A collection (top-level folder or request) is open
+  to everyone in the project, whose project role decides what they may do.
+  Its owner (who created it) can restrict it under *Access…*: then only the
+  owner, administrators and the project members or groups chosen there see
+  it, with *Can use* (read and send) or *Can change*.
+- **History.** Each person's sent requests and responses are kept for them
+  alone (the newest 500 per project), with secrets masked as on screen.
+  They can turn it off, search it, delete chosen entries or all of it, and
+  export it as EagleAPI JSON or HAR 1.2.
+- **Export and import.** Collections export as EagleAPI, Postman v2.1 or
+  SoapUI projects, and import from those and Insomnia v4. *Preserve
+  settings* keeps auth, TLS, polling and options (and, in EagleAPI's own
+  format, the TLS profiles). Vault values never leave the vault: references
+  become the other tool's variables (`{{KEY}}`, `${#Project#KEY}`) and back,
+  and paths use a `baseUrl` variable for the environment's base URL.

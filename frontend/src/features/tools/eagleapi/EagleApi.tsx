@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     AlertCircle,
     Bird,
+    Download,
     FilePlus,
     FolderPlus,
     Globe,
+    History,
     LoaderCircle,
     Lock,
     Save,
     Send,
     ShieldCheck,
     Square,
+    Upload,
 } from 'lucide-react'
 
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
@@ -20,24 +23,38 @@ import { currentProject } from '../../../services/project'
 import {
     eagleApi,
     type EagleEnvironment,
+    type EagleHistoryEntry,
     type EagleItem,
     type EagleRequestData,
     type EagleResult,
     type EagleSettings,
 } from '../../../api/eagleapi.api'
+import AccessDialog from './AccessDialog'
 import CollectionTree, { type TreeAction } from './CollectionTree'
 import EnvironmentDialog from './EnvironmentDialog'
+import { ExportDialog, ImportDialog } from './ExchangeDialogs'
+import HistoryPanel from './HistoryPanel'
 import { MoveDialog, NameDialog } from './ItemDialogs'
 import RequestEditor from './RequestEditor'
 import ResponseViewer, { type PollRun } from './ResponseViewer'
 import { FILE_SUGGESTIONS, VALUE_SUGGESTIONS } from './TlsFields'
 import TlsSettingsDialog from './TlsSettingsDialog'
-import { defaultRequest, ENV_STORAGE_KEY, itemPath, METHODS, sameRequest, vaultRef } from './model'
+import { defaultRequest, ENV_STORAGE_KEY, itemPath, itemReadOnlyReason, METHODS, sameRequest, vaultRef } from './model'
 import '../../../styles/eagleapi.css'
 
 type NameRequest =
-    | { kind: 'new-folder' | 'new-request'; parentId: number | null }
+    | { kind: 'new-folder' | 'new-request'; parentId: number | null; data?: EagleRequestData; name?: string }
     | { kind: 'rename'; item: EagleItem }
+
+const RECORD_KEY = 'entropy.eagleapi.history.record'
+
+function storedRecord(): boolean {
+    try {
+        return window.localStorage.getItem(RECORD_KEY) !== 'off'
+    } catch {
+        return true
+    }
+}
 
 function errorText(cause: unknown, fallback: string): string {
     return cause instanceof Error && cause.message ? cause.message : fallback
@@ -124,7 +141,17 @@ export default function EagleApi() {
     const [nameRequest, setNameRequest] = useState<NameRequest | null>(null)
     const [moving, setMoving] = useState<EagleItem | null>(null)
 
+    const [sidebarTab, setSidebarTab] = useState<'collections' | 'history'>('collections')
+    const [historyKey, setHistoryKey] = useState(0)
+    const [historyView, setHistoryView] = useState<EagleHistoryEntry | null>(null)
+    const [recordHistory, setRecordHistory] = useState(storedRecord)
+    const [accessItem, setAccessItem] = useState<EagleItem | null>(null)
+    const [exportIds, setExportIds] = useState<number[] | null>(null)
+    const [importOpen, setImportOpen] = useState(false)
+
     const dirty = Boolean(selected && draft && !sameRequest(draft, saved))
+    // Read-only collections, or no write permission in the project.
+    const selectedReadOnlyReason = selected ? itemReadOnlyReason(selected, writeReason) : writeReason
 
     // ------------------------------------------------------------------
     // Loading
@@ -143,7 +170,7 @@ export default function EagleApi() {
             rememberEnvironment(chosen)
             return chosen
         })
-    }, [])
+    }, [setEnvironment, setEnvName])
 
     const loadEnvironment = useCallback(async () => {
         try {
@@ -242,6 +269,7 @@ export default function EagleApi() {
             const full = await eagleApi.getItem(item.id)
             const data = full.data ?? defaultRequest()
             stopSending()
+            setHistoryView(null)
             setSelected(full)
             setSaved(data)
             setDraft(data)
@@ -256,8 +284,39 @@ export default function EagleApi() {
         }
     }
 
+    const openHistory = async (id: number) => {
+        if (!(await confirmDiscard())) return
+        setOpening(true)
+        try {
+            const entry = await eagleApi.historyEntry(id)
+            const data = entry.definition ?? defaultRequest()
+            stopSending()
+            setSelected(null)
+            setSaved(null)
+            setHistoryView(entry)
+            setDraft(data)
+            setResult(entry.result)
+            setPoll(null)
+            setSendError(null)
+            setShown(null)
+        } catch (cause) {
+            notify.error(errorText(cause, 'The history entry could not be opened.'))
+        } finally {
+            setOpening(false)
+        }
+    }
+
+    const changeRecord = (value: boolean) => {
+        setRecordHistory(value)
+        try {
+            window.localStorage.setItem(RECORD_KEY, value ? 'on' : 'off')
+        } catch {
+            // Storage refused: the choice lasts this visit.
+        }
+    }
+
     const save = async () => {
-        if (!selected || !draft || writeReason || saving) return
+        if (!selected || !draft || selectedReadOnlyReason || saving) return
         setSaving(true)
         try {
             const item = await eagleApi.updateItem(selected.id, { data: draft })
@@ -306,7 +365,7 @@ export default function EagleApi() {
                 kind: request.kind === 'new-folder' ? 'folder' : 'request',
                 name,
                 parent_id: request.parentId,
-                data: request.kind === 'new-request' ? defaultRequest() : undefined,
+                data: request.kind === 'new-request' ? (request.data ?? defaultRequest()) : undefined,
             })
             await refreshItems()
             if (request.parentId !== null) {
@@ -339,6 +398,10 @@ export default function EagleApi() {
             setNameRequest({ kind: 'rename', item: action.item })
         } else if (action.kind === 'move') {
             setMoving(action.item)
+        } else if (action.kind === 'access') {
+            setAccessItem(action.item)
+        } else if (action.kind === 'export') {
+            setExportIds([action.item.id])
         } else if (action.kind === 'duplicate') {
             try {
                 const copy = await eagleApi.duplicateItem(action.item.id)
@@ -384,7 +447,8 @@ export default function EagleApi() {
         setPoll({ ...run })
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
             await wait(interval * 1000, signal)
-            const response = await eagleApi.send(request, envName, url, signal)
+            const response = await eagleApi.send(request, envName, { pollUrl: url, itemId: selected?.id ?? null, record: recordHistory, signal })
+            if (response.history_id) setHistoryKey((value) => value + 1)
             run.attempts = [...run.attempts, { attempt, at: new Date(), result: response }]
             if (response.poll?.done) {
                 run.finished = response.poll.reason ?? 'Stop condition reached.'
@@ -409,8 +473,9 @@ export default function EagleApi() {
         setPoll(null)
         setShown(null)
         try {
-            const response = await eagleApi.send(request, envName, undefined, controller.signal)
+            const response = await eagleApi.send(request, envName, { itemId: selected?.id ?? null, record: recordHistory, signal: controller.signal })
             setResult(response)
+            if (response.history_id) setHistoryKey((value) => value + 1)
             if (request.polling.enabled && response.poll) {
                 if (response.poll.url) await runPolling(request, response.poll.url, controller.signal)
                 else setPoll({ url: null, attempts: [], finished: null, error: response.poll.error ?? 'No poll URL found.' })
@@ -458,6 +523,9 @@ export default function EagleApi() {
 
     const path = selected ? itemPath(items, selected.parent_id) : ''
     const readOnly = Boolean(writeReason)
+    // A request from the history is a scratch copy: it can be changed and sent, not saved.
+    const editorReadOnly = historyView ? false : Boolean(selectedReadOnlyReason)
+    const savedItem = historyView?.item_id ? items.find((item) => item.id === historyView.item_id) : undefined
 
     return (
         <div className="eagle-app">
@@ -516,7 +584,37 @@ export default function EagleApi() {
             </div>
 
             <div className="eagle-layout">
-                <aside className="eagle-sidebar" aria-label="Collections">
+                <aside className="eagle-sidebar" aria-label="Collections and history">
+                    <div className="eagle-tabs eagle-sidebar-tabs" role="tablist" aria-label="Sidebar">
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={sidebarTab === 'collections'}
+                            className={sidebarTab === 'collections' ? 'is-active' : undefined}
+                            onClick={() => setSidebarTab('collections')}
+                        >
+                            Collections
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={sidebarTab === 'history'}
+                            className={sidebarTab === 'history' ? 'is-active' : undefined}
+                            onClick={() => setSidebarTab('history')}
+                        >
+                            <History size={14} aria-hidden="true" /> History
+                        </button>
+                    </div>
+                    {sidebarTab === 'history' ? (
+                        <HistoryPanel
+                            refreshKey={historyKey}
+                            activeId={historyView?.id ?? null}
+                            record={recordHistory}
+                            onRecordChange={changeRecord}
+                            onOpen={(id) => void openHistory(id)}
+                        />
+                    ) : (
+                    <>
                     <div className="eagle-sidebar-head">
                         <h3>Collections</h3>
                         <div className="eagle-inline-actions">
@@ -539,6 +637,26 @@ export default function EagleApi() {
                                 onClick={() => setNameRequest({ kind: 'new-request', parentId: null })}
                             >
                                 <FilePlus size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
+                                aria-label="Import collections"
+                                title={writeReason ?? 'Import (EagleAPI, Postman, Insomnia, SoapUI)'}
+                                disabled={readOnly}
+                                onClick={() => setImportOpen(true)}
+                            >
+                                <Upload size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
+                                aria-label="Export collections"
+                                title="Export (EagleAPI, Postman, SoapUI)"
+                                disabled={!items.length}
+                                onClick={() => setExportIds([])}
+                            >
+                                <Download size={16} />
                             </button>
                         </div>
                     </div>
@@ -571,10 +689,12 @@ export default function EagleApi() {
                             readOnlyReason={writeReason}
                         />
                     )}
+                    </>
+                    )}
                 </aside>
 
                 <section className="eagle-main" aria-label="Request">
-                    {!selected || !draft ? (
+                    {(!selected && !historyView) || !draft ? (
                         <div className="eagle-blank">
                             {opening ? <LoaderCircle size={22} className="entropy-spin" aria-hidden="true" /> : <Bird size={28} aria-hidden="true" />}
                             <strong>{opening ? 'Opening…' : 'Pick a request'}</strong>
@@ -592,20 +712,60 @@ export default function EagleApi() {
                     ) : (
                         <>
                             <div className="eagle-request-head">
-                                <div className="eagle-request-title">
-                                    {path && <span className="eagle-muted">{path} /</span>}
-                                    <strong>{selected.name}</strong>
-                                    {dirty && <span className="eagle-unsaved">Unsaved</span>}
-                                </div>
-                                <button
-                                    type="button"
-                                    className="entropy-button entropy-button-secondary entropy-button-sm"
-                                    onClick={() => void save()}
-                                    disabled={!dirty || saving || readOnly}
-                                    title={writeReason ?? 'Save (Ctrl+S)'}
-                                >
-                                    {saving ? <LoaderCircle size={14} className="entropy-spin" /> : <Save size={14} />} Save
-                                </button>
+                                {selected ? (
+                                    <div className="eagle-request-title">
+                                        {path && <span className="eagle-muted">{path} /</span>}
+                                        <strong>{selected.name}</strong>
+                                        {selected.access === 'read' && <span className="eagle-unsaved">Read only</span>}
+                                        {dirty && <span className="eagle-unsaved">Unsaved</span>}
+                                    </div>
+                                ) : (
+                                    <div className="eagle-request-title">
+                                        <History size={15} aria-hidden="true" />
+                                        <span className="eagle-muted">History ·</span>
+                                        <strong>{historyView?.item_name || 'Request'}</strong>
+                                        <span className="eagle-muted">{historyView ? new Date(historyView.created_at).toLocaleString() : ''}</span>
+                                    </div>
+                                )}
+                                {selected ? (
+                                    <button
+                                        type="button"
+                                        className="entropy-button entropy-button-secondary entropy-button-sm"
+                                        onClick={() => void save()}
+                                        disabled={!dirty || saving || Boolean(selectedReadOnlyReason)}
+                                        title={selectedReadOnlyReason ?? 'Save (Ctrl+S)'}
+                                    >
+                                        {saving ? <LoaderCircle size={14} className="entropy-spin" /> : <Save size={14} />} Save
+                                    </button>
+                                ) : (
+                                    <div className="eagle-inline-actions">
+                                        {savedItem && (
+                                            <button
+                                                type="button"
+                                                className="entropy-button entropy-button-secondary entropy-button-sm"
+                                                onClick={() => void openItem(savedItem, true)}
+                                            >
+                                                Open {savedItem.name}
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="entropy-button entropy-button-secondary entropy-button-sm"
+                                            disabled={readOnly}
+                                            title={writeReason ?? 'Save this request in the collections'}
+                                            onClick={() =>
+                                                setNameRequest({
+                                                    kind: 'new-request',
+                                                    parentId: null,
+                                                    data: draft,
+                                                    name: historyView?.item_name ? `${historyView.item_name} (history)` : 'From history',
+                                                })
+                                            }
+                                        >
+                                            <Save size={14} /> Save as request…
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             <form
@@ -619,7 +779,7 @@ export default function EagleApi() {
                                     className={`eagle-method-select eagle-method-${draft.method.toLowerCase()}`}
                                     value={draft.method}
                                     aria-label="Method"
-                                    disabled={readOnly}
+                                    disabled={editorReadOnly}
                                     onChange={(event) => setDraft({ ...draft, method: event.target.value })}
                                 >
                                     {METHODS.map((method) => (
@@ -633,7 +793,7 @@ export default function EagleApi() {
                                     aria-label="URL or path"
                                     spellCheck={false}
                                     autoComplete="off"
-                                    readOnly={readOnly}
+                                    readOnly={editorReadOnly}
                                     list={VALUE_SUGGESTIONS}
                                     onChange={(event) => setDraft({ ...draft, url: event.target.value })}
                                 />
@@ -657,7 +817,7 @@ export default function EagleApi() {
                             <RequestEditor
                                 draft={draft}
                                 onChange={setDraft}
-                                readOnly={readOnly}
+                                readOnly={editorReadOnly}
                                 settings={settings}
                                 onOpenSettings={settings ? () => setTlsOpen(true) : undefined}
                             />
@@ -690,6 +850,21 @@ export default function EagleApi() {
                     onClose={() => setEnvOpen(false)}
                 />
             )}
+            {accessItem && (
+                <AccessDialog item={accessItem} onSaved={() => void refreshItems()} onClose={() => setAccessItem(null)} />
+            )}
+            {exportIds && <ExportDialog items={items} initial={exportIds} onClose={() => setExportIds(null)} />}
+            {importOpen && (
+                <ImportDialog
+                    items={items}
+                    onImported={(summary) => {
+                        void refreshItems()
+                        if (summary.created) setExpanded((current) => new Set([...current, ...(summary.created ?? [])]))
+                        if (summary.added_profiles?.length) void eagleApi.settings().then(setSettings).catch(() => undefined)
+                    }}
+                    onClose={() => setImportOpen(false)}
+                />
+            )}
             {tlsOpen && settings && (
                 <TlsSettingsDialog
                     settings={settings}
@@ -712,7 +887,7 @@ export default function EagleApi() {
                             ? `In ${itemPath(items, nameRequest.parentId)}`
                             : undefined
                     }
-                    initial={nameRequest.kind === 'rename' ? nameRequest.item.name : ''}
+                    initial={nameRequest.kind === 'rename' ? nameRequest.item.name : (nameRequest.name ?? '')}
                     confirmText={nameRequest.kind === 'rename' ? 'Rename' : 'Create'}
                     onSubmit={(name) => submitName(nameRequest, name)}
                     onClose={() => setNameRequest(null)}
