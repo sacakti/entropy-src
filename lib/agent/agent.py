@@ -117,6 +117,10 @@ class Agent:
 
         factory = ContextFactory(interactive=False)
         self.context = factory.build()
+        # Plugins installed here fetch the libraries they need from the server.
+        extensions = getattr(self.context, "extension_manager", None)
+        if extensions is not None:
+            extensions.fetcher = self._fetch_extension
         factory.discover()
         self.metrics = LocalMetrics(Path(self.context.bootstrap.home))
 
@@ -283,6 +287,15 @@ class Agent:
                 "final": True,
             },
         )
+
+    def _fetch_extension(self, entry: Dict[str, Any]) -> None:
+        """Install a library version a plugin needs from the server's copy."""
+
+        from urllib.parse import urlencode
+
+        query = urlencode({"name": entry["name"], "version": entry["spec"]})
+        data = self.client.download(f"/api/agent/extensions?{query}", timeout=600)
+        self.context.extension_manager.install_bundle(entry["name"], None, data)
 
     def _ensure_plugins(self, plugins: list) -> None:
         manager = self.context.plugin_manager

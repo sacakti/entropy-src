@@ -106,6 +106,51 @@ def report(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/extensions")
+def extension_bundle(
+    name: str,
+    request: Request,
+    version: str = "",
+    node: Dict[str, Any] = Depends(_node),
+) -> Response:
+    """
+    The wheels of the newest installed extension version that fits
+    `version` (a version or range), for a plugin a node installs.
+    """
+
+    from lib.extensions.resolver import fits, specifier
+
+    manager = getattr(request.app.state.entropy_context, "extension_manager", None)
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Extensions are unavailable.")
+    try:
+        spec = specifier(version or None)
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid version requirement.") from None
+    from packaging.version import Version
+
+    candidates = sorted(
+        (entry for entry in manager.store.versions(name) if fits(entry["version"], spec)),
+        key=lambda entry: Version(entry["version"]),
+        reverse=True,
+    )
+    if not candidates:
+        raise HTTPException(
+            status_code=404,
+            detail=f"The server has no extension {name} {version or ''}; install it there first.",
+        )
+    chosen = candidates[0]
+    return Response(
+        content=manager.bundle(chosen["name"], chosen["version"]),
+        media_type="application/gzip",
+        headers={
+            "X-Entropy-Extension": chosen["name"],
+            "X-Entropy-Version": chosen["version"],
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 @router.get("/plugins/{qualified_name}")
 def plugin_bundle(
     qualified_name: str,

@@ -83,6 +83,8 @@ class PluginManager:
         self._loader = PluginLoader(
             self._registry,
             self._dependencies,
+            reader=self._reader,
+            extensions=context.extension_manager,
         )
 
         self._runner = PluginRunner(

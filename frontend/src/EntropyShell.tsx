@@ -42,6 +42,7 @@ import Nodes from './features/nodes/Nodes'
 import Schedules from './features/schedules/Schedules'
 import Tools from './features/tools/Tools'
 import Plugins from './features/plugins/Plugins'
+import Extensions from './features/extensions/Extensions'
 import Administration from './features/administration/Administration'
 import AdminSystem from './features/administration/AdminSystem'
 import AdminUsers from './features/administration/AdminUsers'
@@ -277,6 +278,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         nodes: 'Nodes',
         schedulers: 'Schedulers',
         tools: 'Tools',
+        extensions: 'Extensions',
         administration: 'Administration',
         'admin-users': 'Users',
         'admin-groups': 'Groups',
@@ -500,6 +502,8 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                             />
                         ) : activePage === 'plugins' ? (
                             <Plugins />
+                        ) : activePage === 'extensions' ? (
+                            <Extensions />
                         ) : activePage === 'administration' ? (
                             <Administration onNavigate={setActivePage} permissions={permissions} />
                         ) : activePage === 'admin-users' ? (

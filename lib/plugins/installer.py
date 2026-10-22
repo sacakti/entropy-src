@@ -16,6 +16,7 @@ from lib.models.plugin import Plugin, PluginManifest
 
 from .exceptions import (
     PluginAlreadyInstalledError,
+    PluginDependencyError,
     PluginValueError,
 )
 from .manifest import ManifestReader
@@ -84,6 +85,12 @@ class PluginInstaller:
             manifest,
         )
 
+        # Before anything changes: a reinstall keeps the old plugin when
+        # a library is missing.
+        self._install_extensions(
+            manifest,
+        )
+
         exists = self._repository.exists(
             manifest.namespace,
             manifest.name,
@@ -107,10 +114,6 @@ class PluginInstaller:
             self.uninstall(
                 plugin,
             )
-
-        self._install_extensions(
-            manifest,
-        )
 
         self._executor.copy(
             directory,
@@ -188,23 +191,47 @@ class PluginInstaller:
         manifest: PluginManifest,
     ) -> None:
         """
-        Install required extensions.
+        Check the libraries the plugin needs (its "dependencies"). Entropy's
+        own libraries and installed extension versions count; a node first
+        fetches missing ones from the server (`fetcher`). Anything still
+        missing fails the install.
         """
 
-        for requirement in manifest.extensions:
+        if not manifest.extensions:
 
-            if self._extensions.exists(
-                requirement.name,
-            ):
+            return
 
-                continue
+        missing = self._extensions.missing(
+            manifest.extensions,
+        )
 
-            #
-            # Reuse Extension subsystem.
-            #
+        fetcher = getattr(
+            self._extensions,
+            "fetcher",
+            None,
+        )
 
-            self._extensions.install(
-                requirement,
+        if missing and fetcher is not None:
+
+            for entry in missing:
+
+                fetcher(
+                    entry,
+                )
+
+            missing = self._extensions.missing(
+                manifest.extensions,
+            )
+
+        if missing:
+
+            wanted = ", ".join(entry["requirement"] for entry in missing)
+
+            raise PluginDependencyError(
+                f"Plugin '{manifest.qualified_name}' needs {wanted}, which "
+                f"{'is' if len(missing) == 1 else 'are'} not installed. "
+                f"Install {'it' if len(missing) == 1 else 'them'} under Extensions first "
+                "(or: ent extension install <name> --version <version>).",
             )
 
     # ------------------------------------------------------------------

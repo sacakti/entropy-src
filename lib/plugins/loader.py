@@ -10,6 +10,7 @@ import inspect
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 from lib.models.plugin import Plugin
 from lib.plugins.dependency import PluginDependencyResolver
@@ -36,11 +37,19 @@ class PluginLoader:
         self,
         registry: PluginRegistry,
         dependencies: PluginDependencyResolver,
+        reader: Any = None,
+        extensions: Any = None,
     ) -> None:
 
         self._registry = registry
 
         self._dependencies = dependencies
+
+        # Manifest reader and extension manager: plugins get the library
+        # versions their manifest asks for.
+        self._reader = reader
+
+        self._extensions = extensions
 
         self._cache: dict[
             int,
@@ -127,6 +136,50 @@ class PluginLoader:
             plugin.qualified_name,
         )
 
+    def _activate_extensions(
+        self,
+        plugins: list,
+    ) -> None:
+        """
+        Put the extension versions these plugins need on the import path.
+        """
+
+        if self._reader is None or self._extensions is None:
+
+            return
+
+        requirements = []
+
+        for item in plugins:
+
+            try:
+
+                requirements.extend(
+                    self._reader.read(
+                        item.path,
+                    ).extensions,
+                )
+
+            except Exception:
+
+                continue
+
+        if not requirements:
+
+            return
+
+        try:
+
+            self._extensions.activate(
+                requirements,
+            )
+
+        except Exception as exc:
+
+            raise PluginLoadError(
+                f"Plugin '{plugins[0].qualified_name}' cannot get its libraries: {exc}",
+            ) from exc
+
     def _load_module(
         self,
         plugin: Plugin,
@@ -161,6 +214,14 @@ class PluginLoader:
                     dependency.qualified_name,
                     dependency.path,
                 )
+
+            #
+            # Libraries (extensions) of this plugin and the ones it uses.
+            #
+
+            self._activate_extensions(
+                [plugin, *dependencies],
+            )
 
             #
             # Prepare this plugin package.

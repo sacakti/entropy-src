@@ -6,6 +6,7 @@ import {
     FolderKanban,
     KeyRound,
     LayoutDashboard,
+    Package,
     PlayCircle,
     Server,
     ShieldCheck,
@@ -19,6 +20,7 @@ import {
 export type PageId =
     | 'dashboard'
     | 'plugins'
+    | 'extensions'
     | 'workflows'
     | 'runs'
     | 'vault'
@@ -40,6 +42,7 @@ export type PageId =
 export const navigation: NavigationItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'plugins', label: 'Plugins', icon: Blocks },
+    { id: 'extensions', label: 'Extensions', icon: Package },
     { id: 'workflows', label: 'Workflows', icon: Workflow },
     { id: 'runs', label: 'Runs', icon: PlayCircle },
     { id: 'vault', label: 'Vault', icon: KeyRound },
@@ -77,6 +80,7 @@ export function parentPage(page: PageId): NavigationItem | null {
 const PAGE_IDS: readonly PageId[] = [
     'dashboard',
     'plugins',
+    'extensions',
     'workflows',
     'runs',
     'vault',
@@ -108,6 +112,7 @@ export function pageFromHash(hash: string): PageId | null {
 export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
     dashboard: ['workflows.read'],
     plugins: ['plugins.read'],
+    extensions: ['extensions.list'],
     workflows: ['workflows.read'],
     runs: ['workflows.read'],
     nodes: ['nodes.list'],

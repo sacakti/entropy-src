@@ -90,8 +90,8 @@ BUILTIN_ROLES: Dict[str, tuple] = {
     "plugin-developer": (
         "Plugin developer",
         "global",
-        "Create, install, change and remove plugins.",
-        ("plugins.all",),
+        "Create, install, change and remove plugins and the libraries they need.",
+        ("plugins.all", "extensions.list", "extensions.install", "extensions.download"),
     ),
     "vault-user": (
         "Vault user",

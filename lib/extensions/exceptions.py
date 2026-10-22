@@ -91,3 +91,29 @@ class ExtensionValueError(ExtensionError):
         super().__init__(
             message,
         )
+
+
+class ExtensionExistsError(ExtensionError):
+    """The library is already there (as an extension, or as part of Entropy)."""
+
+    def __init__(
+        self,
+        message: str,
+    ) -> None:
+
+        super().__init__(
+            message,
+        )
+
+
+class ExtensionInUseError(ExtensionError):
+    """Installed plugins still need this version."""
+
+    def __init__(
+        self,
+        message: str,
+    ) -> None:
+
+        super().__init__(
+            message,
+        )

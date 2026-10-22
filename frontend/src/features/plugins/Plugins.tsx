@@ -30,6 +30,7 @@ import {
     type PluginItem,
     type PluginListParams,
 } from '../../api/plugins.api'
+import { extensionsApi } from '../../api/extensions.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import AddMenu from '../../components/layout/AddMenu'
 import { missingPermission } from '../administration/permissionReason'
@@ -529,7 +530,56 @@ export default function Plugins() {
 
     const pageChecked = plugins.filter((item) => checked.has(item.qualified_name)).length
 
+    /**
+     * Before installing: are the libraries the plugin lists under
+     * "dependencies" there (in Entropy or as extensions)? Offers to install
+     * missing ones; without them the install would fail.
+     */
+    const ensureExtensions = async (qualifiedName: string): Promise<boolean> => {
+        let requirements
+        try {
+            requirements = await extensionsApi.forPlugin(qualifiedName)
+        } catch {
+            return true // the server checks again when installing
+        }
+        const missing = requirements.filter((entry) => entry.status === 'missing')
+        if (!missing.length) return true
+        const list = missing.map((entry) => entry.requirement).join(', ')
+        const canInstall = !missingPermission(permissions, ['extensions.install'], 'installing libraries')
+        if (!canInstall) {
+            await modal.confirm({
+                title: `${qualifiedName} needs libraries that are not installed`,
+                message: `Missing: ${list}. Ask someone who may install extensions to add them under Extensions, then install the plugin.`,
+                confirmText: 'OK',
+                cancelText: 'Close',
+            })
+            return false
+        }
+        const confirmed = await modal.confirm({
+            title: `${qualifiedName} needs ${missing.length} more librar${missing.length === 1 ? 'y' : 'ies'}`,
+            message: `Not installed yet: ${list}. Install ${missing.length === 1 ? 'it' : 'them'} from the package index, then the plugin?`,
+            confirmText: 'Install and continue',
+            cancelText: 'Cancel',
+        })
+        if (!confirmed) return false
+        try {
+            const result = await extensionsApi.installMissing(missing.map((entry) => ({ name: entry.name, version: entry.spec || null })))
+            if (result.failed.length) {
+                notify.error(result.failed.map((entry) => `${entry.requirement}: ${entry.error}`).join('\n'), {
+                    title: 'Libraries not installed',
+                })
+                return false
+            }
+            notify.success(`Installed ${result.installed.map((entry) => `${entry.name} ${entry.version}`).join(', ')}.`)
+            return true
+        } catch (cause) {
+            notify.error(cause instanceof Error ? cause.message : 'The libraries were not installed.', { title: 'Libraries not installed' })
+            return false
+        }
+    }
+
     const installPlugin = async (plugin: PluginItem) => {
+        if (!(await ensureExtensions(plugin.qualified_name))) return false
         try {
             const installed = await pluginsApi.install(plugin.qualified_name)
             notify.success(`${installed.qualified_name} ${installed.version} is installed and ready for workflows.`, {
@@ -582,7 +632,8 @@ export default function Plugins() {
         for (const item of targets) {
             try {
                 if (action === 'delete') await pluginsApi.delete(item.qualified_name)
-                else await pluginsApi.install(item.qualified_name)
+                else if (await ensureExtensions(item.qualified_name)) await pluginsApi.install(item.qualified_name)
+                else failed.push(`${item.qualified_name}: libraries missing`)
             } catch (cause) {
                 failed.push(`${item.qualified_name}: ${cause instanceof Error ? cause.message : 'failed'}`)
             }
