@@ -27,6 +27,8 @@ export function defaultRequest(): EagleRequestData {
             client_auth: 'body',
         },
         tls: {
+            mode: 'inherit',
+            profile: '',
             verify: true,
             client_cert: 'none',
             cert: '',

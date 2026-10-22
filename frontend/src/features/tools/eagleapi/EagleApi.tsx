@@ -9,6 +9,7 @@ import {
     Lock,
     Save,
     Send,
+    ShieldCheck,
     Square,
 } from 'lucide-react'
 
@@ -22,12 +23,15 @@ import {
     type EagleItem,
     type EagleRequestData,
     type EagleResult,
+    type EagleSettings,
 } from '../../../api/eagleapi.api'
 import CollectionTree, { type TreeAction } from './CollectionTree'
 import EnvironmentDialog from './EnvironmentDialog'
 import { MoveDialog, NameDialog } from './ItemDialogs'
-import RequestEditor, { FILE_SUGGESTIONS, VALUE_SUGGESTIONS } from './RequestEditor'
+import RequestEditor from './RequestEditor'
 import ResponseViewer, { type PollRun } from './ResponseViewer'
+import { FILE_SUGGESTIONS, VALUE_SUGGESTIONS } from './TlsFields'
+import TlsSettingsDialog from './TlsSettingsDialog'
 import { defaultRequest, ENV_STORAGE_KEY, itemPath, METHODS, sameRequest, vaultRef } from './model'
 import '../../../styles/eagleapi.css'
 
@@ -107,6 +111,8 @@ export default function EagleApi() {
     const [environment, setEnvironment] = useState<EagleEnvironment | null>(null)
     const [envName, setEnvName] = useState<string | null>(storedEnvironment)
     const [envOpen, setEnvOpen] = useState(false)
+    const [settings, setSettings] = useState<EagleSettings | null>(null)
+    const [tlsOpen, setTlsOpen] = useState(false)
 
     const [result, setResult] = useState<EagleResult | null>(null)
     const [sendError, setSendError] = useState<string | null>(null)
@@ -170,6 +176,14 @@ export default function EagleApi() {
             })
             .catch((cause) => {
                 if (active) notifyRef.current.error(errorText(cause, 'The environment could not be loaded.'))
+            })
+        eagleApi
+            .settings()
+            .then((next) => {
+                if (active) setSettings(next)
+            })
+            .catch((cause) => {
+                if (active) notifyRef.current.error(errorText(cause, 'The TLS settings could not be loaded.'))
             })
         return () => {
             active = false
@@ -482,6 +496,15 @@ export default function EagleApi() {
                 <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setEnvOpen(true)}>
                     Environment…
                 </button>
+                <button
+                    type="button"
+                    className="entropy-button entropy-button-secondary entropy-button-sm"
+                    disabled={!settings}
+                    onClick={() => setTlsOpen(true)}
+                    title="TLS profiles that requests can inherit"
+                >
+                    <ShieldCheck size={14} aria-hidden="true" /> TLS settings…
+                </button>
                 <span className="eagle-topbar-ns" title="The vault namespace that holds this project's EagleAPI values">
                     <Lock size={13} aria-hidden="true" /> {namespace || '…'}
                 </span>
@@ -631,7 +654,13 @@ export default function EagleApi() {
                             </form>
                             {urlHint && <p className={`eagle-url-hint${!absolute && !envName ? ' eagle-warn-text' : ''}`}>{urlHint}</p>}
 
-                            <RequestEditor draft={draft} onChange={setDraft} readOnly={readOnly} />
+                            <RequestEditor
+                                draft={draft}
+                                onChange={setDraft}
+                                readOnly={readOnly}
+                                settings={settings}
+                                onOpenSettings={settings ? () => setTlsOpen(true) : undefined}
+                            />
 
                             {sendError && (
                                 <div className="entropy-alert entropy-alert-error" role="alert">
@@ -659,6 +688,14 @@ export default function EagleApi() {
                     readOnlyReason={writeReason}
                     onChanged={loadEnvironment}
                     onClose={() => setEnvOpen(false)}
+                />
+            )}
+            {tlsOpen && settings && (
+                <TlsSettingsDialog
+                    settings={settings}
+                    readOnlyReason={writeReason}
+                    onSaved={setSettings}
+                    onClose={() => setTlsOpen(false)}
                 />
             )}
             {nameRequest && (

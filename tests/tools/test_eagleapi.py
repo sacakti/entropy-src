@@ -577,3 +577,53 @@ def test_tls_failures(tls_server) -> None:
             resolver,
             NS,
         )
+
+
+# ----------------------------------------------------------------------
+# TLS profiles (project settings)
+# ----------------------------------------------------------------------
+
+
+def test_tls_modes_and_profiles() -> None:
+    from lib.tools.eagleapi.store import (
+        EagleStoreError,
+        effective_tls,
+        normalize_request,
+        normalize_settings,
+    )
+
+    settings = normalize_settings(
+        {
+            "tls_profiles": [
+                {"id": "sit", "name": "SIT mTLS", "client_cert": "pfx", "pfx": "${entvfile:e/P}"},
+                {"id": "lab", "name": "Lab", "verify": False},
+            ],
+            "default_tls": "sit",
+        }
+    )
+    # New requests inherit the project default.
+    plain = normalize_request({})
+    assert plain["tls"]["mode"] == "inherit"
+    tls, source = effective_tls(plain, settings)
+    assert tls["pfx"] == "${entvfile:e/P}" and source == "default SIT mTLS"
+
+    chosen = normalize_request({"tls": {"mode": "profile", "profile": "lab"}})
+    tls, source = effective_tls(chosen, settings)
+    assert tls["verify"] is False and source == "profile Lab"
+
+    own = normalize_request({"tls": {"mode": "custom", "verify": False}})
+    tls, source = effective_tls(own, settings)
+    assert tls["verify"] is False and source == "request"
+
+    # Requests saved before profiles existed keep their own settings.
+    legacy = normalize_request({"tls": {"client_cert": "pem", "cert": "${entvfile:e/C}"}})
+    assert legacy["tls"]["mode"] == "custom"
+
+    # No default: nothing special (verify on, no client certificate).
+    tls, source = effective_tls(plain, {**settings, "default_tls": ""})
+    assert tls["verify"] is True and tls["client_cert"] == "none" and source == "none"
+
+    with pytest.raises(EagleStoreError, match="no longer exists"):
+        effective_tls(normalize_request({"tls": {"mode": "profile", "profile": "gone"}}), settings)
+    with pytest.raises(EagleStoreError, match="two TLS profiles"):
+        normalize_settings({"tls_profiles": [{"name": "A"}, {"name": "a"}]})

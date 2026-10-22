@@ -67,7 +67,7 @@
 /* Shared inputs ------------------------------------------------------ */
 
 .entropy-app .eagle-app :is(input[type="text"], input[type="number"], input[type="password"], input:not([type]), select),
-.entropy-app .eagle-env-dialog :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select),
+.entropy-app :is(.eagle-env-dialog, .eagle-tls-dialog) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select),
 .entropy-app .eagle-small-dialog input:not([type="radio"]) {
     width: 100%;
     min-width: 0;
@@ -82,7 +82,7 @@
 }
 
 .entropy-app .eagle-app :is(input, select):focus-visible,
-.entropy-app .eagle-env-dialog :is(input, select):focus-visible,
+.entropy-app :is(.eagle-env-dialog, .eagle-tls-dialog) :is(input, select):focus-visible,
 .entropy-app .eagle-small-dialog input:focus-visible {
     border-color: var(--app-accent);
     outline: none;
@@ -94,7 +94,8 @@
 }
 
 .entropy-app .eagle-app input[type="checkbox"],
-.entropy-app .eagle-env-dialog input[type="checkbox"] {
+.entropy-app :is(.eagle-env-dialog, .eagle-tls-dialog) input[type="checkbox"],
+.entropy-app .eagle-app input[type="radio"] {
     width: 15px;
     height: 15px;
     margin: 0;
@@ -919,6 +920,124 @@
     grid-column: 1 / -1;
     color: var(--app-success-text);
     font-weight: 600;
+}
+
+/* TLS modes and settings --------------------------------------------- */
+
+.entropy-app .eagle-tls-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+}
+
+.entropy-app .eagle-tls-summary {
+    display: grid;
+    gap: 6px;
+    justify-items: start;
+    padding: 10px 12px;
+    background: var(--app-surface-hover);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.entropy-app .eagle-tls-summary p {
+    margin: 0;
+}
+
+.entropy-app .eagle-tls-dialog {
+    width: min(860px, calc(100vw - 32px));
+}
+
+.entropy-app .eagle-tls-dialog .entropy-dialog-body {
+    display: grid;
+    gap: 12px;
+}
+
+.entropy-app .eagle-tls-settings {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 18px;
+    min-height: 320px;
+}
+
+.entropy-app .eagle-tls-list {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding-right: 18px;
+    border-right: 1px solid var(--app-line);
+}
+
+.entropy-app .eagle-tls-list ul {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .eagle-tls-list li > button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 7px 10px;
+    color: var(--app-text);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.entropy-app .eagle-tls-list li > button > span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .eagle-tls-list li > button:hover {
+    background: var(--app-surface-hover);
+}
+
+.entropy-app .eagle-tls-list li > button.is-selected {
+    color: var(--app-accent-text);
+    background: var(--app-accent-soft);
+    font-weight: 600;
+}
+
+.entropy-app .eagle-tls-list li > button svg {
+    flex: none;
+    color: var(--app-warning-text);
+}
+
+.entropy-app .eagle-tls-flag {
+    flex: none;
+    color: var(--app-danger-text);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.entropy-app .eagle-tls-editor {
+    min-width: 0;
+}
+
+@media (max-width: 720px) {
+    .entropy-app .eagle-tls-settings {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .entropy-app .eagle-tls-list {
+        padding-right: 0;
+        padding-bottom: 14px;
+        border-right: 0;
+        border-bottom: 1px solid var(--app-line);
+    }
 }
 
 /* Environment dialog ------------------------------------------------- */

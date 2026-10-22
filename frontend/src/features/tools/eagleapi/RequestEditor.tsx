@@ -1,15 +1,28 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 
-import type { EagleRequestData } from '../../../api/eagleapi.api'
+import type { EagleRequestData, EagleSettings, EagleTls, TlsMode } from '../../../api/eagleapi.api'
 import KeyValueTable from './KeyValueTable'
 import { METHODS } from './model'
+import TlsFields, { VALUE_SUGGESTIONS } from './TlsFields'
 
 const CodeEditor = lazy(() => import('./CodeEditor'))
 
 type Tab = 'params' | 'headers' | 'body' | 'auth' | 'tls' | 'polling' | 'options'
 
-export const VALUE_SUGGESTIONS = 'eagle-vault-values'
-export const FILE_SUGGESTIONS = 'eagle-vault-files'
+const TLS_MODES: { id: TlsMode; label: string }[] = [
+    { id: 'inherit', label: 'Project default' },
+    { id: 'profile', label: 'TLS profile' },
+    { id: 'custom', label: 'Custom for this request' },
+]
+
+/** One line on what a TLS setting does. */
+function TlsSummary({ tls }: { tls: EagleTls }) {
+    const parts = [tls.verify ? 'Verifies the server certificate' : 'Does NOT verify the server certificate']
+    if (tls.ca_bundle) parts.push(`trusts ${tls.ca_bundle}`)
+    if (tls.client_cert === 'pem') parts.push(`client certificate ${tls.cert || '(not set)'}`)
+    if (tls.client_cert === 'pfx') parts.push(`client keystore ${tls.pfx || '(not set)'}`)
+    return <p className={tls.verify ? 'eagle-muted' : 'eagle-warn-text'}>{parts.join('; ')}.</p>
+}
 
 function Field({ label, hint, wide, children }: { label: string; hint?: ReactNode; wide?: boolean; children: ReactNode }) {
     return (
@@ -45,10 +58,15 @@ export default function RequestEditor({
     draft,
     onChange,
     readOnly,
+    settings,
+    onOpenSettings,
 }: {
     draft: EagleRequestData
     onChange: (draft: EagleRequestData) => void
     readOnly: boolean
+    /** The project's TLS profiles; null while loading. */
+    settings: EagleSettings | null
+    onOpenSettings?: () => void
 }) {
     const [tab, setTab] = useState<Tab>('params')
 
@@ -57,6 +75,26 @@ export default function RequestEditor({
     const auth = draft.auth
     const tls = draft.tls
     const polling = draft.polling
+    const profiles = settings?.tls_profiles ?? []
+    const defaultProfile = profiles.find((profile) => profile.id === settings?.default_tls) ?? null
+    const chosenProfile = profiles.find((profile) => profile.id === tls.profile) ?? null
+    const changeTlsMode = (mode: TlsMode) =>
+        set('tls', {
+            ...tls,
+            mode,
+            // Pick a profile straight away: the default, else the first one.
+            profile: mode === 'profile' && !tls.profile ? (defaultProfile ?? profiles[0])?.id ?? '' : tls.profile,
+        })
+    const tlsBadge =
+        tls.mode === 'custom'
+            ? !tls.verify
+                ? 'NO VERIFY'
+                : tls.client_cert !== 'none'
+                  ? 'CERT'
+                  : 'CUSTOM'
+            : tls.mode === 'profile'
+              ? chosenProfile?.name ?? '?'
+              : undefined
     const enabledCount = (rows: { enabled: boolean; key: string }[]) => rows.filter((row) => row.enabled && row.key.trim()).length
 
     const tabs: { id: Tab; label: string; badge?: string }[] = [
@@ -64,7 +102,7 @@ export default function RequestEditor({
         { id: 'headers', label: 'Headers', badge: enabledCount(draft.headers) ? String(enabledCount(draft.headers)) : undefined },
         { id: 'body', label: 'Body', badge: body.mode !== 'none' ? body.mode.toUpperCase() : undefined },
         { id: 'auth', label: 'Auth', badge: auth.type !== 'none' ? auth.type.toUpperCase() : undefined },
-        { id: 'tls', label: 'TLS', badge: !tls.verify ? 'NO VERIFY' : tls.client_cert !== 'none' ? 'CERT' : undefined },
+        { id: 'tls', label: 'TLS', badge: tlsBadge },
         { id: 'polling', label: 'Polling', badge: polling.enabled ? 'ON' : undefined },
         { id: 'options', label: 'Options' },
     ]
@@ -269,65 +307,79 @@ export default function RequestEditor({
 
                 {tab === 'tls' && (
                     <div className="eagle-form">
-                        <div className="eagle-field-wide">
-                            <Toggle checked={tls.verify} disabled={readOnly} onChange={(value) => set('tls', { ...tls, verify: value })}>
-                                Verify the server certificate
-                            </Toggle>
-                            {!tls.verify && <p className="eagle-warn-text">Verification is off: any server certificate is accepted.</p>}
+                        <div className="eagle-field-wide eagle-tls-modes" role="radiogroup" aria-label="TLS settings">
+                            {TLS_MODES.map((mode) => (
+                                <label key={mode.id} className="eagle-check">
+                                    <input
+                                        type="radio"
+                                        name="eagle-tls-mode"
+                                        checked={tls.mode === mode.id}
+                                        disabled={readOnly}
+                                        onChange={() => changeTlsMode(mode.id)}
+                                    />
+                                    <span>{mode.label}</span>
+                                </label>
+                            ))}
                         </div>
-                        <Field label="CA bundle (vault file)" wide hint="Optional: trust these CA certificates too (PEM).">
-                            {text(tls.ca_bundle, (value) => set('tls', { ...tls, ca_bundle: value }), {
-                                label: 'CA bundle',
-                                list: FILE_SUGGESTIONS,
-                                placeholder: '${entvfile:…/CA_BUNDLE}',
-                            })}
-                        </Field>
-                        <Field label="Client certificate" wide>
-                            <select
-                                value={tls.client_cert}
-                                disabled={readOnly}
-                                onChange={(event) => set('tls', { ...tls, client_cert: event.target.value as typeof tls.client_cert })}
-                            >
-                                <option value="none">None</option>
-                                <option value="pem">PEM certificate + key</option>
-                                <option value="pfx">PFX / P12 keystore</option>
-                            </select>
-                        </Field>
-                        {tls.client_cert === 'pem' && (
+                        {tls.mode === 'inherit' && (
+                            <div className="eagle-field-wide eagle-tls-summary">
+                                {defaultProfile ? (
+                                    <>
+                                        <p>
+                                            Uses the project default: <strong>{defaultProfile.name}</strong>
+                                        </p>
+                                        <TlsSummary tls={defaultProfile} />
+                                    </>
+                                ) : (
+                                    <p>
+                                        The project has no default TLS profile: the server certificate is verified and no
+                                        client certificate is sent.
+                                    </p>
+                                )}
+                                {onOpenSettings && (
+                                    <button type="button" className="entropy-button entropy-button-link" onClick={onOpenSettings}>
+                                        TLS settings…
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {tls.mode === 'profile' && (
                             <>
-                                <Field label="Certificate (vault file)">
-                                    {text(tls.cert, (value) => set('tls', { ...tls, cert: value }), {
-                                        label: 'Certificate',
-                                        list: FILE_SUGGESTIONS,
-                                        placeholder: '${entvfile:…/{{ENV}}_CERT}',
-                                    })}
+                                <Field label="Profile" wide>
+                                    <select
+                                        value={tls.profile}
+                                        disabled={readOnly}
+                                        onChange={(event) => set('tls', { ...tls, profile: event.target.value })}
+                                    >
+                                        {!chosenProfile && <option value={tls.profile}>{tls.profile ? 'Removed profile' : 'Choose a profile…'}</option>}
+                                        {profiles.map((profile) => (
+                                            <option key={profile.id} value={profile.id}>
+                                                {profile.name}
+                                                {profile.id === settings?.default_tls ? ' (default)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </Field>
-                                <Field label="Private key (vault file)" hint="Leave empty when the certificate file holds the key.">
-                                    {text(tls.key, (value) => set('tls', { ...tls, key: value }), {
-                                        label: 'Private key',
-                                        list: FILE_SUGGESTIONS,
-                                        placeholder: '${entvfile:…/{{ENV}}_KEY}',
-                                    })}
-                                </Field>
+                                <div className="eagle-field-wide eagle-tls-summary">
+                                    {chosenProfile ? (
+                                        <TlsSummary tls={chosenProfile} />
+                                    ) : (
+                                        <p className="eagle-warn-text">
+                                            {profiles.length
+                                                ? 'Choose one of the project\'s TLS profiles.'
+                                                : 'The project has no TLS profiles yet.'}
+                                        </p>
+                                    )}
+                                    {onOpenSettings && (
+                                        <button type="button" className="entropy-button entropy-button-link" onClick={onOpenSettings}>
+                                            TLS settings…
+                                        </button>
+                                    )}
+                                </div>
                             </>
                         )}
-                        {tls.client_cert === 'pfx' && (
-                            <Field label="Keystore (vault file)" wide>
-                                {text(tls.pfx, (value) => set('tls', { ...tls, pfx: value }), {
-                                    label: 'Keystore',
-                                    list: FILE_SUGGESTIONS,
-                                    placeholder: '${entvfile:…/{{ENV}}_PFX}',
-                                })}
-                            </Field>
-                        )}
-                        {tls.client_cert !== 'none' && (
-                            <Field label={tls.client_cert === 'pfx' ? 'Keystore password' : 'Key password'} wide hint="Optional.">
-                                {text(tls.password, (value) => set('tls', { ...tls, password: value }), {
-                                    label: 'Password',
-                                    list: VALUE_SUGGESTIONS,
-                                    placeholder: '${entv:…/{{ENV}}_PFX_PASSWORD}',
-                                })}
-                            </Field>
+                        {tls.mode === 'custom' && (
+                            <TlsFields value={tls} readOnly={readOnly} onChange={(value) => set('tls', { ...tls, ...value })} />
                         )}
                     </div>
                 )}

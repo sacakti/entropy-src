@@ -128,6 +128,11 @@ export default function ResponseViewer({
                 </span>
                 {current.size !== undefined && <span>{formatBytes(current.size)}</span>}
                 {current.truncated && <span className="eagle-warn-text">Truncated at 10 MB</span>}
+                {current.tls_source && current.tls_source !== 'none' && (
+                    <span className="eagle-muted" title="Where this call's TLS settings came from">
+                        TLS: {current.tls_source}
+                    </span>
+                )}
                 {shown !== null && (
                     <button type="button" className="entropy-button entropy-button-link" onClick={() => onShow(null)}>
                         Poll attempt {shown} · show main response

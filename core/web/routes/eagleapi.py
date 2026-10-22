@@ -13,7 +13,17 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from pydantic import BaseModel, Field
 
 from core.web.projects import current_project, require
@@ -31,7 +41,13 @@ from lib.tools.eagleapi.references import (
     VaultValue,
     environments,
 )
-from lib.tools.eagleapi.store import EagleItemNotFound, EagleStore, EagleStoreError
+from lib.tools.eagleapi.store import (
+    EagleItemNotFound,
+    EagleStore,
+    EagleStoreError,
+    effective_tls,
+    normalize_request,
+)
 from lib.vault.exceptions import VaultError, VaultNamespaceNotFoundError
 
 router = APIRouter(prefix="/api/eagleapi", tags=["eagleapi"])
@@ -542,12 +558,67 @@ def send_request(
     project = _scope(request, user, EXECUTE)
     response.headers["Cache-Control"] = "no-store"
     try:
+        data = normalize_request(payload.request)
+        # Inherited or profile TLS comes from the project settings.
+        tls, source = effective_tls(data, _store(request).settings(project["id"]))
+        data["tls"] = {**tls, "mode": "custom", "profile": ""}
         resolver = Resolver(_fetcher(request, user, project["id"]), payload.environment)
-        return execute(
-            payload.request,
+        result = execute(
+            data,
             resolver,
             namespace_name(project["key"]),
             poll_url=payload.poll_url,
         )
-    except (EagleRequestError, EagleReferenceError) as exc:
+        return {**result, "tls_source": source}
+    except (EagleRequestError, EagleReferenceError, EagleStoreError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
+# ---------------------------------------------------------------------
+# Project settings (TLS profiles)
+# ---------------------------------------------------------------------
+
+
+@router.get("/settings")
+def get_settings(
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """The project's TLS profiles and default profile (vault references, no secrets)."""
+
+    project = _scope(request, record[2], READ)
+    response.headers["Cache-Control"] = "no-store"
+    return _store(request).settings(project["id"])
+
+
+@router.put("/settings")
+def put_settings(
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    record: SessionRecord = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> Dict[str, Any]:
+    """Replace the project's settings; a profile requests still use cannot go."""
+
+    user = record[2]
+    project = _scope(request, user, WRITE)
+    store = _store(request)
+    current = store.settings(project["id"])
+    wanted = payload.get("tls_profiles") if isinstance(payload.get("tls_profiles"), list) else []
+    kept = {str(item.get("id")) for item in wanted if isinstance(item, dict)}
+    for profile in current["tls_profiles"]:
+        if profile["id"] not in kept:
+            users = store.profile_users(project["id"], profile["id"])
+            if users:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"TLS profile '{profile['name']}' is used by "
+                    + ", ".join(users[:5])
+                    + (f" and {len(users) - 5} more" if len(users) > 5 else "")
+                    + ". Change those requests first.",
+                )
+    try:
+        return store.save_settings(project["id"], payload, user.username)
+    except EagleStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None

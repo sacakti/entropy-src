@@ -13,6 +13,28 @@ export type ClientCertMode = 'none' | 'pem' | 'pfx'
 export type PollSource = 'json' | 'header' | 'regex'
 export type StopType = 'json' | 'status' | 'none'
 
+/** TLS settings: server verification and client certificate (vault references). */
+export interface EagleTls {
+    verify: boolean
+    client_cert: ClientCertMode
+    cert: string
+    key: string
+    pfx: string
+    password: string
+    ca_bundle: string
+}
+
+export type TlsMode = 'inherit' | 'profile' | 'custom'
+
+export type EagleTlsProfile = EagleTls & { id: string; name: string }
+
+/** The project's EagleAPI settings. */
+export interface EagleSettings {
+    tls_profiles: EagleTlsProfile[]
+    /** Id of the profile requests inherit; empty for the plain defaults. */
+    default_tls: string
+}
+
 /** A request definition, as stored server-side (every field present). */
 export interface EagleRequestData {
     method: string
@@ -37,14 +59,11 @@ export interface EagleRequestData {
         scope: string
         client_auth: 'body' | 'basic'
     }
-    tls: {
-        verify: boolean
-        client_cert: ClientCertMode
-        cert: string
-        key: string
-        pfx: string
-        password: string
-        ca_bundle: string
+    tls: EagleTls & {
+        /** inherit: the project's default profile; profile: a named profile; custom: the fields here. */
+        mode: TlsMode
+        /** Profile id, for mode "profile". */
+        profile: string
     }
     options: {
         timeout: number
@@ -124,6 +143,8 @@ export interface EagleResult {
     request: EagleSentRequest
     /** After the main call: the poll URL (or why none was found). After a poll: the stop state. */
     poll?: { url?: string; error?: string; done?: boolean; reason?: string; value?: unknown }
+    /** Where the TLS settings came from: "request", "profile <name>", "default <name>" or "none". */
+    tls_source?: string
 }
 
 const BASE = '/api/eagleapi'
@@ -160,6 +181,10 @@ export const eagleApi = {
 
     deleteItem: (id: number) =>
         apiRequest<{ deleted: number }>(`${BASE}/items/${id}`, { method: 'DELETE' }),
+
+    settings: () => apiRequest<EagleSettings>(`${BASE}/settings`),
+
+    saveSettings: (settings: EagleSettings) => apiRequest<EagleSettings>(`${BASE}/settings`, json('PUT', settings)),
 
     environment: () => apiRequest<EagleEnvironment>(`${BASE}/environment`),
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import copy
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 KINDS = ("folder", "request")
 MAX_NAME = 120
@@ -48,6 +48,16 @@ def ensure_schema(connection: Any) -> None:
             "CREATE INDEX IF NOT EXISTS eagleapi_items_project"
             " ON eagleapi_items (project_id, parent_id)"
         )
+        # Project-wide settings: named TLS profiles and the default one.
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS eagleapi_settings
+            (
+                project_id  INTEGER PRIMARY KEY,
+                data        TEXT NOT NULL DEFAULT '{}',
+                updated_by  TEXT,
+                updated_at  TEXT NOT NULL
+            )
+            """)
     connection._entropy_eagleapi_ready = True
 
 
@@ -85,6 +95,92 @@ def _number(value: Any, default: float, low: float, high: float) -> float:
     return max(low, min(high, number))
 
 
+TLS_MODES = ("inherit", "profile", "custom")
+
+
+def normalize_tls(tls: Any) -> Dict[str, Any]:
+    """TLS settings: verification, client certificate, CA bundle (vault references)."""
+
+    tls = tls if isinstance(tls, dict) else {}
+    cert_mode = _text(tls.get("client_cert") or "none")
+    return {
+        "verify": tls.get("verify", True) is not False,
+        "client_cert": cert_mode if cert_mode in ("none", "pem", "pfx") else "none",
+        "cert": _text(tls.get("cert")),
+        "key": _text(tls.get("key")),
+        "pfx": _text(tls.get("pfx")),
+        "password": _text(tls.get("password")),
+        "ca_bundle": _text(tls.get("ca_bundle")),
+    }
+
+
+def _tls_mode(tls: Dict[str, Any]) -> str:
+    """
+    How a request gets its TLS settings. Requests saved before TLS profiles
+    existed keep their own settings when they had any (custom), else they
+    follow the project default (inherit).
+    """
+
+    mode = _text(tls.get("mode"))
+    if mode in TLS_MODES:
+        return mode
+    own = normalize_tls(tls)
+    plain = own["verify"] and own["client_cert"] == "none" and not own["ca_bundle"]
+    return "inherit" if plain else "custom"
+
+
+def normalize_settings(data: Any) -> Dict[str, Any]:
+    """Project settings: TLS profiles (unique ids and names) and the default profile."""
+
+    data = data if isinstance(data, dict) else {}
+    profiles: List[Dict[str, Any]] = []
+    seen_ids: set = set()
+    seen_names: set = set()
+    raw = data.get("tls_profiles") if isinstance(data.get("tls_profiles"), list) else []
+    for index, item in enumerate(raw[:100]):
+        if not isinstance(item, dict):
+            continue
+        name = _text(item.get("name")).strip()[:80]
+        if not name:
+            raise EagleStoreError("Every TLS profile needs a name.")
+        if name.lower() in seen_names:
+            raise EagleStoreError(f"There are two TLS profiles named '{name}'.")
+        profile_id = _text(item.get("id")).strip()[:40] or f"tls-{index + 1}"
+        while profile_id in seen_ids:
+            profile_id += "-1"
+        seen_ids.add(profile_id)
+        seen_names.add(name.lower())
+        profiles.append({"id": profile_id, "name": name, **normalize_tls(item)})
+    default = _text(data.get("default_tls")).strip()
+    return {
+        "tls_profiles": profiles,
+        "default_tls": default if default in seen_ids else "",
+    }
+
+
+def effective_tls(data: Dict[str, Any], settings: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+    """
+    The TLS settings a request is sent with, and where they came from
+    ("request", "profile <name>", "default <name>" or "none").
+    """
+
+    tls = data["tls"]
+    if tls["mode"] == "custom":
+        return normalize_tls(tls), "request"
+    profiles = {profile["id"]: profile for profile in settings["tls_profiles"]}
+    if tls["mode"] == "profile":
+        profile = profiles.get(tls["profile"])
+        if profile is None:
+            raise EagleStoreError(
+                "The request's TLS profile no longer exists; choose another in its TLS tab."
+            )
+        return normalize_tls(profile), f"profile {profile['name']}"
+    profile = profiles.get(settings["default_tls"])
+    if profile is None:
+        return normalize_tls({}), "none"
+    return normalize_tls(profile), f"default {profile['name']}"
+
+
 def default_request() -> Dict[str, Any]:
     return normalize_request({})
 
@@ -104,7 +200,6 @@ def normalize_request(data: Any) -> Dict[str, Any]:
     method = _text(data.get("method") or "GET").strip().upper()[:20] or "GET"
     body_mode = _text(body.get("mode") or "none")
     auth_type = _text(auth.get("type") or "none")
-    cert_mode = _text(tls.get("client_cert") or "none")
     source = _text(extract.get("source") or "json")
     stop_type = _text(stop.get("type") or "json")
 
@@ -131,15 +226,7 @@ def normalize_request(data: Any) -> Dict[str, Any]:
             "scope": _text(auth.get("scope")),
             "client_auth": "basic" if auth.get("client_auth") == "basic" else "body",
         },
-        "tls": {
-            "verify": tls.get("verify", True) is not False,
-            "client_cert": cert_mode if cert_mode in ("none", "pem", "pfx") else "none",
-            "cert": _text(tls.get("cert")),
-            "key": _text(tls.get("key")),
-            "pfx": _text(tls.get("pfx")),
-            "password": _text(tls.get("password")),
-            "ca_bundle": _text(tls.get("ca_bundle")),
-        },
+        "tls": {**normalize_tls(tls), "mode": _tls_mode(tls), "profile": _text(tls.get("profile"))},
         "options": {
             "timeout": _number(options.get("timeout"), 30, 1, 300),
             "follow_redirects": options.get("follow_redirects", True) is not False,
@@ -196,6 +283,48 @@ class EagleStore:
     def __init__(self, connection: Any) -> None:
         ensure_schema(connection)
         self.connection = connection
+
+    # -- project settings ------------------------------------------------
+
+    def settings(self, project_id: int) -> Dict[str, Any]:
+        row = self.connection.fetchone(
+            "SELECT data FROM eagleapi_settings WHERE project_id = ?", (project_id,)
+        )
+        try:
+            data = json.loads(row["data"]) if row else {}
+        except ValueError:
+            data = {}
+        try:
+            return normalize_settings(data)
+        except EagleStoreError:
+            return normalize_settings({})
+
+    def save_settings(self, project_id: int, data: Any, user: str) -> Dict[str, Any]:
+        settings = normalize_settings(data)
+        with self.connection.transaction():
+            self.connection.execute(
+                "INSERT OR REPLACE INTO eagleapi_settings"
+                " (project_id, data, updated_by, updated_at) VALUES (?, ?, ?, ?)",
+                (project_id, _dump(settings), user, _now()),
+            )
+        return settings
+
+    def profile_users(self, project_id: int, profile_id: str) -> List[str]:
+        """Names of the project's requests that use a TLS profile."""
+
+        rows = self.connection.fetchall(
+            "SELECT name, data FROM eagleapi_items WHERE project_id = ? AND kind = 'request'",
+            (project_id,),
+        )
+        names = []
+        for row in rows:
+            try:
+                tls = json.loads(row["data"]).get("tls") or {}
+            except (ValueError, AttributeError):
+                continue
+            if tls.get("mode") == "profile" and tls.get("profile") == profile_id:
+                names.append(row["name"])
+        return names
 
     # -- reading -------------------------------------------------------
 
