@@ -165,7 +165,23 @@ class ExtensionManager:
             staging = self._staging()
             try:
                 wheels = staging / "wheels"
-                if packages.is_plain(lower, data):
+                bundle = packages.bundled_wheels(lower, data)
+                if bundle:
+                    # A .zip of wheels: the library and its dependencies,
+                    # downloaded elsewhere; nothing is fetched or built.
+                    packages.select_wheels(bundle, wheels)
+                    project = packages.main_project(wheels, name)
+                    _, found, _ = packages.main_wheel(wheels, project)
+                    self._refuse_known(project, f"=={found}")
+                    missing = packages.missing_requirements(wheels, packages.host_distributions())
+                    if missing:
+                        raise ExtensionValueError(
+                            "The zip lacks dependencies: "
+                            + "; ".join(missing)
+                            + ". Add their wheels (pip download fetches them all) and upload again."
+                        )
+                    dependencies = True
+                elif packages.is_plain(lower, data):
                     if not name or not version:
                         raise ExtensionValueError(
                             "This file has no package information: give it a name and version."

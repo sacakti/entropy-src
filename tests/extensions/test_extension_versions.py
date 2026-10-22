@@ -36,8 +36,12 @@ def _module(version: str) -> bytes:
 
 
 def test_plain_modules_install_side_by_side(manager) -> None:
-    first = manager.install_upload("greeter.py", _module("1.0"), name="greeter", version="1.0", user="dev")
-    second = manager.install_upload("greeter.py", _module("2.0"), name="greeter", version="2.0", user="dev")
+    first = manager.install_upload(
+        "greeter.py", _module("1.0"), name="greeter", version="1.0", user="dev"
+    )
+    second = manager.install_upload(
+        "greeter.py", _module("2.0"), name="greeter", version="2.0", user="dev"
+    )
     assert (first["version"], second["version"]) == ("1.0", "2.0")
     assert first["packages"] == ["greeter==1.0"] and first["source"] == "upload"
     assert {entry["version"] for entry in manager.list()} == {"1.0", "2.0"}
@@ -97,13 +101,17 @@ def test_activation_puts_the_chosen_version_on_the_path(manager, tmp_path) -> No
         "m.activate([{'name': 'greeter', 'version': sys.argv[1]}])\n"
         "import greeter; print(greeter.greet())\n"
         "try:\n"
-        "    m.activate([{'name': 'greeter', 'version': '2.0' if sys.argv[1] != '2.0' else '1.0'}])\n"
+        "    m.activate([{'name': 'greeter', 'version': '2.0' if sys.argv[1] != '2.0' else '1.0'}])\n"  # noqa: E501
         "except Exception as exc: print(type(exc).__name__)\n"
     )
     root = Path(__file__).resolve().parents[2]
     for version in ("1.0", "2.0"):
         result = subprocess.run(
-            [sys.executable, "-c", script, version], cwd=root, capture_output=True, text=True, check=True
+            [sys.executable, "-c", script, version],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
         )
         assert result.stdout.splitlines() == [f"hello from {version}", "ExtensionConflictError"]
 
@@ -115,7 +123,11 @@ def test_package_folder_zip_and_removal(manager) -> None:
         archive.writestr("acme_tools/core.py", "def answer():\n    return 42\n")
         archive.writestr("acme_tools/__pycache__/core.cpython-39.pyc", b"junk")
     entry = manager.install_upload(
-        "acme_tools.zip", buffer.getvalue(), name="acme-tools", version="0.3.1", summary="ACME helpers"
+        "acme_tools.zip",
+        buffer.getvalue(),
+        name="acme-tools",
+        version="0.3.1",
+        summary="ACME helpers",
     )
     site = manager.folder("acme-tools", "0.3.1") / "site"
     assert (site / "acme_tools" / "core.py").is_file()
@@ -138,3 +150,68 @@ def test_uploads_are_checked(manager) -> None:
         archive.writestr("../evil.py", "x = 1\n")
     with pytest.raises(ExtensionValueError, match="unsafe"):
         manager.install_upload("evil.zip", buffer.getvalue(), name="evil", version="1.0")
+
+
+def _wheel(name: str, version: str, requires=(), tag: str = "py3-none-any") -> tuple:
+    distribution = name.replace("-", "_")
+    dist_info = f"{distribution}-{version}.dist-info"
+    metadata = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n" + "".join(
+        f"Requires-Dist: {line}\n" for line in requires
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(f"{distribution}/__init__.py", f"VERSION = '{version}'\n")
+        archive.writestr(f"{dist_info}/METADATA", metadata)
+        archive.writestr(f"{dist_info}/WHEEL", f"Wheel-Version: 1.0\nTag: {tag}\n")
+        archive.writestr(f"{dist_info}/RECORD", "")
+    return f"{distribution}-{version}-{tag}.whl", buffer.getvalue()
+
+
+def _zip(*wheels) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, data in wheels:
+            archive.writestr(f"wheels/{name}", data)
+    return buffer.getvalue()
+
+
+def test_a_zip_of_wheels_installs_the_library_with_its_dependencies(manager) -> None:
+    host = packages.host_distributions()["packaging"]
+    top = _wheel(
+        "sshlib",
+        "3.4.0",
+        [
+            "helper>=1.0",
+            f"packaging>={host}",  # Entropy has it: not needed in the zip
+            "gssapi>=1.4; extra == 'gssapi'",  # optional: ignored
+            "winonly; sys_platform == 'nonexistent'",
+        ],
+    )
+    helper = _wheel("helper", "1.2.0")
+    other_platform = _wheel("helper", "1.2.0", tag="cp39-cp39-win_amd64")
+
+    with pytest.raises(
+        ExtensionValueError, match=r"lacks dependencies: helper>=1.0 \(for sshlib\)"
+    ):
+        manager.install_upload("bundle.zip", _zip(top))
+
+    entry = manager.install_upload("bundle.zip", _zip(top, helper, other_platform))
+    assert (entry["name"], entry["version"]) == ("sshlib", "3.4.0")
+    assert entry["packages"] == ["helper==1.2.0", "sshlib==3.4.0"]
+    site = manager.folder("sshlib", "3.4.0") / "site"
+    assert (site / "sshlib" / "__init__.py").is_file() and (site / "helper").is_dir()
+    # Nodes get exactly the chosen wheels.
+    assert sorted(p.name for p in (manager.folder("sshlib", "3.4.0") / "wheels").iterdir()) == [
+        helper[0],
+        top[0],
+    ]
+
+
+def test_a_zip_of_wheels_is_checked(manager) -> None:
+    alone = _wheel("lonely", "1.0", tag="cp39-cp39-win_amd64")
+    with pytest.raises(ExtensionValueError, match="do not fit this server"):
+        manager.install_upload("bundle.zip", _zip(alone))
+    first, second = _wheel("one", "1.0"), _wheel("two", "1.0")
+    with pytest.raises(ExtensionValueError, match="Say which library"):
+        manager.install_upload("bundle.zip", _zip(first, second))
+    assert manager.install_upload("bundle.zip", _zip(first, second), name="two")["name"] == "two"

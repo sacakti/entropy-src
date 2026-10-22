@@ -38,7 +38,8 @@ export default function InstallExtensionDialog({
     const [error, setError] = useState<string | null>(null)
     const fileRef = useRef<HTMLInputElement>(null)
 
-    const plain = Boolean(file && (/\.py$/i.test(file.name) || /\.zip$/i.test(file.name)))
+    // A .py module needs a name and version; a .zip may be a package folder or a bundle of wheels.
+    const plain = Boolean(file && /\.py$/i.test(file.name))
     const known = name.trim() ? builtin.find((library) => canonical(library.name) === canonical(name.trim())) : undefined
     const versions = name.trim()
         ? installed.filter((entry) => entry.canonical === canonical(name.trim())).map((entry) => entry.version)
@@ -116,11 +117,12 @@ export default function InstallExtensionDialog({
                         />
                         <button type="button" className="extension-drop" onClick={() => fileRef.current?.click()}>
                             <FileUp size={18} aria-hidden="true" />
-                            <span>{file ? file.name : 'Choose a wheel, source archive, .py module or zipped package folder…'}</span>
+                            <span>{file ? file.name : 'Choose a wheel, a .zip of wheels, a source archive, a .py module or a zipped package folder…'}</span>
                         </button>
                         <small>
-                            Wheels and source archives carry their own name and version. A .py module or a zipped package folder
-                            needs them below.
+                            No package index here? Zip the wheels of the library and its dependencies (
+                            <code>pip download paramiko -d wheels</code>) and upload the zip. Wheels and source archives carry their
+                            own name and version; a .py module or a zipped package folder needs them below.
                         </small>
                     </div>
                 )}

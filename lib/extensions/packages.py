@@ -254,6 +254,175 @@ def folder_size(path: Path) -> int:
 # ----------------------------------------------------------------------
 
 
+# ----------------------------------------------------------------------
+# Wheel bundles: a .zip of wheels (e.g. from `pip download`), for servers
+# without access to a package index
+# ----------------------------------------------------------------------
+
+
+def bundled_wheels(filename: str, data: bytes) -> List[Tuple[str, bytes]]:
+    """The wheels inside a .zip upload (any folder depth); empty when there are none."""
+
+    if not filename.endswith(".zip"):
+        return []
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        raise ExtensionValueError("The .zip file is damaged.") from None
+    found = []
+    for info in archive.infolist():
+        name = info.filename.replace("\\", "/").split("/")[-1]
+        if not info.is_dir() and name.lower().endswith(".whl") and not name.startswith("."):
+            found.append((name, archive.read(info)))
+    return found
+
+
+def select_wheels(files: List[Tuple[str, bytes]], target: Path) -> List[str]:
+    """
+    Keep, per library, the wheel that best fits this Python and platform;
+    returns the wheels that fit nothing here. Raises when a library has no
+    fitting wheel at all.
+    """
+
+    from packaging.tags import sys_tags
+
+    priority = {tag: index for index, tag in enumerate(sys_tags())}
+    best: Dict[str, Tuple[int, str, bytes]] = {}
+    unfit: List[str] = []
+    seen: Dict[str, List[str]] = {}
+    for name, data in files:
+        try:
+            project, version, _, tags = parse_wheel_filename(name)
+        except Exception:
+            raise ExtensionValueError(f"{name} is not a valid wheel file name.") from None
+        canonical = canonicalize_name(str(project))
+        seen.setdefault(canonical, []).append(name)
+        rank = min((priority[tag] for tag in tags if tag in priority), default=None)
+        if rank is None:
+            unfit.append(name)
+            continue
+        current = best.get(canonical)
+        if current is None or rank < current[0]:
+            best[canonical] = (rank, name, data)
+    stranded = [names for canonical, names in seen.items() if canonical not in best]
+    if stranded:
+        python = f"{sys.version_info[0]}.{sys.version_info[1]}"
+        raise ExtensionValueError(
+            "These wheels do not fit this server (Python "
+            f"{python}, {_platform_name()}): {', '.join(n for names in stranded for n in names)}. "
+            f"Download them for it, e.g. pip download <library> --python-version {python} "
+            f"--platform {_pip_platform()} --only-binary=:all: -d wheels"
+        )
+    target.mkdir(parents=True, exist_ok=True)
+    for _, name, data in best.values():
+        (target / name).write_bytes(data)
+    return unfit
+
+
+def _platform_name() -> str:
+    import platform
+
+    return f"{platform.system()} {platform.machine()}"
+
+
+def _pip_platform() -> str:
+    from packaging.tags import sys_tags
+
+    for tag in sys_tags():
+        if tag.platform != "any":
+            return tag.platform
+    return "any"
+
+
+def _wheel_metadata(wheel: Path) -> Tuple[str, str, List[str]]:
+    """(name, version, Requires-Dist lines) from a wheel's METADATA."""
+
+    with zipfile.ZipFile(wheel) as archive:
+        metadata = next(
+            (
+                n
+                for n in archive.namelist()
+                if n.count("/") == 1 and n.endswith(".dist-info/METADATA")
+            ),
+            None,
+        )
+        if metadata is None:
+            raise ExtensionValueError(f"{wheel.name} has no METADATA.")
+        message = Parser().parsestr(archive.read(metadata).decode("utf-8", "replace"))
+    return (
+        message.get("Name") or "",
+        message.get("Version") or "",
+        message.get_all("Requires-Dist") or [],
+    )
+
+
+def missing_requirements(wheels: Path, host: Dict[str, str]) -> List[str]:
+    """Dependencies of the wheels that neither the wheels nor Entropy provide."""
+
+    from packaging.requirements import InvalidRequirement, Requirement
+
+    present: Dict[str, str] = {}
+    requirements: List[Tuple[str, str]] = []
+    for wheel in wheels.glob("*.whl"):
+        name, version, requires = _wheel_metadata(wheel)
+        present[canonicalize_name(name)] = version
+        requirements += [(name, line) for line in requires]
+    missing = []
+    for owner, line in requirements:
+        try:
+            requirement = Requirement(line)
+        except InvalidRequirement:
+            continue
+        # Optional extras ("; extra == 'gssapi'") and other platforms' markers.
+        if requirement.marker is not None and not requirement.marker.evaluate({"extra": ""}):
+            continue
+        canonical = canonicalize_name(requirement.name)
+        for source in (present, host):
+            version = source.get(canonical)
+            if version is not None and (
+                not str(requirement.specifier)
+                or requirement.specifier.contains(version, prereleases=True)
+            ):
+                break
+        else:
+            have = present.get(canonical) or host.get(canonical)
+            missing.append(
+                f"{requirement.name}{requirement.specifier or ''} (for {owner})"
+                + (f", the zip has {have}" if have else "")
+            )
+    return sorted(set(missing))
+
+
+def main_project(wheels: Path, name: Optional[str]) -> str:
+    """The library a bundle is for: the given name, else the one nothing else depends on."""
+
+    from packaging.requirements import InvalidRequirement, Requirement
+
+    projects: Dict[str, str] = {}
+    needed: set = set()
+    for wheel in wheels.glob("*.whl"):
+        project, _, requires = _wheel_metadata(wheel)
+        projects[canonicalize_name(project)] = project
+        for line in requires:
+            try:
+                needed.add(canonicalize_name(Requirement(line).name))
+            except InvalidRequirement:
+                continue
+    if name:
+        if canonicalize_name(name) not in projects:
+            raise ExtensionValueError(
+                f"The zip has no wheel for {name}; it has {', '.join(sorted(projects.values()))}."
+            )
+        return projects[canonicalize_name(name)]
+    tops = [project for canonical, project in projects.items() if canonical not in needed]
+    if len(tops) != 1:
+        raise ExtensionValueError(
+            "Say which library to install (Library field): the zip holds "
+            f"{', '.join(sorted(projects.values()))}."
+        )
+    return tops[0]
+
+
 def is_plain(filename: str, data: bytes) -> bool:
     """A .py module, or a .zip of a package folder without setup.py / pyproject.toml."""
 
@@ -298,7 +467,10 @@ def make_wheel(
                 continue
             files["/".join(parts)] = archive.read(info)
         if not any(path.endswith(".py") for path in files):
-            raise ExtensionValueError("The archive has no Python files.")
+            raise ExtensionValueError(
+                "The archive has no Python files or wheels. Upload a zipped package folder, or a "
+                ".zip of wheel files (.whl) such as pip download makes."
+            )
 
     distribution = re.sub(r"[-.]+", "_", name)
     dist_info = f"{distribution}-{version}.dist-info"
