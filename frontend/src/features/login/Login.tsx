@@ -74,9 +74,17 @@ export default function Login({ onLogin, endedSession }: LoginProps) {
 
   return (
     <main className="login-page">
-      {/* Entropy's mark, large and faded, behind the sign-in card. */}
+      {/* Entropy's mark, very large and in the background's own olive tone. */}
       <div className="login-backdrop" aria-hidden="true">
-        <img src="/entropy-logo.svg" alt="" />
+        <svg viewBox="0 0 64 64" focusable="false">
+          <rect x="2" y="2" width="60" height="60" rx="14" fill="currentColor" fillOpacity="0.35" stroke="currentColor" strokeWidth="1" />
+          <g fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="19" y="17" width="12" height="12" rx="3" />
+            <path d="M31 23h6a4 4 0 0 1 4 4v6" />
+            <rect x="35" y="33" width="12" height="12" rx="3" />
+            <path d="M29 29v7a4 4 0 0 0 4 4h2" />
+          </g>
+        </svg>
       </div>
       <section className="login-card">
         <div className="login-brand">

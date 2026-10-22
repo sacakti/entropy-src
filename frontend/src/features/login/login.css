@@ -979,37 +979,42 @@
 }
 
 /* ----------------------------------------------------------
-   Single centred card over the faded Entropy mark
-   (the old introduction panel is gone).
+   Sign-in card on the right over a dark olive background with
+   Entropy's mark, very large and faded into it, on the left.
    ---------------------------------------------------------- */
 
 .login-page {
+  --login-olive: #26301a;
+  --login-olive-deep: #161c0f;
+  --login-olive-mark: #4b5c2e;
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   min-height: 100vh;
-  padding: 24px 16px;
+  padding: 24px clamp(16px, 8vw, 128px);
   overflow: hidden;
   box-sizing: border-box;
   background:
-    radial-gradient(circle at 50% 45%, rgba(215, 255, 99, 0.06), transparent 55%),
-    var(--entropy-bg);
+    radial-gradient(ellipse at 28% 50%, rgba(140, 170, 80, 0.16), transparent 60%),
+    linear-gradient(135deg, var(--login-olive) 0%, var(--login-olive-deep) 100%);
 }
 
 .login-backdrop {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
   pointer-events: none;
 }
 
-.login-backdrop img {
-  width: min(78vmin, 760px);
+.login-backdrop svg {
+  width: min(118vh, 92vw);
   height: auto;
-  opacity: 0.07;
-  filter: grayscale(0.2);
+  margin-left: -14vh;
+  color: var(--login-olive-mark);
+  opacity: 0.32;
+  transform: rotate(-8deg);
   user-select: none;
 }
 
@@ -1019,12 +1024,12 @@
   width: min(440px, 100%);
   min-height: 0;
   padding: clamp(28px, 4vw, 44px);
-  background: rgba(17, 21, 27, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(16, 20, 11, 0.8);
+  border: 1px solid rgba(215, 255, 99, 0.12);
   border-radius: 18px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   box-sizing: border-box;
 }
 
@@ -1032,14 +1037,23 @@
   margin-bottom: 32px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .login-page {
+    justify-content: center;
     padding: 16px;
+  }
+
+  .login-backdrop {
+    justify-content: center;
+  }
+
+  .login-backdrop svg {
+    width: 130vw;
+    margin-left: 0;
   }
 
   .login-card {
     min-height: 0;
     padding: 28px 22px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 }
