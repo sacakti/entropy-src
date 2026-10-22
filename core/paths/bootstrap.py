@@ -68,7 +68,10 @@ class BootstrapPathManager:
 
     @property
     def worker(self) -> Path:
-        return self._project_root / "lib" / "workflow" / "worker.py"
+        source = self._project_root / "lib" / "workflow" / "worker.py"
+        # Releases ship compiled code; Python runs a .pyc by path as well.
+        compiled = source.with_suffix(".pyc")
+        return compiled if not source.exists() and compiled.exists() else source
 
     @property
     def vault(self) -> VaultPaths:

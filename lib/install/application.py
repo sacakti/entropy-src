@@ -83,11 +83,7 @@ class ApplicationInstaller:
                 shutil.copytree(
                     item,
                     destination,
-                    ignore=shutil.ignore_patterns(
-                        "__pycache__",
-                        "*.pyc",
-                        "*.pyo",
-                    ),
+                    ignore=_ignore_caches,
                 )
 
             else:
@@ -96,3 +92,16 @@ class ApplicationInstaller:
                     item,
                     destination,
                 )
+
+
+def _ignore_caches(directory: str, names: list) -> set:
+    """
+    Skip byte-code caches, but not byte code that stands in for its source:
+    releases ship compiled modules without sources.
+    """
+
+    skipped = {name for name in names if name == "__pycache__"}
+    for name in names:
+        if name.endswith((".pyc", ".pyo")) and name[:-1] in names:
+            skipped.add(name)
+    return skipped

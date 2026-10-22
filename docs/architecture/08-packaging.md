@@ -27,7 +27,7 @@ entropy-<version>-<platform>.tar.gz
     ├── README.txt
     ├── python/                      CPython 3.9 (python-build-standalone, install_only)
     └── application/
-        ├── core/ lib/ entropy.py …
+        ├── core/ lib/ entropy.py …     byte code only (see below)
         ├── frontend/dist/           built web UI, served by the web server
         └── resources/wheels/
             ├── requirements.txt
@@ -52,6 +52,7 @@ python3 scripts/release.py --all --version 1.3.0            # every platform
 | `--skip-frontend` | Reuse `frontend/dist` instead of `npm ci && npm run build`. |
 | `--wheels DIR`, `--python-archive FILE` | Offline builds from pre-downloaded inputs. |
 | `--output DIR` | Default `build/dist/`. |
+| `--source` | Ship Python sources instead of byte code (debugging a release). |
 
 Wheels are resolved with `pip download --only-binary=:all:` for CPython
 3.9 and the target platform tags. The resolver itself runs on a host
@@ -66,6 +67,29 @@ extracted on the build host, so the host's file system cannot alter it
 differing only in case; Windows drops symlinks and permission bits).
 Application files get fixed permissions: directories 755, files 644,
 `install.sh` 755.
+
+## Compiled code
+
+Releases ship Entropy's `core` and `lib` as byte code, not Python
+sources: each module is a `.pyc` file where its `.py` was (`compileall
+-b`), which Python imports without a source. The byte code is made with
+the release's own Python (3.9), as byte code only loads on that version;
+tracebacks name `application/...` paths. `manifest.json` records
+`compiled_modules`.
+
+These stay source, and must: `entropy.py` and `lib/install/cli.py`
+(launchers run by path from scripts) and `lib/remote_cli/` (the `ent`
+client given to users, run by their own Python). Plugins are source too:
+they are meant to be read and changed in Plugin Studio.
+
+What this does and does not do: sources are no longer there to read or
+edit in place, and a changed module cannot simply be saved over. Byte code
+can still be decompiled by someone determined, so it is not a protection
+for secrets; secrets belong in the vault.
+
+The installer keeps byte code that stands in for a source (it drops only
+`__pycache__` caches), upgrades move the new application folder into
+place unchanged, and node runtime bundles carry the byte code.
 
 ---
 

@@ -6,8 +6,9 @@ Build a self-contained Entropy release package:
         install.sh | install.cmd    installer entry point
         manifest.json               version, platform, Python, contents
         python/                     relocatable CPython 3.9
-        application/                Entropy, the built web UI and the
-                                    platform's Python wheels
+        application/                Entropy (compiled to byte code: no
+                                    Python sources), the built web UI and
+                                    the platform's Python wheels
 
 Nothing else is needed on the target: no Python, venv, pip or npm.
 
@@ -96,6 +97,10 @@ HOST_TRIPLES = {
 }
 
 APPLICATION_ITEMS = ("core", "lib", "resources", "entropy.py", "pyproject.toml")
+# Shipped as byte code (no source). These stay source: launchers run by
+# path from scripts, and the `ent` client handed to users (their Python).
+COMPILED_ITEMS = ("core", "lib")
+KEEP_SOURCE = ("lib/install/cli.py", "lib/remote_cli/")
 EXCLUDED = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".DS_Store"}
 
 
@@ -279,6 +284,58 @@ def copy_application(destination: Path, platform: str, version: str, dist: Path)
     )
 
 
+def keeps_source(relative: str) -> bool:
+    return any(
+        relative == item or (item.endswith("/") and relative.startswith(item))
+        for item in KEEP_SOURCE
+    )
+
+
+def compile_application(application: Path, python: str) -> int:
+    """
+    Replace the Python sources of `core` and `lib` with byte code (legacy
+    .pyc files beside where the sources were, which Python imports without
+    a source). `python` must be the release's Python version (3.9): byte
+    code is specific to it. Returns how many modules were compiled.
+    """
+
+    targets = [str(application / item) for item in COMPILED_ITEMS]
+    subprocess.run(
+        [
+            python,
+            "-m",
+            "compileall",
+            "-b",  # module.pyc next to module.py, not in __pycache__
+            "-f",
+            "-q",
+            "-j",
+            "0",
+            # Tracebacks name application/..., not the build machine's paths.
+            "-s",
+            str(application),
+            "-p",
+            "application",
+            *targets,
+        ],
+        check=True,
+    )
+    compiled = 0
+    for item in COMPILED_ITEMS:
+        for source in sorted((application / item).rglob("*.py")):
+            relative = source.relative_to(application).as_posix()
+            byte_code = source.with_suffix(".pyc")
+            if keeps_source(relative):
+                byte_code.unlink(missing_ok=True)
+                continue
+            if not byte_code.is_file():
+                raise ReleaseError(f"{relative} was not compiled.")
+            source.unlink()
+            compiled += 1
+        for cache in (application / item).rglob("__pycache__"):
+            shutil.rmtree(cache, ignore_errors=True)
+    return compiled
+
+
 def write_installer(stage: Path, platform: str) -> None:
     name = PLATFORMS[platform][3]
     target = stage / name
@@ -373,6 +430,10 @@ def build(platform: str, version: str, args: argparse.Namespace, dist: Path) -> 
         args.wheels,
     )
     python = python_archive(platform, cache, args.python_archive)
+    compiled = 0
+    if not args.source:
+        log("Compiling Entropy to byte code (sources are not shipped)")
+        compiled = compile_application(stage / "application", resolver_python(cache))
     write_installer(stage, platform)
 
     wheels = sorted(
@@ -387,6 +448,8 @@ def build(platform: str, version: str, args: argparse.Namespace, dist: Path) -> 
         "built_at": datetime.now(timezone.utc).isoformat(),
         "installer": PLATFORMS[platform][3],
         "wheels": wheels,
+        # Modules shipped as byte code only (0: sources shipped).
+        "compiled_modules": compiled,
     }
     (stage / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
@@ -413,6 +476,11 @@ def main() -> int:
     )
     parser.add_argument(
         "--python-archive", type=Path, help="Use this python-build-standalone archive."
+    )
+    parser.add_argument(
+        "--source",
+        action="store_true",
+        help="Ship Python sources instead of byte code (for debugging a release).",
     )
     args = parser.parse_args()
 

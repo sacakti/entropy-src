@@ -262,3 +262,67 @@ are exported and deleted; its TLS profiles and history go with it.
   format, the TLS profiles). Vault values never leave the vault: references
   become the other tool's variables (`{{KEY}}`, `${#Project#KEY}`) and back,
   and paths use a `baseUrl` variable for the environment's base URL.
+
+# Extensions (Python libraries for plugins)
+
+*Extensions* (beside Plugins, and `ent extension`) installs the Python
+libraries plugins need: from the package index (a version or range; the
+default index pip is configured with, or one given), or your own file — a
+wheel, a source archive, a `.py` module or a zipped package folder (the
+last two get a name and version). Viewing needs `extensions.list`;
+installing and removing need `extensions.install` (Plugin developer has
+both).
+
+- **Versions side by side.** Each version lives in its own folder,
+  `extensions/libs/<name>/<version>/`, with the wheels it came from.
+  Dependencies Entropy already has at the very same version are shared, not
+  copied.
+- **Entropy's own libraries** are listed under *In Entropy*. Installing one
+  at the version Entropy has is refused ("already part of Entropy"); another
+  version installs alongside.
+- **Plugins** list what they need under `dependencies` in `plugin.json`:
+  `{"name": "paramiko", "version": "3.0"}` (exactly 3.0), a range such as
+  `">=2,<3"`, or no version. A requirement is met by Entropy's own library
+  when its version fits, else by the newest fitting extension version.
+  Installing a plugin whose libraries are missing fails, and says which;
+  the web UI checks first and offers to install them. A reinstall checks
+  before it removes anything.
+- **At run time** the chosen versions go first on the plugin's import path.
+  One run is one process: two plugins in it that need different versions of
+  the same library are refused with a clear message. Libraries Entropy has
+  already loaded (for example `cryptography`) stay Entropy's version in that
+  process.
+- **Nodes** fetch the versions their plugins need from the server, as
+  wheels, and install them the same way.
+- A version installed plugins still need cannot be removed.
+
+# Database safety
+
+Everything Entropy knows lives in `entropy.db` (SQLite). See
+*Administration → Settings → Database* and `ent database`.
+
+- **One server per database.** The web server holds an exclusive lock on
+  `entropy.db.lock`; a second server on the same database refuses to start.
+  Workflow workers and the command line still use the database.
+- **Guard against deletion.** `.entropy.db.guard` is a hard link to the
+  same data. If `entropy.db` is deleted, the server puts it back within
+  seconds with nothing lost; if the guard was deleted too, it rebuilds the
+  file from its open connection. Any process that finds the database
+  missing puts it back before opening it, so an empty database never
+  silently replaces the real one. (The guard sits in the same folder: it
+  does not help against losing the whole folder or disk; backups do.)
+- **Backups.** Every few hours (default 6; 28 kept) the server makes a
+  consistent online copy with SQLite's backup API and keeps it only if it
+  passes `PRAGMA integrity_check`. Put them on another disk: the backup
+  folder, interval and count are set in the Database settings (stored in
+  `database-safety.json` beside the database, as they must survive it) or
+  with `ENTROPY_DB_BACKUP_DIR`.
+- **Checks and recovery.** The server checks the database when it starts.
+  A damaged one is moved aside (`entropy.db.damaged-<time>`) and the newest
+  good backup takes its place; without a good backup the server does not
+  start. Administrators are notified of every recovery.
+- **Restore by hand.** With the server stopped: `ent database restore`
+  (newest good backup) or `ent database restore <name>`; the replaced file
+  is kept beside it. `ent database` works without signing in, as it must
+  when the database is the problem; it needs access to the files.
+

@@ -49,10 +49,14 @@ class PackagingError(Exception):
     """An archive could not be produced; the message is safe to show."""
 
 
-def _include(relative: Path) -> bool:
+def _include(relative: Path, root: Path | None = None) -> bool:
     if any(part in EXCLUDED_PARTS for part in relative.parts):
         return False
-    if relative.suffix in (".pyc", ".pyo"):
+    # Byte code next to its source is a cache; without a source (a release
+    # ships compiled code) it is the module itself.
+    if relative.suffix in (".pyc", ".pyo") and (
+        root is None or (root / relative.with_suffix(".py")).exists()
+    ):
         return False
     text = relative.as_posix()
     return not any(text.startswith(prefix) for prefix in EXCLUDED_PREFIXES)
@@ -67,7 +71,7 @@ def _files(root: Path, items: Iterable[str]) -> list:
         elif path.is_dir():
             for child in sorted(path.rglob("*")):
                 relative = child.relative_to(root)
-                if child.is_file() and not child.is_symlink() and _include(relative):
+                if child.is_file() and not child.is_symlink() and _include(relative, root):
                     files.append(relative)
     return sorted(files)
 
