@@ -475,6 +475,20 @@ class WorkflowVariableResolver:
                 value,
             )
 
+        # Object-shaped configuration is often stored in the vault as a
+        # string containing JSON (for example, SFTP credentials or a database
+        # connection). Decode only JSON objects so ordinary string secrets,
+        # including strings containing JSON scalars or arrays, keep their
+        # original type.
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except json.JSONDecodeError:
+                pass
+            else:
+                if isinstance(decoded, dict):
+                    return decoded
+
         return value
 
     def _resolve_reference(

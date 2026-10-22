@@ -4,6 +4,8 @@ SQLPlus execution input resolution.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -237,7 +239,21 @@ class SqlPlusResolver:
                 "'schemas' must not be empty.",
             )
 
-        return schemas
+        normalized: dict[str, Any] = {}
+        for schema, credentials in schemas.items():
+            if isinstance(credentials, Mapping):
+                credentials = dict(credentials)
+            elif isinstance(credentials, str):
+                try:
+                    decoded = json.loads(credentials)
+                except json.JSONDecodeError:
+                    pass
+                else:
+                    if isinstance(decoded, dict):
+                        credentials = decoded
+            normalized[schema] = credentials
+
+        return normalized
 
     @staticmethod
     def _validate_execution_plan(

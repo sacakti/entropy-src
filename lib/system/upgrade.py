@@ -145,6 +145,7 @@ class ReleaseUpgrader:
             "current": VERSION,
             "platform": manifest.get("platform"),
             "python": manifest.get("python"),
+            "upgrade_only": bool(manifest.get("upgrade_only", False)),
             "built_at": manifest.get("built_at"),
             "newer": newer,
             "same": same,
@@ -193,7 +194,12 @@ class ReleaseUpgrader:
             shutil.rmtree(staging)
         staging.mkdir(parents=True)
 
-        for component in (self.application, self.packages, self.root / "python"):
+        components = (
+            (self.application,)
+            if info["upgrade_only"]
+            else (self.application, self.packages, self.root / "python")
+        )
+        for component in components:
             stale = self._previous(component)
             if stale.exists():
                 shutil.rmtree(stale)
@@ -208,15 +214,27 @@ class ReleaseUpgrader:
                 options = {"filter": "tar"} if hasattr(tarfile, "tar_filter") else {}
                 archive.extractall(staging, members=members, **options)
             extracted = staging / read_manifest(package)["_root"]
-            new_application = extracted / "application"
-            if not (new_application / "entropy.py").is_file():
+            packaged_application = extracted / "application"
+            if not (packaged_application / "entropy.py").is_file():
                 raise UpgradeError("The package does not contain the Entropy application.")
+
+            if info["upgrade_only"]:
+                # Upgrade packages carry application files only. Start with
+                # the installed tree so unshipped runtime assets (notably
+                # wheels and frontend files) remain available, then overlay
+                # the package's updated code and resources.
+                new_application = staging / "application.new"
+                shutil.copytree(self.application, new_application)
+                shutil.copytree(packaged_application, new_application, dirs_exist_ok=True)
+            else:
+                new_application = packaged_application
 
             python = Path(self.record["python"])
             bundled_root = self.root / "python"
             staged_python_root = None
             if (
-                bundled_root in python.parents
+                not info["upgrade_only"]
+                and bundled_root in python.parents
                 and (extracted / "python").is_dir()
                 and self._bundled_version(python) != info["python"]
             ):
@@ -224,13 +242,15 @@ class ReleaseUpgrader:
                 python = staged_python_root / python.relative_to(bundled_root)
                 self.say(f"The package brings Python {info['python']}.")
 
-            self.say("Installing Python packages…")
             new_packages = self.home / "site-packages.new"
-            self._install_packages(python, new_application, new_packages)
+            if not info["upgrade_only"]:
+                self.say("Installing Python packages…")
+                self._install_packages(python, new_application, new_packages)
 
             self.say("Switching to the new version…")
             swapped.append(self._swap(self.application, new_application))
-            swapped.append(self._swap(self.packages, new_packages))
+            if not info["upgrade_only"]:
+                swapped.append(self._swap(self.packages, new_packages))
             if staged_python_root is not None:
                 swapped.append(self._swap(bundled_root, staged_python_root))
 
@@ -247,7 +267,8 @@ class ReleaseUpgrader:
 
                 restore(database, backup)
             shutil.rmtree(staging, ignore_errors=True)
-            shutil.rmtree(self.home / "site-packages.new", ignore_errors=True)
+            if not info["upgrade_only"]:
+                shutil.rmtree(self.home / "site-packages.new", ignore_errors=True)
             if isinstance(exc, UpgradeError):
                 raise
             raise UpgradeError(f"{exc.__class__.__name__}: {exc}") from exc
@@ -257,6 +278,7 @@ class ReleaseUpgrader:
         entry = {
             "from": info["current"],
             "to": info["version"],
+            "upgrade_only": info["upgrade_only"],
             "at": datetime.now(timezone.utc).isoformat(),
             "by": user,
             "database": str(database) if database else None,
@@ -289,7 +311,12 @@ class ReleaseUpgrader:
             raise UpgradeError("There is no previous version to return to.")
 
         last = self.record["upgrades"][-1]
-        for current in (self.application, self.packages, self.root / "python"):
+        components = (
+            (self.application,)
+            if last.get("upgrade_only", False)
+            else (self.application, self.packages, self.root / "python")
+        )
+        for current in components:
             previous = self._previous(current)
             if previous.exists():
                 self._unswap(current, previous)
@@ -305,6 +332,7 @@ class ReleaseUpgrader:
             "at": datetime.now(timezone.utc).isoformat(),
             "by": user,
             "rollback": True,
+            "upgrade_only": last.get("upgrade_only", False),
             "database": None,
             "database_backup": None,
         }

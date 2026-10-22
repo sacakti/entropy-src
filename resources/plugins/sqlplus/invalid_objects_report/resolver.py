@@ -4,6 +4,8 @@ Invalid objects report argument resolution.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from typing import Any
 
 from .exceptions import InvalidObjectsReportPluginException
@@ -67,6 +69,13 @@ class InvalidObjectsReportResolver:
                 "'schemas' must not be empty.",
             )
 
+        # A schema credential record may itself have been stored as a JSON
+        # string inside a vault object containing the full schema map.
+        value = {
+            schema: InvalidObjectsReportResolver._credential_object(credentials)
+            for schema, credentials in value.items()
+        }
+
         for schema, credentials in value.items():
 
             if not isinstance(schema, str) or not schema.strip():
@@ -74,10 +83,13 @@ class InvalidObjectsReportResolver:
                     "Schema names must be non-empty strings.",
                 )
 
-            if not isinstance(credentials, dict):
+            if not isinstance(credentials, Mapping):
                 raise InvalidObjectsReportPluginException(
                     f"Credentials for schema '{schema}' must be an object.",
                 )
+
+            credentials = dict(credentials)
+            value[schema] = credentials
 
             username = credentials.get("username")
             password = credentials.get("password")
@@ -93,6 +105,18 @@ class InvalidObjectsReportResolver:
                 )
 
         return value
+
+    @staticmethod
+    def _credential_object(value: Any) -> Any:
+        if isinstance(value, Mapping):
+            return dict(value)
+        if not isinstance(value, str):
+            return value
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return value
+        return decoded if isinstance(decoded, dict) else value
 
     @staticmethod
     def report(

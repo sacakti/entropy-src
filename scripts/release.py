@@ -250,7 +250,9 @@ def python_archive(platform: str, cache: Path, archive: Path | None) -> Path:
     return archive
 
 
-def copy_application(destination: Path, platform: str, version: str, dist: Path) -> None:
+def copy_application(
+    destination: Path, platform: str, version: str, dist: Path, *, upgrade_only: bool = False
+) -> None:
     wheel_dir = PLATFORMS[platform][0]
 
     def ignore(directory: str, names: list) -> set:
@@ -268,7 +270,8 @@ def copy_application(destination: Path, platform: str, version: str, dist: Path)
         else:
             shutil.copy2(source, destination / item)
 
-    (destination / "resources" / "wheels" / wheel_dir).mkdir(parents=True, exist_ok=True)
+    if not upgrade_only:
+        (destination / "resources" / "wheels" / wheel_dir).mkdir(parents=True, exist_ok=True)
     shutil.copytree(
         dist, destination / "frontend" / "dist", ignore=shutil.ignore_patterns(*EXCLUDED)
     )
@@ -344,13 +347,13 @@ def write_installer(stage: Path, platform: str) -> None:
     shutil.copy2(TEMPLATES / "README.txt", stage / "README.txt")
 
 
-def archive(stage: Path, output: Path, python: Path) -> str:
-    """Write the package: the staged files, then the Python runtime.
+def archive(stage: Path, output: Path, python: Path | None) -> str:
+    """Write the staged files and, for full releases, the Python runtime.
 
     Staged files get fixed permissions (only the POSIX installer is
     executable) so the package is the same whichever OS built it. The
-    runtime is copied member by member from its archive, keeping its own
-    names, links and permissions.
+    runtime, when present, is copied member by member from its archive,
+    keeping its own names, links and permissions.
     """
 
     log(f"Writing {output.name}")
@@ -373,30 +376,31 @@ def archive(stage: Path, output: Path, python: Path) -> str:
     with tarfile.open(temporary, "w:gz", compresslevel=9) as tar:
         tar.add(stage, arcname=stage.name, filter=staged)
 
-        with tarfile.open(python) as source:
-            directories = set()
-            for member in source.getmembers():
-                # The runtime archive lists files only; add their directories.
-                parents = Path(member.name).parents
-                for parent in reversed([p.as_posix() for p in parents if p.as_posix() != "."]):
-                    if parent not in directories:
-                        directories.add(parent)
-                        entry = owner(tarfile.TarInfo(f"{stage.name}/{parent}"))
-                        entry.type, entry.mode, entry.mtime = tarfile.DIRTYPE, 0o755, member.mtime
-                        tar.addfile(entry)
-                if member.isdir():
-                    if member.name in directories:
-                        continue
-                    directories.add(member.name)
-                member = owner(member)
-                member.name = f"{stage.name}/{member.name}"
-                if not member.issym():
-                    # As extracting with the usual umask would: no group/other write.
-                    member.mode &= ~0o022
-                if member.islnk():
-                    # Hard link targets are archive paths too.
-                    member.linkname = f"{stage.name}/{member.linkname}"
-                tar.addfile(member, source.extractfile(member) if member.isfile() else None)
+        if python is not None:
+            with tarfile.open(python) as source:
+                directories = set()
+                for member in source.getmembers():
+                    # The runtime archive lists files only; add their directories.
+                    parents = Path(member.name).parents
+                    for parent in reversed([p.as_posix() for p in parents if p.as_posix() != "."]):
+                        if parent not in directories:
+                            directories.add(parent)
+                            entry = owner(tarfile.TarInfo(f"{stage.name}/{parent}"))
+                            entry.type, entry.mode, entry.mtime = tarfile.DIRTYPE, 0o755, member.mtime
+                            tar.addfile(entry)
+                    if member.isdir():
+                        if member.name in directories:
+                            continue
+                        directories.add(member.name)
+                    member = owner(member)
+                    member.name = f"{stage.name}/{member.name}"
+                    if not member.issym():
+                        # As extracting with the usual umask would: no group/other write.
+                        member.mode &= ~0o022
+                    if member.islnk():
+                        # Hard link targets are archive paths too.
+                        member.linkname = f"{stage.name}/{member.linkname}"
+                    tar.addfile(member, source.extractfile(member) if member.isfile() else None)
 
     digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
     temporary.replace(output)
@@ -421,39 +425,46 @@ def build(platform: str, version: str, args: argparse.Namespace, dist: Path) -> 
     stage.mkdir(parents=True)
 
     log(f"Staging Entropy {version} for {platform}")
-    copy_application(stage / "application", platform, version, dist)
-    wheel_dir = PLATFORMS[platform][0]
-    download_wheels(
-        platform,
-        stage / "application" / "resources" / "wheels" / wheel_dir,
-        cache,
-        args.wheels,
+    copy_application(
+        stage / "application", platform, version, dist, upgrade_only=args.upgrade_only
     )
-    python = python_archive(platform, cache, args.python_archive)
+    wheel_dir = PLATFORMS[platform][0]
+    if not args.upgrade_only:
+        download_wheels(
+            platform,
+            stage / "application" / "resources" / "wheels" / wheel_dir,
+            cache,
+            args.wheels,
+        )
+        python = python_archive(platform, cache, args.python_archive)
+    else:
+        python = None
     compiled = 0
     if not args.source:
         log("Compiling Entropy to byte code (sources are not shipped)")
         compiled = compile_application(stage / "application", resolver_python(cache))
-    write_installer(stage, platform)
+    if not args.upgrade_only:
+        write_installer(stage, platform)
 
-    wheels = sorted(
-        p.name for p in (stage / "application" / "resources" / "wheels" / wheel_dir).glob("*.whl")
-    )
+    wheel_path = stage / "application" / "resources" / "wheels" / wheel_dir
+    wheels = sorted(p.name for p in wheel_path.glob("*.whl")) if wheel_path.is_dir() else []
     manifest = {
         "format": PACKAGE_FORMAT,
         "name": "entropy",
         "version": version,
         "platform": platform,
-        "python": CPYTHON_FULL_VERSION,
+        "python": None if args.upgrade_only else CPYTHON_FULL_VERSION,
         "built_at": datetime.now(timezone.utc).isoformat(),
-        "installer": PLATFORMS[platform][3],
+        "installer": None if args.upgrade_only else PLATFORMS[platform][3],
         "wheels": wheels,
         # Modules shipped as byte code only (0: sources shipped).
         "compiled_modules": compiled,
+        "upgrade_only": bool(args.upgrade_only),
     }
     (stage / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
-    output = (args.output or build_root / "dist") / f"entropy-{version}-{platform}.tar.gz"
+    suffix = "-upgrade" if args.upgrade_only else ""
+    output = (args.output or build_root / "dist") / f"entropy-{version}-{platform}{suffix}.tar.gz"
     digest = archive(stage, output, python)
     shutil.rmtree(stage)
 
@@ -466,6 +477,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build Entropy release packages.")
     parser.add_argument("--platform", action="append", choices=sorted(PLATFORMS))
     parser.add_argument("--all", action="store_true", help="Build every platform.")
+    parser.add_argument(
+        "--upgrade-only",
+        action="store_true",
+        help="Build an application-code upgrade package without Python or dependency wheels.",
+    )
     parser.add_argument("--version", help="Release version (default: core/version.py).")
     parser.add_argument("--output", type=Path, help="Output directory (default build/dist).")
     parser.add_argument(
