@@ -1,4 +1,3 @@
-
 """
 Database connection.
 """
@@ -91,6 +90,13 @@ class DatabaseConnection:
                 check_same_thread=False,
             )
             self._connection.row_factory = sqlite3.Row
+
+    def reopen(self) -> None:
+        """Open the database file anew (after it was restored or rebuilt)."""
+
+        with self._lock:
+            self.close()
+            self.open()
 
     def close(self) -> None:
         """Close the database connection."""

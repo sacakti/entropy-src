@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
     AlertCircle,
     Archive,
+    Database,
     Globe,
     KeyRound,
     LoaderCircle,
@@ -28,14 +29,16 @@ import {
 import { apiRequest } from '../../services/api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import '../../styles/admin-settings.css'
+import DatabasePanel from './DatabasePanel'
 
-type Tab = 'general' | 'smtp' | 'ldap' | 'oidc' | 'retention'
+type Tab = 'general' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database'
 
 const TABS: { id: Tab; label: string; icon: typeof Mail; hint: string }[] = [
     { id: 'smtp', label: 'E-mail', icon: Mail, hint: 'SMTP server for alerts and messages' },
     { id: 'ldap', label: 'LDAP / Active Directory', icon: Users, hint: 'Sign in with directory accounts' },
     { id: 'oidc', label: 'Single sign-on', icon: KeyRound, hint: 'OpenID Connect (Keycloak, Azure AD, Okta)' },
     { id: 'retention', label: 'Data retention', icon: Archive, hint: 'Archive and purge old runs' },
+    { id: 'database', label: 'Database', icon: Database, hint: 'Backups, checks and recovery' },
     { id: 'general', label: 'Address', icon: Globe, hint: 'Where people open Entropy' },
 ]
 
@@ -620,6 +623,7 @@ export default function AdminSettings() {
                     </>
                 )}
 
+                {tab === 'database' && <DatabasePanel />}
                 {tab === 'retention' && (
                     <>
                         <header className="settings-admin-head">

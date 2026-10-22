@@ -1,4 +1,3 @@
-
 """FastAPI application and Entropy context lifecycle."""
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ from core.version import VERSION
 from core.web import routes
 from core.web.session_store import WebSessionStore
 
+
 def _close_context(context: EntropyContext) -> None:
     """Close context-owned resources when their managers expose close()."""
 
@@ -31,19 +31,60 @@ def _close_context(context: EntropyContext) -> None:
     if callable(close):
         close()
 
+
 def _start_background(context: EntropyContext):
     """Start schedules, node metrics and housekeeping for a real context."""
 
     if os.environ.get("ENTROPY_WEB_BACKGROUND", "true").strip().lower() == "false":
         return None
 
-    if getattr(context, "database_manager", None) is None or getattr(context, "bootstrap", None) is None:
+    if (
+        getattr(context, "database_manager", None) is None
+        or getattr(context, "bootstrap", None) is None
+    ):
         return None
 
     from lib.runs.background import RunsBackground
 
     background = RunsBackground(context)
     return background if background.start() else None
+
+
+def _start_database_safety(context: EntropyContext):
+    """
+    One server per database, a checked database, a guard against deletion
+    and scheduled backups (see lib.database.safety).
+    """
+
+    if os.environ.get("ENTROPY_DB_SAFETY", "true").strip().lower() == "false":
+        return None
+    manager = getattr(context, "database_manager", None)
+    safety = getattr(manager, "safety", None)
+    if safety is None:
+        return None
+
+    connection = manager.connection
+    restored = safety.server_start(reopen=connection.open, close=connection.close)
+
+    def notify(message: str) -> None:
+        try:
+            from lib.authorization.service import AuthorizationService
+            from lib.database.repositories.notifications import notify_user
+
+            service = AuthorizationService(connection)
+            for row in connection.fetchall("SELECT id FROM users WHERE is_active = 1"):
+                if service.has_permission(row["id"], "system.settings"):
+                    notify_user(
+                        context, row["id"], "Database recovered", message, "warning", "database"
+                    )
+        except Exception:
+            pass
+
+    if restored:
+        notify(restored)
+    safety.start_watch(lambda: connection.connection, connection.reopen, notify)
+    return safety
+
 
 def frontend_directory() -> Path | None:
     """The built web UI (`frontend/dist`), when this install ships one."""
@@ -82,12 +123,12 @@ def mount_frontend(app: FastAPI, directory: Path) -> None:
 
         return FileResponse(root / "index.html", headers={"Cache-Control": "no-cache"})
 
+
 def register_routes(app: FastAPI) -> None:
     """Register routers discovered in the routes package."""
 
     module_names = sorted(
-        module_name
-        for _, module_name, _ in pkgutil.iter_modules(routes.__path__)
+        module_name for _, module_name, _ in pkgutil.iter_modules(routes.__path__)
     )
 
     for module_name in module_names:
@@ -106,6 +147,7 @@ def register_routes(app: FastAPI) -> None:
                 router,
             )
 
+
 def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
     """Create the web app without initializing Entropy until server startup."""
 
@@ -122,12 +164,16 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
 
         try:
             factory.discover()
+            safety = _start_database_safety(context)
+            app.state.database_safety = safety
             background = _start_background(context)
             app.state.runs_background = background
             yield
         finally:
             if background is not None:
                 background.stop()
+            if getattr(app.state, "database_safety", None) is not None:
+                app.state.database_safety.stop_watch()
             _close_context(context)
             app.state.entropy_context = None
             app.state.web_session_store = None
@@ -140,15 +186,17 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    secure_setting = os.environ.get(
-        "ENTROPY_WEB_COOKIE_SECURE",
-        "false",
-    ).strip().lower()
+    secure_setting = (
+        os.environ.get(
+            "ENTROPY_WEB_COOKIE_SECURE",
+            "false",
+        )
+        .strip()
+        .lower()
+    )
 
     if secure_setting not in ("true", "false"):
-        raise ValueError(
-            "ENTROPY_WEB_COOKIE_SECURE must be 'true' or 'false'."
-        )
+        raise ValueError("ENTROPY_WEB_COOKIE_SECURE must be 'true' or 'false'.")
 
     app.state.web_cookie_secure = secure_setting == "true"
 
@@ -207,9 +255,7 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
         marker = "const ui = SwaggerUIBundle({"
 
         if marker not in html:
-            raise RuntimeError(
-                "Unable to install the Swagger UI CSRF interceptor."
-            )
+            raise RuntimeError("Unable to install the Swagger UI CSRF interceptor.")
 
         # Replace the original initializer with the interceptor-enabled one.
         html = html.replace(marker, interceptor, 1)
@@ -225,6 +271,7 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
         mount_frontend(app, dist)
 
     return app
+
 
 bootstrap()
 

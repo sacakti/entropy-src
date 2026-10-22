@@ -5,6 +5,7 @@ Database manager.
 from __future__ import annotations
 
 from lib.database.connection import DatabaseConnection
+from lib.database.safety import DatabaseSafety
 
 
 class DatabaseManager:
@@ -38,6 +39,10 @@ class DatabaseManager:
             self._database,
         )
 
+        self.safety = DatabaseSafety(
+            self._database,
+        )
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -52,6 +57,13 @@ class DatabaseManager:
             parents=True,
             exist_ok=True,
         )
+
+        #
+        # A missing database is put back (from its guard or a backup)
+        # rather than silently replaced by an empty one.
+        #
+
+        self.safety.ensure_present()
 
         self._connection.open()
 
