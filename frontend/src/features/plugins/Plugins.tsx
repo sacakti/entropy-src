@@ -219,7 +219,9 @@ function PluginRow({
                 </span>
             </td>
 
-            <td className="list-operations-cell">
+            {/* Buttons here (and the menu, a portal of this cell) do their own
+                thing; they must not also open the plugin's details. */}
+            <td className="list-operations-cell" onClick={(event) => event.stopPropagation()}>
                 <div className="list-operations">
                     {plugin.draft ? (
                         <button
