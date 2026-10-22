@@ -29,26 +29,6 @@ type LoginProps = {
   endedSession?: EndedSession | null
 }
 
-function LoginIntro() {
-  return (
-    <aside className="login-intro">
-      <div className="intro-content">
-        <p className="intro-eyebrow">Engineering · Automation · Infrastructure</p>
-        <h2>Build what matters.<br /><span>Run it beautifully.</span></h2>
-        <p className="intro-description">
-          Entropy brings deployment workflows, plugins, and operational automation together in one place. Build repeatable processes, manage execution, and keep your infrastructure work organized.
-        </p>
-        <div className="intro-principles">
-          <article className="intro-principle"><h3>Automate the obvious.</h3><p>Turn repeatable deployment tasks into consistent workflows.</p></article>
-          <article className="intro-principle"><h3>Design for reliability.</h3><p>Make execution easier to manage, inspect, and understand.</p></article>
-          <article className="intro-principle"><h3>Keep complexity in check.</h3><p>Bring your deployment tools together in a clear workspace.</p></article>
-        </div>
-        <p className="intro-bottom">ENTROPY · DEPLOYMENT MANAGEMENT PLATFORM</p>
-      </div>
-    </aside>
-  )
-}
-
 export default function Login({ onLogin, endedSession }: LoginProps) {
   const [username, setUsername] = useState(endedSession?.username ?? '')
   const [password, setPassword] = useState('')
@@ -94,7 +74,10 @@ export default function Login({ onLogin, endedSession }: LoginProps) {
 
   return (
     <main className="login-page">
-      <LoginIntro />
+      {/* Entropy's mark, large and faded, behind the sign-in card. */}
+      <div className="login-backdrop" aria-hidden="true">
+        <img src="/entropy-logo.svg" alt="" />
+      </div>
       <section className="login-card">
         <div className="login-brand">
           <div className="login-brand-heading"><img className="entropy-logo" src="/entropy-logo.svg" alt="Entropy logo" /><h1>Entropy</h1></div>
@@ -123,7 +106,6 @@ export default function Login({ onLogin, endedSession }: LoginProps) {
             </a>
           </>
         )}
-        <p className="login-footer">Secure access to your deployment workspace</p>
       </section>
     </main>
   )
