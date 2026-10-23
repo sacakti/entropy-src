@@ -14,6 +14,7 @@ import {
     PictureInPicture2,
     Shuffle,
     Sun,
+    Sparkles,
     Trash2,
 } from 'lucide-react'
 import {
@@ -29,6 +30,8 @@ import type {
 } from '../../api/preferences.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import WallpaperViewer from './WallpaperViewer'
+import Memories from './Memories'
+import WallpaperPicker from './WallpaperPicker'
 import { useNotificationCenter } from '../notifications/context'
 import '../../styles/Preferences.css'
 
@@ -112,6 +115,9 @@ export default function Preferences({
     const [backgroundDragActive, setBackgroundDragActive] = useState(false)
     const [galleryPage, setGalleryPage] = useState(0)
     const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+    const [memoriesOpen, setMemoriesOpen] = useState(false)
+    const [customPickerOpen, setCustomPickerOpen] = useState(false)
+    const [gallerySort, setGallerySort] = useState<'newest' | 'oldest' | 'kind'>('newest')
     const [bulkBusy, setBulkBusy] = useState(false)
     // Progress of a multi-file upload; the drop zone stays locked until done.
     const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
@@ -123,15 +129,28 @@ export default function Preferences({
     const isBusy =
         !preferencesLoaded || preferencesSaving || backgroundUploading || uploadProgress !== null
 
+    const sortedBackgrounds = [...backgrounds].sort((left, right) => {
+        const leftTime = Date.parse(left.created_at ?? '') || 0
+        const rightTime = Date.parse(right.created_at ?? '') || 0
+        if (gallerySort === 'oldest') return leftTime - rightTime
+        if (gallerySort === 'kind') {
+            const leftKind = isVideoBackground(left) ? 1 : 0
+            const rightKind = isVideoBackground(right) ? 1 : 0
+            return leftKind - rightKind || rightTime - leftTime
+        }
+        return rightTime - leftTime
+    })
     const pageCount = Math.max(
         1,
-        Math.ceil(backgrounds.length / IMAGES_PER_PAGE),
+        Math.ceil(sortedBackgrounds.length / IMAGES_PER_PAGE),
     )
-    const visibleBackgrounds = backgrounds.slice(
+    const visibleBackgrounds = sortedBackgrounds.slice(
         galleryPage * IMAGES_PER_PAGE,
         galleryPage * IMAGES_PER_PAGE + IMAGES_PER_PAGE,
     )
-    const uploadCount = backgrounds.filter((item) => item.source === 'upload').length
+    const uploadedBackgrounds = backgrounds.filter((item) => item.source === 'upload')
+    const uploadCount = uploadedBackgrounds.length
+    const uploadedVideoCount = uploadedBackgrounds.filter(isVideoBackground).length
 
     useEffect(() => {
         setGalleryPage((current) => Math.min(current, pageCount - 1))
@@ -182,7 +201,7 @@ export default function Preferences({
 
         if (invalidCount > 0) {
             notify.warning(
-                `${invalidCount} file(s) skipped. Only PNG, JPG, WebP, MP4 and WebM are supported.`,
+                `${invalidCount} file(s) skipped. Only PNG, JPG, WebP, GIF, MP4 and WebM are supported.`,
             )
         }
 
@@ -358,6 +377,11 @@ export default function Preferences({
     }
 
     const floatingPlayer = wallpaperSettings.floating_player !== false
+    const memoriesSettings = wallpaperSettings.memories ?? {
+        enabled: false,
+        interval_seconds: 60,
+        animation: 'fade' as const,
+    }
 
     const saveFloatingPlayer = async (enabled: boolean) => {
         try {
@@ -365,6 +389,18 @@ export default function Preferences({
             notify.success(enabled ? 'Floating video player on.' : 'Floating video player off.')
         } catch {
             notify.error('Unable to save the floating player setting.')
+        }
+    }
+
+    const saveMemories = async (
+        memories: NonNullable<WallpaperSettings['memories']>,
+        message = memories.enabled ? 'Memories settings saved.' : 'Memories disabled.',
+    ) => {
+        try {
+            await saveWallpaperSettings({ ...wallpaperSettings, memories })
+            notify.success(message)
+        } catch {
+            notify.error('Unable to save Memories settings.')
         }
     }
 
@@ -395,12 +431,6 @@ export default function Preferences({
     return (
         <section className="preferences-panel">
             <header className="page-heading">
-                <div>
-                    <p className="page-eyebrow">ACCOUNT</p>
-                    <h1>Preferences</h1>
-                    <p className="page-subtitle">Personalize your Entropy workspace.</p>
-                </div>
-
                 <button
                     type="button"
                     className="entropy-button entropy-button-danger"
@@ -747,7 +777,7 @@ export default function Preferences({
                                   ? 'Drop to upload'
                                   : 'Drag and drop wallpapers here'}
                         </strong>
-                        <span>Or click to choose files · PNG, JPG, WebP images or MP4, WebM videos</span>
+                        <span>Or click to choose files · PNG, JPG, WebP, GIF images or MP4, WebM videos</span>
                         <small>Images up to 20 MB, videos up to 100 MB.</small>
                     </div>
 
@@ -761,6 +791,31 @@ export default function Preferences({
                         </div>
 
                         <div className="background-library-actions">
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-secondary entropy-button-sm"
+                                disabled={uploadCount === 0}
+                                onClick={() => setMemoriesOpen(true)}
+                            >
+                                <Sparkles size={14} />
+                                Memories
+                            </button>
+                            <div className="background-fit-control">
+                                <label htmlFor="wallpaper-sort">Sort</label>
+                                <select
+                                    id="wallpaper-sort"
+                                    className="entropy-select"
+                                    value={gallerySort}
+                                    onChange={(event) => {
+                                        setGallerySort(event.target.value as typeof gallerySort)
+                                        setGalleryPage(0)
+                                    }}
+                                >
+                                    <option value="newest">Newest first</option>
+                                    <option value="oldest">Oldest first</option>
+                                    <option value="kind">By kind</option>
+                                </select>
+                            </div>
                             <button
                                 type="button"
                                 className="entropy-button entropy-button-secondary entropy-button-sm"
@@ -843,7 +898,7 @@ export default function Preferences({
                         <>
                             <div className="background-gallery">
                                 {visibleBackgrounds.map((background) => {
-                                    const index = backgrounds.findIndex(
+                                    const index = sortedBackgrounds.findIndex(
                                         (item) => item.id === background.id,
                                     )
                                     const selected = backgroundImageId === background.id
@@ -936,7 +991,7 @@ export default function Preferences({
                                         Showing {galleryPage * IMAGES_PER_PAGE + 1}–
                                         {Math.min(
                                             (galleryPage + 1) * IMAGES_PER_PAGE,
-                                            backgrounds.length,
+                                            sortedBackgrounds.length,
                                         )}{' '}
                                         of {backgrounds.length}
                                     </span>
@@ -1064,9 +1119,45 @@ export default function Preferences({
                                 >
                                     <option value="all">All wallpapers</option>
                                     <option value="uploads">My uploads</option>
+                                    <option value="custom">Custom selection</option>
+                                </select>
+                            </label>
+
+                            <label className="background-fit-control">
+                                <span>Kind</span>
+                                <select
+                                    className="entropy-select"
+                                    value={wallpaperSettings.shuffle.kind ?? 'all'}
+                                    disabled={!preferencesLoaded}
+                                    onChange={(event) =>
+                                        void saveShuffle(
+                                            {
+                                                ...wallpaperSettings.shuffle,
+                                                kind: event.target.value as NonNullable<WallpaperSettings['shuffle']['kind']>,
+                                            },
+                                            'Shuffle media kind updated.',
+                                        )
+                                    }
+                                >
+                                    <option value="all">Images and videos</option>
+                                    <option value="image">Images only</option>
+                                    <option value="video">Videos only</option>
                                 </select>
                             </label>
                         </div>
+                        {wallpaperSettings.shuffle.source === 'custom' && (
+                            <div className="wallpaper-custom-picker-trigger">
+                                <span>{(wallpaperSettings.shuffle.custom_ids ?? []).length} wallpapers selected</span>
+                                <button
+                                    type="button"
+                                    className="entropy-button entropy-button-secondary entropy-button-sm"
+                                    disabled={!preferencesLoaded || preferencesSaving}
+                                    onClick={() => setCustomPickerOpen(true)}
+                                >
+                                    Choose wallpapers…
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="wallpaper-shuffle wallpaper-floating-player">
                         <div className="wallpaper-shuffle-copy">
@@ -1078,8 +1169,8 @@ export default function Preferences({
                                     Show video wallpapers in a floating player
                                 </strong>
                                 <span>
-                                    When your wallpaper is a video, also play it in a small window
-                                    you can move, enlarge or close.
+                                    Play available videos in a small window you can move, enlarge or
+                                    close, even while an image is your desktop wallpaper.
                                 </span>
                             </div>
                         </div>
@@ -1097,6 +1188,134 @@ export default function Preferences({
                                 <span aria-hidden="true" />
                                 {floatingPlayer ? 'On' : 'Off'}
                             </label>
+                            {floatingPlayer && (
+                                <label className="wallpaper-shuffle-switch">
+                                    <input
+                                        type="checkbox"
+                                        role="switch"
+                                        title="Automatically advance to another video."
+                                        checked={wallpaperSettings.floating_player_auto === true}
+                                        disabled={!preferencesLoaded || uploadedVideoCount < 2}
+                                        onChange={(event) =>
+                                            void saveWallpaperSettings({
+                                                ...wallpaperSettings,
+                                                floating_player_auto: event.target.checked,
+                                            }).then(
+                                                () => notify.success(event.target.checked ? 'Automatic video cycling on.' : 'Automatic video cycling off.'),
+                                                () => notify.error('Unable to save automatic video cycling.'),
+                                            )
+                                        }
+                                    />
+                                    <span aria-hidden="true" />
+                                    Auto cycle videos
+                                </label>
+                            )}
+                            {floatingPlayer && wallpaperSettings.floating_player_auto === true && (
+                                <>
+                                    <label className="wallpaper-floating-player-option">
+                                        <span>Advance</span>
+                                        <select
+                                            value={wallpaperSettings.floating_player_advance_mode ?? 'ended'}
+                                            disabled={!preferencesLoaded}
+                                            onChange={(event) => {
+                                                const mode = event.target.value as NonNullable<WallpaperSettings['floating_player_advance_mode']>
+                                                void saveWallpaperSettings({ ...wallpaperSettings, floating_player_advance_mode: mode }).then(
+                                                    () => notify.success('Video advance setting saved.'),
+                                                    () => notify.error('Unable to save video advance setting.'),
+                                                )
+                                            }}
+                                        >
+                                            <option value="ended">When video ends</option>
+                                            <option value="interval">Every interval</option>
+                                        </select>
+                                    </label>
+                                    {wallpaperSettings.floating_player_advance_mode === 'interval' && (
+                                        <label className="wallpaper-floating-player-option">
+                                            <span>Seconds</span>
+                                            <input
+                                                type="number"
+                                                min={5}
+                                                max={3600}
+                                                step={1}
+                                                key={wallpaperSettings.floating_player_interval_seconds ?? 30}
+                                                defaultValue={wallpaperSettings.floating_player_interval_seconds ?? 30}
+                                                disabled={!preferencesLoaded}
+                                                onBlur={(event) => {
+                                                    const seconds = Math.min(3600, Math.max(5, Number(event.target.value) || 5))
+                                                    void saveWallpaperSettings({ ...wallpaperSettings, floating_player_interval_seconds: seconds }).catch(
+                                                        () => notify.error('Unable to save video cycle interval.'),
+                                                    )
+                                                }}
+                                            />
+                                        </label>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <div className="wallpaper-shuffle wallpaper-memories-settings">
+                        <div className="wallpaper-shuffle-copy">
+                            <span className="wallpaper-shuffle-icon">
+                                <Sparkles size={16} />
+                            </span>
+                            <div>
+                                <strong>Memories</strong>
+                                <span>Randomly show a wallpaper or video full screen while you work.</span>
+                            </div>
+                        </div>
+                        <div className="wallpaper-shuffle-controls">
+                            <label className="wallpaper-shuffle-switch">
+                                <input
+                                    type="checkbox"
+                                    role="switch"
+                                    checked={memoriesSettings.enabled}
+                                    disabled={!preferencesLoaded || uploadCount === 0}
+                                    onChange={(event) =>
+                                        void saveMemories({ ...memoriesSettings, enabled: event.target.checked })
+                                    }
+                                />
+                                <span aria-hidden="true" />
+                                {memoriesSettings.enabled ? 'On' : 'Off'}
+                            </label>
+                            <label className="background-fit-control">
+                                <span>Every</span>
+                                <select
+                                    className="entropy-select"
+                                    value={memoriesSettings.interval_seconds}
+                                    disabled={!preferencesLoaded || !memoriesSettings.enabled}
+                                    onChange={(event) =>
+                                        void saveMemories({
+                                            ...memoriesSettings,
+                                            interval_seconds: Number(event.target.value),
+                                        })
+                                    }
+                                >
+                                    {[10, 30, 60, 300, 600, 1800, 3600].map((seconds) => (
+                                        <option key={seconds} value={seconds}>
+                                            {seconds < 60 ? `${seconds} seconds` : `${seconds / 60} minutes`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="background-fit-control">
+                                <span>Animation</span>
+                                <select
+                                    className="entropy-select"
+                                    value={memoriesSettings.animation}
+                                    disabled={!preferencesLoaded || !memoriesSettings.enabled}
+                                    onChange={(event) =>
+                                        void saveMemories({
+                                            ...memoriesSettings,
+                                            animation: event.target.value as NonNullable<WallpaperSettings['memories']>['animation'],
+                                        })
+                                    }
+                                >
+                                    <option value="fade">Fade in</option>
+                                    <option value="from-left">Slide from left</option>
+                                    <option value="from-top">Drop from top</option>
+                                    <option value="pop">Pop from top-left</option>
+                                </select>
+                            </label>
                         </div>
                     </div>
                 </section>
@@ -1110,10 +1329,33 @@ export default function Preferences({
                 )}
             </footer>
 
-            {themeEnabled && viewerIndex !== null && backgrounds.length > 0 && (
-                <WallpaperViewer
+            {themeEnabled && memoriesOpen && uploadedBackgrounds.length > 0 && (
+                <Memories
+                    backgrounds={uploadedBackgrounds}
+                    animation={memoriesSettings.animation}
+                    onClose={() => setMemoriesOpen(false)}
+                />
+            )}
+
+            {themeEnabled && customPickerOpen && wallpaperSettings.shuffle.source === 'custom' && (
+                <WallpaperPicker
                     backgrounds={backgrounds}
-                    initialIndex={Math.min(viewerIndex, backgrounds.length - 1)}
+                    selectedIds={wallpaperSettings.shuffle.custom_ids ?? []}
+                    onClose={() => setCustomPickerOpen(false)}
+                    onApply={(ids) => {
+                        void saveShuffle(
+                            { ...wallpaperSettings.shuffle, custom_ids: ids },
+                            'Custom shuffle selection saved.',
+                        )
+                        setCustomPickerOpen(false)
+                    }}
+                />
+            )}
+
+            {themeEnabled && viewerIndex !== null && sortedBackgrounds.length > 0 && (
+                <WallpaperViewer
+                    backgrounds={sortedBackgrounds}
+                    initialIndex={Math.min(viewerIndex, sortedBackgrounds.length - 1)}
                     selectedId={backgroundImageId}
                     placements={wallpaperSettings.placements}
                     busy={isBusy || backgroundDeletingId !== null}

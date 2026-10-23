@@ -301,6 +301,7 @@ def upgrade_nodes_table(
 # - heartbeat_at: set on such a run while the main node coordinates it.
 RUN_METADATA_COLUMNS = (
     ("options", "TEXT"),
+    ("rerun_config", "TEXT"),
     ("parent_job_id", "INTEGER"),
     ("heartbeat_at", "TEXT"),
 )

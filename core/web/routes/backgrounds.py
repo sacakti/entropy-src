@@ -50,12 +50,14 @@ IMAGE_FORMATS = {
     "JPEG": "image/jpeg",
     "PNG": "image/png",
     "WEBP": "image/webp",
+    "GIF": "image/gif",
 }
 
 EXTENSIONS = {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/webp": "webp",
+    "image/gif": "gif",
     "video/mp4": "mp4",
     "video/webm": "webm",
 }
@@ -146,7 +148,8 @@ def list_backgrounds(
             name,
             mime_type,
             size_bytes,
-            source
+            source,
+            created_at
         FROM background_images
         WHERE source = 'builtin'
            OR owner_user_id = ?
@@ -164,6 +167,7 @@ def list_backgrounds(
             "mime_type": row["mime_type"],
             "size_bytes": row["size_bytes"],
             "source": row["source"],
+            "created_at": row["created_at"],
             "url": f"/api/backgrounds/{row['id']}/image",
         }
         for row in rows
@@ -210,14 +214,14 @@ async def upload_background(
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Upload a JPEG, PNG or WebP image, or an MP4 or WebM video."
+                    "Upload a JPEG, PNG, WebP or GIF image, or an MP4 or WebM video."
                 ),
             ) from exc
 
         if image_format not in IMAGE_FORMATS:
             raise HTTPException(
                 status_code=400,
-                detail="Only JPEG, PNG, and WebP images are supported.",
+                detail="Only JPEG, PNG, WebP, and GIF images are supported.",
             )
 
         mime_type = IMAGE_FORMATS[image_format]

@@ -138,16 +138,6 @@ function Permissions() {
     return (
         // <section className="content-panel permissions-page">
         <section className="permissions-page">
-            <header className="page-heading">
-                <div>
-                    <p className="page-eyebrow">ACCESS CONTROL</p>
-                    <h1>Permissions</h1>
-                    <p className="page-subtitle">
-                        Review the permissions assigned to your account.
-                    </p>
-                </div>
-            </header>
-
             {error ? (
                 <div className="permissions-message permissions-error" role="alert">
                     <AlertCircle size={19} />

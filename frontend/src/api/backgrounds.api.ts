@@ -7,6 +7,7 @@ export interface BackgroundImage {
     size_bytes: number
     source: 'builtin' | 'upload'
     url: string
+    created_at?: string
 }
 
 export async function getBackgrounds(): Promise<BackgroundImage[]> {
@@ -51,6 +52,7 @@ export const BACKGROUND_UPLOAD_TYPES = [
     'image/png',
     'image/jpeg',
     'image/webp',
+    'image/gif',
     'video/mp4',
     'video/webm',
 ]

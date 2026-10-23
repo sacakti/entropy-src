@@ -243,7 +243,7 @@ export default function Settings({
                 </form>
             </section>
 
-            <section className="dashboard-section list-section settings-card" aria-labelledby="settings-security-title">
+            {!profile.auth_provider && <section className="dashboard-section list-section settings-card" aria-labelledby="settings-security-title">
                 <header className="settings-card-header">
                     <span className="settings-card-icon">
                         <ShieldCheck size={18} />
@@ -268,7 +268,7 @@ export default function Settings({
                         Change password
                     </button>
                 </div>
-            </section>
+            </section>}
 
             {passwordOpen && (
                 <Dialog

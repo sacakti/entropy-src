@@ -26,6 +26,8 @@ class AlertSettings(BaseModel):
     on_success: bool = False
     on_failure: bool = True
     on_cancel: bool = False
+    subject_template: str = Field(default="", max_length=998)
+    body_template: str = Field(default="", max_length=20000)
 
 
 def _alerts(request: Request) -> RunAlerts:

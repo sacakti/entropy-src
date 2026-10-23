@@ -23,6 +23,7 @@ export default function RunAdvancedOptions({
     onChange,
     check,
     onCheck,
+    definition,
 }: {
     target: string
     node: string
@@ -31,19 +32,28 @@ export default function RunAdvancedOptions({
     onChange: (next: AdvancedState) => void
     check: PlanCheck
     onCheck: (next: PlanCheck) => void
+    definition?: string
 }) {
     const [steps, setSteps] = useState<PlannedStep[]>([])
     const [open, setOpen] = useState(false)
 
     const options = useMemo(() => runOptionsFor(value, steps), [value, steps])
     const optionsKey = JSON.stringify(options)
+    // A rerun with a saved step subset needs the full step list first so the
+    // excluded names can be translated back into an explicit selected list.
+    const loadingStepsForSelection = steps.length === 0 && value.excluded.length > 0
 
     // Ask the server for the plan whenever the choices change.
     useEffect(() => {
         let active = true
         const timer = window.setTimeout(() => {
             runsApi
-                .planWorkflow(target, node, JSON.parse(optionsKey) as RunOptions)
+                .planWorkflow(
+                    target,
+                    node,
+                    loadingStepsForSelection ? {} : (JSON.parse(optionsKey) as RunOptions),
+                    definition,
+                )
                 .then((result) => {
                     if (!active) return
                     if (result.valid) {
@@ -61,7 +71,7 @@ export default function RunAdvancedOptions({
             active = false
             window.clearTimeout(timer)
         }
-    }, [target, node, optionsKey, onCheck])
+    }, [target, node, optionsKey, onCheck, definition, loadingStepsForSelection])
 
     const tags = useMemo(
         () => Array.from(new Set(steps.flatMap((step) => step.tags ?? []))).sort(),

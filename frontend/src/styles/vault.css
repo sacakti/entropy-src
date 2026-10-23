@@ -506,6 +506,52 @@
   min-width: 160px;
 }
 
+.entropy-app .vault-value-reveal {
+  display: inline-flex;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: var(--app-radius-sm, 6px);
+  text-decoration: none;
+  white-space: normal;
+  text-align: left;
+}
+
+.entropy-app .vault-value-reveal:hover:not(:disabled, [aria-disabled="true"]) {
+  text-decoration: none;
+}
+
+.entropy-app .vault-value-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.entropy-app .vault-value-editor-heading label {
+  margin: 0;
+}
+
+.entropy-app .vault-json-editor-frame {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.entropy-app .vault-json-editor-frame[aria-invalid="true"] {
+  border-color: var(--app-danger);
+}
+
+.entropy-app .vault-field-error {
+  margin: 0;
+  color: var(--app-danger);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .entropy-app .vault-hidden-value {
   flex-wrap: wrap;
   gap: 8px;

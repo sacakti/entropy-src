@@ -27,7 +27,9 @@ async function getCsrfToken(): Promise<string> {
   })
 
   if (!response.ok) {
-    throw new Error('Unable to initialize secure login.')
+    throw new Error(
+      'Unable to authenticate. If the problem persists, please contact your administrator.',
+    )
   }
 
   const data: CsrfResponse = await response.json()

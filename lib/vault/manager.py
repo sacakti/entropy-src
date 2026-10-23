@@ -16,7 +16,7 @@ from lib.vault.exceptions import (
     VaultValueError,
 )
 from lib.vault.key import VaultKeyProvider
-from lib.vault.serializer import VaultSerializer
+from lib.vault.serializer import VaultSerializationError, VaultSerializer
 
 
 class VaultManager:
@@ -78,10 +78,7 @@ class VaultManager:
                 f"Vault entry '{key}' already exists.",
             )
 
-        serialized = self._serializer.serialize(
-            value,
-            value_type,
-        )
+        serialized = self._serialize(value, value_type)
 
         stored_value = self._protect(
             serialized,
@@ -393,10 +390,7 @@ class VaultManager:
             key,
         )
 
-        serialized = self._serializer.serialize(
-            value,
-            value_type,
-        )
+        serialized = self._serialize(value, value_type)
 
         stored_value = self._protect(
             serialized,
@@ -480,6 +474,13 @@ class VaultManager:
         )
 
         return encrypted.hex()
+
+    def _serialize(self, value: Any, value_type: VaultValueType) -> bytes:
+        """Convert serializer validation failures into handled Vault errors."""
+        try:
+            return self._serializer.serialize(value, value_type)
+        except VaultSerializationError as exc:
+            raise VaultValueError(str(exc)) from exc
 
     # ------------------------------------------------------------------
     # Decryption

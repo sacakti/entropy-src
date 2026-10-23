@@ -236,6 +236,7 @@ def add_project_columns(connection: DatabaseConnection) -> None:
 
     _add_column(connection, "schedules", "project_id", "INTEGER")
     _add_column(connection, "run_metadata", "project_id", "INTEGER")
+    _add_column(connection, "run_metadata_archive", "project_id", "INTEGER")
     _add_column(connection, "workflow_drafts", "project_id", "INTEGER")
     # 'shared': every project may run on the node; 'assigned': see node_projects.
     _add_column(connection, "nodes", "scope", "TEXT NOT NULL DEFAULT 'shared'")

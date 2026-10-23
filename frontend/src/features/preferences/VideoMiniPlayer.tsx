@@ -151,12 +151,20 @@ export default function VideoMiniPlayer({
     background,
     position = null,
     onStep,
+    autoAdvance = false,
+    advanceMode = 'ended',
+    advanceIntervalSeconds = 30,
 }: {
     background: BackgroundImage
     /** "2 / 5" among the video wallpapers, when there are others to switch to. */
     position?: string | null
     /** Switch the wallpaper to the previous (-1) or next (1) video. */
     onStep?: (direction: 1 | -1) => void
+    /** Move to another video automatically every 30 seconds. */
+    autoAdvance?: boolean
+    /** Advance when the video ends, or on a fixed interval. */
+    advanceMode?: 'ended' | 'interval'
+    advanceIntervalSeconds?: number
 }) {
     const [spot, setSpot] = useState(readSpot)
     const [maximized, setMaximized] = useState(false)
@@ -170,6 +178,12 @@ export default function VideoMiniPlayer({
     // The video's own shape (width / height); the frame follows it, no letterboxing.
     const [ratios, setRatios] = useState<Record<string, number>>({})
     const ratio = ratios[background.url] ?? DEFAULT_RATIO
+
+    useEffect(() => {
+        if (!autoAdvance || !onStep || advanceMode !== 'interval') return
+        const timer = window.setInterval(() => onStep(1), advanceIntervalSeconds * 1000)
+        return () => window.clearInterval(timer)
+    }, [advanceIntervalSeconds, advanceMode, autoAdvance, onStep])
 
     const mode: Mode = maximized ? 'max' : spot.minimized ? 'pill' : 'mini'
 
@@ -546,7 +560,7 @@ export default function VideoMiniPlayer({
                     src={background.url}
                     autoPlay={!reducedMotion}
                     muted
-                    loop
+                    loop={!(autoAdvance && advanceMode === 'ended')}
                     playsInline
                     preload="metadata"
                     onLoadedMetadata={(event) => {
@@ -556,6 +570,9 @@ export default function VideoMiniPlayer({
                             setRatios((current) => ({ ...current, [background.url]: shape }))
                         }
                         syncWithBackground(video)
+                    }}
+                    onEnded={() => {
+                        if (autoAdvance && advanceMode === 'ended') onStep?.(1)
                     }}
                     onPlay={() => setPlayingUrl(background.url)}
                     onPause={() => setPlayingUrl(null)}

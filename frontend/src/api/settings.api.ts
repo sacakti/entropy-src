@@ -131,6 +131,8 @@ export interface RunAlertSettings {
     on_success: boolean
     on_failure: boolean
     on_cancel: boolean
+    subject_template: string
+    body_template: string
     updated_by?: string | null
     updated_at?: string | null
     /** E-mail is set up in Administration -> Settings. */

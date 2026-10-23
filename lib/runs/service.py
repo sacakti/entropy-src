@@ -293,12 +293,41 @@ class RunService:
         trigger: str = "manual",
         schedule_id: Optional[int] = None,
         project_id: Optional[int] = None,
+        workflow_definition: Optional[str] = None,
     ) -> Dict[str, Any]:
         self._project_id = project_id
-        workflow, plan = self.plan(name, node=node, steps=steps, tags=tags, step_nodes=step_nodes)
+        if workflow_definition is None:
+            workflow, plan = self.plan(name, node=node, steps=steps, tags=tags, step_nodes=step_nodes)
+        else:
+            try:
+                workflow = self._context.workflow_manager.deserialize(workflow_definition)
+                if workflow.name != name:
+                    raise RunError("Saved workflow definition does not match this run.", 409)
+                self._context.workflow_manager._validator.validate(workflow)
+                plan = build_plan(
+                    workflow,
+                    default_node=node or "local",
+                    steps=steps,
+                    tags=tags,
+                    step_nodes=step_nodes,
+                )
+            except RunError:
+                raise
+            except PlanError as exc:
+                raise RunError(str(exc), 422) from exc
+            except Exception as exc:
+                raise RunError(str(exc) or "Saved workflow configuration is invalid.", 422) from exc
         nodes = {item: self._executable_node(item, project_id) for item in plan.nodes}
         segments = plan.segments
         options = plan.snapshot(variables)
+        rerun_config = {
+            "definition": self._context.workflow_manager.serialize(workflow, "json"),
+            "variables": dict(variables or {}),
+            "node": node or "local",
+            "steps": list(steps) if steps is not None else None,
+            "tags": list(tags or []),
+            "step_nodes": dict(step_nodes or {}),
+        }
 
         if len(segments) > 1:
             from .coordinator import Coordinator
@@ -311,6 +340,7 @@ class RunService:
                 variables,
                 trigger=trigger,
                 schedule_id=schedule_id,
+                rerun_config=rerun_config,
             )
             if run.get("id") is not None:
                 self.store.set_project(run["id"], project_id)
@@ -319,7 +349,7 @@ class RunService:
 
         target = nodes[segments[0]["node"]]
         try:
-            if plan.trivial:
+            if plan.trivial and workflow_definition is None:
                 job_id = self.launch(user, target, workflow, variables, registered=True)
             else:
                 from .plan import segment_workflow
@@ -340,6 +370,7 @@ class RunService:
             trigger=trigger,
             schedule_id=schedule_id,
             options=options,
+            rerun_config=rerun_config,
         )
         self.store.set_project(job_id, project_id)
         return self.store.get(job_id) or {}

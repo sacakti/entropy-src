@@ -40,7 +40,15 @@ export interface WallpaperPlacement {
 export interface WallpaperShuffle {
     enabled: boolean
     interval_minutes: number
-    source: 'all' | 'uploads'
+    source: 'all' | 'uploads' | 'custom'
+    kind?: 'all' | 'image' | 'video'
+    custom_ids?: number[]
+}
+
+export interface WallpaperMemories {
+    enabled: boolean
+    interval_seconds: number
+    animation: 'fade' | 'from-left' | 'from-top' | 'pop'
 }
 
 export interface WallpaperSettings {
@@ -52,12 +60,20 @@ export interface WallpaperSettings {
      * Missing from older servers; treat anything but `false` as on.
      */
     floating_player?: boolean
+    floating_player_auto?: boolean
+    floating_player_advance_mode?: 'ended' | 'interval'
+    floating_player_interval_seconds?: number
+    memories?: WallpaperMemories
 }
 
 export const DEFAULT_WALLPAPER_SETTINGS: WallpaperSettings = {
     placements: {},
-    shuffle: { enabled: false, interval_minutes: 15, source: 'all' },
+    shuffle: { enabled: false, interval_minutes: 15, source: 'all', kind: 'all', custom_ids: [] },
     floating_player: true,
+    floating_player_auto: false,
+    floating_player_advance_mode: 'ended',
+    floating_player_interval_seconds: 30,
+    memories: { enabled: false, interval_seconds: 60, animation: 'fade' },
 }
 
 export async function getWallpaperSettings(): Promise<WallpaperSettings> {

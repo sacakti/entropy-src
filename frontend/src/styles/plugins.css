@@ -381,11 +381,31 @@
    ---------------------------------------------------------- */
 
 .entropy-app .list-empty {
-    height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 150px;
+    height: auto;
+    width: 100%;
     padding: 28px !important;
     color: var(--app-muted) !important;
     text-align: center;
     font-size: 12px;
+    line-height: 1.5;
+}
+
+.entropy-app .list-empty > svg {
+    flex: 0 0 auto;
+}
+
+.entropy-app .list-empty > strong,
+.entropy-app .list-empty > p,
+.entropy-app .list-empty > span {
+    display: block;
+    max-width: 640px;
+    margin: 0;
 }
 
 /* ----------------------------------------------------------

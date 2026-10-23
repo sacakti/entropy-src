@@ -80,6 +80,8 @@ import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import Editor from '@monaco-editor/react'
+import { useMonacoTheme } from '../tools/monacoTools'
 
 
 
@@ -126,8 +128,6 @@ const valueTypes: VaultValueType[] = [
     'boolean',
 
     'array',
-
-    'object',
 
     'json',
 
@@ -207,11 +207,51 @@ function isStructuredType(type: VaultValueType): boolean {
 
 }
 
+function serializeVaultValue(value: string, type: VaultValueType): unknown {
+    if (type === 'string') return value
+
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(value)
+    } catch {
+        if (type === 'number') {
+            throw new Error('Expected a number. Enter one finite number, such as 42 or 3.14.')
+        }
+        throw new Error('Enter valid JSON syntax.')
+    }
+    if (type === 'number' && (typeof parsed !== 'number' || !Number.isFinite(parsed))) {
+        throw new Error('Enter a finite JSON number, such as 42 or 3.14.')
+    }
+    if (type === 'boolean' && typeof parsed !== 'boolean') {
+        throw new Error('Enter true or false.')
+    }
+    if (type === 'array' && !Array.isArray(parsed)) {
+        throw new Error('Enter a JSON array, such as [1, 2].')
+    }
+    if (type === 'object' && (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object')) {
+        throw new Error('Enter a JSON object, such as {"key":"value"}.')
+    }
+
+    return parsed
+}
+
+function vaultValueError(value: string, type: VaultValueType): string | null {
+    if (!value || type === 'string') return null
+    try {
+        serializeVaultValue(value, type)
+        return null
+    } catch (cause) {
+        return cause instanceof Error ? cause.message : 'Enter a valid value for the selected type.'
+    }
+}
+
 
 
 export default function Vault() {
 
     const { notify, modal } = useFeedback()
+
+    const monacoTheme = useMonacoTheme()
 
     const permissions = usePermissions()
 
@@ -281,6 +321,7 @@ export default function Vault() {
     const [visibility, setVisibility] = useState<VaultVisibility>('private')
     const [accessLevel, setAccessLevel] = useState<VaultAccess>('read')
     const [entryForm, setEntryForm] = useState<EntryForm>(emptyEntry)
+    const entryValueError = vaultValueError(entryForm.value, entryForm.type)
     const [editingKey, setEditingKey] = useState<string | null>(null)
     const [detailEntry, setDetailEntry] = useState<VaultEntryWithValue | null>(
         null,
@@ -768,84 +809,20 @@ export default function Vault() {
 
 
 
-        let value: string
-
-
-
+        let value: unknown
         try {
-
-            if (entryForm.type === 'string') {
-
-                value = entryForm.value
-
-            } else {
-
-                const parsed: unknown = JSON.parse(entryForm.value)
-
-
-
-                if (entryForm.type === 'number' && typeof parsed !== 'number') {
-
-                    throw new Error('The value must be a valid JSON number.')
-
-                }
-
-
-
-                if (entryForm.type === 'boolean' && typeof parsed !== 'boolean') {
-
-                    throw new Error('The value must be true or false.')
-
-                }
-
-
-
-                if (entryForm.type === 'array' && !Array.isArray(parsed)) {
-
-                    throw new Error('The value must be a JSON array.')
-
-                }
-
-
-
-                if (
-
-                    entryForm.type === 'object' &&
-
-                    (parsed === null ||
-
-                        Array.isArray(parsed) ||
-
-                        typeof parsed !== 'object')
-
-                ) {
-
-                    throw new Error('The value must be a JSON object.')
-
-                }
-
-
-
-                value = JSON.stringify(parsed)
-
-            }
-
+            value = serializeVaultValue(entryForm.value, entryForm.type)
         } catch (cause) {
-
-            const messageText =
-
-                cause instanceof Error
-
-                    ? cause.message
-
-                    : 'Enter a valid value for the selected type.'
-
-
-
+            const messageText = cause instanceof Error
+                ? cause.message
+                : 'Enter a valid value for the selected type.'
             notify.warning(messageText)
-
             return
+        }
 
+        if (entryForm.value.length === 0) {
+            notify.warning('Enter a value for the secret.')
+            return
         }
 
 
@@ -2030,7 +2007,7 @@ export default function Vault() {
                                                                     {isRevealed && (
                                                                         <button
                                                                             type="button"
-                                                                            className="entropy-button entropy-button-link"
+                                                                            className="entropy-button entropy-button-link vault-value-reveal"
                                                                             onClick={() => openEntryDetails(revealedEntry)}
                                                                         >
                                                                             View full value
@@ -2049,7 +2026,7 @@ export default function Vault() {
                                                             ) : (
                                                                 <button
                                                                     type="button"
-                                                                    className="entropy-button entropy-button-link"
+                                                                    className="entropy-button entropy-button-link vault-value-reveal"
                                                                     onClick={() => void revealEntry(entry.key)}
                                                                     disabled={busy}
                                                                 >
@@ -2684,7 +2661,7 @@ export default function Vault() {
 
                                             required
 
-                                            disabled={editingKey !== null}
+                                            disabled={busy || editingKey !== null}
 
                                         />
 
@@ -2702,17 +2679,24 @@ export default function Vault() {
 
                                             value={entryForm.type}
 
+                                            disabled={busy}
+
                                             onChange={(event) =>
 
-                                                setEntryForm((current) => ({
-
-                                                    ...current,
-
-                                                    type: event.target.value as VaultValueType,
-
-                                                    value: '',
-
-                                                }))
+                                                setEntryForm((current) => {
+                                                    const type = event.target.value as VaultValueType
+                                                    return {
+                                                        ...current,
+                                                        type,
+                                                        value: type === 'boolean'
+                                                            ? 'true'
+                                                            : type === 'array'
+                                                                ? '[]'
+                                                                : type === 'object'
+                                                                    ? '{}'
+                                                                    : '',
+                                                    }
+                                                })
 
                                             }
 
@@ -2727,6 +2711,9 @@ export default function Vault() {
                                                 </option>
 
                                             ))}
+                                            {entryForm.type === 'object' && (
+                                                <option value="object">object (existing)</option>
+                                            )}
 
                                         </select>
 
@@ -2738,13 +2725,32 @@ export default function Vault() {
 
                                 <div className="vault-form-field">
 
-                                    <label htmlFor="vault-entry-value">Value</label>
+                                    <div className="vault-value-editor-heading">
+                                        <label htmlFor="vault-entry-value">Value</label>
+                                        {isStructuredType(entryForm.type) && (
+                                            <button
+                                                type="button"
+                                                className="entropy-button entropy-button-secondary entropy-button-sm"
+                                                disabled={busy || !entryForm.value.trim() || Boolean(entryValueError)}
+                                                onClick={() => setEntryForm((current) => ({
+                                                    ...current,
+                                                    value: JSON.stringify(JSON.parse(current.value), null, 2),
+                                                }))}
+                                            >
+                                                Format JSON
+                                            </button>
+                                        )}
+                                    </div>
 
+                                    {entryForm.type === 'string' ? (
                                     <textarea
 
                                         id="vault-entry-value"
+                                        className={isStructuredType(entryForm.type) ? 'vault-json-editor' : undefined}
 
                                         value={entryForm.value}
+
+                                        disabled={busy}
 
                                         onChange={(event) =>
 
@@ -2777,10 +2783,76 @@ export default function Vault() {
                                         required
 
                                         spellCheck={false}
+                                        aria-invalid={Boolean(entryValueError)}
+                                        aria-describedby={entryValueError ? 'vault-entry-value-error' : 'vault-entry-value-help'}
 
                                     />
+                                    ) : entryForm.type === 'number' ? (
+                                        <input
+                                            id="vault-entry-value"
+                                            type="text"
+                                            inputMode="decimal"
+                                            className="vault-number-input"
+                                            value={entryForm.value}
+                                            disabled={busy}
+                                            onChange={(event) => setEntryForm((current) => ({
+                                                ...current,
+                                                value: event.target.value,
+                                            }))}
+                                            placeholder="e.g. 42 or 3.14"
+                                            autoComplete="off"
+                                            spellCheck={false}
+                                            required
+                                            aria-invalid={Boolean(entryValueError)}
+                                            aria-describedby={entryValueError ? 'vault-entry-value-error' : 'vault-entry-value-help'}
+                                        />
+                                    ) : entryForm.type === 'boolean' ? (
+                                        <select
+                                            id="vault-entry-value"
+                                            value={entryForm.value}
+                                            disabled={busy}
+                                            onChange={(event) => setEntryForm((current) => ({
+                                                ...current,
+                                                value: event.target.value,
+                                            }))}
+                                            aria-describedby="vault-entry-value-help"
+                                        >
+                                            <option value="true">true</option>
+                                            <option value="false">false</option>
+                                        </select>
+                                    ) : (
+                                        <div className="vault-json-editor-frame" aria-invalid={Boolean(entryValueError)}>
+                                            <Editor
+                                                path="vault-secret-value.json"
+                                                value={entryForm.value}
+                                                language="json"
+                                                theme={monacoTheme}
+                                                onChange={(value) => setEntryForm((current) => ({
+                                                    ...current,
+                                                    value: value ?? '',
+                                                }))}
+                                                options={{
+                                                    ariaLabel: entryForm.type === 'array'
+                                                        ? 'Secret JSON array value'
+                                                        : 'Secret JSON value',
+                                                    automaticLayout: true,
+                                                    fontSize: 13,
+                                                    minimap: { enabled: false },
+                                                    readOnly: busy,
+                                                    scrollBeyondLastLine: false,
+                                                    tabSize: 2,
+                                                    wordWrap: 'on',
+                                                }}
+                                            />
+                                        </div>
+                                    )}
 
-                                    <p className="vault-field-help">
+                                    {entryValueError && (
+                                        <p className="vault-field-error" id="vault-entry-value-error" role="alert">
+                                            {entryValueError}
+                                        </p>
+                                    )}
+                                    <p className="vault-field-help" id="vault-entry-value-help">
 
                                         {editingKey !== null
 
@@ -2790,7 +2862,13 @@ export default function Vault() {
 
                                                 ? 'Text is stored as a string.'
 
-                                                : 'This value must be valid JSON matching the selected type.'}
+                                                : entryForm.type === 'number'
+                                                    ? 'Enter one finite number. The value is strictly validated.'
+                                                    : entryForm.type === 'boolean'
+                                                        ? 'Choose true or false.'
+                                                        : entryForm.type === 'array'
+                                                            ? 'Enter a valid JSON array, for example [1, "two"].'
+                                                            : 'Enter valid JSON matching the selected type.'}
 
                                     </p>
 
@@ -2805,6 +2883,8 @@ export default function Vault() {
                                         type="checkbox"
 
                                         checked={entryForm.sensitive}
+
+                                        disabled={busy}
 
                                         onChange={(event) =>
 
@@ -2870,7 +2950,7 @@ export default function Vault() {
 
                                     className="entropy-button entropy-button-primary"
 
-                                    disabled={busy || !entryForm.key.trim()}
+                                    disabled={busy}
 
                                 >
 

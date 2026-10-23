@@ -13,7 +13,7 @@ export function openRun(id: number): void {
     window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-const RUN_TABS: readonly RunTab[] = ['active', 'completed', 'failed', 'cancelled', 'all']
+const RUN_TABS: readonly RunTab[] = ['active', 'completed', 'failed', 'cancelled', 'all', 'archived']
 
 /** Runs tab named by a hash such as `#/runs?tab=failed`, if any. */
 export function runsTabFromHash(hash: string): RunTab | null {

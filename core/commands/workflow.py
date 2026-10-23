@@ -15,6 +15,10 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+from core.commands.project_context import ProjectContext
+from lib.authorization.exceptions import AuthorizationRequiredError
+from lib.authorization.projects import DEFAULT_PROJECT, Projects
+from lib.runs.store import RunStore
 from lib.models.workflow import WorkflowExecutionOptions
 from lib.workflow.assignments import WorkflowAssignments
 from lib.workflow.exceptions import (
@@ -469,9 +473,9 @@ class WorkflowCommand(
         Execute a registered workflow or workflow file.
         """
 
-        self._require(
-            "workflows.execute",
-        )
+        session = self._session.require()
+        project = ProjectContext(self._context).current(session)
+        self._require("workflows.execute", project["id"])
 
         workflow_name, workflow_file = self._workflow_source(
             args,
@@ -489,10 +493,12 @@ class WorkflowCommand(
                 (f"Previewing {source}." if options.dry_run else f"Executing {source}."),
             )
 
-            self._workflows.run(
+            job_id = self._workflows.run(
                 file=workflow_file,
                 options=options,
             )
+            if job_id is not None:
+                self._record_cli_run(job_id, workflow_file.stem, project["id"])
 
             self._events.log.info(
                 (
@@ -512,10 +518,12 @@ class WorkflowCommand(
             (f"Previewing {source}." if options.dry_run else f"Executing {source}."),
         )
 
-        self._workflows.run(
+        self._ensure_workflow_project(workflow_name, project["id"])
+        job_id = self._workflows.run(
             name=workflow_name,
             options=options,
         )
+        self._record_cli_run(job_id, workflow_name, project["id"])
 
         self._events.log.info(
             (
@@ -537,9 +545,9 @@ class WorkflowCommand(
         Start a registered workflow or workflow file in the background.
         """
 
-        self._require(
-            "workflows.execute",
-        )
+        session = self._session.require()
+        project = ProjectContext(self._context).current(session)
+        self._require("workflows.execute", project["id"])
 
         workflow_name, workflow_file = self._workflow_source(
             args,
@@ -569,6 +577,7 @@ class WorkflowCommand(
                 file=workflow_file,
                 options=options,
             )
+            target = workflow_file.stem
 
         else:
 
@@ -578,6 +587,10 @@ class WorkflowCommand(
                 name=workflow_name,
                 options=options,
             )
+            target = workflow_name
+            self._ensure_workflow_project(workflow_name, project["id"])
+
+        self._record_cli_run(job.require_id(), target, project["id"])
 
         self._context.ui.success(
             f"Workflow '{job.workflow}' started in background.",
@@ -741,12 +754,17 @@ class WorkflowCommand(
         Register a workflow definition.
         """
 
-        self._require(
-            "workflows.write",
-        )
+        session = self._session.require()
+        project = ProjectContext(self._context).current(session)
+        self._require("workflows.write", project["id"])
 
         workflow = self._workflows.add(
             args.file,
+        )
+
+        assert self._context.database_manager is not None
+        Projects(self._context.database_manager.connection).set_workflow_project(
+            workflow.name, project["id"]
         )
 
         self._context.ui.success(
@@ -1099,11 +1117,33 @@ class WorkflowCommand(
     def _require(
         self,
         permission: str,
+        project_id: int | None = None,
     ) -> None:
 
         session = self._session.require()
 
-        self._authorization.require(
-            session,
-            permission,
+        if project_id is None:
+            self._authorization.require(session, permission)
+        elif not self._authorization.has_permission(session.user_id, permission, project_id):
+            raise AuthorizationRequiredError(permission)
+
+    def _ensure_workflow_project(self, name: str, selected_project_id: int) -> None:
+        """Move legacy CLI registrations from Default to the selected project."""
+        assert self._context.database_manager is not None
+        projects = Projects(self._context.database_manager.connection)
+        owner_id = projects.workflow_project(name)
+        default = projects.get(DEFAULT_PROJECT)
+        if default is not None and owner_id == default["id"] and owner_id != selected_project_id:
+            projects.set_workflow_project(name, selected_project_id)
+
+    def _record_cli_run(self, job_id: int, target: str, project_id: int) -> None:
+        assert self._context.database_manager is not None
+        store = RunStore(self._context.database_manager.connection)
+        store.record(
+            job_id,
+            node="local",
+            kind="workflow",
+            target=target,
+            trigger="manual",
         )
+        store.set_project(job_id, project_id)

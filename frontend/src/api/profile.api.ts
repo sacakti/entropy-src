@@ -5,6 +5,8 @@ export interface Profile {
     username: string
     full_name: string | null
     email: string | null
+    /** Linked sign-in provider; null for a password managed by Entropy. */
+    auth_provider: 'ldap' | 'oidc' | null
     /** Versioned URL of the profile picture, or null when none is set. */
     avatar_url: string | null
 }

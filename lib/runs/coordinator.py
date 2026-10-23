@@ -69,6 +69,7 @@ class Coordinator:
         *,
         trigger: str,
         schedule_id: Optional[int],
+        rerun_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Record the run and start following it; returns the run."""
 
@@ -91,6 +92,7 @@ class Coordinator:
             trigger=trigger,
             schedule_id=schedule_id,
             options=plan.snapshot(variables),
+            rerun_config=rerun_config,
             coordinated=True,
         )
 

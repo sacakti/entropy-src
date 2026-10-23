@@ -12,6 +12,21 @@ const OUTCOMES: { key: 'on_success' | 'on_failure' | 'on_cancel'; label: string 
     { key: 'on_cancel', label: 'Cancelled' },
 ]
 
+const SAMPLES = {
+    status: {
+        subject: '[Entropy] {title} (run #{run_id})',
+        body: '{message}\n\nProject: {project}\nStarted by: {started_by}\nSchedule: {schedule}\nNode: {node}\n\nOpen run: {run_url}',
+    },
+    complete: {
+        subject: 'Job complete: {workflow} (run #{run_id})',
+        body: 'The job completed successfully.\n\nWorkflow or plugin: {workflow}\nProject: {project}\nStarted by: {started_by}\nSchedule: {schedule}\nNode: {node}\n\nReview the run: {run_url}',
+    },
+    failure: {
+        subject: 'Action required: {title} (run #{run_id})',
+        body: 'A run needs attention.\n\nStatus: {status}\nWorkflow or plugin: {workflow}\nProject: {project}\nStarted by: {started_by}\nSchedule: {schedule}\nNode: {node}\n\nRecent output:\n{log}\n\nOpen the run: {run_url}',
+    },
+} as const
+
 /**
  * E-mail alerts for a workflow's or a schedule's runs: who to write to and
  * for which outcomes. Without addresses, no e-mail is sent.
@@ -34,6 +49,7 @@ export default function RunAlertsDialog({
     const [emails, setEmails] = useState('')
     const [error, setError] = useState('')
     const [saving, setSaving] = useState(false)
+    const [sample, setSample] = useState('')
 
     useEffect(() => {
         let active = true
@@ -43,6 +59,7 @@ export default function RunAlertsDialog({
                 if (!active) return
                 setValues(result)
                 setEmails(result.emails.join(', '))
+                setSample(result.subject_template || result.body_template ? 'custom' : '')
             })
             .catch((cause: unknown) => {
                 if (active) setError(errorMessage(cause, 'Unable to load the alerts.'))
@@ -146,6 +163,42 @@ export default function RunAlertsDialog({
                             </label>
                         ))}
                     </fieldset>
+                    <section className="run-alerts-template" aria-label="Email content">
+                        <div className="run-alerts-template-heading">
+                            <div><strong>Email content</strong><small>Choose a sample, then customize the subject and message.</small></div>
+                            <select
+                                className="entropy-select"
+                                value={sample}
+                                disabled={!canEdit}
+                                aria-label="Sample email template"
+                                onChange={(event) => {
+                                    if (event.target.value === 'custom') return
+                                    const key = event.target.value as keyof typeof SAMPLES
+                                    setSample(event.target.value)
+                                    setValues((current) => current ? {
+                                        ...current,
+                                        subject_template: key ? SAMPLES[key].subject : '',
+                                        body_template: key ? SAMPLES[key].body : '',
+                                    } : current)
+                                }}
+                            >
+                                {sample === 'custom' && <option value="custom">Custom content</option>}
+                                <option value="">Use Entropy default</option>
+                                <option value="status">Rich status update</option>
+                                <option value="complete">Job complete</option>
+                                <option value="failure">Failure report</option>
+                            </select>
+                        </div>
+                        <label className="admin-field">
+                            <span>Subject</span>
+                            <input maxLength={998} value={values.subject_template} disabled={!canEdit} onChange={(event) => setValues((current) => current ? { ...current, subject_template: event.target.value } : current)} placeholder="Leave blank for Entropy's default subject" />
+                        </label>
+                        <label className="admin-field">
+                            <span>Message</span>
+                            <textarea rows={7} maxLength={20000} value={values.body_template} disabled={!canEdit} onChange={(event) => setValues((current) => current ? { ...current, body_template: event.target.value } : current)} placeholder="Leave blank for Entropy's default message" />
+                            <small>Available fields: {'{status}'}, {'{title}'}, {'{run_id}'}, {'{workflow}'}, {'{schedule}'}, {'{project}'}, {'{started_by}'}, {'{node}'}, {'{message}'}, {'{log}'}, {'{run_url}'}. Message text is placed in a styled HTML email and also sent as plain text.</small>
+                        </label>
+                    </section>
                     {values.updated_by && (
                         <p className="run-alerts-meta">
                             Last changed by {values.updated_by}

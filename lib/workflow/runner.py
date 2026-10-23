@@ -68,7 +68,7 @@ class WorkflowRunner:
         execution=None,
         job_id: int | None = None,
         options: WorkflowExecutionOptions | None = None,
-    ) -> None:
+    ) -> int | None:
         """
         Execute a workflow.
         """
@@ -344,6 +344,8 @@ class WorkflowRunner:
                 traceback.print_exc()
                 # Report generation must never mask the workflow exception.
                 pass
+
+        return job.require_id()
 
     # ------------------------------------------------------------------
     # Initialize

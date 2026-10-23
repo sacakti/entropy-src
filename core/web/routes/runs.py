@@ -16,6 +16,7 @@ from core.web.routes.workflows import _require_permission
 from lib.models.session import Session
 from lib.models.users import User
 from lib.runs.housekeeping import Housekeeping
+from lib.runs.plan import PlanError, build_plan
 from lib.runs.service import RunError, RunService
 from lib.runs.store import RUN_TABS, iso_utc
 
@@ -33,6 +34,7 @@ class RunOptionsRequest(BaseModel):
     tags: List[str] = Field(default_factory=list, max_length=100)
     # Step name -> node, for steps that run elsewhere than `node`.
     step_nodes: Dict[str, str] = Field(default_factory=dict)
+    definition: Optional[str] = None
 
 
 class StartRunRequest(RunOptionsRequest):
@@ -49,7 +51,17 @@ class StartPluginRunRequest(BaseModel):
 class HousekeepingRequest(BaseModel):
     archive_after_days: Optional[int] = None
     purge_archive_after_days: Optional[int] = None
+    archive_rules: Optional[Dict[str, Any]] = None
     run_now: bool = False
+
+
+class PurgeArchiveRequest(BaseModel):
+    older_than_days: Optional[int] = Field(default=None, ge=1, le=36500)
+    purge_all: bool = False
+
+
+class SelectedRunsRequest(BaseModel):
+    job_ids: List[int] = Field(..., min_items=1, max_items=500)
 
 
 def _service(request: Request) -> RunService:
@@ -137,7 +149,7 @@ def list_runs(
     project = current_project(request, current)
     _require_permission(request, current, "workflows.read", project["id"])
 
-    if tab != "all" and tab not in RUN_TABS:
+    if tab != "all" and tab != "archived" and tab not in RUN_TABS:
         raise HTTPException(status_code=422, detail="Unknown tab.")
 
     service = _service(request)
@@ -177,6 +189,72 @@ def get_run(
     }
 
 
+@router.get("/api/runs/{job_id}/rerun-config")
+def get_rerun_config(
+    job_id: int,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Return saved inputs for the run dialog to prefill (execute access only)."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.execute", _run_project(request, job_id))
+    service = _service(request)
+    run = service.store.get(job_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
+    if run["kind"] != "workflow":
+        raise HTTPException(status_code=422, detail="Only workflow runs can be run again.")
+    config = service.store.rerun_config(job_id)
+    if config is None:
+        raise HTTPException(
+            status_code=409,
+            detail="This older run has no saved input configuration. Start it from the workflow instead.",
+        )
+    _no_store(response)
+    return {"config": config}
+
+
+@router.post("/api/runs/{job_id}/rerun", status_code=201, dependencies=[Depends(verify_csrf)])
+def rerun_workflow(
+    job_id: int,
+    payload: StartRunRequest,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Start another execution from this run's saved workflow definition."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.execute", _run_project(request, job_id))
+    service = _service(request)
+    original = service.store.get(job_id)
+    if original is None:
+        raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
+    if original["kind"] != "workflow":
+        raise HTTPException(status_code=422, detail="Only workflow runs can be run again.")
+    config = service.store.rerun_config(job_id)
+    if not config or not isinstance(config.get("definition"), str):
+        raise HTTPException(status_code=409, detail="This run has no saved workflow definition.")
+    try:
+        run = service.start_workflow(
+            current,
+            original["workflow"],
+            node=payload.node,
+            variables=payload.variables,
+            steps=payload.steps,
+            tags=payload.tags,
+            step_nodes=payload.step_nodes,
+            project_id=_run_project(request, job_id),
+            workflow_definition=config["definition"],
+        )
+    except RunError as exc:
+        raise _http(exc) from exc
+    _no_store(response)
+    return {"run": run}
+
+
 @router.get("/api/runs/{job_id}/events")
 def run_events(
     job_id: int,
@@ -196,9 +274,11 @@ def run_events(
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
 
-    if run["coordinated"]:
+    if run["coordinated"] or run.get("archived"):
         # The run's own messages and those of its segments, in order.
-        merged = service.store.events(service.store.job_ids(job_id), after, limit)
+        merged = service.store.events(
+            service.store.job_ids(job_id), after, limit, archived=run.get("archived", False)
+        )
         _no_store(response)
         return {
             "run": run,
@@ -237,6 +317,8 @@ def run_log(
         raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
 
     _no_store(response)
+    if service.store.is_archived(job_id):
+        return {"offset": offset, "size": 0, "text": ""}
     return service.log(job_id, offset)
 
 
@@ -305,18 +387,36 @@ def plan_workflow_run(
     _require_permission(request, current, "workflows.execute", project_id)
 
     try:
-        _, plan = _service(request).plan(
-            name,
-            node=payload.node,
-            steps=payload.steps,
-            tags=payload.tags,
-            step_nodes=payload.step_nodes,
-        )
-    except RunError as exc:
-        if exc.status != 422:
-            raise _http(exc) from exc
+        if payload.definition is not None:
+            manager = request.app.state.entropy_context.workflow_manager
+            workflow = manager.deserialize(payload.definition)
+            if workflow.name != name:
+                raise RunError("Workflow definition does not match the requested workflow.", 422)
+            manager._validator.validate(workflow)
+            plan = build_plan(
+                workflow,
+                default_node=payload.node,
+                steps=payload.steps,
+                tags=payload.tags,
+                step_nodes=payload.step_nodes,
+            )
+        else:
+            _, plan = _service(request).plan(
+                name,
+                node=payload.node,
+                steps=payload.steps,
+                tags=payload.tags,
+                step_nodes=payload.step_nodes,
+            )
+    except PlanError as exc:
         _no_store(response)
         return {"valid": False, "error": str(exc)}
+    except Exception as exc:
+        if isinstance(exc, RunError):
+            _no_store(response)
+            return {"valid": False, "error": str(exc)}
+        _no_store(response)
+        return {"valid": False, "error": str(exc) or "Unable to validate the workflow plan."}
 
     _no_store(response)
     return {"valid": True, "plan": plan.snapshot()}
@@ -361,6 +461,7 @@ def _housekeeping_payload(housekeeping: Housekeeping) -> Dict[str, Any]:
     return {
         "archive_after_days": settings["runs.archive_after_days"],
         "purge_archive_after_days": settings["runs.purge_archive_after_days"],
+        "archive_rules": settings["runs.archive_rules"],
         "archived": housekeeping.archive_counts(),
     }
 
@@ -398,6 +499,8 @@ def update_housekeeping(
         values["runs.archive_after_days"] = payload.archive_after_days
     if payload.purge_archive_after_days is not None:
         values["runs.purge_archive_after_days"] = payload.purge_archive_after_days
+    if payload.archive_rules is not None:
+        values["runs.archive_rules"] = payload.archive_rules
 
     try:
         housekeeping.update_settings(values)
@@ -412,3 +515,131 @@ def update_housekeeping(
         )
 
     return {**_housekeeping_payload(housekeeping), "result": result}
+
+
+@router.post("/api/runs-housekeeping/purge", dependencies=[Depends(verify_csrf)])
+def purge_archived_runs(
+    payload: PurgeArchiveRequest,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Purge archived runs by age or remove the entire archive."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.write")
+    service = _service(request)
+    housekeeping = Housekeeping(service.store.connection)
+    project = current_project(request, current)
+    days = payload.older_than_days
+    if days is None:
+        days = housekeeping.settings()["runs.purge_archive_after_days"]
+    try:
+        purged = housekeeping.purge_archive(
+            days, purge_all=payload.purge_all, project_id=project["id"]
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    _no_store(response)
+    return {"purged_jobs": purged, "archived": housekeeping.archive_counts()}
+
+
+@router.post("/api/runs-housekeeping/export", dependencies=[Depends(verify_csrf)])
+def export_archived_runs(
+    payload: PurgeArchiveRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Response:
+    """Download selected archived runs, metadata and events as a tar.gz."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.read")
+    service = _service(request)
+    housekeeping = Housekeeping(service.store.connection)
+    project = current_project(request, current)
+    days = payload.older_than_days
+    if days is None and not payload.purge_all:
+        days = housekeeping.settings()["runs.purge_archive_after_days"]
+        if days <= 0:
+            raise HTTPException(
+                status_code=422,
+                detail="Choose an age cutoff or export all archived runs.",
+            )
+    archive = housekeeping.export_archive(
+        project_id=project["id"],
+        older_than_days=days,
+        export_all=payload.purge_all,
+    )
+    return Response(
+        content=archive,
+        media_type="application/gzip",
+        headers={"Content-Disposition": 'attachment; filename="entropy-runs-archive.tar.gz"'},
+    )
+
+
+@router.post("/api/runs-housekeeping/archive-selected", dependencies=[Depends(verify_csrf)])
+def archive_selected_runs(
+    payload: SelectedRunsRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Archive selected finished runs in the current project."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.write")
+    service = _service(request)
+    project = current_project(request, current)
+    try:
+        result = Housekeeping(service.store.connection).archive_selected(
+            payload.job_ids, project["id"]
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"result": result}
+
+
+@router.post("/api/runs-housekeeping/purge-selected", dependencies=[Depends(verify_csrf)])
+def purge_selected_runs(
+    payload: SelectedRunsRequest,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Purge selected archived runs in the current project."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.write")
+    service = _service(request)
+    project = current_project(request, current)
+    housekeeping = Housekeeping(service.store.connection)
+    try:
+        purged = housekeeping.purge_selected(payload.job_ids, project["id"])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    _no_store(response)
+    return {"purged_jobs": purged, "archived": housekeeping.archive_counts()}
+
+
+@router.post("/api/runs-housekeeping/export-selected", dependencies=[Depends(verify_csrf)])
+def export_selected_runs(
+    payload: SelectedRunsRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Response:
+    """Export selected archived runs and their events as a tar.gz."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.read")
+    service = _service(request)
+    project = current_project(request, current)
+    try:
+        archive = Housekeeping(service.store.connection).export_archive(
+            project_id=project["id"], job_ids=payload.job_ids
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return Response(
+        content=archive,
+        media_type="application/gzip",
+        headers={"Content-Disposition": 'attachment; filename="entropy-selected-runs.tar.gz"'},
+    )

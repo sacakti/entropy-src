@@ -51,7 +51,15 @@ def _repository(request: Request) -> UserWebSettingsRepository:
     return UserWebSettingsRepository(context.database_manager.connection)
 
 
-def _payload(user: User, avatar_version: Optional[str]) -> dict:
+def _payload(user: User, avatar_version: Optional[str], request: Request) -> dict:
+    # The linked identity source determines whether Entropy can change this
+    # account's password. It is safe to expose the provider kind in the user's
+    # own profile response; no directory credentials or identifiers are sent.
+    provider = None
+    if user.id is not None:
+        from lib.auth.external import ExternalAccounts
+
+        provider = ExternalAccounts(request.app.state.entropy_context).provider_of(user.id)
     return {
         "id": user.id,
         "username": user.username,
@@ -60,6 +68,7 @@ def _payload(user: User, avatar_version: Optional[str]) -> dict:
         "avatar_url": (
             f"/api/profile/avatar?v={avatar_version}" if avatar_version else None
         ),
+        "auth_provider": provider,
     }
 
 
@@ -76,7 +85,7 @@ def get_profile(
 
     response.headers["Cache-Control"] = "no-store"
 
-    return _payload(user, _repository(request).avatar_version(user.id))
+    return _payload(user, _repository(request).avatar_version(user.id), request)
 
 
 @router.patch("", dependencies=[Depends(verify_csrf)])
@@ -109,7 +118,7 @@ def update_profile(
 
     response.headers["Cache-Control"] = "no-store"
 
-    return _payload(user, _repository(request).avatar_version(user.id))
+    return _payload(user, _repository(request).avatar_version(user.id), request)
 
 
 @router.get("/avatar")
@@ -195,7 +204,7 @@ async def upload_avatar(
     repository = _repository(request)
     repository.set_avatar(user.id, mime_type, output.getvalue())
 
-    return _payload(user, repository.avatar_version(user.id))
+    return _payload(user, repository.avatar_version(user.id), request)
 
 
 @router.delete("/avatar", dependencies=[Depends(verify_csrf)])
@@ -210,4 +219,4 @@ def delete_avatar(
 
     _repository(request).delete_avatar(user.id)
 
-    return _payload(user, None)
+    return _payload(user, None, request)

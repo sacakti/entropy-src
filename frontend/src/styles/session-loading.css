@@ -1,0 +1,108 @@
+.session-loading {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--app-text);
+  background:
+    radial-gradient(ellipse at 50% 42%, var(--app-accent-soft), transparent 42%),
+    var(--app-bg);
+  font-family: var(--app-font-family);
+}
+
+.session-loading-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px;
+  text-align: center;
+  animation: session-loading-appear 500ms ease-out both;
+}
+
+.session-loading-mark-wrap {
+  position: relative;
+  display: grid;
+  width: 112px;
+  height: 112px;
+  margin-bottom: 28px;
+  place-items: center;
+}
+
+.session-loading-orbit {
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  border-top-color: var(--app-accent);
+  border-right-color: var(--app-accent-border);
+  border-radius: 50%;
+  animation: session-loading-spin 1.8s linear infinite;
+}
+
+.session-loading-logo {
+  filter: drop-shadow(0 0 22px var(--app-accent-border));
+  animation: session-loading-breathe 2.4s ease-in-out infinite;
+}
+
+.session-loading-brand {
+  color: var(--app-text);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 650;
+  letter-spacing: 0.025em;
+}
+
+.session-loading-caption {
+  margin-top: 7px;
+  color: var(--app-muted);
+  font-size: 0.95rem;
+}
+
+.session-loading-track {
+  position: relative;
+  width: 160px;
+  height: 3px;
+  margin-top: 30px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--app-line);
+}
+
+.session-loading-track span {
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--app-accent);
+  box-shadow: 0 0 12px var(--app-accent-border);
+  animation: session-loading-progress 1.5s ease-in-out infinite;
+}
+
+@keyframes session-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes session-loading-breathe {
+  50% { transform: scale(1.045); }
+}
+
+@keyframes session-loading-progress {
+  to { transform: translateX(500%); }
+}
+
+@keyframes session-loading-appear {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-loading-card,
+  .session-loading-orbit,
+  .session-loading-logo,
+  .session-loading-track span {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}

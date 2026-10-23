@@ -131,7 +131,7 @@ class WorkflowManager:
         execution=None,
         job_id: int | None = None,
         options: WorkflowExecutionOptions | None = None,
-    ) -> None:
+    ) -> int | None:
         """
         Execute a validated workflow.
 
@@ -139,7 +139,7 @@ class WorkflowManager:
         background-job subsystem.
         """
 
-        self._runner.execute(
+        return self._runner.execute(
             workflow,
             job_id=job_id,
             execution=execution,
@@ -158,7 +158,7 @@ class WorkflowManager:
         execution=None,
         job_id: int | None = None,
         options: WorkflowExecutionOptions | None = None,
-    ) -> None:
+    ) -> int | None:
         """
         Execute a registered workflow or workflow file.
         """
@@ -187,7 +187,7 @@ class WorkflowManager:
                 ),
             )
 
-        self.execute(
+        return self.execute(
             workflow,
             execution=execution,
             job_id=job_id,

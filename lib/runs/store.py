@@ -96,6 +96,7 @@ def run_payload(row: Any) -> Dict[str, Any]:
         "project_id": value("project_id"),
         # Spans several nodes: the main node runs its segments one by one.
         "coordinated": bool(value("heartbeat_at")),
+        "archived": bool(value("is_archived")),
     }
 
 
@@ -129,6 +130,7 @@ class RunStore:
         trigger: str,
         schedule_id: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
+        rerun_config: Optional[Dict[str, Any]] = None,
         parent_job_id: Optional[int] = None,
         coordinated: bool = False,
     ) -> None:
@@ -137,8 +139,8 @@ class RunStore:
                 """
                 INSERT OR REPLACE INTO run_metadata
                 (job_id, node, kind, target, trigger, schedule_id, created_at,
-                 options, parent_job_id, heartbeat_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 options, rerun_config, parent_job_id, heartbeat_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job_id,
@@ -149,6 +151,7 @@ class RunStore:
                     schedule_id,
                     utcnow(),
                     json.dumps(options) if options is not None else None,
+                    json.dumps(rerun_config) if rerun_config is not None else None,
                     parent_job_id,
                     utcnow() if coordinated else None,
                 ),
@@ -163,6 +166,16 @@ class RunStore:
                 (utcnow(), job_id),
             )
 
+    def rerun_config(self, job_id: int) -> Optional[Dict[str, Any]]:
+        """Return saved execution inputs without exposing them in run listings."""
+
+        archived = self.is_archived(job_id)
+        table = "run_metadata_archive" if archived else "run_metadata"
+        row = self.connection.fetchone(
+            f"SELECT rerun_config FROM {table} WHERE job_id = ?", (job_id,)
+        )
+        return _json(row["rerun_config"]) if row is not None else None
+
     def heartbeat_at(self, job_id: int) -> Optional[str]:
         row = self.connection.fetchone(
             "SELECT heartbeat_at FROM run_metadata WHERE job_id = ?", (job_id,)
@@ -172,8 +185,9 @@ class RunStore:
     def children(self, job_id: int) -> List[Dict[str, Any]]:
         """The segments of a coordinated run, in order."""
 
+        archived = self.is_archived(job_id)
         rows = self.connection.fetchall(
-            self._SELECT + " WHERE m.parent_job_id = ? ORDER BY j.id",
+            self._select(archived) + " WHERE m.parent_job_id = ? ORDER BY j.id",
             (job_id,),
         )
         return [run_payload(row) for row in rows]
@@ -186,9 +200,10 @@ class RunStore:
     def step_outputs(self, job_id: int) -> Dict[str, Dict[str, Any]]:
         """Outputs of each step of a job, from its plugin results."""
 
+        archived = self.is_archived(job_id)
         rows = self.connection.fetchall(
-            """
-            SELECT node_name, payload FROM workflow_events
+            f"""
+            SELECT node_name, payload FROM workflow_events{'_archive' if archived else ''}
             WHERE job_id = ? AND event_type = 'plugin_result' AND node_type = 'step'
             ORDER BY id
             """,
@@ -201,13 +216,19 @@ class RunStore:
             outputs[row["node_name"]] = dict(result.get("outputs") or {})
         return outputs
 
-    def events(self, job_ids: List[int], after: Optional[int], limit: int) -> List[Dict[str, Any]]:
+    def events(
+        self,
+        job_ids: List[int],
+        after: Optional[int],
+        limit: int,
+        archived: bool = False,
+    ) -> List[Dict[str, Any]]:
         """Events of several jobs merged in order (ids are global)."""
 
         marks = ", ".join("?" for _ in job_ids)
         rows = self.connection.fetchall(
             f"""
-            SELECT * FROM workflow_events
+            SELECT * FROM workflow_events{'_archive' if archived else ''}
             WHERE job_id IN ({marks}) AND id > ?
             ORDER BY id LIMIT ?
             """,  # nosec B608 - placeholders only
@@ -240,11 +261,28 @@ class RunStore:
         LEFT JOIN run_metadata m ON m.job_id = j.id
     """
 
+    def _select(self, archived: bool = False) -> str:
+        if not archived:
+            return self._SELECT
+        return self._SELECT.replace("workflow_jobs j", "workflow_jobs_archive j").replace(
+            "run_metadata m", "run_metadata_archive m"
+        ).replace("m.project_id", "m.project_id, 1 AS is_archived")
+
+    def is_archived(self, job_id: int) -> bool:
+        return (
+            self.connection.fetchone(
+                "SELECT 1 FROM workflow_jobs_archive WHERE id = ?", (job_id,)
+            )
+            is not None
+        )
+
     def get(self, job_id: int) -> Optional[Dict[str, Any]]:
         row = self.connection.fetchone(
             self._SELECT + " WHERE j.id = ?",
             (job_id,),
         )
+        if row is None:
+            row = self.connection.fetchone(self._select(True) + " WHERE j.id = ?", (job_id,))
         return run_payload(row) if row is not None else None
 
     def list(
@@ -258,6 +296,8 @@ class RunStore:
         offset: int = 0,
         project_id: Optional[int] = None,
     ) -> Tuple[List[Dict[str, Any]], int]:
+        if tab == "archived":
+            return self._list_archived(search, node, user, limit, offset, project_id)
         # Segments of a multi-node run show up as part of that run.
         where: List[str] = ["m.parent_job_id IS NULL"]
         parameters: List[Any] = []
@@ -302,6 +342,46 @@ class RunStore:
 
         return [run_payload(row) for row in rows], int(total_row["n"])
 
+    def _list_archived(
+        self,
+        search: str,
+        node: str,
+        user: str,
+        limit: int,
+        offset: int,
+        project_id: Optional[int],
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        where: List[str] = ["m.parent_job_id IS NULL"]
+        parameters: List[Any] = []
+        if project_id is not None:
+            where.append(self._PROJECT_CLAUSE)
+            parameters.extend([self._default_project(), project_id])
+        if search.strip():
+            pattern = "%" + search.strip().lower() + "%"
+            where.append(
+                "(LOWER(j.workflow) LIKE ? OR LOWER(COALESCE(m.target, '')) LIKE ?"
+                " OR CAST(j.id AS TEXT) = ?)"
+            )
+            parameters.extend([pattern, pattern, search.strip().lstrip("#")])
+        if node.strip():
+            where.append("COALESCE(m.node, 'local') = ?")
+            parameters.append(node.strip())
+        if user.strip():
+            where.append("j.username = ?")
+            parameters.append(user.strip())
+        clause = " WHERE " + " AND ".join(where)
+        total = self.connection.fetchone(
+            "SELECT COUNT(*) AS n FROM workflow_jobs_archive j"
+            " LEFT JOIN run_metadata_archive m ON m.job_id = j.id"
+            + clause,
+            tuple(parameters),
+        )
+        rows = self.connection.fetchall(
+            self._select(True) + clause + " ORDER BY j.id DESC LIMIT ? OFFSET ?",
+            tuple(parameters) + (limit, offset),
+        )
+        return [run_payload(row) for row in rows], int(total["n"])
+
     # Runs without a project (from before projects, or the CLI) are Default's.
     _PROJECT_CLAUSE = "IFNULL(m.project_id, ?) = ?"
 
@@ -335,6 +415,17 @@ class RunStore:
             tab: sum(by_state.get(state, 0) for state in states) for tab, states in RUN_TABS.items()
         }
         result["all"] = sum(by_state.values())
+        archived_clause, archived_parameters = " WHERE m.parent_job_id IS NULL", ()
+        if project_id is not None:
+            archived_clause += " AND " + self._PROJECT_CLAUSE
+            archived_parameters = (self._default_project(), project_id)
+        archived = self.connection.fetchone(
+            "SELECT COUNT(*) AS n FROM workflow_jobs_archive j"
+            " LEFT JOIN run_metadata_archive m ON m.job_id = j.id"
+            + archived_clause,
+            archived_parameters,
+        )
+        result["archived"] = int(archived["n"])
         return result
 
     def active(self) -> List[Dict[str, Any]]:
@@ -367,10 +458,12 @@ class RunStore:
 
         job_ids = self.job_ids(job_id)
         marks = ", ".join("?" for _ in job_ids)
+        archived = self.is_archived(job_id)
+        table = "workflow_events_archive" if archived else "workflow_events"
         rows = self.connection.fetchall(
             f"""
             SELECT id, event_type, node_id, node_name, payload, created_at
-            FROM workflow_events
+            FROM {table}
             WHERE job_id IN ({marks}) AND node_type = 'step'
               AND event_type LIKE 'step.%'
             ORDER BY id

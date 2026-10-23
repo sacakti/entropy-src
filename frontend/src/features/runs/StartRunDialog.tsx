@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, LoaderCircle, Play, Server } from 'lucide-react'
 
 import { pluginsApi } from '../../api/plugins.api'
-import { nodesApi, runsApi, type EntropyNode } from '../../api/runs.api'
+import { nodesApi, runsApi, type EntropyNode, type RunRerunConfig } from '../../api/runs.api'
 import { workflowsApi } from '../../api/workflows.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
@@ -22,10 +22,12 @@ type Check = { state: 'checking' } | { state: 'valid'; summary: string } | { sta
 export default function StartRunDialog({
     kind,
     target,
+    rerunFrom,
     onClose,
 }: {
     kind: 'workflow' | 'plugin'
     target: string
+    rerunFrom?: number
     onClose: () => void
 }) {
     const { notify } = useFeedback()
@@ -38,6 +40,7 @@ export default function StartRunDialog({
     const [nodesLoaded, setNodesLoaded] = useState(false)
     const [advanced, setAdvanced] = useState<AdvancedState>(EMPTY_ADVANCED)
     const [planCheck, setPlanCheck] = useState<PlanCheck>({ state: 'checking' })
+    const [rerunConfig, setRerunConfig] = useState<RunRerunConfig | null>(null)
 
     useEffect(() => {
         let active = true
@@ -47,7 +50,9 @@ export default function StartRunDialog({
             .then(({ items }) => {
                 if (!active) return
                 setNodes(items)
-                setNode(items.find((item) => item.agent_up)?.name ?? 'local')
+                if (rerunFrom === undefined) {
+                    setNode(items.find((item) => item.agent_up)?.name ?? 'local')
+                }
             })
             .catch(() => undefined)
             .finally(() => {
@@ -56,15 +61,30 @@ export default function StartRunDialog({
 
         const validate = async (): Promise<void> => {
             if (kind === 'workflow') {
-                const detail = await workflowsApi.get(target, 'json')
-                const result = await workflowsApi.validate({ definition: detail.definition, format: 'json' })
+                const saved = rerunFrom === undefined ? null : (await runsApi.rerunConfig(rerunFrom)).config
+                const definition = saved?.definition ?? (await workflowsApi.get(target, 'json')).definition
+                const result = await workflowsApi.validate({ definition, format: 'json' })
                 let variables: Record<string, unknown>
                 try {
-                    variables = (JSON.parse(detail.definition) as { variables?: Record<string, unknown> }).variables ?? {}
+                    variables = (JSON.parse(definition) as { variables?: Record<string, unknown> }).variables ?? {}
                 } catch {
                     variables = {}
                 }
                 if (!active) return
+                setRerunConfig(saved)
+                if (saved) {
+                    setNode(saved.node)
+                    const enabled = ((JSON.parse(definition) as { steps?: Array<{ name?: string; enabled?: boolean }> }).steps ?? [])
+                        .filter((step) => step.enabled !== false && typeof step.name === 'string')
+                        .map((step) => step.name as string)
+                    setAdvanced({
+                        tags: saved.tags ?? [],
+                        excluded: saved.steps === null
+                            ? []
+                            : enabled.filter((name) => !saved.steps?.includes(name)),
+                        stepNodes: saved.step_nodes ?? {},
+                    })
+                }
                 setRows(
                     rowsFor(
                         Object.entries(variables).map(([name, value]) => ({
@@ -73,6 +93,7 @@ export default function StartRunDialog({
                             required: false,
                             default: value,
                         })),
+                        saved?.variables ?? {},
                     ),
                 )
                 setCheck({
@@ -104,7 +125,7 @@ export default function StartRunDialog({
         return () => {
             active = false
         }
-    }, [kind, target])
+    }, [kind, target, rerunFrom])
 
     const selected = nodes.find((item) => item.name === node)
 
@@ -138,12 +159,19 @@ export default function StartRunDialog({
         try {
             const { run } =
                 kind === 'workflow'
-                    ? await runsApi.startWorkflow(
-                          target,
-                          node,
-                          parsed.values,
-                          planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {},
-                      )
+                    ? rerunFrom !== undefined
+                        ? await runsApi.rerunWorkflow(
+                              rerunFrom,
+                              node,
+                              parsed.values,
+                              planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {},
+                          )
+                        : await runsApi.startWorkflow(
+                              target,
+                              node,
+                              parsed.values,
+                              planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {},
+                          )
                     : await runsApi.startPlugin(target, node, parsed.values)
             notify.success(`Run #${run.id} started on ${run.node}.`, { title: `${target} started` })
             onClose()
@@ -263,6 +291,7 @@ export default function StartRunDialog({
                     onChange={setAdvanced}
                     check={planCheck}
                     onCheck={setPlanCheck}
+                    definition={rerunConfig?.definition}
                 />
             )}
 

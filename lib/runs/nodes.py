@@ -14,6 +14,7 @@ import os
 import platform
 import re
 import socket
+import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -103,10 +104,60 @@ class LocalMetrics:
                     "percent": round(100.0 * used / total, 2),
                 }
 
+        if platform.system() == "Darwin":
+            metrics = LocalMetrics._mac_memory()
+            if metrics["used"] is not None:
+                return metrics
+
         try:
             total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
             return {"total": total, "used": None, "percent": None}
         except (ValueError, OSError, AttributeError):
+            return {"total": None, "used": None, "percent": None}
+
+    @staticmethod
+    def _mac_memory() -> Dict[str, Optional[float]]:
+        """Read physical memory usage from macOS system utilities."""
+        try:
+            total_result = subprocess.run(
+                ["/usr/sbin/sysctl", "-n", "hw.memsize"],
+                capture_output=True,
+                check=True,
+                text=True,
+                timeout=3,
+            )
+            total = int(total_result.stdout.strip())
+
+            stats_result = subprocess.run(
+                ["/usr/bin/vm_stat"],
+                capture_output=True,
+                check=True,
+                text=True,
+                timeout=3,
+            )
+            stats = stats_result.stdout
+            page_match = re.search(r"page size of (\d+) bytes", stats)
+            if page_match is None:
+                return {"total": total, "used": None, "percent": None}
+
+            page_size = int(page_match.group(1))
+            pages: Dict[str, int] = {}
+            for line in stats.splitlines():
+                match = re.match(r"Pages ([A-Za-z ]+):\s+(\d+)\.", line)
+                if match:
+                    pages[match.group(1).strip().lower()] = int(match.group(2))
+
+            # Free, inactive and speculative pages are available for reuse.
+            available = sum(
+                pages.get(name, 0) for name in ("free", "inactive", "speculative")
+            ) * page_size
+            used = max(0, min(total, total - available))
+            return {
+                "total": total,
+                "used": used,
+                "percent": round(100.0 * used / total, 2) if total else None,
+            }
+        except (OSError, ValueError, subprocess.SubprocessError):
             return {"total": None, "used": None, "percent": None}
 
     def disk(self) -> Dict[str, Optional[float]]:

@@ -3,6 +3,8 @@ import { login, getCurrentUser, logout, type AuthUser } from './services/auth'
 import { SESSION_EXPIRED_EVENT } from './services/api'
 import EntropyShell from './EntropyShell'
 import Login, { type EndedSession } from './features/login/Login'
+import EntropyLogo from './components/layout/EntropyLogo'
+import './styles/session-loading.css'
 
 // Survives the reload that follows sign-out, so the login page can say who left.
 const ENDED_SESSION_KEY = 'entropy.ended-session'
@@ -83,7 +85,21 @@ function App() {
     setUser(result.user)
   }
 
-  if (checkingSession) return <div className="session-loading">Loading Entropy...</div>
+  if (checkingSession) return (
+    <main className="session-loading" role="status" aria-live="polite" aria-label="Loading Entropy">
+      <div className="session-loading-card">
+        <div className="session-loading-mark-wrap">
+          <span className="session-loading-orbit" aria-hidden="true" />
+          <EntropyLogo size={64} className="session-loading-logo" />
+        </div>
+        <div className="session-loading-brand">Entropy</div>
+        <div className="session-loading-caption">Preparing your workspace</div>
+        <div className="session-loading-track" aria-hidden="true">
+          <span />
+        </div>
+      </div>
+    </main>
+  )
 
   if (user) {
     return <EntropyShell

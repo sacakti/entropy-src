@@ -10,6 +10,7 @@ import {
     LayoutGrid,
     Network,
     LoaderCircle,
+    RotateCcw,
     ScrollText,
     SkipForward,
     Square,
@@ -29,6 +30,7 @@ import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import RunDiagram from './RunDiagram'
 import RunOptionsSummary from './RunOptionsSummary'
 import RunStatus from './RunStatus'
+import StartRunDialog from './StartRunDialog'
 import {
     TRIGGER_LABELS,
     errorMessage,
@@ -251,6 +253,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
     const [follow, setFollow] = useState(true)
     const [expanded, setExpanded] = useState<string | null>(null)
     const [stopping, setStopping] = useState(false)
+    const [rerunOpen, setRerunOpen] = useState(false)
     const [now, setNow] = useState(() => Date.now())
 
     const cursor = useRef<number | null>(null)
@@ -406,6 +409,16 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                         </p>
                     </div>
                     <RunStatus state={run.state} />
+                    {run.kind === 'workflow' &&
+                        (run.state === 'completed' || run.state === 'failed' || run.state === 'cancelled') && (
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-secondary"
+                                onClick={() => setRerunOpen(true)}
+                            >
+                                <RotateCcw size={15} /> Run again
+                            </button>
+                        )}
                     {running && (
                         <button
                             type="button"
@@ -689,6 +702,14 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                     </div>
                 )}
             </section>
+            {rerunOpen && (
+                <StartRunDialog
+                    kind="workflow"
+                    target={run.workflow}
+                    rerunFrom={run.id}
+                    onClose={() => setRerunOpen(false)}
+                />
+            )}
         </section>
     )
 }

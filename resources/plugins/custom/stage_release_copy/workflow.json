@@ -14,14 +14,39 @@
                 "stage"
             ],
             "arguments": {
-                "release_path": "/Users/aravinthselvaraj/Desktop/releases/H002.zip",
-                "destination_path": "/Users/aravinthselvaraj/Desktop/repo",
                 "backup": true,
-                "rotate_backup_type": "max_files",
+                "copy_type": "multi",
+                "destination": null,
+                "mappings": [
+                    {
+                        "destination": "/Users/aravinthselvaraj/Desktop/repo/app-1/image",
+                        "source": "/Users/aravinthselvaraj/Desktop/releases/H009/App/services/app-1/image"
+                    },
+                    {
+                        "destination": "/Users/aravinthselvaraj/Desktop/repo/app-2/image",
+                        "source": "/Users/aravinthselvaraj/Desktop/releases/H009/App/services/app-2/image"
+                    }
+                ],
                 "max_files": 5,
                 "max_timestamp": 5,
-                "max_timestamp_unit": "days"
-            }
+                "max_timestamp_unit": "days",
+                "release_path": "/Users/aravinthselvaraj/Desktop/releases/H002.zip",
+                "replace_rules": [
+                    {
+                        "destination": ".",
+                        "source": "app1-*.war",
+                        "version_pattern": "^app1-(?P<version>.+)\\.war$"
+                    },
+                    {
+                        "destination": ".",
+                        "source": "app2-ref-*.war",
+                        "version_pattern": "^app2-ref-(?P<version>.+)\\.war$"
+                    }
+                ],
+                "rotate_backup_type": "max_files",
+                "source": null
+            },
+            "suppress_result": false
         }
     ]
 }

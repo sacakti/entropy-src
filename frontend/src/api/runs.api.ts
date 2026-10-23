@@ -1,4 +1,4 @@
-import { apiRequest } from '../services/api'
+import { apiRequest, downloadFile } from '../services/api'
 
 export type RunState =
     | 'queued'
@@ -9,7 +9,7 @@ export type RunState =
     | 'failed'
     | 'cancelled'
 
-export type RunTab = 'active' | 'completed' | 'failed' | 'cancelled' | 'all'
+export type RunTab = 'active' | 'completed' | 'failed' | 'cancelled' | 'all' | 'archived'
 
 export const ACTIVE_STATES: readonly RunState[] = ['queued', 'starting', 'running', 'paused']
 
@@ -37,6 +37,7 @@ export interface Run {
     parent_job_id?: number | null
     /** Runs steps on several nodes, one segment after another. */
     coordinated?: boolean
+    archived?: boolean
 }
 
 export interface StepDependency {
@@ -65,6 +66,15 @@ export interface RunOptions {
     steps?: string[]
     tags?: string[]
     step_nodes?: Record<string, string>
+}
+
+export interface RunRerunConfig {
+    definition: string
+    variables: Record<string, unknown>
+    node: string
+    steps: string[] | null
+    tags: string[]
+    step_nodes: Record<string, string>
 }
 
 export interface RunStep {
@@ -132,7 +142,17 @@ export interface RunLog {
 export interface Housekeeping {
     archive_after_days: number
     purge_archive_after_days: number
+    archive_rules: ArchiveRules
     archived: { jobs: number; events: number }
+}
+
+export interface ArchiveRules {
+    schedule: boolean
+    plugin: boolean
+    completed: boolean
+    failed: boolean
+    cancelled: boolean
+    workflows: { mode: 'exact' | 'startswith'; pattern: string }[]
 }
 
 function json(method: string, body?: unknown): RequestInit {
@@ -170,6 +190,14 @@ export const runsApi = {
         return apiRequest(`/api/runs/${id}/stop`, json('POST'))
     },
 
+    rerunConfig(id: number): Promise<{ config: RunRerunConfig }> {
+        return apiRequest(`/api/runs/${id}/rerun-config`)
+    },
+
+    rerunWorkflow(id: number, node: string, variables: Record<string, unknown>, options: RunOptions = {}): Promise<{ run: Run }> {
+        return apiRequest(`/api/runs/${id}/rerun`, json('POST', { node, variables, ...options }))
+    },
+
     startWorkflow(
         name: string,
         node: string,
@@ -187,10 +215,11 @@ export const runsApi = {
         name: string,
         node: string,
         options: RunOptions = {},
+        definition?: string,
     ): Promise<{ valid: true; plan: RunOptionsSnapshot } | { valid: false; error: string }> {
         return apiRequest(
             `/api/workflows/${encodeURIComponent(name)}/plan`,
-            json('POST', { node, ...options }),
+            json('POST', { node, ...options, ...(definition ? { definition } : {}) }),
         )
     },
 
@@ -210,11 +239,37 @@ export const runsApi = {
     },
 
     updateHousekeeping(
-        values: Partial<Pick<Housekeeping, 'archive_after_days' | 'purge_archive_after_days'>> & {
+        values: Partial<Pick<Housekeeping, 'archive_after_days' | 'purge_archive_after_days' | 'archive_rules'>> & {
             run_now?: boolean
         },
     ): Promise<Housekeeping & { result: Record<string, number> | null }> {
         return apiRequest('/api/runs-housekeeping', json('PUT', values))
+    },
+
+    purgeArchive(values: { older_than_days?: number; purge_all?: boolean }): Promise<{ purged_jobs: number; archived: { jobs: number; events: number } }> {
+        return apiRequest('/api/runs-housekeeping/purge', json('POST', values))
+    },
+
+    exportArchive(values: { older_than_days?: number; purge_all?: boolean }): Promise<void> {
+        const date = new Date().toISOString().slice(0, 10)
+        return downloadFile('/api/runs-housekeeping/export', values, `entropy-runs-${date}.tar.gz`)
+    },
+
+    archiveSelected(jobIds: number[]): Promise<{ result: { jobs: number; events: number } }> {
+        return apiRequest('/api/runs-housekeeping/archive-selected', json('POST', { job_ids: jobIds }))
+    },
+
+    purgeSelected(jobIds: number[]): Promise<{ purged_jobs: number }> {
+        return apiRequest('/api/runs-housekeeping/purge-selected', json('POST', { job_ids: jobIds }))
+    },
+
+    exportSelected(jobIds: number[]): Promise<void> {
+        const date = new Date().toISOString().slice(0, 10)
+        return downloadFile(
+            '/api/runs-housekeeping/export-selected',
+            { job_ids: jobIds },
+            `entropy-selected-runs-${date}.tar.gz`,
+        )
     },
 }
 

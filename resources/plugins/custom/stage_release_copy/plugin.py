@@ -4,13 +4,25 @@ Stage release copy plugin.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta
+from dataclasses import dataclass
 from pathlib import Path
+from fnmatch import fnmatchcase
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 
 from .exceptions import StageReleaseCopyError
+
+
+@dataclass(frozen=True)
+class ReplaceRule:
+    """Route a source file and identify the version portion of its filename."""
+
+    source: str
+    destination: Path
+    version_pattern: re.Pattern[str]
 
 
 class StageReleaseCopyPlugin(
@@ -119,12 +131,16 @@ class StageReleaseCopyPlugin(
             required=True,
         )
 
+        raw_replace_rules = self.arguments.get("replace_rules", default=[])
+
         assert copy_type is not None
         assert backup is not None
         assert rotate_backup_type is not None
         assert max_files is not None
         assert max_timestamp is not None
         assert max_timestamp_unit is not None
+
+        replace_rules = self._parse_replace_rules(raw_replace_rules)
 
         copy_type = copy_type.lower()
         rotate_backup_type = rotate_backup_type.lower()
@@ -249,6 +265,7 @@ class StageReleaseCopyPlugin(
                 max_files=max_files,
                 max_timestamp=max_timestamp,
                 max_timestamp_unit=max_timestamp_unit,
+                replace_rules=replace_rules,
             )
 
         self.outputs.update(
@@ -331,6 +348,48 @@ class StageReleaseCopyPlugin(
                 "Expected 'hours' or 'days'.",
             )
 
+    @staticmethod
+    def _parse_replace_rules(raw_rules: object) -> list[ReplaceRule]:
+        """Validate artifact-specific routing and version matching rules."""
+
+        if raw_rules is None:
+            return []
+        if not isinstance(raw_rules, list):
+            raise StageReleaseCopyError("Argument 'replace_rules' must be a list of objects.")
+
+        compiled: list[ReplaceRule] = []
+        for index, rule in enumerate(raw_rules, start=1):
+            if not isinstance(rule, dict):
+                raise StageReleaseCopyError(
+                    f"Replace rule {index} must be an object.",
+                )
+            source = rule.get("source")
+            destination = rule.get("destination")
+            version_regex = rule.get("version_pattern")
+            if not isinstance(source, str) or not source.strip():
+                raise StageReleaseCopyError(f"Replace rule {index} requires a non-empty 'source' glob.")
+            if not isinstance(destination, str) or not destination.strip():
+                raise StageReleaseCopyError(f"Replace rule {index} requires a relative 'destination' folder.")
+            destination_path = Path(destination)
+            if destination_path.is_absolute() or ".." in destination_path.parts:
+                raise StageReleaseCopyError(
+                    f"Replace rule {index} destination must stay inside the destination root.",
+                )
+            if not isinstance(version_regex, str) or not version_regex:
+                raise StageReleaseCopyError(f"Replace rule {index} requires a 'version_pattern' regex.")
+            try:
+                pattern = re.compile(version_regex)
+            except re.error as exc:
+                raise StageReleaseCopyError(
+                    f"Replace rule {index} has an invalid version_pattern regex: {exc}",
+                ) from exc
+            if "version" not in pattern.groupindex:
+                raise StageReleaseCopyError(
+                    f"Replace rule {index} version_pattern must include a named 'version' capture group.",
+                )
+            compiled.append(ReplaceRule(source.strip(), destination_path, pattern))
+        return compiled
+
     # ------------------------------------------------------------------
     # Copy
     # ------------------------------------------------------------------
@@ -345,6 +404,7 @@ class StageReleaseCopyPlugin(
         max_files: int,
         max_timestamp: int,
         max_timestamp_unit: str,
+        replace_rules: list[ReplaceRule],
     ) -> int:
         """
         Copy one source directory into one destination.
@@ -374,6 +434,7 @@ class StageReleaseCopyPlugin(
             destination=destination,
             backup_root=backup_root,
             backup_enabled=backup,
+            replace_rules=replace_rules,
         )
 
         if backup:
@@ -405,6 +466,7 @@ class StageReleaseCopyPlugin(
         destination: Path,
         backup_root: Path | None,
         backup_enabled: bool,
+        replace_rules: list[ReplaceRule],
     ) -> list[Path]:
         """
         Recursively copy source contents into destination.
@@ -430,7 +492,30 @@ class StageReleaseCopyPlugin(
                 source,
             )
 
-            destination_file = destination / relative
+            matching_rule = next(
+                (
+                    rule for rule in replace_rules
+                    if fnmatchcase(relative.as_posix(), rule.source)
+                    or fnmatchcase(relative.name, rule.source)
+                ),
+                None,
+            )
+            destination_relative = (
+                matching_rule.destination / relative.name
+                if matching_rule is not None
+                else relative
+            )
+            destination_file = destination / destination_relative
+
+            if matching_rule is not None:
+                self._backup_versioned_matches(
+                    source_file=source_file,
+                    destination_root=destination,
+                    destination_directory=destination_file.parent,
+                    backup_root=backup_root,
+                    backup_enabled=backup_enabled,
+                    rule=matching_rule,
+                )
 
             with self.activity(
                 f"Copy {relative}",
@@ -474,6 +559,49 @@ class StageReleaseCopyPlugin(
             )
 
         return copied_files
+
+    def _backup_versioned_matches(
+        self,
+        *,
+        source_file: Path,
+        destination_root: Path,
+        destination_directory: Path,
+        backup_root: Path | None,
+        backup_enabled: bool,
+        rule: ReplaceRule,
+    ) -> None:
+        """Back up destination versions with the same filename sans version."""
+
+        source_match = rule.version_pattern.search(source_file.name)
+        if source_match is None:
+            raise StageReleaseCopyError(
+                f"Source file '{source_file.name}' matched replace rule '{rule.source}', "
+                "but not its version_pattern.",
+            )
+        source_identity = rule.version_pattern.sub("<version>", source_file.name, count=1)
+
+        if not self.filesystem.exists(destination_directory):
+            return
+        for candidate in self.filesystem.find(destination_directory, pattern="*", recursive=False):
+            if not self.filesystem.is_file(candidate):
+                continue
+            if rule.version_pattern.search(candidate.name) is None:
+                continue
+            identity = rule.version_pattern.sub("<version>", candidate.name, count=1)
+            if identity != source_identity or candidate == source_file:
+                continue
+            if not backup_enabled:
+                raise FileExistsError(
+                    "A matching versioned destination file exists and backup is disabled: "
+                    f"{candidate}",
+                )
+            if backup_root is None:
+                raise RuntimeError("Backup root is unavailable.")
+            self._backup_existing_file(
+                destination=candidate,
+                destination_root=destination_root,
+                backup_root=backup_root,
+            )
 
     # ------------------------------------------------------------------
     # Backup

@@ -1,6 +1,6 @@
 import { createContext, useEffect, useState, type CSSProperties } from 'react'
 
-import type { BackgroundImage } from '../../api/backgrounds.api'
+import { isVideoBackground, type BackgroundImage } from '../../api/backgrounds.api'
 import type {
     UserPreferences,
     WallpaperPlacement,
@@ -45,8 +45,15 @@ export function useShuffledWallpaper(
 ): number | null {
     const [shuffledId, setShuffledId] = useState<number | null>(null)
 
+    const customIds = new Set(shuffle.custom_ids ?? [])
     const pool = backgrounds
-        .filter((item) => shuffle.source === 'all' || item.source === 'upload')
+        .filter((item) => {
+            if (shuffle.source === 'uploads' && item.source !== 'upload') return false
+            if (shuffle.source === 'custom' && !customIds.has(item.id)) return false
+            if (shuffle.kind === 'image' && isVideoBackground(item)) return false
+            if (shuffle.kind === 'video' && !isVideoBackground(item)) return false
+            return true
+        })
         .map((item) => item.id)
     const poolKey = pool.join(',')
 
@@ -78,6 +85,9 @@ export function useShuffledWallpaper(
     if (shuffle.enabled && shuffledId !== null && pool.includes(shuffledId)) {
         return shuffledId
     }
+
+    if (shuffle.enabled && pool.length === 1) return pool[0]
+    if (shuffle.enabled && pool.length > 0 && !pool.includes(selectedId ?? -1)) return pool[0]
 
     return selectedId
 }

@@ -144,6 +144,66 @@ Backups are enabled by default.
 }
 ```
 
+## Replacing Versioned Filenames
+
+By default, files keep their relative source paths, and an existing destination
+file is backed up when the incoming file has the same name. Use `replace_rules`
+when artifacts need different destination folders or have versioned names.
+Define one rule per artifact: select the source with a path or filename glob,
+set its destination folder relative to the repository root, and capture just
+the changing part as the regex's named `version` group. A matching old file is
+moved into the timestamped backup and removed from the repository before the
+new version is staged.
+
+```json
+{
+    "replace_rules": [
+        {
+            "source": "app1-*.war",
+            "destination": "apps/app1",
+            "version_pattern": "^app1-(?P<version>\\d+(?:\\.\\d+)*)\\.build-ve2f\\.war$"
+        }
+    ]
+}
+```
+
+## Multi copy rule
+
+```json
+{
+  "copy_type": "multi",
+  "mappings": [
+    {
+      "source": "/app/release/11/app1/image",
+      "destination": "/app/repos/app1/image"
+    },
+    {
+      "source": "/app/release/11/app2/image",
+      "destination": "/app/repos/app2/image"
+    }
+  ],
+  "replace_rules": [
+    {
+      "source": "app1-*.war",
+      "destination": ".",
+      "version_pattern": "^app1-(?P<version>.+)\\.war$"
+    },
+    {
+      "source": "app2-ref-*.war",
+      "destination": ".",
+      "version_pattern": "^app2-ref-(?P<version>.+)\\.war$"
+    }
+  ]
+}
+```
+
+Add more entries for other artifacts, each with its own source glob, output
+folder, and version regex. The regex is applied to the filename; comparing the
+filename with the version text replaced identifies older versions of that same
+artifact. Rules are optional and applied in order. Unmatched files keep their
+source-relative destination. If `backup` is disabled, staging fails when a
+matching older version already exists.
+
 When an artifact already exists at the destination, the existing file is moved into a timestamped backup directory before the new release file is copied.
 
 The backup structure is:
@@ -517,6 +577,7 @@ The workflow variable resolver resolves the variables before the plugin receives
 | `release_path`       | Yes      | —           | Path to the release ZIP              |
 | `destination_path`   | Yes      | —           | Destination repository directory     |
 | `backup`             | No       | `true`      | Enable backups of existing files     |
+| `replace_rules`      | No       | `[]`        | Per-artifact source, destination, and version rules |
 | `rotate_backup_type` | No       | `max_files` | Backup rotation policy               |
 | `max_files`          | No       | `5`         | Maximum number of backup directories |
 | `max_timestamp`      | No       | `5`         | Maximum backup age                   |

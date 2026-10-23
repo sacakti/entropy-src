@@ -210,7 +210,15 @@ class WallpaperPlacement(BaseModel):
 class WallpaperShuffle(BaseModel):
     enabled: bool = False
     interval_minutes: int = Field(default=15, ge=1, le=1440)
-    source: Literal["all", "uploads"] = "all"
+    source: Literal["all", "uploads", "custom"] = "all"
+    kind: Literal["all", "image", "video"] = "all"
+    custom_ids: list[int] = Field(default_factory=list, max_length=500)
+
+
+class WallpaperMemories(BaseModel):
+    enabled: bool = False
+    interval_seconds: int = Field(default=60, ge=10, le=3600)
+    animation: Literal["fade", "from-left", "from-top", "pop"] = "fade"
 
 
 class WallpaperSettings(BaseModel):
@@ -219,6 +227,10 @@ class WallpaperSettings(BaseModel):
     shuffle: WallpaperShuffle = Field(default_factory=WallpaperShuffle)
     # Also play a video wallpaper in a small floating player window.
     floating_player: bool = True
+    floating_player_auto: bool = False
+    floating_player_advance_mode: Literal["ended", "interval"] = "ended"
+    floating_player_interval_seconds: int = Field(default=30, ge=5, le=3600)
+    memories: WallpaperMemories = Field(default_factory=WallpaperMemories)
 
 
 def _wallpaper_repository(request: Request) -> UserWebSettingsRepository:

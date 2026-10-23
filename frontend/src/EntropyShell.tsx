@@ -17,6 +17,7 @@ import { accentTokens } from './features/preferences/accent'
 import { useAppearance } from './features/preferences/useAppearance'
 import WallpaperLayer from './features/preferences/WallpaperLayer'
 import VideoMiniPlayer from './features/preferences/VideoMiniPlayer'
+import Memories from './features/preferences/Memories'
 import { isVideoBackground } from './api/backgrounds.api'
 import { WallpaperContext, useShuffledWallpaper, type WallpaperState } from './features/preferences/wallpaper'
 import Topbar from './components/layout/Topbar'
@@ -132,6 +133,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         full_name: user.full_name,
         email: user.email,
         avatar_url: user.avatar_url ?? null,
+        auth_provider: null,
     }))
     const [helpOpen, setHelpOpen] = useState(false)
     const [tourOpen, setTourOpen] = useState(false)
@@ -203,11 +205,41 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
     const [collapsed, setCollapsed] = useState(false)
+    const [floatingVideoId, setFloatingVideoId] = useState<number | null>(null)
+    const [memoriesAutoOpen, setMemoriesAutoOpen] = useState(false)
     const appearance = useAppearance()
     const accent = useMemo(
         () => accentTokens(appearance.accentColor, appearance.theme),
         [appearance.accentColor, appearance.theme],
     )
+
+    const memoriesSettings = appearance.wallpaperSettings.memories ?? {
+        enabled: false,
+        interval_seconds: 60,
+        animation: 'fade' as const,
+    }
+    const uploadedBackgrounds = useMemo(
+        () => appearance.backgrounds.filter((item) => item.source === 'upload'),
+        [appearance.backgrounds],
+    )
+
+    useEffect(() => {
+        if (!appearance.themeEnabled || !memoriesSettings.enabled || uploadedBackgrounds.length === 0) {
+            setMemoriesAutoOpen(false)
+            return
+        }
+
+        const timer = window.setInterval(
+            () => setMemoriesAutoOpen(true),
+            memoriesSettings.interval_seconds * 1000,
+        )
+        return () => window.clearInterval(timer)
+    }, [
+        uploadedBackgrounds.length,
+        appearance.themeEnabled,
+        memoriesSettings.enabled,
+        memoriesSettings.interval_seconds,
+    ])
 
     const wallpaperId = useShuffledWallpaper(
         appearance.backgrounds,
@@ -234,29 +266,26 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
         wallpaperId,
     ])
 
-    // The floating player's previous / next: the other video wallpapers, saved
-    // as the chosen wallpaper like picking one in Preferences.
+    // The floating player can browse uploaded videos independently of the
+    // desktop wallpaper, including when an image is selected as the wallpaper.
+    const videoBackgrounds = useMemo(
+        () => appearance.backgrounds.filter((item) => item.source === 'upload' && isVideoBackground(item)),
+        [appearance.backgrounds],
+    )
+    const floatingVideo =
+        videoBackgrounds.find((item) => item.id === floatingVideoId) ??
+        videoBackgrounds[0] ?? null
     const videoStep = useMemo(() => {
-        const videos = appearance.backgrounds.filter(isVideoBackground)
-        const index = videos.findIndex((item) => item.id === wallpaperId)
-        if (videos.length < 2 || index < 0) return { position: null, step: undefined }
+        const index = videoBackgrounds.findIndex((item) => item.id === floatingVideo?.id)
+        if (videoBackgrounds.length < 2 || index < 0) return { position: null, step: undefined }
         return {
-            position: `${index + 1} / ${videos.length}`,
+            position: `${index + 1} / ${videoBackgrounds.length}`,
             step: (direction: 1 | -1) => {
-                const next = videos[(index + direction + videos.length) % videos.length]
-                void appearance
-                    .saveAppearance(
-                        appearance.theme,
-                        appearance.accentColor,
-                        next.id,
-                        appearance.backgroundFit,
-                        appearance.backgroundOpacity,
-                        appearance.modalBackdropOpacity,
-                    )
-                    .catch(() => undefined)
+                const next = videoBackgrounds[(index + direction + videoBackgrounds.length) % videoBackgrounds.length]
+                setFloatingVideoId(next.id)
             },
         }
-    }, [appearance, wallpaperId])
+    }, [floatingVideo?.id, videoBackgrounds])
 
     // Mirror the theme on <html> for dialogs and toasts rendered outside .entropy-app.
     useEffect(() => {
@@ -408,14 +437,23 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     <WallpaperLayer />
                     {appearance.themeEnabled &&
                         appearance.wallpaperSettings.floating_player !== false &&
-                        wallpaper.background &&
-                        isVideoBackground(wallpaper.background) && (
+                        floatingVideo && (
                             <VideoMiniPlayer
-                                background={wallpaper.background}
+                                background={floatingVideo}
                                 position={videoStep.position}
                                 onStep={videoStep.step}
+                                autoAdvance={appearance.wallpaperSettings.floating_player_auto === true}
+                                advanceMode={appearance.wallpaperSettings.floating_player_advance_mode ?? 'ended'}
+                                advanceIntervalSeconds={appearance.wallpaperSettings.floating_player_interval_seconds ?? 30}
                             />
                         )}
+                    {memoriesAutoOpen && appearance.themeEnabled && memoriesSettings.enabled && uploadedBackgrounds.length > 0 && (
+                        <Memories
+                            backgrounds={uploadedBackgrounds}
+                            animation={memoriesSettings.animation}
+                            onClose={() => setMemoriesAutoOpen(false)}
+                        />
+                    )}
                     <Topbar
                     profile={profile}
                     onOpenHelp={() => setHelpOpen(true)}
