@@ -78,6 +78,8 @@ class ExecutionContext:
 
         self.artifacts: dict[str, Path] = {}
 
+        self.repositories: dict[str, Path] = {}
+
         self._step_results: dict[str, PluginResult] = {}
 
     # ------------------------------------------------------------------
@@ -116,6 +118,8 @@ class ExecutionContext:
         self.outputs.clear()
 
         self.artifacts.clear()
+
+        self.repositories.clear()
 
         self._step_results.clear()
 
@@ -420,6 +424,8 @@ class ExecutionContext:
         self.outputs.clear()
 
         self.artifacts.clear()
+
+        self.repositories.clear()
 
         self._step_results.clear()
 

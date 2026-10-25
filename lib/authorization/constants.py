@@ -87,6 +87,18 @@ MODULES = (
         description="Projects: who may do what with whose workflows, schedules and nodes.",
     ),
     ModuleDefinition(
+        name="tasks",
+        description="Project task tracking, collaboration and reminders.",
+    ),
+    ModuleDefinition(
+        name="releases",
+        description="Release tracking, task coordination and environment promotion.",
+    ),
+    ModuleDefinition(
+        name="artifacts",
+        description="Project release packages and deployment artifacts.",
+    ),
+    ModuleDefinition(
         name="system",
         description="Entropy settings: e-mail, sign-in, data retention.",
     ),
@@ -436,6 +448,17 @@ PERMISSIONS = (
         "write",
         "Manage the members of a project (in a project role: that project).",
     ),
+    PermissionDefinition("tasks", "tasks.read", "read", "View tasks in a project."),
+    PermissionDefinition("tasks", "tasks.create", "write", "Create tasks in a project."),
+    PermissionDefinition("tasks", "tasks.manage", "write", "Update and assign project tasks."),
+    PermissionDefinition("tasks", "tasks.comment", "write", "Comment on project tasks."),
+    PermissionDefinition("tasks", "tasks.follow", "write", "Follow project tasks."),
+    PermissionDefinition("releases", "releases.read", "read", "View project releases and promotions."),
+    PermissionDefinition("releases", "releases.create", "write", "Create project releases."),
+    PermissionDefinition("releases", "releases.manage", "write", "Update releases and link tasks."),
+    PermissionDefinition("releases", "releases.promote", "execute", "Promote completed releases using workflows."),
+    PermissionDefinition("artifacts", "artifacts.read", "read", "View release artifacts in a project."),
+    PermissionDefinition("artifacts", "artifacts.write", "write", "Upload and register release artifacts in a project."),
     PermissionDefinition(
         "system",
         "system.settings",

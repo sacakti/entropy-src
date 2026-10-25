@@ -176,6 +176,11 @@ class PluginContext:
         return self._artifacts
 
     @property
+    def repositories(self) -> dict[str, Path]:
+        """Git repositories assigned to this workflow/plugin execution."""
+        return self._runtime.repositories
+
+    @property
     def workspace(
         self,
     ) -> Path:

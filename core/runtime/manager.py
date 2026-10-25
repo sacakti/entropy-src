@@ -189,7 +189,7 @@ class ExecutionManager:
         Create a runtime context for standalone plugin execution.
         """
 
-        execution_id = f"plugin_{uuid4().hex[:8]}"
+        execution_id = self._plugin_execution_id()
 
         workspace = self._workspace(
             execution_id,
@@ -224,7 +224,7 @@ class ExecutionManager:
         Generate a unique standalone plugin execution ID.
         """
 
-        return f"plugin_{uuid4().hex[:8]}"
+        return f"plugin_{uuid4().hex}"
 
     def _plugin_workspace(
         self,

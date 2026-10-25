@@ -1,0 +1,132 @@
+.entropy-app .git-repositories-tool { display: grid; gap: 18px; color: var(--app-text); }
+.entropy-app .git-repositories-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.entropy-app .git-repositories-heading > div { display: flex; align-items: center; gap: 12px; }
+.entropy-app .git-repositories-mark { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 auto; color: var(--app-accent-fg); background: var(--app-accent-soft); border: 1px solid var(--app-accent-border); border-radius: 12px; }
+.entropy-app .git-repositories-heading h3 { margin: 0; font-size: 1.15rem; }
+.entropy-app .git-repositories-heading p { margin: 4px 0 0; color: var(--app-muted); }
+.entropy-app .git-repository-create { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(200px, 1fr) auto; align-items: end; gap: 12px; padding: 16px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 12px; }
+.entropy-app .git-repository-source-location { grid-column: 1 / 4; }
+.entropy-app .git-repository-create label { display: grid; gap: 6px; font-size: .86rem; font-weight: 650; }
+.entropy-app .git-repository-create input, .entropy-app .git-repository-create select { min-width: 0; padding: 9px 11px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .git-repository-source-input { display: flex; align-items: center; gap: 8px; }
+.entropy-app .git-repository-source-input input { flex: 1; }
+.entropy-app .git-repository-source-input button { flex: 0 0 auto; }
+.entropy-app .git-repository-create small { grid-column: 1 / -1; color: var(--app-muted); line-height: 1.45; }
+.entropy-app .git-server-path-dialog { width: min(720px, calc(100vw - 32px)); }
+.entropy-app .git-server-path-picker { display: grid; gap: 12px; min-width: 0; }
+.entropy-app .git-server-path-current { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.entropy-app .git-server-path-current code { flex: 1; min-width: 0; padding: 10px 12px; overflow: hidden; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .git-server-path-list { display: grid; align-content: start; gap: 3px; max-height: min(48vh, 460px); min-height: 180px; overflow: auto; padding: 5px; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 9px; }
+.entropy-app .git-server-path-list > button { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 9px; color: var(--app-text); background: transparent; border: 0; border-radius: 6px; text-align: left; cursor: pointer; }
+.entropy-app .git-server-path-list > button:hover { background: var(--app-accent-soft); }
+.entropy-app .git-server-path-list > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .git-server-path-list > small, .entropy-app .git-server-path-empty { padding: 10px; color: var(--app-muted); }
+.entropy-app .git-repository-list { display: grid; gap: 12px; }
+.entropy-app .git-repository-card { display: grid; gap: 12px; padding: 15px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 12px; }
+.entropy-app .git-repository-card-heading { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.entropy-app .git-repository-card-heading > div { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.entropy-app .git-repository-card-heading strong { overflow: hidden; text-overflow: ellipsis; }
+.entropy-app .git-repository-card-heading > div > span, .entropy-app .git-repository-help, .entropy-app .git-repository-assigned { color: var(--app-muted); font-size: .83rem; }
+.entropy-app .git-clone-command { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; }
+.entropy-app .git-clone-command code { overflow: hidden; flex: 1; color: var(--app-muted); text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .git-repository-help { margin: -4px 0 0; }
+.entropy-app .git-repository-assignments { display: grid; gap: 12px; padding-top: 10px; border-top: 1px solid var(--app-line); }
+.entropy-app .git-repository-assignments summary { display: flex; align-items: center; gap: 7px; cursor: pointer; font-weight: 650; }
+.entropy-app .git-repository-assignments summary span { padding: 1px 7px; color: var(--app-muted); background: var(--app-bg); border-radius: 99px; font-size: .75rem; }
+.entropy-app .git-assignment-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.entropy-app .git-assignment-columns fieldset { display: grid; align-content: start; gap: 8px; min-width: 0; max-height: 230px; overflow: auto; padding: 10px; border: 1px solid var(--app-line); border-radius: 9px; }
+.entropy-app .git-assignment-columns legend { padding: 0 5px; font-size: .86rem; font-weight: 650; }
+.entropy-app .git-assignment-columns label { display: flex; align-items: center; gap: 7px; overflow-wrap: anywhere; color: var(--app-muted); font-size: .83rem; }
+.entropy-app .git-assignment-columns input { accent-color: var(--app-accent); }
+.entropy-app .git-assignment-columns small { color: var(--app-muted); }
+.entropy-app .git-assignment-note { color: var(--app-muted); line-height: 1.5; }
+.entropy-app .git-assignment-note code { color: var(--app-accent-fg); }
+.entropy-app .git-repositories-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; min-height: 200px; color: var(--app-muted); text-align: center; }
+.entropy-app .git-repositories-empty strong { color: var(--app-text); }
+.entropy-app .git-browser-page { display: grid; gap: 14px; min-width: 0; color: var(--app-text); }
+.entropy-app .git-browser-page-heading { display: flex; align-items: center; gap: 14px; }
+.entropy-app .git-browser-page-heading > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.entropy-app .git-browser-page-heading > div > div { display: grid; min-width: 0; gap: 3px; }
+.entropy-app .git-browser-page-heading strong { font-size: 1.05rem; }
+.entropy-app .git-browser-page-heading small { overflow: hidden; color: var(--app-muted); text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .git-browser-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; color: var(--app-muted); font-size: .84rem; }
+.entropy-app .git-browser-toolbar label { display: flex; align-items: center; gap: 8px; color: var(--app-text); font-weight: 650; }
+.entropy-app .git-browser-toolbar select { min-width: 200px; padding: 8px 10px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .git-browser-branch-picker { display: flex; align-items: center; gap: 8px; }
+.entropy-app .git-browser-branch-picker > label { display: flex; align-items: center; gap: 6px; }
+.entropy-app .git-browser-branch-input-wrap { position: relative; display: flex; align-items: center; min-width: 220px; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; }
+.entropy-app .git-browser-branch-input-wrap:focus-within { border-color: var(--app-accent); box-shadow: 0 0 0 2px var(--app-accent-soft); }
+.entropy-app .git-browser-branch-input-wrap > input { width: 100%; min-width: 0; padding: 8px 34px 8px 10px; color: var(--app-text); background: transparent; border: 0; outline: 0; font: inherit; }
+.entropy-app .git-browser-branch-input-wrap > button { position: absolute; right: 3px; display: grid; width: 28px; height: 28px; place-items: center; color: var(--app-muted); background: transparent; border: 0; cursor: pointer; }
+.entropy-app .git-browser-branch-options { position: absolute; z-index: 8; top: calc(100% + 5px); right: 0; left: 0; display: grid; max-height: 260px; overflow: auto; padding: 5px; background: var(--app-modal-surface); border: 1px solid var(--app-line); border-radius: 9px; box-shadow: 0 12px 30px rgb(0 0 0 / 28%); }
+.entropy-app .git-browser-branch-options button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 8px 9px; color: var(--app-text); background: transparent; border: 0; border-radius: 6px; text-align: left; font: inherit; cursor: pointer; }
+.entropy-app .git-browser-branch-options button:hover { background: var(--app-accent-soft); }
+.entropy-app .git-browser-branch-options .git-browser-create-branch-option { color: var(--app-accent-fg); border-top: 1px solid var(--app-line); border-radius: 0; }
+.entropy-app .git-browser-branch-options small { padding: 8px; color: var(--app-muted); }
+.entropy-app .git-browser-actions { display: flex; align-items: center; gap: 8px; }
+.entropy-app .git-browser-upload-menu-wrap { position: relative; }
+.entropy-app .git-browser-upload-menu { position: absolute; z-index: 5; top: calc(100% + 6px); right: 0; display: grid; min-width: 190px; padding: 5px; background: var(--app-modal-surface); border: 1px solid var(--app-line); border-radius: 9px; box-shadow: 0 12px 30px rgb(0 0 0 / 28%); }
+.entropy-app .git-browser-upload-menu button { display: flex; align-items: center; gap: 9px; padding: 9px; color: var(--app-text); background: transparent; border: 0; border-radius: 6px; text-align: left; font: inherit; cursor: pointer; }
+.entropy-app .git-browser-upload-menu button:hover { background: var(--app-accent-soft); }
+.entropy-app .git-browser-create-file-form { display: grid; gap: 8px; }
+.entropy-app .git-browser-create-file-form label { display: grid; gap: 7px; font-weight: 650; }
+.entropy-app .git-browser-create-file-form input { min-width: 0; padding: 10px 12px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .git-browser-create-file-form select { min-width: 0; padding: 10px 12px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .git-browser-create-file-form small { color: var(--app-muted); }
+.entropy-app .git-browser-view-tabs { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .git-browser-view-tabs > button:not(.entropy-button) { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; color: var(--app-muted); background: transparent; border: 0; border-bottom: 2px solid transparent; font: inherit; cursor: pointer; }
+.entropy-app .git-browser-view-tabs > button.active { color: var(--app-text); border-bottom-color: var(--app-accent); }
+.entropy-app .git-browser-view-tabs > button:disabled { opacity: .5; cursor: not-allowed; }
+.entropy-app .git-browser-save { margin-left: auto; margin-bottom: 6px; }
+.entropy-app .git-browser-file-view { position: relative; display: grid; gap: 14px; min-width: 0; }
+.entropy-app .git-browser-file-view.is-dragging { outline: 2px dashed var(--app-accent); outline-offset: 3px; }
+.entropy-app .git-browser-drop-hint { position: absolute; z-index: 2; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--app-text); background: color-mix(in srgb, var(--app-accent-soft) 92%, transparent); border: 2px dashed var(--app-accent); border-radius: 10px; font-weight: 700; pointer-events: none; }
+.entropy-app .git-browser-file-table-wrap { max-height: min(52vh, 640px); overflow: auto; border: 1px solid var(--app-line); border-radius: 10px; }
+.entropy-app .git-browser-file-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.entropy-app .git-browser-file-table th { position: sticky; top: 0; z-index: 1; color: var(--app-muted); background: var(--app-surface); text-align: left; white-space: nowrap; }
+.entropy-app .git-browser-file-table th, .entropy-app .git-browser-file-table td { padding: 9px 11px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .git-browser-file-table tbody tr:hover { background: var(--app-accent-soft); }
+.entropy-app .git-browser-file-table td { color: var(--app-muted); white-space: nowrap; }
+.entropy-app .git-browser-file-table td:first-child { min-width: 220px; max-width: 460px; }
+.entropy-app .git-browser-file-table td:first-child button { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 0; overflow: hidden; color: var(--app-text); background: transparent; border: 0; font: inherit; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.entropy-app .git-browser-empty-cell { height: 130px; color: var(--app-muted); text-align: center; }
+.entropy-app .git-browser-history { display: grid; gap: 4px; padding: 12px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; }
+.entropy-app .git-browser-history h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 5px; font-size: .9rem; }
+.entropy-app .git-browser-history > button { display: flex; justify-content: space-between; gap: 12px; padding: 7px 4px; color: var(--app-text); background: transparent; border: 0; border-top: 1px solid var(--app-line); text-align: left; cursor: pointer; }
+.entropy-app .git-browser-history > button span, .entropy-app .git-browser-history > small { color: var(--app-muted); font-size: .78rem; }
+.entropy-app .git-browser-commit-diff { display: grid; gap: 10px; min-width: 0; padding: 12px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; }
+.entropy-app .git-browser-commit-diff > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.entropy-app .git-browser-commit-diff > header h3 { margin: 0; font-size: .92rem; }
+.entropy-app .git-browser-commit-diff > header span { color: var(--app-muted); font-size: .8rem; }
+.entropy-app .git-browser-change-tabs { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px; }
+.entropy-app .git-browser-change-tabs button { display: flex; align-items: center; gap: 7px; max-width: 340px; padding: 6px 8px; overflow: hidden; color: var(--app-muted); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 7px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.entropy-app .git-browser-change-tabs button.selected { color: var(--app-text); background: var(--app-accent-soft); border-color: var(--app-accent-border); }
+.entropy-app .git-browser-change-tabs code, .entropy-app .git-browser-change-heading span { padding: 1px 5px; color: var(--app-accent-fg); background: var(--app-accent-soft); border-radius: 4px; font-size: .72rem; }
+.entropy-app .git-browser-change-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.entropy-app .git-browser-change-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .git-browser-diff-view { position: relative; height: min(56vh, 600px); min-height: 320px; overflow: hidden; border: 1px solid var(--app-line); border-radius: 8px; }
+.entropy-app .git-browser-diff { max-height: 48vh; margin: 0; padding: 14px; overflow: auto; color: var(--app-muted); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 10px; font: .8rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.entropy-app .git-browser-editor-view { min-height: min(62vh, 720px); overflow: hidden; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 10px; }
+.entropy-app .git-browser-editor-view > header { display: flex; justify-content: space-between; gap: 12px; padding: 10px 13px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .git-browser-editor-view > header strong { overflow-wrap: anywhere; }
+.entropy-app .git-browser-editor-view > header span { flex: 0 0 auto; color: var(--app-muted); font-size: .82rem; }
+.entropy-app .git-browser-monaco { height: min(58vh, 660px); min-height: 360px; }
+.entropy-app .git-browser-editor-empty { display: grid; min-height: 360px; place-items: center; color: var(--app-muted); }
+.entropy-app .git-browser-loading, .entropy-app .git-browser-empty { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 180px; padding: 18px; color: var(--app-muted); text-align: center; }
+.entropy-app .git-browser-spinner { animation: git-browser-spin 1s linear infinite; }
+@keyframes git-browser-spin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) {
+    .entropy-app .git-repository-create { grid-template-columns: 1fr; }
+    .entropy-app .git-repository-source-location { grid-column: auto; }
+    .entropy-app .git-repository-create small { grid-column: auto; }
+    .entropy-app .git-assignment-columns { grid-template-columns: 1fr; }
+    .entropy-app .git-browser-toolbar { align-items: flex-start; flex-wrap: wrap; }
+    .entropy-app .git-browser-toolbar > span { flex: 1 1 100%; order: 2; }
+    .entropy-app .git-browser-branch-picker { width: 100%; }
+    .entropy-app .git-browser-branch-input-wrap { flex: 1; }
+    .entropy-app .git-browser-actions { width: 100%; }
+    .entropy-app .git-browser-page-heading { flex-wrap: wrap; }
+    .entropy-app .git-browser-file-table-wrap { max-height: 55vh; }
+    .entropy-app .git-browser-file-table { min-width: 780px; }
+    .entropy-app .git-browser-history > button { align-items: flex-start; flex-direction: column; gap: 3px; }
+}

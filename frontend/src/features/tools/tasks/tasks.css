@@ -1,0 +1,62 @@
+.entropy-app .tasks-tool { display: grid; gap: 18px; color: var(--app-text); }
+.entropy-app .tasks-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.entropy-app .tasks-toolbar h3 { margin: 0; font-size: 1.15rem; }
+.entropy-app .tasks-toolbar p { margin: 4px 0 0; color: var(--app-muted); }
+.entropy-app .tasks-actions, .entropy-app .tasks-view-switch { display: flex; align-items: center; gap: 8px; }
+.entropy-app .tasks-import-button { position: relative; overflow: hidden; cursor: pointer; }
+.entropy-app .tasks-import-button input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.entropy-app .tasks-view-switch { padding: 3px; border: 1px solid var(--app-line); border-radius: 10px; background: var(--app-surface); }
+.entropy-app .tasks-view-switch button { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--app-muted); font: inherit; cursor: pointer; }
+.entropy-app .tasks-view-switch button.active { color: var(--app-text); background: var(--app-hover-bg); }
+.entropy-app .tasks-board { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 14px; align-items: start; }
+.entropy-app .tasks-column { min-height: 260px; overflow: hidden; border: 1px solid var(--app-line); border-radius: 12px; background: color-mix(in srgb, var(--app-surface) 75%, transparent); }
+.entropy-app .tasks-column > header { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .tasks-column > header span, .entropy-app .task-comments h4 span { min-width: 22px; padding: 2px 7px; border-radius: 12px; color: var(--app-muted); background: var(--app-hover-bg); text-align: center; font-size: .78rem; }
+.entropy-app .tasks-column-body { display: grid; gap: 9px; padding: 10px; }
+.entropy-app .task-card { display: grid; gap: 10px; width: 100%; padding: 13px; text-align: left; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; font: inherit; cursor: pointer; }
+.entropy-app .task-card:hover, .entropy-app .task-card.selected, .entropy-app .tasks-list-row.selected { border-color: var(--app-accent-border); background: var(--app-hover-bg); }
+.entropy-app .task-card[draggable="true"] { cursor: grab; }
+.entropy-app .task-card-description { color: var(--app-muted); font-size: .88rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.entropy-app .task-card-meta { display: flex; gap: 12px; color: var(--app-muted); font-size: .8rem; }
+.entropy-app .task-card-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.entropy-app .tasks-list { display: grid; overflow: hidden; border: 1px solid var(--app-line); border-radius: 12px; }
+.entropy-app .tasks-list-row { display: grid; grid-template-columns: minmax(180px, 2fr) 1fr 1fr 1.4fr 80px; align-items: center; gap: 12px; padding: 12px 14px; border: 0; border-bottom: 1px solid var(--app-line); color: var(--app-text); background: transparent; text-align: left; font: inherit; }
+.entropy-app button.tasks-list-row { cursor: pointer; }
+.entropy-app .tasks-list-row:last-child { border-bottom: 0; }
+.entropy-app .tasks-list-head { color: var(--app-muted); background: var(--app-surface); font-size: .82rem; font-weight: 650; }
+.entropy-app .tasks-list-row:not(.tasks-list-head):hover { background: var(--app-hover-bg); }
+.entropy-app .tasks-empty, .entropy-app .tasks-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 250px; color: var(--app-muted); text-align: center; }
+.entropy-app .tasks-empty strong { color: var(--app-text); }
+.entropy-app .task-modal-backdrop { position: absolute; z-index: 1100; inset: 70px 0 0; display: grid; place-items: center; overflow-y: auto; padding: 20px; background: rgb(0 0 0 / 62%); backdrop-filter: blur(5px); }
+.entropy-app .task-dialog { display: grid; gap: 16px; width: min(600px, 100%); max-height: calc(100% - 40px); overflow: auto; padding: 22px; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-bg); box-shadow: 0 24px 80px rgb(0 0 0 / 35%); }
+.entropy-app .task-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.entropy-app .task-dialog h3 { margin: 2px 0 0; }
+.entropy-app .task-dialog header p { margin: 5px 0 0; color: var(--app-muted); }
+.entropy-app .task-dialog label { display: grid; gap: 6px; font-weight: 600; }
+.entropy-app .task-dialog label input, .entropy-app .task-dialog label textarea, .entropy-app .task-dialog label select, .entropy-app .task-comments textarea { width: 100%; min-width: 0; padding: 10px 12px; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; font: inherit; font-weight: 400; }
+.entropy-app .task-dialog textarea, .entropy-app .task-comments textarea { resize: vertical; }
+.entropy-app .task-dialog input:focus, .entropy-app .task-dialog textarea:focus, .entropy-app .task-dialog select:focus, .entropy-app .task-comments textarea:focus { outline: 2px solid var(--app-accent); outline-offset: 1px; }
+.entropy-app .task-reminder-label small { color: var(--app-muted); font-weight: 400; }
+.entropy-app .task-dialog > footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 4px; }
+.entropy-app .task-detail { width: min(700px, 100%); padding: 0; overflow: hidden; gap: 0; }
+.entropy-app .task-detail > header { padding: 20px 22px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .task-eyebrow { color: var(--app-muted); font-size: .74rem; letter-spacing: .08em; }
+.entropy-app .task-detail-scroll { display: grid; gap: 15px; overflow: auto; padding: 20px 22px; }
+.entropy-app .task-detail-info { display: flex; flex-wrap: wrap; gap: 15px; color: var(--app-muted); font-size: .85rem; }
+.entropy-app .task-detail-info strong { color: var(--app-text); }
+.entropy-app .task-description, .entropy-app .task-remarks { margin: 0; white-space: pre-wrap; }
+.entropy-app .task-remarks { padding: 10px 12px; border-left: 3px solid var(--app-accent); background: var(--app-surface); }
+.entropy-app .task-comments { display: grid; gap: 12px; padding-top: 5px; }
+.entropy-app .task-comments h4 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.entropy-app .task-comments article { padding: 11px 12px; border: 1px solid var(--app-line); border-radius: 9px; background: var(--app-surface); }
+.entropy-app .task-comments article > div { display: flex; justify-content: space-between; gap: 10px; font-size: .84rem; }
+.entropy-app .task-comments time, .entropy-app .task-no-comments { color: var(--app-muted); font-size: .82rem; }
+.entropy-app .task-comments article p { margin: 8px 0 0; white-space: pre-wrap; }
+.entropy-app .task-comments form { display: grid; justify-items: end; gap: 8px; }
+@media (max-width: 760px) {
+    .entropy-app .tasks-toolbar { align-items: flex-start; flex-direction: column; }
+    .entropy-app .tasks-actions { flex-wrap: wrap; width: 100%; }
+    .entropy-app .tasks-board { grid-template-columns: 1fr; }
+    .entropy-app .tasks-list-row { grid-template-columns: minmax(120px, 1.5fr) 1fr 1fr; }
+    .entropy-app .tasks-list-row > :nth-child(4), .entropy-app .tasks-list-row > :nth-child(5) { display: none; }
+}

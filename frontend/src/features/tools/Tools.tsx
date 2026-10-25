@@ -139,8 +139,8 @@ export default function Tools({
                             </span>
                         </h2>
                         <p>
-                            Everyday utilities. The compare tools run in your browser and never upload what you
-                            compare; EagleAPI sends requests from the Entropy server.
+                            Everyday utilities and project tools. Compare tools stay in your browser; repository,
+                            package and API operations run through the Entropy server.
                         </p>
                     </div>
                 </div>

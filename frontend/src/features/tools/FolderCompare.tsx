@@ -7,6 +7,7 @@ import {
     File as FileIcon,
     Folder,
     FolderOpen,
+    HardDrive,
     LoaderCircle,
     X,
 } from 'lucide-react'
@@ -367,6 +368,10 @@ export default function FolderCompare() {
 
     return (
         <div className="tools-folder-compare">
+            <div className="tools-folder-local-notice" role="note">
+                <HardDrive size={15} aria-hidden="true" />
+                <span>Folders are scanned and compared locally in your browser. Their files are never uploaded to Entropy.</span>
+            </div>
             <div className="tools-drop-pair">
                 {(['left', 'right'] as const).map((side) => {
                     const folder = folders[side]
@@ -393,7 +398,7 @@ export default function FolderCompare() {
                                     scanned !== null ? (
                                         <>
                                             <LoaderCircle size={16} className="entropy-spin" />
-                                            <span>Reading folder… {scanned.toLocaleString()} files</span>
+                                            <span>Scanning locally… {scanned.toLocaleString()} files</span>
                                         </>
                                     ) : null
                                 }
@@ -428,7 +433,7 @@ export default function FolderCompare() {
                     <strong>Choose two folders to compare</strong>
                     <p>
                         Files are matched by their path inside each folder, compared by size and then by SHA-256
-                        checksum. Nothing is uploaded.
+                        checksum locally. Nothing is uploaded.
                     </p>
                 </div>
             ) : entries.length === 0 ? (

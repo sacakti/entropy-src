@@ -42,13 +42,28 @@ PROJECT_PERMISSIONS = frozenset(
         "plugins.read",
         "plugins.execute",
         "projects.members",
+        "tasks.read",
+        "tasks.create",
+        "tasks.manage",
+        "tasks.comment",
+        "tasks.follow",
+        "releases.read",
+        "releases.create",
+        "releases.manage",
+        "releases.promote",
+        "artifacts.read",
+        "artifacts.write",
     }
 )
 
-_VIEWER = ("workflows.read", "schedules.list", "plugins.read")
-_OPERATOR = _VIEWER + ("workflows.execute", "plugins.execute")
-_DEVELOPER = _OPERATOR + ("workflows.write", "schedules.manage")
-_MAINTAINER = _DEVELOPER + ("workflows.delete", "schedules.delete", "projects.members")
+_VIEWER = ("workflows.read", "schedules.list", "plugins.read", "tasks.read", "releases.read", "artifacts.read")
+_OPERATOR = _VIEWER + (
+    "workflows.execute", "plugins.execute", "tasks.create", "tasks.manage",
+    "tasks.comment", "tasks.follow", "releases.read", "releases.create",
+    "releases.manage", "releases.promote", "artifacts.write",
+)
+_DEVELOPER = _OPERATOR + ("workflows.write", "schedules.manage", "tasks.create", "tasks.comment", "tasks.follow")
+_MAINTAINER = _DEVELOPER + ("workflows.delete", "schedules.delete", "projects.members", "tasks.manage")
 
 # name -> (title, scope, description, permissions); None means every permission.
 BUILTIN_ROLES: Dict[str, tuple] = {

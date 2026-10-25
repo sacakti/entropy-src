@@ -34,6 +34,7 @@ METRICS_SECONDS = 30
 RECONCILE_SECONDS = 15
 HOUSEKEEPING_SECONDS = 3600
 PLUGIN_UPDATES_SECONDS = 3600
+TASK_REMINDERS_SECONDS = 60
 
 
 class RunsBackground:
@@ -106,6 +107,8 @@ class RunsBackground:
                 self._safely("reconcile", self.reconcile)
             self._safely("schedules", self.fire_schedules)
             self._safely("outcomes", self.report_outcomes)
+            if self._due("task-reminders", TASK_REMINDERS_SECONDS):
+                self._safely("task-reminders", self.send_task_reminders)
             if self._due("metrics", METRICS_SECONDS):
                 self._safely("metrics", self.sample_metrics)
             if self._due("housekeeping", HOUSEKEEPING_SECONDS):
@@ -190,6 +193,29 @@ class RunsBackground:
         count = notify_installers(self._context)
         if count:
             LOGGER.info("Bundled plugins: %d new or newer plugin(s) announced.", count)
+
+    def send_task_reminders(self) -> None:
+        """Deliver due task reminders through the configured SMTP service."""
+        from lib.system.mailer import MailError, send_mail
+        from lib.system.settings import settings_for
+        from lib.tasks.store import TaskStore
+
+        smtp = settings_for(self._context).values("smtp")
+        if not smtp.get("enabled"):
+            return
+        store = TaskStore(self._connection)
+        for task in store.due_reminders():
+            address = task.get("assignee_email")
+            if not address:
+                continue
+            try:
+                send_mail(smtp, [address], f"Task reminder: {task['title']}",
+                          f"This is a reminder for task: {task['title']}\n\n{task['description']}\n\n"
+                          f"Open Entropy to review this task in project {task['project_id']}.")
+            except MailError:
+                LOGGER.exception("Could not send reminder for task %s.", task["id"])
+                continue
+            store.mark_reminder_sent(task["id"])
 
     def _notify(
         self, user_id: int, title: str, message: str, level: str, source: str = "schedules"

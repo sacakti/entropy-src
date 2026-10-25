@@ -125,6 +125,11 @@ class BasePlugin(ABC):
         return self._context.artifacts
 
     @property
+    def repositories(self):
+        """Git repositories assigned to this workflow/plugin execution."""
+        return self._context.repositories
+
+    @property
     def workspace(
         self,
     ):

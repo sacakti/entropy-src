@@ -1,0 +1,146 @@
+.entropy-app .release-manager { display: grid; gap: 16px; color: var(--app-text); }
+.entropy-app .release-manager-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.entropy-app .release-manager-header > div:first-child { display: flex; align-items: center; gap: 12px; }
+.entropy-app .release-manager-mark { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border: 1px solid var(--app-accent-border); border-radius: 12px; color: var(--app-accent-fg); background: var(--app-accent-soft); }
+.entropy-app .release-manager-header h3 { margin: 0; font-size: 1.16rem; }
+.entropy-app .release-manager-header p { margin: 4px 0 0; color: var(--app-muted); }
+.entropy-app .release-actions { display: flex; align-items: center; gap: 8px; }
+.entropy-app .release-tabs { display: flex; gap: 5px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .release-tabs button { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--app-muted); background: transparent; border: 0; border-bottom: 2px solid transparent; font: inherit; cursor: pointer; }
+.entropy-app .release-tabs button.active { color: var(--app-text); border-bottom-color: var(--app-accent); }
+.entropy-app .release-tabs button span { min-width: 22px; padding: 1px 7px; border-radius: 12px; background: var(--app-hover-bg); text-align: center; font-size: .78rem; }
+.entropy-app .release-list-toolbar { display: flex; align-items: center; gap: 10px; }
+.entropy-app .release-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 8px 11px; color: var(--app-muted); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; }
+.entropy-app .release-search input { width: 100%; min-width: 0; color: var(--app-text); background: transparent; border: 0; outline: 0; font: inherit; }
+.entropy-app .release-list-toolbar > select, .entropy-app .promotion-run-controls select { min-width: 170px; padding: 9px 11px; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; font: inherit; }
+.entropy-app .release-bulk-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 11px; border: 1px solid var(--app-line); border-radius: 9px; background: var(--app-surface); }
+.entropy-app .release-bulk-toolbar > label { display: inline-flex; align-items: center; gap: 7px; color: var(--app-text); cursor: pointer; }
+.entropy-app .release-bulk-toolbar > span { color: var(--app-accent-fg); font-size: .86rem; }
+.entropy-app .release-bulk-toolbar > small { color: var(--app-muted); }
+.entropy-app .release-select-checkbox { display: inline-grid; flex: 0 0 auto; place-items: center; cursor: pointer; }
+.entropy-app .release-select-checkbox input, .entropy-app .release-bulk-toolbar input { width: 16px; height: 16px; margin: 0; accent-color: var(--app-accent); cursor: pointer; }
+.entropy-app .promotion-queue { display: grid; gap: 12px; padding: 15px; border: 1px solid var(--app-accent-border); border-radius: 12px; background: color-mix(in srgb, var(--app-accent-soft) 45%, var(--app-surface)); }
+.entropy-app .promotion-queue-heading { display: flex; align-items: center; justify-content: space-between; color: var(--app-accent-fg); }
+.entropy-app .promotion-queue-heading h4 { margin: 0; color: var(--app-text); }
+.entropy-app .promotion-queue-heading p { margin: 4px 0 0; color: var(--app-muted); }
+.entropy-app .promotion-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.entropy-app .promotion-selection { color: var(--app-muted); font-size: .86rem; margin-right: auto; }
+.entropy-app .promotion-controls input, .entropy-app .promotion-controls select, .entropy-app .release-dialog input, .entropy-app .release-dialog textarea, .entropy-app .release-dialog select, .entropy-app .release-link-existing select, .entropy-app .release-task-form input, .entropy-app .release-task-form textarea { min-width: 0; padding: 9px 11px; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; font: inherit; }
+.entropy-app .promotion-controls input, .entropy-app .promotion-controls select { flex: 1 1 150px; max-width: 250px; }
+.entropy-app .promotion-release-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 7px; }
+.entropy-app .promotion-release-picker > label { display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 9px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; cursor: pointer; }
+.entropy-app .promotion-release-picker > label span { display: grid; gap: 3px; min-width: 0; }
+.entropy-app .promotion-release-picker > label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .promotion-release-picker > label small { color: var(--app-muted); }
+.entropy-app .promotion-run-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.entropy-app .promotion-run-controls select { min-width: 180px; max-width: 280px; }
+.entropy-app .release-list { display: grid; gap: 8px; }
+.entropy-app .release-row { display: flex; align-items: center; gap: 13px; min-width: 0; padding: 13px 14px; border: 1px solid var(--app-line); border-radius: 11px; background: var(--app-surface); transition: border-color 150ms ease, background-color 150ms ease; }
+.entropy-app .release-row.selected { border-color: var(--app-accent-border); background: var(--app-hover-bg); }
+.entropy-app .release-select { display: grid; flex: 0 0 auto; place-items: center; padding: 0; color: var(--app-muted); background: transparent; border: 0; cursor: pointer; }
+.entropy-app .release-select.checked { color: var(--app-accent-fg); }
+.entropy-app .release-main { display: grid; gap: 5px; flex: 1 1 auto; min-width: 130px; padding: 0; color: var(--app-text); text-align: left; background: transparent; border: 0; font: inherit; cursor: pointer; }
+.entropy-app .release-title { display: flex; align-items: baseline; gap: 8px; font-weight: 650; }
+.entropy-app .release-title small { color: var(--app-muted); font-weight: 500; }
+.entropy-app .release-subtitle { display: flex; align-items: center; gap: 6px; color: var(--app-muted); font-size: .82rem; }
+.entropy-app .release-dot { margin: 0 1px; }
+.entropy-app .release-stage, .entropy-app .promotion-status { flex: 0 0 auto; padding: 5px 9px; border: 1px solid var(--app-line); border-radius: 20px; color: var(--app-muted); background: var(--app-hover-bg); font-size: .78rem; text-transform: capitalize; }
+.entropy-app .stage-workflow_queue { color: #86aaff; border-color: color-mix(in srgb, #86aaff 30%, var(--app-line)); }
+.entropy-app .stage-workflow_done { color: #75c9d2; border-color: color-mix(in srgb, #75c9d2 30%, var(--app-line)); }
+.entropy-app .stage-task_queue { color: #d4ae68; border-color: color-mix(in srgb, #d4ae68 30%, var(--app-line)); }
+.entropy-app .stage-completed, .entropy-app .status-completed { color: #80d9a1; border-color: color-mix(in srgb, #80d9a1 30%, var(--app-line)); }
+.entropy-app .release-task-count, .entropy-app .release-run-state { flex: 0 0 auto; color: var(--app-muted); font-size: .82rem; white-space: nowrap; }
+.entropy-app .release-run-state.failed, .entropy-app .release-run-state.cancelled { color: var(--app-danger, #ef7676); }
+.entropy-app .promotion-list { display: grid; gap: 8px; }
+.entropy-app .promotion-list article { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 2fr) auto; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid var(--app-line); border-radius: 11px; background: var(--app-surface); }
+.entropy-app .promotion-list article.promotion-history-row { grid-template-columns: auto minmax(180px, 1.2fr) minmax(160px, 2fr) auto; }
+.entropy-app .promotion-list article.promotion-history-row > div:first-of-type { display: grid; gap: 4px; }
+.entropy-app .promotion-list article.promotion-history-row > div:first-of-type > span { color: var(--app-muted); font-size: .82rem; }
+.entropy-app .promotion-list article > div:first-child { display: grid; gap: 4px; }
+.entropy-app .promotion-list article > div:first-child span, .entropy-app .promotion-release-names { color: var(--app-muted); font-size: .82rem; }
+.entropy-app .status-failed, .entropy-app .status-cancelled { color: #ef7676; border-color: color-mix(in srgb, #ef7676 30%, var(--app-line)); }
+.entropy-app .release-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; min-height: 230px; color: var(--app-muted); text-align: center; }
+.entropy-app .release-empty strong { color: var(--app-text); }
+.entropy-app .release-modal-backdrop { position: absolute; z-index: 1100; inset: 70px 0 0; display: grid; place-items: center; overflow-y: auto; padding: 20px; background: rgb(0 0 0 / 62%); backdrop-filter: blur(5px); }
+.entropy-app .release-dialog { display: grid; gap: 15px; width: min(600px, 100%); max-height: calc(100% - 40px); overflow: auto; padding: 22px; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-bg); box-shadow: 0 24px 80px rgb(0 0 0 / 35%); }
+.entropy-app .release-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.entropy-app .release-dialog h3 { margin: 2px 0 0; }
+.entropy-app .release-dialog header p { margin: 5px 0 0; color: var(--app-muted); }
+.entropy-app .release-dialog label { display: grid; gap: 6px; font-weight: 600; }
+.entropy-app .release-dialog label small { color: var(--app-muted); font-weight: 400; }
+.entropy-app .release-dialog textarea, .entropy-app .release-task-form textarea { resize: vertical; }
+.entropy-app .release-dialog > footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 4px; }
+.entropy-app .release-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.entropy-app .release-form-note { padding: 10px 12px; border: 1px solid var(--app-line); border-radius: 9px; color: var(--app-muted); }
+.entropy-app .release-detail { width: min(760px, 100%); padding: 0; gap: 0; overflow: hidden; }
+.entropy-app .release-detail > header { padding: 20px 22px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .release-eyebrow { color: var(--app-muted); font-size: .74rem; letter-spacing: .08em; }
+.entropy-app .release-detail-scroll { display: grid; gap: 17px; overflow: auto; padding: 20px 22px; }
+.entropy-app .release-detail-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: var(--app-muted); font-size: .84rem; }
+.entropy-app .release-detail-summary a { color: var(--app-accent-fg); }
+.entropy-app .release-tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.entropy-app .release-tag-list span { padding: 4px 8px; color: var(--app-accent-fg); background: var(--app-accent-soft); border: 1px solid var(--app-accent-border); border-radius: 999px; font-size: .76rem; }
+.entropy-app .release-linked-artifacts { display: grid; gap: 8px; }
+.entropy-app .release-linked-artifacts h4 { margin: 0; }
+.entropy-app .release-linked-artifacts ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.entropy-app .release-linked-artifacts li { display: flex; justify-content: space-between; gap: 10px; padding: 9px 11px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; }
+.entropy-app .release-linked-artifacts small { color: var(--app-muted); }
+.entropy-app .release-description { margin: 0; white-space: pre-wrap; }
+.entropy-app .release-stage-field { display: grid; gap: 7px; max-width: 360px; font-weight: 600; }
+.entropy-app .release-stage-field small { color: var(--app-muted); font-weight: 400; }
+.entropy-app .release-linked-tasks { display: grid; gap: 12px; }
+.entropy-app .release-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.entropy-app .release-section-heading h4 { margin: 0; }
+.entropy-app .release-section-heading h4 span { margin-left: 4px; padding: 2px 7px; border-radius: 12px; color: var(--app-muted); background: var(--app-hover-bg); font-size: .78rem; }
+.entropy-app .release-section-heading p { margin: 4px 0 0; color: var(--app-muted); font-size: .82rem; }
+.entropy-app .release-task-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.entropy-app .release-import-button { position: relative; display: inline-flex !important; align-items: center; gap: 6px !important; overflow: hidden; cursor: pointer; }
+.entropy-app .release-import-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.entropy-app .release-link-existing { display: flex; gap: 8px; }
+.entropy-app .release-link-existing select { flex: 1; }
+.entropy-app .release-task-form { display: grid; gap: 11px; padding: 14px; border: 1px solid var(--app-line); border-radius: 10px; background: var(--app-surface); }
+.entropy-app .release-task-form label { display: grid; gap: 5px; font-size: .88rem; font-weight: 600; }
+.entropy-app .release-task-form button { justify-self: end; }
+.entropy-app .release-linked-tasks ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.entropy-app .release-linked-tasks li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--app-line); border-radius: 9px; background: var(--app-surface); }
+.entropy-app .release-linked-tasks li > span { display: grid; gap: 4px; }
+.entropy-app .release-linked-tasks li small, .entropy-app .release-task-empty { color: var(--app-muted); font-size: .82rem; text-transform: capitalize; }
+.entropy-app .release-task-empty { padding: 12px; border: 1px dashed var(--app-line); border-radius: 9px; }
+.entropy-app .release-detail-actions { display: flex; align-items: center; gap: 6px; }
+.entropy-app .release-traceability { position: relative; }
+.entropy-app .release-traceability-menu { position: absolute; z-index: 4; top: calc(100% + 6px); right: 0; display: grid; min-width: 220px; padding: 5px; border: 1px solid var(--app-line); border-radius: 10px; background: var(--app-surface); box-shadow: 0 12px 30px rgb(0 0 0 / 28%); }
+.entropy-app .release-traceability-menu button { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 0; border-radius: 6px; color: var(--app-text); background: transparent; text-align: left; font: inherit; cursor: pointer; white-space: nowrap; }
+.entropy-app .release-traceability-menu button:hover { background: var(--app-hover-bg); }
+.entropy-app .release-housekeeping-dialog, .entropy-app .release-traceability-dialog { width: min(900px, 100%); }
+.entropy-app .release-housekeeping-rules { display: grid; gap: 7px; max-height: 220px; overflow: auto; }
+.entropy-app .release-housekeeping-rules > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 11px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; }
+.entropy-app .release-housekeeping-rules > div > span { display: grid; gap: 3px; }
+.entropy-app .release-housekeeping-rules small, .entropy-app .release-housekeeping-rules p { margin: 0; color: var(--app-muted); }
+.entropy-app .release-housekeeping-add { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(130px, 1fr) minmax(180px, 1.5fr) auto; align-items: end; gap: 10px; padding: 12px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; }
+.entropy-app .release-housekeeping-add label { display: grid; gap: 6px; font-size: .84rem; font-weight: 600; }
+.entropy-app .release-housekeeping-add input, .entropy-app .release-housekeeping-add select { min-width: 0; padding: 8px 10px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .release-housekeeping-add select[multiple] { min-height: 84px; }
+.entropy-app .release-housekeeping-add small { color: var(--app-muted); font-weight: 400; }
+.entropy-app .release-traceability-dialog { max-height: calc(100% - 40px); }
+.entropy-app .release-traceability-table-wrap { max-height: min(52vh, 560px); overflow: auto; border: 1px solid var(--app-line); border-radius: 9px; }
+.entropy-app .release-traceability-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.entropy-app .release-traceability-table th { position: sticky; top: 0; z-index: 1; background: var(--app-surface); }
+.entropy-app .release-traceability-table th, .entropy-app .release-traceability-table td { min-width: 110px; padding: 8px 10px; border-bottom: 1px solid var(--app-line); text-align: left; vertical-align: top; }
+.entropy-app .release-traceability-table td { max-width: 360px; overflow-wrap: anywhere; color: var(--app-muted); }
+.entropy-app .release-traceability-dialog > footer { display: flex; justify-content: flex-end; gap: 9px; }
+@media (max-width: 760px) {
+    .entropy-app .release-manager-header { align-items: flex-start; }
+    .entropy-app .release-row { flex-wrap: wrap; }
+    .entropy-app .release-main { flex-basis: 65%; }
+    .entropy-app .release-run-state { margin-left: auto; }
+    .entropy-app .promotion-list article { grid-template-columns: 1fr auto; }
+    .entropy-app .promotion-list article.promotion-history-row { grid-template-columns: auto 1fr auto; }
+    .entropy-app .promotion-list article.promotion-history-row .promotion-release-names { grid-column: 2 / -1; }
+    .entropy-app .promotion-release-names { grid-column: 1 / -1; }
+    .entropy-app .promotion-controls > * { max-width: none !important; flex-basis: 100% !important; }
+    .entropy-app .release-section-heading { align-items: flex-start; flex-direction: column; }
+    .entropy-app .release-form-grid { grid-template-columns: 1fr; }
+    .entropy-app .release-list-toolbar, .entropy-app .promotion-run-controls { align-items: stretch; flex-direction: column; }
+    .entropy-app .release-housekeeping-add { grid-template-columns: 1fr; }
+    .entropy-app .release-traceability-dialog > footer { align-items: stretch; flex-direction: column; }
+}
