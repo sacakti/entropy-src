@@ -9,8 +9,10 @@ stable, supported APIs for plugin authors.
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
 from lib.plugins.arguments import PluginArguments
 from lib.plugins.message import PluginMessage
@@ -191,6 +193,70 @@ class PluginContext:
         """
 
         return self._runtime.workspace
+
+    # ------------------------------------------------------------------
+    # Input
+    # ------------------------------------------------------------------
+
+    def ask(
+        self,
+        label: str,
+        *,
+        name: Optional[str] = None,
+        secret: bool = False,
+        default: Optional[str] = None,
+        description: str = "",
+        choices: Optional[Sequence[str]] = None,
+    ) -> str:
+        """
+        Ask the user for a value while the plugin runs.
+
+        Interactive runs show the question on the run screen and wait for
+        the answer; `ent` asks in the terminal. Automated runs get
+        `default`, or fail when there is none.
+        """
+
+        from lib.plugins.exceptions import PluginValueError
+        from lib.runs.prompts import RUN_MODE_ENV, PromptError, prompts_for
+
+        if self._mode is PluginMode.CLI and sys.stdin.isatty():
+            hint = f" [{default}]" if default and not secret else ""
+            if secret:
+                import getpass
+
+                answer = getpass.getpass(f"{label}: ")
+            else:
+                answer = input(f"{label}{hint}: ")
+            return answer or default or ""
+
+        if os.environ.get(RUN_MODE_ENV) != "interactive":
+            if default is not None:
+                return default
+            raise PluginValueError(
+                f"'{label}' needs an answer, but this run is automated. "
+                "Start it in interactive mode, or give the value as an argument."
+            )
+
+        node = self._runtime.node
+        store = prompts_for(self._runtime._entropy)
+        prompt = store.ask(
+            self._runtime.job_id,
+            name=name or label,
+            label=label,
+            step=getattr(node, "name", None),
+            description=description,
+            secret=secret,
+            default=default,
+            choices=choices,
+        )
+        self._message.info(f"Waiting for an answer: {label}")
+        try:
+            answer = store.wait(prompt)
+        except PromptError as exc:
+            raise PluginValueError(f"'{label}': {exc}") from exc
+        # A secret is never echoed.
+        self._message.info(f"Answered: {label}" + ("" if secret else f" = {answer}"))
+        return answer or (default or "")
 
     # ------------------------------------------------------------------
     # Infrastructure

@@ -93,6 +93,8 @@ def run_payload(row: Any) -> Dict[str, Any]:
         "options": _json(value("options")),
         # A plugin run started with "Debug": its debug messages are shown.
         "debug": bool((_json(value("options")) or {}).get("debug")),
+        # "interactive": the run's plugins may ask for input.
+        "mode": (_json(value("options")) or {}).get("mode") or "automated",
         "parent_job_id": value("parent_job_id"),
         # None for runs from before projects (they belong to Default).
         "project_id": value("project_id"),

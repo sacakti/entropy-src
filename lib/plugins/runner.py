@@ -190,11 +190,18 @@ class PluginRunner:
 
             return None, None
 
+        values = PluginRunner._prompt_missing(
+            context,
+            contract,
+            dict(context.arguments or {}),
+            name,
+        )
+
         try:
 
             arguments = check_arguments(
                 contract,
-                dict(context.arguments or {}),
+                values,
             )
 
         except ContractError as exc:
@@ -204,6 +211,68 @@ class PluginRunner:
             ) from None
 
         return contract, arguments
+
+    @staticmethod
+    def _prompt_missing(
+        context: ExecutionContext,
+        contract: dict,
+        values: dict,
+        name: str,
+    ) -> dict:
+        """
+        In interactive runs, ask for the "prompt" arguments the run did not
+        give; automated runs leave them to the usual checks.
+        """
+
+        import os
+
+        from lib.runs.prompts import RUN_MODE_ENV, PromptError, prompts_for
+
+        wanted = [
+            item
+            for item in contract["arguments"]
+            if item.get("prompt") and values.get(item["name"]) in (None, "")
+        ]
+
+        if not wanted or os.environ.get(RUN_MODE_ENV) != "interactive":
+
+            return values
+
+        store = prompts_for(context._entropy)
+        node = context.node
+
+        for item in wanted:
+
+            choices = item.get("choices")
+            if item["type"] == "boolean":
+                choices = ["true", "false"]
+
+            prompt = store.ask(
+                context.job_id,
+                name=item["name"],
+                label=item.get("label") or item["name"],
+                step=getattr(node, "name", None),
+                description=item.get("description") or "",
+                secret=item.get("secret", False),
+                default=None if item["default"] is None else str(item["default"]),
+                choices=[str(choice) for choice in choices] if choices else None,
+            )
+
+            try:
+
+                answer = store.wait(prompt)
+
+            except PromptError as exc:
+
+                raise PluginValueError(
+                    f"Plugin '{name}': '{item['name']}': {exc}",
+                ) from None
+
+            if answer != "":
+
+                values[item["name"]] = answer
+
+        return values
 
     def _create_context(
         self,

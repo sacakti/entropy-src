@@ -5,7 +5,7 @@ workflow or plugin runs on an execution node.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
@@ -41,6 +41,8 @@ class StartRunRequest(RunOptionsRequest):
     """Where to run and with which inputs."""
 
     variables: Dict[str, Any] = Field(default_factory=dict)
+    # "interactive": plugins may ask for input on the run screen.
+    mode: Literal["automated", "interactive"] = "automated"
 
 
 class StartPluginRunRequest(BaseModel):
@@ -48,6 +50,7 @@ class StartPluginRunRequest(BaseModel):
     arguments: Dict[str, Any] = Field(default_factory=dict)
     # Debug messages and full tracebacks in the run log.
     debug: bool = False
+    mode: Literal["automated", "interactive"] = "automated"
 
 
 class HousekeepingRequest(BaseModel):
@@ -250,6 +253,7 @@ def rerun_workflow(
             step_nodes=payload.step_nodes,
             project_id=_run_project(request, job_id),
             workflow_definition=config["definition"],
+            mode=payload.mode,
         )
     except RunError as exc:
         raise _http(exc) from exc
@@ -298,7 +302,64 @@ def run_events(
         "steps": service.store.steps(job_id),
         "events": [_event_payload(event) for event in events],
         "cursor": events[-1].id if events else after,
+        "prompts": _waiting_prompts(request, run),
     }
+
+
+def _waiting_prompts(request: Request, run: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Questions the run's plugins wait on (interactive runs only)."""
+
+    if run.get("mode") != "interactive":
+        return []
+    from lib.runs.prompts import prompts_for
+    from lib.runs.service import ACTIVE_STATES
+
+    store = prompts_for(request.app.state.entropy_context)
+    if run["state"] not in ACTIVE_STATES:
+        # The run ended: nothing will read an answer any more.
+        store.expire([run["id"]])
+        return []
+    return store.list([run["id"]], waiting_only=True)
+
+
+class PromptAnswerRequest(BaseModel):
+    value: str = Field(default="", max_length=65536)
+
+
+@router.post("/api/runs/{job_id}/prompts/{prompt_id}", dependencies=[Depends(verify_csrf)])
+def answer_prompt(
+    job_id: int,
+    prompt_id: int,
+    payload: PromptAnswerRequest,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Answer a question of an interactive run: its starter, or who may run workflows."""
+
+    from lib.runs.prompts import PromptError, prompts_for
+
+    _, _, current = record
+    project_id = _run_project(request, job_id)
+    _require_permission(request, current, "workflows.read", project_id)
+    service = _service(request)
+    run = service.store.get(job_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
+    if run.get("username") != current.username:
+        _require_permission(request, current, "workflows.execute", project_id)
+
+    store = prompts_for(request.app.state.entropy_context)
+    prompt = store.get(prompt_id)
+    if prompt is None or prompt["job_id"] != job_id:
+        raise HTTPException(status_code=404, detail="That question does not belong to this run.")
+    try:
+        answered = store.answer(prompt_id, payload.value, current.username)
+    except PromptError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    _no_store(response)
+    answered.pop("job_id", None)
+    return {"prompt": answered}
 
 
 @router.get("/api/runs/{job_id}/log")
@@ -367,6 +428,7 @@ def run_workflow(
             tags=payload.tags,
             step_nodes=payload.step_nodes,
             project_id=project_id,
+            mode=payload.mode,
         )
     except RunError as exc:
         raise _http(exc) from exc
@@ -447,6 +509,7 @@ def run_plugin(
             arguments=payload.arguments,
             project_id=project["id"],
             debug=payload.debug,
+            mode=payload.mode,
         )
     except RunError as exc:
         raise _http(exc) from exc

@@ -24,11 +24,13 @@ import {
     type PlannedStep,
     type Run,
     type RunEvent,
+    type RunPrompt,
     type RunStep,
 } from '../../api/runs.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import RunDiagram from './RunDiagram'
 import RunOptionsSummary from './RunOptionsSummary'
+import RunPrompts from './RunPrompts'
 import RunStatus from './RunStatus'
 import StartRunDialog from './StartRunDialog'
 import {
@@ -252,6 +254,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
     const [source, setSource] = useState<LogSource>('events')
     const [follow, setFollow] = useState(true)
     const [debugShown, setDebugShown] = useState(false)
+    const [prompts, setPrompts] = useState<RunPrompt[]>([])
     const [expanded, setExpanded] = useState<string | null>(null)
     const [stopping, setStopping] = useState(false)
     const [rerunOpen, setRerunOpen] = useState(false)
@@ -280,6 +283,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                 outputOffset.current = log.offset
                 setRun(update.run)
                 setSteps(update.steps)
+                setPrompts(update.prompts ?? [])
                 if (update.events.length) setEvents((previous) => [...previous, ...update.events])
                 if (log.text) setOutput((previous) => previous + log.text)
                 setError(null)
@@ -474,6 +478,15 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                 </dl>
 
                 {run.options?.nodes && <RunOptionsSummary options={run.options} />}
+
+                <RunPrompts
+                    runId={run.id}
+                    prompts={prompts}
+                    onAnswered={(answered) => {
+                        setPrompts((current) => current.filter((item) => item.id !== answered.id))
+                        notify.success(`Answer sent: ${answered.label}`, { title: 'Answered' })
+                    }}
+                />
 
                 <div
                     className={`run-progress is-${run.state}`}

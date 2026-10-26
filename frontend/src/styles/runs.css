@@ -2338,3 +2338,76 @@
         flex-wrap: wrap;
     }
 }
+
+.entropy-app .start-run-mode {
+    margin-top: 12px;
+}
+
+.entropy-app .start-run-mode .seg-control {
+    justify-self: start;
+}
+
+.entropy-app .start-run-mode small {
+    color: var(--app-subtle);
+    font-size: 11.5px;
+}
+
+/* Questions from an interactive run */
+.entropy-app .run-prompts {
+    display: grid;
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.entropy-app .run-prompt {
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--app-accent) 55%, var(--app-line));
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--app-accent) 9%, var(--app-surface));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 12%, transparent);
+}
+
+.entropy-app .run-prompt-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--app-text);
+}
+
+.entropy-app .run-prompt-heading > span {
+    display: grid;
+    gap: 2px;
+}
+
+.entropy-app .run-prompt-heading small,
+.entropy-app .run-prompt-description {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 12.5px;
+}
+
+.entropy-app .run-prompt-row {
+    display: flex;
+    gap: 8px;
+}
+
+.entropy-app .run-prompt-row :is(input, select) {
+    flex: 1;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 10px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+}
+
+.entropy-app .run-prompt-error {
+    margin: 0;
+    color: var(--app-danger, #d64545);
+    font-size: 12.5px;
+}

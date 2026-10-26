@@ -90,6 +90,8 @@ class RunService:
         connection = context.database_manager.connection
         self.store = RunStore(connection)
         self.nodes = NodeStore(connection)
+        # "interactive" lets the run's plugins ask for input (see prompts.py).
+        self._mode = "automated"
 
     # ------------------------------------------------------------------
     # Start
@@ -211,10 +213,11 @@ class RunService:
             raise
 
     def _worker_environment(self, token: str, *, debug: bool = False) -> Dict[str, str]:
+        from lib.runs.prompts import RUN_MODE_ENV
         from lib.vault.projects import PROJECT_ENV
         from lib.workflow.worker import DEBUG_ENV
 
-        environment = {SESSION_TOKEN_ENV: token}
+        environment = {SESSION_TOKEN_ENV: token, RUN_MODE_ENV: self._mode}
         if debug:
             environment[DEBUG_ENV] = "1"
         if self._project_id is not None:
@@ -298,8 +301,10 @@ class RunService:
         schedule_id: Optional[int] = None,
         project_id: Optional[int] = None,
         workflow_definition: Optional[str] = None,
+        mode: str = "automated",
     ) -> Dict[str, Any]:
         self._project_id = project_id
+        self._mode = mode
         if workflow_definition is None:
             workflow, plan = self.plan(name, node=node, steps=steps, tags=tags, step_nodes=step_nodes)
         else:
@@ -323,7 +328,13 @@ class RunService:
                 raise RunError(str(exc) or "Saved workflow configuration is invalid.", 422) from exc
         nodes = {item: self._executable_node(item, project_id) for item in plan.nodes}
         segments = plan.segments
-        options = plan.snapshot(variables)
+        if mode == "interactive" and (
+            len(segments) > 1 or any(node["kind"] != "local" for node in nodes.values())
+        ):
+            raise RunError(
+                "Interactive runs run on this server only: choose the local node for every step."
+            )
+        options = {**plan.snapshot(variables), "mode": mode}
         rerun_config = {
             "definition": self._context.workflow_manager.serialize(workflow, "json"),
             "variables": dict(variables or {}),
@@ -390,6 +401,7 @@ class RunService:
         schedule_id: Optional[int] = None,
         project_id: Optional[int] = None,
         debug: bool = False,
+        mode: str = "automated",
     ) -> Dict[str, Any]:
         """
         Run one installed plugin as a single-step workflow; debug runs (on
@@ -397,6 +409,7 @@ class RunService:
         """
 
         self._project_id = project_id
+        self._mode = mode
         if not _QUALIFIED_PLUGIN.match(qualified_name or ""):
             raise RunError("Plugin name must be namespace.name.")
 
@@ -408,6 +421,8 @@ class RunService:
             raise RunError(f"Plugin '{qualified_name}' is not installed.", 404)
 
         target = self._executable_node(node, project_id)
+        if mode == "interactive" and target["kind"] != "local":
+            raise RunError("Interactive runs run on this server only: choose the local node.")
 
         definition = {
             "name": f"plugin.{qualified_name}",
@@ -463,7 +478,7 @@ class RunService:
             target=qualified_name,
             trigger=trigger,
             schedule_id=schedule_id,
-            options={"debug": True} if debug else None,
+            options={"debug": debug, "mode": mode} if debug or mode != "automated" else None,
         )
         self.store.set_project(job_id, project_id)
         return self.store.get(job_id) or {}

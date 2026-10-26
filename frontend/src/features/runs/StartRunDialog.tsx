@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, LoaderCircle, Play, Server } from 'lucide-react'
 
 import { pluginsApi } from '../../api/plugins.api'
-import { nodesApi, runsApi, type EntropyNode, type Run, type RunRerunConfig } from '../../api/runs.api'
+import { nodesApi, runsApi, type EntropyNode, type Run, type RunMode, type RunRerunConfig } from '../../api/runs.api'
 import { workflowsApi } from '../../api/workflows.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
@@ -48,6 +48,7 @@ export default function StartRunDialog({
     const [planCheck, setPlanCheck] = useState<PlanCheck>({ state: 'checking' })
     const [rerunConfig, setRerunConfig] = useState<RunRerunConfig | null>(null)
     const [debug, setDebug] = useState(initialDebug)
+    const [mode, setMode] = useState<RunMode>('automated')
     // A declared contract refuses arguments it does not list.
     const [declared, setDeclared] = useState(false)
 
@@ -151,6 +152,9 @@ export default function StartRunDialog({
                   ? 'No runner node is available to you.'
                   : !selected?.agent_up
                     ? `Node '${node}' is unavailable; choose another node.`
+                    : mode === 'interactive' &&
+                        (selected?.kind !== 'local' || Object.values(advanced.stepNodes).some((name) => name && name !== node))
+                      ? 'Interactive runs run on this server only: choose the local node for every step.'
                     : kind === 'workflow' && planCheck.state === 'invalid'
                       ? planCheck.error
                       : kind === 'workflow' && planCheck.state === 'checking'
@@ -158,7 +162,7 @@ export default function StartRunDialog({
                         : null
 
     const start = async () => {
-        const parsed = parseRows(rows)
+        const parsed = parseRows(rows, mode === 'interactive')
         if (parsed.error) {
             setError(parsed.error)
             return
@@ -170,19 +174,15 @@ export default function StartRunDialog({
             const { run } =
                 kind === 'workflow'
                     ? rerunFrom !== undefined
-                        ? await runsApi.rerunWorkflow(
-                              rerunFrom,
-                              node,
-                              parsed.values,
-                              planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {},
-                          )
-                        : await runsApi.startWorkflow(
-                              target,
-                              node,
-                              parsed.values,
-                              planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {},
-                          )
-                    : await runsApi.startPlugin(target, node, parsed.values, debug)
+                        ? await runsApi.rerunWorkflow(rerunFrom, node, parsed.values, {
+                              ...(planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {}),
+                              mode,
+                          })
+                        : await runsApi.startWorkflow(target, node, parsed.values, {
+                              ...(planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {}),
+                              mode,
+                          })
+                    : await runsApi.startPlugin(target, node, parsed.values, debug, mode)
             notify.success(`Run #${run.id} started on ${run.node}.`, { title: `${target} started` })
             onClose()
             if (onStarted) onStarted(run)
@@ -292,6 +292,35 @@ export default function StartRunDialog({
                     addLabel={kind === 'workflow' ? 'Add variable' : 'Add argument'}
                     allowExtra={kind === 'workflow' || !declared}
                 />
+            </div>
+
+            <div className="admin-field start-run-mode">
+                <span>Mode</span>
+                <div className="seg-control" role="radiogroup" aria-label="Run mode">
+                    {(
+                        [
+                            ['automated', 'Automated', 'Runs unattended; a question without a default fails the step.'],
+                            ['interactive', 'Interactive', 'Plugins may ask for input (plain or secret) while the run is followed.'],
+                        ] as const
+                    ).map(([value, label, help]) => (
+                        <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={mode === value}
+                            className={mode === value ? 'is-active' : ''}
+                            title={help}
+                            onClick={() => setMode(value)}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+                <small>
+                    {mode === 'interactive'
+                        ? 'Questions appear on the run screen; answer them there. Runs on this server only.'
+                        : 'Runs unattended; a question without a default fails the step.'}
+                </small>
             </div>
 
             {kind === 'plugin' && (

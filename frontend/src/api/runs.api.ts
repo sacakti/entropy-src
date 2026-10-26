@@ -35,6 +35,8 @@ export interface Run {
     options?: RunOptionsSnapshot | null
     /** A plugin run started with "Debug": its debug messages are shown. */
     debug?: boolean
+    /** "interactive": the run's plugins may ask for input on the run screen. */
+    mode?: RunMode
     /** Set on a segment of a multi-node run. */
     parent_job_id?: number | null
     /** Runs steps on several nodes, one segment after another. */
@@ -65,6 +67,7 @@ export interface RunOptionsSnapshot {
 }
 
 export interface RunOptions {
+    mode?: RunMode
     steps?: string[]
     tags?: string[]
     step_nodes?: Record<string, string>
@@ -128,11 +131,28 @@ export interface RunListQuery {
     offset?: number
 }
 
+export type RunMode = 'automated' | 'interactive'
+
+/** A question a plugin of an interactive run waits on. */
+export interface RunPrompt {
+    id: number
+    step: string | null
+    name: string
+    label: string
+    description: string
+    secret: boolean
+    default: string | null
+    choices: string[] | null
+    state: 'waiting' | 'answered' | 'consumed' | 'expired'
+}
+
 export interface RunEventsResponse {
     run: Run
     steps: RunStep[]
     events: RunEvent[]
     cursor: number | null
+    /** Questions waiting for an answer (interactive runs). */
+    prompts?: RunPrompt[]
 }
 
 export interface RunLog {
@@ -230,11 +250,16 @@ export const runsApi = {
         node: string,
         argumentsMap: Record<string, unknown> = {},
         debug = false,
+        mode: RunMode = 'automated',
     ): Promise<{ run: Run }> {
         return apiRequest(
             `/api/plugins/${encodeURIComponent(qualifiedName)}/run`,
-            json('POST', { node, arguments: argumentsMap, debug }),
+            json('POST', { node, arguments: argumentsMap, debug, mode }),
         )
+    },
+
+    answerPrompt(runId: number, promptId: number, value: string): Promise<{ prompt: RunPrompt }> {
+        return apiRequest(`/api/runs/${runId}/prompts/${promptId}`, json('POST', { value }))
     },
 
     housekeeping(): Promise<Housekeeping> {

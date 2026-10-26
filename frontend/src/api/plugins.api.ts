@@ -169,6 +169,8 @@ export interface PluginArgumentSpec {
     path?: 'file' | 'directory' | 'any'
     label?: string
     example?: unknown
+    /** Asked for at run time when an interactive run does not give it. */
+    prompt?: boolean
 }
 
 export interface PluginOutputSpec {

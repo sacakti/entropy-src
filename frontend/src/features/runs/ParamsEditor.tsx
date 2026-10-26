@@ -31,7 +31,9 @@ export default function ParamsEditor({
                     spec && spec.default !== null && spec.default !== undefined
                         ? `Default: ${display(spec.default)}`
                         : spec?.required
-                          ? 'Required'
+                          ? spec.prompt
+                              ? 'Required (asked at run time in interactive runs)'
+                              : 'Required'
                           : spec
                             ? 'Optional'
                             : 'Value (text or JSON)'

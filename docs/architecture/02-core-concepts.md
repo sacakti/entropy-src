@@ -255,6 +255,28 @@ A plugin run goes through `validate()`, `prepare()`, `execute()` and `cleanup()`
 Only `execute()` is required; `cleanup()` always runs, also when an earlier step
 failed. `execute()` returns a `PluginResult`.
 
+## Automated and interactive runs
+
+A run is started in one of two modes:
+
+- **Automated** (the default; schedules always): nobody is asked anything.
+  `self.ask(...)` returns its `default`, or the step fails when there is none.
+- **Interactive**: a plugin may ask while it runs —
+  `self.ask("One-time code", secret=True)`, or with `choices=[...]`, `default=...`.
+  The question appears on the run screen; the run's starter (or anyone who may
+  run workflows in the project) answers it there. Arguments declared with
+  `"prompt": true` are asked for this way when the run does not give them.
+  Secret answers are stored encrypted with the vault key, deleted as soon as the
+  plugin reads them, and never logged. Unanswered questions fail the step after
+  an hour. Interactive runs execute on the Entropy server (the local node).
+- `ent` runs plugins in the terminal and asks there.
+
+## Paths on the server
+
+Path arguments have a browse button in the run dialog and in the workflow
+builder: it lists folders and files on the Entropy server (starting in the
+workspace) for users who may run plugins or workflows in the project.
+
 ---
 
 # Plugin Executor

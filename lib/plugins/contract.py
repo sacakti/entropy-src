@@ -207,6 +207,8 @@ ARGUMENT_KEYS = {
     "path",
     "label",
     "example",
+    # Asked for at run time when an interactive run does not give it.
+    "prompt",
 }
 OUTPUT_KEYS = {"name", "type", "description"}
 
@@ -287,6 +289,7 @@ def normalize(data: Any) -> dict[str, Any]:
             "default": item.get("default"),
             "description": str(item.get("description") or ""),
             "secret": item.get("secret") is True,
+            "prompt": item.get("prompt") is True,
         }
         if required and item.get("default") is not None:
             problems.append(f"{where}: a required argument has no default")

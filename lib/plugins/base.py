@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
 from lib.models.plugin import PluginResult
 from lib.plugins.arguments import PluginArguments
@@ -138,6 +138,32 @@ class BasePlugin(ABC):
         """
 
         return self._context.workspace
+
+    def ask(
+        self,
+        label: str,
+        *,
+        name: Optional[str] = None,
+        secret: bool = False,
+        default: Optional[str] = None,
+        description: str = "",
+        choices: Optional[Sequence[str]] = None,
+    ) -> str:
+        """
+        Ask the user for a value at run time (interactive runs), for
+        example a one-time code or a confirmation. `secret` hides what is
+        typed and keeps it out of logs. Automated runs get `default`, or
+        fail when there is none.
+        """
+
+        return self._context.ask(
+            label,
+            name=name,
+            secret=secret,
+            default=default,
+            description=description,
+            choices=choices,
+        )
 
     # ------------------------------------------------------------------
     # Infrastructure

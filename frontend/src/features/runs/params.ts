@@ -10,6 +10,8 @@ export interface ParamSpec {
     choices?: unknown[]
     /** For type 'path': a file, a directory or either. */
     path?: 'file' | 'directory' | 'any'
+    /** Asked for at run time in interactive runs when left empty. */
+    prompt?: boolean
 }
 
 export interface ParamRow {
@@ -40,7 +42,10 @@ export function rowsFor(specs: ParamSpec[], values: Record<string, unknown> = {}
  * Parse rows into a parameter object. Blank optional values are left out
  * so the definition's defaults apply.
  */
-export function parseRows(rows: ParamRow[]): { values: Record<string, unknown>; error: string | null } {
+export function parseRows(
+    rows: ParamRow[],
+    interactive = false,
+): { values: Record<string, unknown>; error: string | null } {
     const values: Record<string, unknown> = {}
 
     for (const row of rows) {
@@ -49,7 +54,8 @@ export function parseRows(rows: ParamRow[]): { values: Record<string, unknown>; 
         if (!key) continue
 
         if (!text) {
-            if (row.spec?.required && row.spec.default === null) {
+            // Interactive runs ask for "prompt" arguments left empty.
+            if (row.spec?.required && row.spec.default === null && !(interactive && row.spec.prompt)) {
                 return { values, error: `'${key}' is required.` }
             }
             continue
