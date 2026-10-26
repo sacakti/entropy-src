@@ -8,6 +8,8 @@ export interface ParamSpec {
     description?: string
     secret?: boolean
     choices?: unknown[]
+    /** For type 'path': a file, a directory or either. */
+    path?: 'file' | 'directory' | 'any'
 }
 
 export interface ParamRow {

@@ -1,5 +1,7 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { FolderOpen, Plus, Trash2 } from 'lucide-react'
 
+import ServerFileBrowser from '../../components/files/ServerFileBrowser'
 import { display, type ParamRow } from './params'
 
 export default function ParamsEditor({
@@ -16,6 +18,7 @@ export default function ParamsEditor({
     /** False when the plugin declares its arguments: anything else is refused. */
     allowExtra?: boolean
 }) {
+    const [browsing, setBrowsing] = useState<number | null>(null)
     const update = (index: number, patch: Partial<ParamRow>) =>
         onChange(rows.map((row, position) => (position === index ? { ...row, ...patch } : row)))
 
@@ -98,6 +101,17 @@ export default function ParamsEditor({
                                 aria-label={spec?.name ?? 'Parameter value'}
                             />
                         )}
+                        {spec?.type === 'path' && (
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
+                                aria-label={`Browse the server for ${spec.name}`}
+                                title="Browse files on the Entropy server"
+                                onClick={() => setBrowsing(index)}
+                            >
+                                <FolderOpen size={14} />
+                            </button>
+                        )}
                         {!spec && (
                             <button
                                 type="button"
@@ -112,6 +126,18 @@ export default function ParamsEditor({
                     </div>
                 )
             })}
+            {browsing !== null && rows[browsing]?.spec && (
+                <ServerFileBrowser
+                    kind={rows[browsing].spec?.path ?? 'any'}
+                    initial={rows[browsing].value}
+                    title={`Choose ${rows[browsing].spec?.name}`}
+                    onPick={(path) => {
+                        update(browsing, { value: path })
+                        setBrowsing(null)
+                    }}
+                    onClose={() => setBrowsing(null)}
+                />
+            )}
             {allowExtra && (
                 <button
                     type="button"

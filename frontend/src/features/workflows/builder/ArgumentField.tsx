@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { FolderOpen, X } from 'lucide-react'
 
+import ServerFileBrowser from '../../../components/files/ServerFileBrowser'
 import type { PluginArgumentSpec, PluginArgumentType } from '../../../api/plugins.api'
 import { ReferencePicker, type ReferenceGroup } from './controls'
 
@@ -112,6 +113,7 @@ export default function ArgumentField({
 }) {
     const type: PluginArgumentType = spec?.type ?? 'any'
     const set = value !== undefined
+    const [browsing, setBrowsing] = useState(false)
     const placeholder =
         spec && spec.default !== null && spec.default !== undefined
             ? `Default: ${formatDefault(spec.default)}`
@@ -197,6 +199,17 @@ export default function ArgumentField({
 
             <div className="wf-argument-editor">
                 {editor}
+                {type === 'path' && (
+                    <button
+                        type="button"
+                        className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
+                        aria-label={`Browse the server for ${name}`}
+                        title="Browse files on the Entropy server"
+                        onClick={() => setBrowsing(true)}
+                    >
+                        <FolderOpen size={14} />
+                    </button>
+                )}
                 <ReferencePicker
                     groups={references}
                     label={`Use a reference for ${name}`}
@@ -214,6 +227,18 @@ export default function ArgumentField({
                     </button>
                 )}
             </div>
+            {browsing && (
+                <ServerFileBrowser
+                    kind={spec?.path ?? 'any'}
+                    initial={typeof value === 'string' ? value : ''}
+                    title={`Choose ${name}`}
+                    onPick={(path) => {
+                        onChange(path)
+                        setBrowsing(false)
+                    }}
+                    onClose={() => setBrowsing(false)}
+                />
+            )}
         </div>
     )
 }

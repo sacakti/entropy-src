@@ -987,7 +987,8 @@
 
 .entropy-app .params-row {
     display: grid;
-    grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.6fr) auto;
+    /* The last column holds a browse or remove button; fixed so rows line up. */
+    grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.6fr) 32px;
     align-items: center;
     gap: 8px;
 }
@@ -2173,4 +2174,167 @@
     color: var(--app-subtle);
     font-size: 11.5px;
     font-weight: 400;
+}
+
+/* ----------------------------------------------------------
+   Server file browser (path arguments)
+   ---------------------------------------------------------- */
+
+.entropy-app .server-files-dialog {
+    width: min(760px, calc(100vw - 32px));
+}
+
+.entropy-app .server-files-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.entropy-app .server-files-bar input {
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+}
+
+.entropy-app .server-files-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 10px 0 6px;
+}
+
+.entropy-app .server-files-filter {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 6px;
+    max-width: 320px;
+    padding: 0 8px;
+    color: var(--app-subtle);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+}
+
+.entropy-app .server-files-filter input {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    outline: none;
+    font: inherit;
+    font-size: 13px;
+}
+
+.entropy-app .server-files-hidden {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--app-muted);
+    font-size: 12.5px;
+    white-space: nowrap;
+}
+
+.entropy-app .server-files-list {
+    height: min(46vh, 420px);
+    margin: 0;
+    padding: 4px;
+    overflow: auto;
+    list-style: none;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+}
+
+.entropy-app .server-files-entry {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) 80px 170px;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 30px;
+    padding: 0 8px;
+    color: var(--app-text);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.entropy-app .server-files-entry:hover {
+    background: color-mix(in srgb, var(--app-accent) 10%, transparent);
+}
+
+.entropy-app .server-files-entry.is-selected {
+    background: color-mix(in srgb, var(--app-accent) 24%, transparent);
+}
+
+.entropy-app .server-files-entry.is-muted {
+    opacity: 0.5;
+}
+
+.entropy-app .server-files-entry svg {
+    color: var(--app-muted);
+}
+
+.entropy-app .server-files-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .server-files-size,
+.entropy-app .server-files-date {
+    color: var(--app-subtle);
+    font-size: 11.5px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.entropy-app .server-files-empty {
+    padding: 24px;
+    color: var(--app-muted);
+    text-align: center;
+}
+
+.entropy-app .server-files-note {
+    margin: 8px 2px 0;
+    color: var(--app-subtle);
+    font-size: 12px;
+}
+
+.entropy-app .server-files-choice {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--app-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .entropy-app .server-files-entry {
+        grid-template-columns: 18px minmax(0, 1fr) 64px;
+    }
+
+    .entropy-app .server-files-date {
+        display: none;
+    }
+
+    .entropy-app .server-files-tools {
+        flex-wrap: wrap;
+    }
 }
