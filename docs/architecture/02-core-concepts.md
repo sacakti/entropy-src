@@ -218,6 +218,43 @@ It contains metadata required by the platform.
 
 The manifest enables plugin discovery and validation.
 
+## Contract
+
+Every plugin declares, in `plugin.json`, what it takes and what it publishes:
+
+```json
+"arguments": [
+    {"name": "host", "type": "string", "required": true, "description": "Server to reach"},
+    {"name": "port", "type": "integer", "default": 22, "minimum": 1, "maximum": 65535},
+    {"name": "mode", "choices": ["get", "put"], "default": "get"},
+    {"name": "password", "secret": true},
+    {"name": "source", "type": "path", "path": "file"}
+],
+"outputs": [
+    {"name": "transferred", "type": "integer", "description": "Files copied"}
+]
+```
+
+- Types: `string`, `boolean`, `integer`, `number`, `path`, `list`, `dictionary`, `any`.
+  Arguments are optional unless `required`; a required argument has no default.
+- `secret` arguments are typed in masked fields; `choices` become a list to pick
+  from (matched without case); `path` says whether a file or a directory is meant.
+- Installing a plugin is refused when it declares no contract, when the contract
+  is malformed, or when its source reads an argument or publishes an output it
+  does not declare. "Generate contract" in the plugin editor fills both lists in
+  from the source.
+- At run time, undeclared arguments are refused, required ones must be given,
+  values are checked (and text from forms read as numbers or flags), defaults are
+  filled in, and outputs the plugin did not declare fail the step.
+- Plugins installed before contracts existed keep running; their arguments are
+  inferred from the source until they are saved again.
+
+## Lifecycle
+
+A plugin run goes through `validate()`, `prepare()`, `execute()` and `cleanup()`.
+Only `execute()` is required; `cleanup()` always runs, also when an earlier step
+failed. `execute()` returns a `PluginResult`.
+
 ---
 
 # Plugin Executor

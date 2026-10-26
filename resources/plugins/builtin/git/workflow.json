@@ -1,7 +1,7 @@
 {
     "name": "GenericPlugin Workflow",
     "version": "1.0.0",
-    "description": "Example workflow for git.generic.",
+    "description": "Example workflow for builtin.git.",
 
     "variables": {
 
@@ -10,7 +10,7 @@
     "steps": [
         {
             "name": "CommitRevision",
-            "plugin": "git.generic",
+            "plugin": "builtin.git",
             "enabled": true,
             "on_failure": "abort",
             "arguments": {
@@ -20,7 +20,7 @@
         },
         {
             "name": "CommitDeployment",
-            "plugin": "git.generic",
+            "plugin": "builtin.git",
             "enabled": true,
             "on_failure": "abort",
             "arguments": {
@@ -31,7 +31,7 @@
         },
         {
             "name": "PushDeployment",
-            "plugin": "git.generic",
+            "plugin": "builtin.git",
             "enabled": true,
             "on_failure": "abort",
             "arguments": {

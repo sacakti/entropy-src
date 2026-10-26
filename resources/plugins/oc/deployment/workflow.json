@@ -11,7 +11,6 @@
             "on_failure": "abort",
             "arguments": {
                 "mode": "deployments",
-                "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT",
                 "deployments": []
             }
         }

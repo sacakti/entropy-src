@@ -1,10 +1,144 @@
 {
     "name": "clean",
     "namespace": "docker",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "display_name": "Docker Clean",
     "description": "Clean Docker storage using controlled cleanup policies.",
-    "author":"Aravinthan Selvaraj",
+    "author": "Aravinthan Selvaraj",
+    "arguments": [
+        {
+            "name": "cleanup",
+            "type": "string",
+            "required": false,
+            "default": "tag",
+            "description": "Cleanup strategy to run: tag, cache, unused or complete.",
+            "choices": [
+                "tag",
+                "cache",
+                "unused",
+                "complete"
+            ]
+        },
+        {
+            "name": "minimum_storage",
+            "type": "integer",
+            "required": false,
+            "default": 10,
+            "description": "Minimum free Docker storage in GB; cleanup is skipped while at least this much is available.",
+            "minimum": 1
+        },
+        {
+            "name": "tag_pattern",
+            "type": "string",
+            "required": false,
+            "default": "",
+            "description": "Text matched against image references (repository:tag) to select images; required when cleanup is 'tag'.",
+            "example": ":25.01.01."
+        },
+        {
+            "name": "force",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Run the cleanup even when the minimum storage requirement is already met."
+        },
+        {
+            "name": "dry_run",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Report what would be removed without removing anything."
+        },
+        {
+            "name": "confirm",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Confirmation required to run the destructive 'complete' cleanup."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "cleanup",
+            "type": "string",
+            "description": "Cleanup strategy that was selected."
+        },
+        {
+            "name": "minimum_storage_gb",
+            "type": "integer",
+            "description": "Minimum storage threshold in GB."
+        },
+        {
+            "name": "storage_before_gb",
+            "type": "number",
+            "description": "Available Docker storage in GB before cleanup."
+        },
+        {
+            "name": "storage_after_gb",
+            "type": "number",
+            "description": "Available Docker storage in GB after cleanup."
+        },
+        {
+            "name": "storage_reclaimed_gb",
+            "type": "number",
+            "description": "Storage reclaimed by the cleanup in GB."
+        },
+        {
+            "name": "force",
+            "type": "boolean",
+            "description": "Whether force was enabled."
+        },
+        {
+            "name": "dry_run",
+            "type": "boolean",
+            "description": "Whether dry-run was enabled."
+        },
+        {
+            "name": "cleanup_required",
+            "type": "boolean",
+            "description": "Always false when published; reserved flag for whether cleanup was needed."
+        },
+        {
+            "name": "items_removed",
+            "type": "integer",
+            "description": "Number of images or resources removed."
+        },
+        {
+            "name": "matched_images",
+            "type": "list",
+            "description": "Image references matched by the tag pattern (tag cleanup only)."
+        },
+        {
+            "name": "errors",
+            "type": "list",
+            "description": "Image removal errors (tag cleanup only)."
+        },
+        {
+            "name": "exit_code",
+            "type": "integer",
+            "description": "Exit code of the last Docker command."
+        },
+        {
+            "name": "success",
+            "type": "boolean",
+            "description": "Whether the last Docker command succeeded."
+        },
+        {
+            "name": "stdout",
+            "type": "string",
+            "description": "Standard output of the last Docker command."
+        },
+        {
+            "name": "stderr",
+            "type": "string",
+            "description": "Standard error of the last Docker command."
+        },
+        {
+            "name": "duration",
+            "type": "number",
+            "description": "Duration of the last Docker command in seconds."
+        }
+    ],
     "tags": [
         "docker",
         "storage",

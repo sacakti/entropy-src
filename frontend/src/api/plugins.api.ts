@@ -79,6 +79,10 @@ export async function listPlugins(
 export interface PluginFile {
     path: string
     content: string
+    /** Bytes on disk. */
+    size?: number
+    /** ISO time the file last changed on the server. */
+    modified?: string
 }
 
 export interface PluginFilesResponse {
@@ -157,13 +161,32 @@ export interface PluginArgumentSpec {
     default: unknown
     minimum?: number
     maximum?: number
+    description?: string
+    /** Typed in a masked field; never echoed back. */
+    secret?: boolean
+    choices?: unknown[]
+    /** For type 'path': what the path names. */
+    path?: 'file' | 'directory' | 'any'
+    label?: string
+    example?: unknown
 }
 
-/** Arguments a plugin reads and outputs it publishes, recovered from its source. */
+export interface PluginOutputSpec {
+    name: string
+    type: PluginArgumentType
+    description: string
+}
+
+/**
+ * Arguments a plugin takes and outputs it publishes: declared in its
+ * plugin.json, or (plugins installed before contracts) recovered from its source.
+ */
 export interface PluginContract extends PluginItem {
     description: string | null
+    contract?: 'declared' | 'inferred'
     arguments: PluginArgumentSpec[]
     outputs: string[]
+    output_details?: PluginOutputSpec[]
 }
 
 /** Diagnostics carried by a 422 save response, if any. */
@@ -217,13 +240,14 @@ export const pluginsApi = {
         qualifiedName: string,
         files: Record<string, string>,
         signal?: AbortSignal,
+        removed: string[] = [],
     ): Promise<PluginValidationResponse> {
         return apiRequest<PluginValidationResponse>(
             pluginPath(qualifiedName, '/validate'),
             {
                 method: 'POST',
                 headers: jsonHeaders,
-                body: JSON.stringify({ files }),
+                body: JSON.stringify({ files, removed }),
                 signal,
             },
         )
@@ -234,15 +258,33 @@ export const pluginsApi = {
         files: Record<string, string>,
         revision: string,
         install = false,
+        /** Files to delete; a moved file is its new path plus the old one here. */
+        removed: string[] = [],
     ): Promise<PluginFilesResponse> {
         return apiRequest<PluginFilesResponse>(
             pluginPath(qualifiedName, '/files'),
             {
                 method: 'PUT',
                 headers: jsonHeaders,
-                body: JSON.stringify({ files, revision, install }),
+                body: JSON.stringify({ files, revision, install, removed }),
             },
         )
+    },
+
+    /**
+     * plugin.json with "arguments" and "outputs" filled in from the source
+     * (unsaved edits included); what is declared already is kept.
+     */
+    generateContract(
+        qualifiedName: string,
+        files: Record<string, string>,
+        removed: string[] = [],
+    ): Promise<{ content: string; added: { arguments: string[]; outputs: string[] } }> {
+        return apiRequest(pluginPath(qualifiedName, '/contract'), {
+            method: 'POST',
+            headers: jsonHeaders,
+            body: JSON.stringify({ files, removed }),
+        })
     },
 
     delete(

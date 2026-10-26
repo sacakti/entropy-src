@@ -32,7 +32,8 @@
             ],
 
             "arguments": {
-                "namespace": "${env[${environment}].namespace}",
+                "kubeconfig": "~/.kube/config",
+                "namespace":"${env[${environment}].namespace}",
                 "yaml_repository": "${yaml_repository}",
 
                 "ignore_resources": {

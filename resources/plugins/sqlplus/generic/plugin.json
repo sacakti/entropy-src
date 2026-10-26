@@ -1,12 +1,36 @@
 {
     "name": "generic",
     "namespace": "sqlplus",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
 
     "dependencies": [],
+
+    "arguments": [
+        {"name": "mode", "type": "string", "required": true, "description": "Execution mode, 'plan' (run the execution plan from release.context_builder) or 'direct' (run the listed executions); case-insensitive.", "example": "direct"},
+        {"name": "sqlhome", "type": "path", "path": "directory", "required": false, "description": "Oracle home whose bin/sqlplus is used; sqlplus is taken from PATH when omitted.", "example": "/opt/oracle/product/19c/dbhome_1"},
+        {"name": "on_error", "type": "string", "required": false, "default": "abort", "description": "What to do after a failed execution, 'abort' (skip the rest) or 'continue'; case-insensitive."},
+        {"name": "connection", "type": "dictionary", "required": false, "description": "Plan mode: common Oracle connection with IP, PORT and SID.", "example": {"IP": "localhost", "PORT": 1521, "SID": "orcl"}},
+        {"name": "schemas", "type": "dictionary", "required": false, "secret": true, "description": "Plan mode: credentials per schema name, each an object (or a JSON string of one) with username and password."},
+        {"name": "execution", "type": "dictionary", "required": false, "description": "Plan mode: database context with execution_plan and scripts, normally the 'database' output of release.context_builder; SQLPlus is skipped when it has no execution_plan.", "example": "${steps.BuildReleaseContext.outputs.database}"},
+        {"name": "executions", "type": "list", "required": false, "secret": true, "description": "Direct mode: executions to run, each an object with ip, port, sid, schema, username, password and script (SQL file path)."},
+        {"name": "execution_path", "type": "path", "path": "directory", "required": false, "description": "Base directory for generated spool files (%execution_path); defaults to the first script's directory when spool is enabled."},
+        {"name": "release", "type": "string", "required": false, "default": "release", "description": "Release name substituted for %release in spool file names."},
+        {"name": "spool", "type": "dictionary", "required": false, "description": "Spool management: enabled, create_if_not_exists, infile_replace, override, name_placeholder, wrappers_before and wrappers_after; disabled when omitted.", "example": {"enabled": true, "override": false, "create_if_not_exists": true, "name_placeholder": "%execution_path/%release_%schema_%date.log"}}
+    ],
+
+    "outputs": [
+        {"name": "success", "type": "boolean", "description": "True when every execution succeeded and none was skipped."},
+        {"name": "mode", "type": "string", "description": "Execution mode used."},
+        {"name": "on_error", "type": "string", "description": "Error policy used."},
+        {"name": "executions", "type": "integer", "description": "Number of resolved SQLPlus executions."},
+        {"name": "succeeded", "type": "integer", "description": "Number of successful executions."},
+        {"name": "failed", "type": "integer", "description": "Number of failed executions."},
+        {"name": "skipped", "type": "integer", "description": "Number of executions skipped after a failure with on_error 'abort'."},
+        {"name": "results", "type": "list", "description": "Per-execution results: schema, script, success, exit_code, stdout summary, stderr, duration, spool, error_type and error_message."}
+    ],
 
     "tags": [],
 

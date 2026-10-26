@@ -183,6 +183,7 @@ class RunService:
         name: Optional[str] = None,
         file: Optional[Path] = None,
         variables: Optional[Dict[str, Any]] = None,
+        debug: bool = False,
     ):
         sessions = self._context.session_manager
         workflows = self._context.workflow_manager
@@ -203,16 +204,19 @@ class RunService:
                 file=file,
                 options=WorkflowExecutionOptions(variables=dict(variables or {})),
                 session=session,
-                environment=self._worker_environment(session.token),
+                environment=self._worker_environment(session.token, debug=debug),
             )
         except Exception:
             sessions.revoke(session.token)
             raise
 
-    def _worker_environment(self, token: str) -> Dict[str, str]:
+    def _worker_environment(self, token: str, *, debug: bool = False) -> Dict[str, str]:
         from lib.vault.projects import PROJECT_ENV
+        from lib.workflow.worker import DEBUG_ENV
 
         environment = {SESSION_TOKEN_ENV: token}
+        if debug:
+            environment[DEBUG_ENV] = "1"
         if self._project_id is not None:
             environment[PROJECT_ENV] = str(self._project_id)
         return environment
@@ -385,8 +389,12 @@ class RunService:
         trigger: str = "manual",
         schedule_id: Optional[int] = None,
         project_id: Optional[int] = None,
+        debug: bool = False,
     ) -> Dict[str, Any]:
-        """Run one installed plugin as a single-step workflow."""
+        """
+        Run one installed plugin as a single-step workflow; debug runs (on
+        this server) log debug messages and full tracebacks.
+        """
 
         self._project_id = project_id
         if not _QUALIFIED_PLUGIN.match(qualified_name or ""):
@@ -440,7 +448,7 @@ class RunService:
             path.write_text(json.dumps(definition, indent=2), encoding="utf-8")
 
             try:
-                job_id = self._start(user, file=path).require_id()
+                job_id = self._start(user, file=path, debug=debug).require_id()
             except RunError:
                 path.unlink()
                 raise
@@ -455,6 +463,7 @@ class RunService:
             target=qualified_name,
             trigger=trigger,
             schedule_id=schedule_id,
+            options={"debug": True} if debug else None,
         )
         self.store.set_project(job_id, project_id)
         return self.store.get(job_id) or {}

@@ -99,7 +99,10 @@ def read_files(root: Path) -> dict[str, str]:
             continue
 
         try:
-            files[relative.as_posix()] = path.read_text(encoding="utf-8")
+            # newline="": keep CR LF and lone CR as they are, so the editor
+            # can show them (and saving does not silently convert them).
+            with path.open(encoding="utf-8", newline="") as stream:
+                files[relative.as_posix()] = stream.read()
         except UnicodeDecodeError:
             continue
 
@@ -137,7 +140,8 @@ def _stage(
     for path, content in changes.items():
         target = destination / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        with target.open("w", encoding="utf-8", newline="") as handle:
+            handle.write(content)
 
     return destination
 
@@ -421,12 +425,15 @@ class PluginStudio:
 
     # -- validate -------------------------------------------------------
 
-    def validate(self, qualified_name: str, changes: dict[str, str]) -> list[Diagnostic]:
+    def validate(
+        self, qualified_name: str, changes: dict[str, str], removed: Sequence[str] = ()
+    ) -> list[Diagnostic]:
         plugin = self._resolve(qualified_name)
         changes = _normalize_changes(changes)
+        removed = [normalize_path(path) for path in removed]
 
         with tempfile.TemporaryDirectory(prefix="entropy-web-plugin-") as directory:
-            return self._diagnostics(plugin, changes, Path(directory))
+            return self._diagnostics(plugin, changes, Path(directory), removed)
 
     def _diagnostics(
         self,
@@ -584,7 +591,8 @@ class PluginStudio:
             for path, content in changes.items():
                 target = draft.path / path
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(content, encoding="utf-8")
+                with target.open("w", encoding="utf-8", newline="") as handle:
+                    handle.write(content)
 
         if install:
             self.install(qualified_name)
@@ -614,9 +622,7 @@ class PluginStudio:
             )
 
         removed = [path for path in current if path not in files]
-        return self.save(
-            qualified_name, files, revision(current), backup=backup, removed=removed
-        )
+        return self.save(qualified_name, files, revision(current), backup=backup, removed=removed)
 
     # -- delete ---------------------------------------------------------
 

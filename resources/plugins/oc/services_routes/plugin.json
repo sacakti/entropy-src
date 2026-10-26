@@ -1,12 +1,26 @@
 {
     "name": "services_routes",
     "namespace": "oc",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "",
     "author": "Aravithan Selvaraj",
     "entropy": ">=1.0.0",
 
     "dependencies": [],
+
+    "arguments": [
+        {"name": "services", "type": "list", "required": false, "default": [], "description": "Service resources to create, each an object with name, kind (Service), action (CREATE), source (YAML file to copy) and repository (target YAML file).", "example": [{"name": "app1", "kind": "Service", "action": "CREATE", "source": "/releases/SR01/App/openshift/yamls/service.yaml", "repository": "/yamls/SIT/services/app1-service.yaml"}]},
+        {"name": "routes", "type": "list", "required": false, "default": [], "description": "Route resources to create, each an object with name, kind (Route), action (CREATE), source (YAML file to copy) and repository (target YAML file).", "example": [{"name": "app1", "kind": "Route", "action": "CREATE", "source": "/releases/SR01/App/openshift/yamls/route.yaml", "repository": "/yamls/SIT/routes/app1-route.yaml"}]}
+    ],
+
+    "outputs": [
+        {"name": "success", "type": "boolean", "description": "True when every Service and Route resource was created."},
+        {"name": "resources_processed", "type": "integer", "description": "Number of Service and Route resources processed."},
+        {"name": "resources_succeeded", "type": "integer", "description": "Number of resources whose YAML file was created."},
+        {"name": "resources_failed", "type": "integer", "description": "Number of resources that failed."},
+        {"name": "changes", "type": "integer", "description": "Number of YAML files written to the repository."},
+        {"name": "errors", "type": "list", "description": "Error objects ({message}) for the resources that failed."}
+    ],
 
     "tags": [],
 

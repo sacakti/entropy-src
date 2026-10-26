@@ -48,6 +48,9 @@ MANIFEST = {
     "namespace": "custom",
     "version": "1.0.0",
     "entropy": ">=1.0.0",
+    # Plugins declare what they take and publish (lib/plugins/contract.py).
+    "arguments": [{"name": "name", "type": "string", "default": "world"}],
+    "outputs": [],
 }
 
 
@@ -286,3 +289,25 @@ def test_failed_reinstall_restores_previous_installation(tmp_path: Path) -> None
 
     assert manager.exists("custom.demo")
     assert read_files(manager.get("custom.demo").path) == current["files"]
+
+
+def test_save_moves_files_and_keeps_line_endings(tmp_path: Path) -> None:
+    studio, manager = make_studio(tmp_path)
+    current = studio.files("custom.demo")
+    windows = "X = 1\r\nY = 2\r\n"
+    saved = studio.save("custom.demo", {"tools.py": windows}, current["revision"])
+
+    # A move is the new path plus the old one removed.
+    studio.save(
+        "custom.demo",
+        {"helpers/tools.py": windows},
+        saved["revision"],
+        removed=["tools.py"],
+    )
+
+    root = manager.get("custom.demo").path
+    assert not (root / "tools.py").exists()
+    assert (root / "helpers" / "tools.py").read_bytes() == windows.encode()
+    assert read_files(root)["helpers/tools.py"] == windows
+    # Validation sees the same removals.
+    assert studio.validate("custom.demo", {}, removed=["helpers/tools.py"]) == []

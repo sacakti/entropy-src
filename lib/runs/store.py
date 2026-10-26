@@ -91,6 +91,8 @@ def run_payload(row: Any) -> Dict[str, Any]:
         "trigger": value("trigger") or "cli",
         "schedule_id": value("schedule_id"),
         "options": _json(value("options")),
+        # A plugin run started with "Debug": its debug messages are shown.
+        "debug": bool((_json(value("options")) or {}).get("debug")),
         "parent_job_id": value("parent_job_id"),
         # None for runs from before projects (they belong to Default).
         "project_id": value("project_id"),

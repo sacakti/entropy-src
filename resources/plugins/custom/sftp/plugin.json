@@ -1,19 +1,88 @@
 {
     "name": "sftp",
     "namespace": "custom",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "",
     "author": "",
     "entropy": ">=1.0.0",
-
     "dependencies": [
         {
             "name": "paramiko",
             "version": "3.0"
         }
     ],
-
+    "arguments": [
+        {
+            "name": "operation",
+            "type": "string",
+            "required": true,
+            "description": "SFTP operation to run.",
+            "choices": [
+                "put",
+                "get",
+                "list",
+                "mkdir"
+            ]
+        },
+        {
+            "name": "sftp",
+            "type": "dictionary",
+            "required": true,
+            "description": "Connection credentials: host, port (1-65535), user and either password or key_filename.",
+            "secret": true
+        },
+        {
+            "name": "source",
+            "type": "string",
+            "required": false,
+            "description": "Local file or directory to upload (put), or remote path to download (get) or list (list); not used by mkdir."
+        },
+        {
+            "name": "destination",
+            "type": "string",
+            "required": false,
+            "description": "Remote destination (put, mkdir) or local destination (get); optional for list."
+        },
+        {
+            "name": "archive",
+            "type": "dictionary",
+            "required": false,
+            "description": "Archive the transferred files (put and get only): enabled (default false) and filename_policy."
+        },
+        {
+            "name": "settings",
+            "type": "dictionary",
+            "required": false,
+            "description": "Optional SSH settings: connection {timeout, banner_timeout, auth_timeout}, algorithms {kex, host_key, cipher, mac} and host_key {policy: known_hosts or auto_add}."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "operation",
+            "type": "string",
+            "description": "The SFTP operation that ran."
+        },
+        {
+            "name": "source",
+            "type": "string",
+            "description": "Resolved source path."
+        },
+        {
+            "name": "destination",
+            "type": "string",
+            "description": "Resolved destination path."
+        },
+        {
+            "name": "files_transferred",
+            "type": "integer",
+            "description": "Number of files transferred."
+        },
+        {
+            "name": "entries",
+            "type": "list",
+            "description": "Directory entries returned by the list operation."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

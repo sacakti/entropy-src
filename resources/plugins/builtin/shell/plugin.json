@@ -1,14 +1,85 @@
 {
     "name": "shell",
     "namespace": "builtin",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Shell script execution or shell command execution",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "command",
+            "type": "any",
+            "required": false,
+            "description": "Inline command run with '<shell> -c'; lists and objects are passed as JSON text. Give either command or script."
+        },
+        {
+            "name": "script",
+            "type": "path",
+            "required": false,
+            "description": "Shell script file run with the selected shell. Give either command or script.",
+            "path": "file"
+        },
+        {
+            "name": "shell",
+            "type": "string",
+            "required": false,
+            "description": "Shell executable to use (the first of bash, sh, zsh found when omitted)."
+        },
+        {
+            "name": "args",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Positional arguments passed to the command or script ($1, $2, ...)."
+        },
+        {
+            "name": "cwd",
+            "type": "path",
+            "required": false,
+            "description": "Working directory the command or script runs in.",
+            "path": "directory"
+        },
+        {
+            "name": "timeout",
+            "type": "integer",
+            "required": false,
+            "description": "Seconds after which the command is stopped."
+        },
+        {
+            "name": "env",
+            "type": "dictionary",
+            "required": false,
+            "description": "Extra environment variables for the command or script."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "exit_code",
+            "type": "integer",
+            "description": "Process exit code."
+        },
+        {
+            "name": "success",
+            "type": "boolean",
+            "description": "Whether the command exited successfully."
+        },
+        {
+            "name": "stdout",
+            "type": "string",
+            "description": "Standard output."
+        },
+        {
+            "name": "stderr",
+            "type": "string",
+            "description": "Standard error."
+        },
+        {
+            "name": "duration",
+            "type": "number",
+            "description": "Execution duration in seconds."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

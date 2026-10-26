@@ -1,14 +1,172 @@
 {
     "name": "generic",
     "namespace": "oc",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "Aravinthan Selvaraj",
     "author": "",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "environment",
+            "type": "string",
+            "required": true,
+            "description": "OpenShift environment name used to isolate the session kubeconfig (letters, numbers, '.', '_' and '-').",
+            "example": "SIT"
+        },
+        {
+            "name": "operation",
+            "type": "string",
+            "required": false,
+            "description": "OpenShift operation to run; give either this or operations.",
+            "choices": [
+                "login",
+                "logout",
+                "project",
+                "whoami",
+                "get",
+                "create",
+                "apply",
+                "replace",
+                "delete",
+                "raw"
+            ]
+        },
+        {
+            "name": "operations",
+            "type": "dictionary",
+            "required": false,
+            "description": "Resource paths per operation (create, apply, replace) run in that order; cannot be combined with operation or resources."
+        },
+        {
+            "name": "resources",
+            "type": "any",
+            "required": false,
+            "description": "Resource YAML path or list of paths for get, create, apply, replace and delete."
+        },
+        {
+            "name": "api_url",
+            "type": "string",
+            "required": false,
+            "description": "OpenShift API server URL; required for login."
+        },
+        {
+            "name": "username",
+            "type": "string",
+            "required": false,
+            "description": "OpenShift username; required for login."
+        },
+        {
+            "name": "password",
+            "type": "string",
+            "required": false,
+            "description": "OpenShift password; required for login.",
+            "secret": true
+        },
+        {
+            "name": "insecure_skip_tls_verify",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Skip TLS certificate verification on login."
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "required": false,
+            "description": "Project to switch to for the project operation; when omitted the current project is shown."
+        },
+        {
+            "name": "command",
+            "type": "string",
+            "required": false,
+            "description": "oc subcommand (without 'oc') for the raw operation."
+        },
+        {
+            "name": "arguments",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Additional string arguments appended to the oc command (resource operations and raw)."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "operation",
+            "type": "string",
+            "description": "Operation that was executed ('auto' for operations)."
+        },
+        {
+            "name": "environment",
+            "type": "string",
+            "description": "OpenShift environment used."
+        },
+        {
+            "name": "api_url",
+            "type": "string",
+            "description": "API server URL logged in to (login)."
+        },
+        {
+            "name": "kubeconfig",
+            "type": "string",
+            "description": "Path of the environment kubeconfig (login)."
+        },
+        {
+            "name": "success",
+            "type": "boolean",
+            "description": "Whether the operation succeeded."
+        },
+        {
+            "name": "exit_code",
+            "type": "integer",
+            "description": "Exit code of the oc command."
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "description": "Project switched to (project)."
+        },
+        {
+            "name": "username",
+            "type": "string",
+            "description": "Authenticated user (whoami)."
+        },
+        {
+            "name": "stdout",
+            "type": "string",
+            "description": "Standard output of the oc command (project, raw)."
+        },
+        {
+            "name": "stderr",
+            "type": "string",
+            "description": "Standard error of the oc command (raw)."
+        },
+        {
+            "name": "duration",
+            "type": "number",
+            "description": "Command duration in seconds (raw)."
+        },
+        {
+            "name": "command",
+            "type": "any",
+            "description": "Command that was executed (raw)."
+        },
+        {
+            "name": "resources",
+            "type": "list",
+            "description": "Resource paths processed (resource operations)."
+        },
+        {
+            "name": "operations",
+            "type": "dictionary",
+            "description": "Resource paths executed per operation (operations)."
+        },
+        {
+            "name": "results",
+            "type": "list",
+            "description": "Per-resource results (operation, resource, exit_code, success, stdout, stderr, duration)."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

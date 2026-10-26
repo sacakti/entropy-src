@@ -9,6 +9,9 @@ import json
 import sys
 from pathlib import Path
 
+# Set in a run's environment by "Debug": debug messages go to the run log.
+DEBUG_ENV = "ENTROPY_RUN_DEBUG"
+
 
 def bootstrap(
     project_root: Path,
@@ -148,6 +151,14 @@ class WorkflowWorker:
         context = factory.build()
 
         factory.discover()
+
+        import os
+
+        from core.models.logger import LogLevel
+
+        if os.environ.get(DEBUG_ENV) and context.console_log_sink is not None:
+
+            context.console_log_sink.level = LogLevel.DEBUG
 
         options = WorkflowExecutionOptions(
             tags=self._tags,

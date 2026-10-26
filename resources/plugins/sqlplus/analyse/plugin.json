@@ -1,12 +1,28 @@
 {
     "name": "analyse",
     "namespace": "sqlplus",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "",
     "author": "",
     "entropy": ">=1.0.0",
 
     "dependencies": [],
+
+    "arguments": [
+        {"name": "path", "type": "path", "path": "directory", "required": true, "description": "Directory whose application subdirectories hold the SQL scripts to analyse.", "example": "/opt/releases/H004/DBScripts"},
+        {"name": "extensions", "type": "list", "required": false, "default": [".sql"], "description": "File extensions (starting with '.') of the scripts to analyse."},
+        {"name": "policy", "type": "dictionary", "required": false, "description": "Rules to report at each severity, as lists under 'warning', 'error' and 'stop' (for example insert, drop, truncate, delete, hardcoded, not_endwith_slash, accept); no rule is enforced when omitted.", "example": {"warning": ["insert"], "error": ["drop", "truncate", "delete"], "stop": ["hardcoded", "not_endwith_slash", "accept"]}}
+    ],
+
+    "outputs": [
+        {"name": "success", "type": "boolean", "description": "True when no error or stop finding was reported."},
+        {"name": "files_scanned", "type": "integer", "description": "Number of script files analysed across all applications."},
+        {"name": "objects", "type": "integer", "description": "Number of database objects found across all applications."},
+        {"name": "findings", "type": "integer", "description": "Number of findings across all applications."},
+        {"name": "applications", "type": "integer", "description": "Number of application directories analysed."},
+        {"name": "stopped", "type": "boolean", "description": "True when a stop-severity rule halted analysis of an application."},
+        {"name": "results", "type": "list", "description": "Per-application results: application, path, files_scanned, objects, findings, stopped and report (HTML report path)."}
+    ],
 
     "tags": [],
 

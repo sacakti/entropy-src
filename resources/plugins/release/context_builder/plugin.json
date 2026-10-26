@@ -1,12 +1,29 @@
 {
     "name": "context_builder",
     "namespace": "release",
-    "version": "1.1.2",
+    "version": "1.1.3",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
 
     "dependencies": [],
+
+    "arguments": [
+        {"name": "release", "type": "path", "path": "file", "required": true, "description": "Release package ZIP archive to analyse.", "example": "/opt/releases/SR01.zip"},
+        {"name": "docker_repository", "type": "path", "path": "directory", "required": true, "description": "Docker repository compared with the release to work out which images need building.", "example": "/opt/entropy/docker"},
+        {"name": "yaml_repository", "type": "path", "path": "directory", "required": true, "description": "YAML repository holding the target OpenShift resources and its .entropy/resource_index.json.", "example": "/opt/entropy/yamls/SIT"},
+        {"name": "image_tag", "type": "string", "required": true, "description": "Image tag the release images are built and deployed with.", "example": "1.1.7"},
+        {"name": "structure", "type": "path", "path": "file", "required": false, "description": "Release structure definition YAML; the plugin's bundled structure.yaml is used when omitted."}
+    ],
+
+    "outputs": [
+        {"name": "workspace", "type": "string", "description": "Workspace directory of the run."},
+        {"name": "release", "type": "dictionary", "description": "Release package details: package, root, docker_source_release and docker_dest_repo."},
+        {"name": "images", "type": "dictionary", "description": "Images that need building, keyed by image name."},
+        {"name": "deployment", "type": "dictionary", "description": "Planned OpenShift changes: required flag, resources by type and operations (create, apply, replace)."},
+        {"name": "common_paths", "type": "list", "description": "Common path rsync operations found in the release."},
+        {"name": "database", "type": "dictionary", "description": "Database scripts found in the release: dir, scripts and execution_plan."}
+    ],
 
     "tags": [],
 

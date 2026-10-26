@@ -105,6 +105,7 @@ class PluginContext:
         self,
         context: ExecutionContext,
         mode: PluginMode,
+        arguments: dict[str, Any] | None = None,
     ) -> None:
 
         self._runtime = context
@@ -127,8 +128,9 @@ class PluginContext:
             emitter=self._emitter,
         )
 
+        # Checked against the plugin's contract (defaults filled in) when it has one.
         self._arguments = PluginArguments(
-            context.arguments,
+            context.arguments if arguments is None else arguments,
         )
 
     # ------------------------------------------------------------------

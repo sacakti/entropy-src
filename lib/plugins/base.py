@@ -326,6 +326,29 @@ class BasePlugin(ABC):
     # Execute
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Lifecycle: validate -> prepare -> execute -> cleanup
+    #
+    # Entropy checks the arguments against plugin.json before validate();
+    # cleanup() runs whether execute() succeeded or not. Only execute() is
+    # required.
+    # ------------------------------------------------------------------
+
+    def validate(
+        self,
+    ) -> None:
+        """
+        Check the arguments beyond their declared types (e.g. one of two
+        given); raise PluginValueError to stop before anything happens.
+        """
+
+    def prepare(
+        self,
+    ) -> None:
+        """
+        Set up what execute() needs (connections, working folders).
+        """
+
     @abstractmethod
     def execute(
         self,
@@ -335,3 +358,10 @@ class BasePlugin(ABC):
         """
 
         raise NotImplementedError()
+
+    def cleanup(
+        self,
+    ) -> None:
+        """
+        Release what prepare() and execute() set up; always runs.
+        """

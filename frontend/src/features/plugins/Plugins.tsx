@@ -1290,11 +1290,13 @@ export default function Plugins() {
                             key={`${editingPlugin.qualified_name}:${editorKey}`}
                             plugin={editingPlugin}
                             onClose={() => setEditingPlugin(null)}
-                            onSaved={() => {
-                                setEditingPlugin(null)
+                            onSaved={(saved) => {
+                                // The editor stays open; it asks whether to close.
+                                setEditingPlugin((current) => (current ? { ...current, ...saved } : current))
                                 refreshPlugins()
                             }}
                             readOnly={viewOnly}
+                            runReason={runReason}
                             restoreReason={restoreReason}
                             onRestored={(version) => {
                                 setEditingPlugin((current) => (current ? { ...current, version } : current))

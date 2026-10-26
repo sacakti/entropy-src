@@ -8,7 +8,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lib.models.plugin import PluginResult
-from lib.plugins.exceptions import PluginDisabledError, PluginExecutionError
+from lib.plugins.contract import (
+    ContractError,
+    check_arguments,
+    check_outputs,
+    declared,
+    read_manifest,
+)
+from lib.plugins.exceptions import (
+    PluginDisabledError,
+    PluginExecutionError,
+    PluginValueError,
+)
 
 from .context import PluginContext
 from .loader import PluginLoader
@@ -65,17 +76,10 @@ class PluginRunner:
                 checkout_assigned_repositories(context, qualified_name)
             )
 
-            result = plugin.execute()
-
-            if not isinstance(
-                result,
-                PluginResult,
-            ):
-                raise PluginExecutionError(
-                    f"Plugin '{qualified_name}' returned "
-                    f"'{type(result).__name__}', "
-                    "expected PluginResult.",
-                )
+            result = self._lifecycle(
+                plugin,
+                qualified_name,
+            )
 
             self._capture_artifacts(context, plugin, qualified_name)
 
@@ -103,10 +107,109 @@ class PluginRunner:
     # Helpers
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _lifecycle(
+        plugin: BasePlugin,
+        name: str,
+    ) -> PluginResult:
+        """
+        validate -> prepare -> execute -> cleanup (always), then check the
+        result and that its outputs are declared.
+        """
+
+        contract = getattr(
+            plugin,
+            "_entropy_contract",
+            None,
+        )
+
+        try:
+
+            plugin.validate()
+
+            plugin.prepare()
+
+            result = plugin.execute()
+
+        finally:
+
+            plugin.cleanup()
+
+        if not isinstance(
+            result,
+            PluginResult,
+        ):
+
+            raise PluginExecutionError(
+                f"Plugin '{name}' returned "
+                f"'{type(result).__name__}', "
+                "expected PluginResult.",
+            )
+
+        if contract is not None:
+
+            problems = check_outputs(
+                contract,
+                dict(result.outputs or {}),
+            )
+
+            if problems:
+
+                raise PluginExecutionError(
+                    f"Plugin '{name}': " + "; ".join(problems) + ".",
+                )
+
+        return result
+
+    @staticmethod
+    def _contract_arguments(
+        context: ExecutionContext,
+        directory: Path,
+        name: str,
+    ) -> tuple:
+        """
+        (contract, checked arguments) when the plugin declares a contract;
+        (None, None) for plugins that predate contracts.
+        """
+
+        try:
+
+            contract = declared(
+                read_manifest(
+                    directory,
+                ),
+            )
+
+        except ContractError as exc:
+
+            raise PluginExecutionError(
+                f"Plugin '{name}' has an invalid contract in plugin.json: {exc}",
+            ) from None
+
+        if contract is None:
+
+            return None, None
+
+        try:
+
+            arguments = check_arguments(
+                contract,
+                dict(context.arguments or {}),
+            )
+
+        except ContractError as exc:
+
+            raise PluginValueError(
+                f"Plugin '{name}': {exc}.",
+            ) from None
+
+        return contract, arguments
+
     def _create_context(
         self,
         context: ExecutionContext,
         mode: PluginMode,
+        arguments: dict | None = None,
     ) -> PluginContext:
         """
         Create the public plugin context.
@@ -115,7 +218,36 @@ class PluginRunner:
         return PluginContext(
             context=context,
             mode=mode,
+            arguments=arguments,
         )
+
+    def _instantiate(
+        self,
+        plugin_class: type,
+        context: ExecutionContext,
+        mode: PluginMode,
+        directory: Path,
+        name: str,
+    ) -> BasePlugin:
+        """A plugin instance with its arguments checked against its contract."""
+
+        contract, arguments = self._contract_arguments(
+            context,
+            directory,
+            name,
+        )
+
+        plugin = plugin_class(
+            self._create_context(
+                context=context,
+                mode=mode,
+                arguments=arguments,
+            ),
+        )
+
+        plugin._entropy_contract = contract
+
+        return plugin
 
     def _create_plugin(
         self,
@@ -141,11 +273,12 @@ class PluginRunner:
             qualified_name,
         )
 
-        return plugin_class(
-            self._create_context(
-                context=context,
-                mode=mode,
-            ),
+        return self._instantiate(
+            plugin_class,
+            context,
+            mode,
+            plugin.path,
+            qualified_name,
         )
 
     def execute_local(
@@ -162,11 +295,12 @@ class PluginRunner:
             directory,
         )
 
-        plugin = plugin_class(
-            self._create_context(
-                context=context,
-                mode=mode,
-            ),
+        plugin = self._instantiate(
+            plugin_class,
+            context,
+            mode,
+            directory,
+            str(directory),
         )
 
         identifier = str(
@@ -187,18 +321,10 @@ class PluginRunner:
                 checkout_assigned_repositories(context, identifier)
             )
 
-            result = plugin.execute()
-
-            if not isinstance(
-                result,
-                PluginResult,
-            ):
-
-                raise PluginExecutionError(
-                    f"Local plugin '{directory}' returned "
-                    f"'{type(result).__name__}', "
-                    "expected PluginResult.",
-                )
+            result = self._lifecycle(
+                plugin,
+                str(directory),
+            )
 
             self._capture_artifacts(context, plugin, identifier)
 

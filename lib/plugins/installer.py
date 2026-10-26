@@ -17,11 +17,13 @@ from lib.models.plugin import Plugin, PluginManifest
 from .exceptions import (
     PluginAlreadyInstalledError,
     PluginDependencyError,
+    PluginValidationError,
     PluginValueError,
 )
 from .manifest import ManifestReader
 from .validator import ManifestValidator
 from .dependency import PluginDependencyResolver
+
 
 class PluginInstaller:
     """
@@ -82,6 +84,13 @@ class PluginInstaller:
         )
 
         self._dependencies.validate_manifest(
+            manifest,
+        )
+
+        # Arguments and outputs must be declared, and the source must keep
+        # to them (see lib.plugins.contract).
+        self._check_contract(
+            directory,
             manifest,
         )
 
@@ -185,6 +194,53 @@ class PluginInstaller:
     # ------------------------------------------------------------------
     # Extensions
     # ------------------------------------------------------------------
+
+    def _check_contract(
+        self,
+        directory: Path,
+        manifest: PluginManifest,
+    ) -> None:
+        """
+        Refuse plugins without a well-formed contract, or whose source reads
+        or publishes something the contract does not declare.
+        """
+
+        from lib.plugins.contract import ContractError, check_source, declared, read_manifest
+
+        name = manifest.qualified_name
+
+        try:
+
+            contract = declared(
+                read_manifest(
+                    directory,
+                ),
+            )
+
+        except ContractError as exc:
+
+            raise PluginValidationError(
+                f"Plugin '{name}' has an invalid contract in plugin.json: {exc}.",
+            ) from None
+
+        if contract is None:
+
+            raise PluginValidationError(
+                f'Plugin \'{name}\' must declare its "arguments" and "outputs" in '
+                "plugin.json (empty lists when it has none). The plugin editor's "
+                "'Generate contract' fills them in from the source.",
+            )
+
+        problems = check_source(
+            directory,
+            contract,
+        )
+
+        if problems:
+
+            raise PluginValidationError(
+                f"Plugin '{name}' does not keep to its contract: " + "; ".join(problems) + ".",
+            )
 
     def _install_extensions(
         self,

@@ -1,14 +1,112 @@
 {
     "name": "cache_refresh",
     "namespace": "custom",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "environment",
+            "type": "string",
+            "required": true,
+            "description": "Environment whose OpenShift login session (<session>/.kube/<environment>/config) is used."
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "required": true,
+            "description": "OpenShift namespace containing the deployments."
+        },
+        {
+            "name": "services",
+            "type": "list",
+            "required": true,
+            "description": "Ordered, non-empty list of unique deployment names to restart.",
+            "example": [
+                "app1",
+                "app2",
+                "cache"
+            ]
+        },
+        {
+            "name": "service_readiness",
+            "type": "dictionary",
+            "required": true,
+            "description": "How restarted services are judged ready: ready_by ('ready' or 'log', default 'ready'), success_messages, failure_messages, timeout (default 300) and poll_interval (default 5) in seconds."
+        },
+        {
+            "name": "rebuild",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Run a cache rebuild (true) or a plain restart of the services (false)."
+        },
+        {
+            "name": "cache",
+            "type": "dictionary",
+            "required": false,
+            "description": "Cache rebuild settings, required when rebuild is true: deployment (one of services), environment {name, value} set during the rebuild, and readiness (same keys as service_readiness)."
+        },
+        {
+            "name": "stop_all_before_cache_rebuild",
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "When rebuilding, stop every service before the cache deployment is rebuilt."
+        },
+        {
+            "name": "mode",
+            "type": "string",
+            "required": false,
+            "default": "force",
+            "description": "Restart mechanism.",
+            "choices": [
+                "force",
+                "graceful"
+            ]
+        },
+        {
+            "name": "parallel",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Restart the remaining services in parallel."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "rebuild",
+            "type": "boolean",
+            "description": "Whether a cache rebuild was performed."
+        },
+        {
+            "name": "stop_all_before_cache_rebuild",
+            "type": "boolean",
+            "description": "Resolved stop-all-before-rebuild setting."
+        },
+        {
+            "name": "mode",
+            "type": "string",
+            "description": "Resolved restart mode."
+        },
+        {
+            "name": "services",
+            "type": "list",
+            "description": "Deployment names that were handled."
+        },
+        {
+            "name": "parallel",
+            "type": "boolean",
+            "description": "Resolved parallel setting."
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "description": "Target namespace."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

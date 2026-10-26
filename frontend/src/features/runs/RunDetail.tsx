@@ -251,6 +251,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
     const [view, setView] = useState<View>('progress')
     const [source, setSource] = useState<LogSource>('events')
     const [follow, setFollow] = useState(true)
+    const [debugShown, setDebugShown] = useState(false)
     const [expanded, setExpanded] = useState<string | null>(null)
     const [stopping, setStopping] = useState(false)
     const [rerunOpen, setRerunOpen] = useState(false)
@@ -331,13 +332,22 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
         }
     }, [events, output, follow, view, source])
 
-    const grouped = useMemo(() => eventsByStep(events), [events])
+    // Debug messages are kept for every run; shown for debug runs or on request.
+    const showDebug = debugShown || Boolean(run?.debug)
+    const shown = useMemo(
+        () =>
+            showDebug
+                ? events
+                : events.filter((event) => !(event.type === 'message' && levelName(event.level) === 'debug')),
+        [events, showDebug],
+    )
+    const grouped = useMemo(() => eventsByStep(shown), [shown])
     const cards = useMemo(
         () => (run ? buildCards(plan, steps, grouped, run) : []),
         [grouped, plan, run, steps],
     )
     const done = cards.filter((card) => card.status === 'completed' || card.status === 'skipped').length
-    const multiNode = (run?.options?.nodes.length ?? 1) > 1
+    const multiNode = (run?.options?.nodes?.length ?? 1) > 1
     const progress = cards.length ? Math.round((done / cards.length) * 100) : 0
     const runFailure =
         run?.state === 'failed' ? events.find((event) => event.type === 'execution.failed') : undefined
@@ -442,9 +452,9 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                         <dd>{TRIGGER_LABELS[run.trigger] ?? run.trigger}</dd>
                     </div>
                     <div>
-                        <dt>{(run.options?.nodes.length ?? 1) > 1 ? 'Nodes' : 'Node'}</dt>
-                        <dd title={run.options?.nodes.join(', ')}>
-                            {(run.options?.nodes.length ?? 1) > 1 ? run.options?.nodes.join(', ') : run.node}
+                        <dt>{(run.options?.nodes?.length ?? 1) > 1 ? 'Nodes' : 'Node'}</dt>
+                        <dd title={run.options?.nodes?.join(', ')}>
+                            {(run.options?.nodes?.length ?? 1) > 1 ? run.options?.nodes?.join(', ') : run.node}
                         </dd>
                     </div>
                     <div>
@@ -463,7 +473,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                     </div>
                 </dl>
 
-                {run.options && <RunOptionsSummary options={run.options} />}
+                {run.options?.nodes && <RunOptionsSummary options={run.options} />}
 
                 <div
                     className={`run-progress is-${run.state}`}
@@ -561,6 +571,15 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                                     onChange={(event) => setFollow(event.target.checked)}
                                 />
                                 Follow
+                            </label>
+                            <label className="run-follow" title="Messages plugins log at debug level">
+                                <input
+                                    type="checkbox"
+                                    checked={showDebug}
+                                    disabled={Boolean(run.debug)}
+                                    onChange={(event) => setDebugShown(event.target.checked)}
+                                />
+                                Debug messages
                             </label>
                         </div>
                     )}
@@ -678,11 +697,11 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                             ) : (
                                 <p className="run-card-muted">The worker has not written any console output.</p>
                             )
-                        ) : events.length === 0 ? (
+                        ) : shown.length === 0 ? (
                             <p className="run-card-muted">Waiting for the first event…</p>
                         ) : (
                             <ul className="run-lines">
-                                {events.map((event) => {
+                                {shown.map((event) => {
                                     const step = event.node_type === 'step' ? event.node_name : null
                                     return (
                                         <li key={event.id} className={`is-${eventTone(event)}`}>

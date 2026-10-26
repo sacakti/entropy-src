@@ -1,7 +1,7 @@
 {
     "name": "invalid_objects_report",
     "namespace": "sqlplus",
-    "version": "1.3.10",
+    "version": "1.3.11",
     "description": "Generate an HTML report of invalid Oracle objects.",
     "author": "",
     "entropy": ">=1.0.0",
@@ -16,6 +16,21 @@
                 "model.SqlPlusExecutionResult"
             ]
         }
+    ],
+    "arguments": [
+        {"name": "connection", "type": "dictionary", "required": true, "description": "Oracle connection with IP, PORT (1-65535) and SID.", "example": {"IP": "localhost", "PORT": 1521, "SID": "orcl"}},
+        {"name": "schemas", "type": "dictionary", "required": true, "secret": true, "description": "Schemas to check, keyed by schema name, each an object (or a JSON string of one) with username and password."},
+        {"name": "report", "type": "dictionary", "required": false, "description": "Report file naming: add_text (boolean), position ('before' or 'after') and text added to the HTML file name; nothing is added when omitted.", "example": {"add_text": true, "position": "before", "text": "SR01"}},
+        {"name": "sqlhome", "type": "path", "path": "directory", "required": false, "description": "Oracle home whose bin/sqlplus is used; sqlplus is taken from PATH when omitted.", "example": "/opt/oracle/product/19c/dbhome_1"}
+    ],
+    "outputs": [
+        {"name": "report", "type": "string", "description": "Path to the generated HTML report."},
+        {"name": "connection", "type": "dictionary", "description": "Connection checked: host, port and sid."},
+        {"name": "schemas", "type": "integer", "description": "Number of schemas checked."},
+        {"name": "clean", "type": "integer", "description": "Number of schemas with no invalid objects."},
+        {"name": "attention_required", "type": "integer", "description": "Number of schemas with invalid objects."},
+        {"name": "errors", "type": "integer", "description": "Number of schemas whose check failed."},
+        {"name": "invalid_objects", "type": "integer", "description": "Total number of invalid objects found."}
     ],
     "tags": [
         "oracle",

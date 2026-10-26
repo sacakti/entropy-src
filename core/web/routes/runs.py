@@ -46,6 +46,8 @@ class StartRunRequest(RunOptionsRequest):
 class StartPluginRunRequest(BaseModel):
     node: str = "local"
     arguments: Dict[str, Any] = Field(default_factory=dict)
+    # Debug messages and full tracebacks in the run log.
+    debug: bool = False
 
 
 class HousekeepingRequest(BaseModel):
@@ -444,6 +446,7 @@ def run_plugin(
             node=payload.node,
             arguments=payload.arguments,
             project_id=project["id"],
+            debug=payload.debug,
         )
     except RunError as exc:
         raise _http(exc) from exc

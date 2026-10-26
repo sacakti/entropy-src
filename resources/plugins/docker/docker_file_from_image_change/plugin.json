@@ -1,14 +1,56 @@
 {
     "name": "docker_file_from_image_change",
     "namespace": "docker",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "",
     "author": "",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "mode",
+            "type": "string",
+            "required": true,
+            "description": "Where the Dockerfile-to-image mappings come from: 'direct' (the mappings argument) or 'source' (a JSON file).",
+            "choices": [
+                "direct",
+                "source"
+            ]
+        },
+        {
+            "name": "mappings",
+            "type": "dictionary",
+            "required": false,
+            "description": "Dockerfile path to target base image mapping; required when mode is 'direct'.",
+            "example": {
+                "./app/Dockerfile": "registry.example.com/apps/app:2.0"
+            }
+        },
+        {
+            "name": "source",
+            "type": "path",
+            "required": false,
+            "description": "JSON file mapping Dockerfile paths to target base images; required when mode is 'source'.",
+            "path": "file"
+        }
+    ],
+    "outputs": [
+        {
+            "name": "build_required",
+            "type": "boolean",
+            "description": "Whether any Dockerfile changed so an image build is needed."
+        },
+        {
+            "name": "images",
+            "type": "list",
+            "description": "Images (with their Dockerfile) that require a build."
+        },
+        {
+            "name": "changes",
+            "type": "list",
+            "description": "FROM line changes made, one entry per Dockerfile (dockerfile, from, to)."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

@@ -72,4 +72,10 @@ def test_extracts_outputs(tmp_path: Path) -> None:
 def test_ignores_unparseable_sources(tmp_path: Path) -> None:
     (tmp_path / "plugin.py").write_text("def broken(:\n")
 
-    assert plugin_contract(tmp_path) == {"description": None, "arguments": [], "outputs": []}
+    assert plugin_contract(tmp_path) == {
+        "description": None,
+        "contract": "inferred",
+        "arguments": [],
+        "outputs": [],
+        "output_details": [],
+    }

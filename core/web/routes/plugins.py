@@ -2,8 +2,9 @@
 Installed plugin inventory and browser plugin development API.
 """
 
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from fastapi import (
     APIRouter,
@@ -85,9 +86,7 @@ def _serialize_plugin(plugin: Any) -> dict[str, Any]:
         "id": plugin.id,
         "namespace": plugin.namespace,
         "name": plugin.name,
-        "qualified_name": (
-            f"{plugin.namespace}.{plugin.name}"
-        ),
+        "qualified_name": (f"{plugin.namespace}.{plugin.name}"),
         "version": plugin.version,
         "enabled": bool(plugin.enabled),
         "installed_at": installed_at,
@@ -152,10 +151,7 @@ def list_plugins(
             detail="Unable to retrieve installed plugins.",
         ) from exc
 
-    items = [
-        _serialize_plugin(plugin)
-        for plugin in [*plugins, *_studio(request).drafts()]
-    ]
+    items = [_serialize_plugin(plugin) for plugin in [*plugins, *_studio(request).drafts()]]
 
     summary = {
         "total": len(items),
@@ -180,25 +176,13 @@ def list_plugins(
         ]
 
     if namespace:
-        items = [
-            item
-            for item in items
-            if item["namespace"] == namespace
-        ]
+        items = [item for item in items if item["namespace"] == namespace]
 
     if enabled is not None:
-        items = [
-            item
-            for item in items
-            if item["enabled"] is enabled and not item["draft"]
-        ]
+        items = [item for item in items if item["enabled"] is enabled and not item["draft"]]
 
     if draft is not None:
-        items = [
-            item
-            for item in items
-            if item["draft"] is draft
-        ]
+        items = [item for item in items if item["draft"] is draft]
 
     def sort_key(item: dict[str, Any]) -> tuple[bool, str]:
         value = item.get(sort_by)
@@ -217,9 +201,7 @@ def list_plugins(
     total_pages = (total + page_size - 1) // page_size
     start = (page - 1) * page_size
 
-    paged_items = items[
-        start : start + page_size
-    ]
+    paged_items = items[start : start + page_size]
 
     return JSONResponse(
         content={
@@ -262,6 +244,8 @@ class PluginFilesRequest(BaseModel):
     """Changed plugin files keyed by plugin-relative path."""
 
     files: Dict[str, str]
+    # Files to delete (moving a file is a new path plus the old one removed).
+    removed: List[str] = Field(default_factory=list, max_length=1000)
 
 
 class PluginSaveRequest(PluginFilesRequest):
@@ -319,12 +303,21 @@ def _translate(exc: Exception) -> HTTPException:
 
 
 def _files_payload(result: dict[str, Any]) -> dict[str, Any]:
+    root = Path(result["plugin"].path)
+
+    def info(path: str, content: str) -> dict[str, Any]:
+        entry: dict[str, Any] = {"path": path, "content": content}
+        try:
+            stat = (root / path).stat()
+            entry["size"] = stat.st_size
+            entry["modified"] = datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
+        except OSError:
+            entry["size"] = len(content.encode("utf-8"))
+        return entry
+
     return {
         "plugin": _serialize_plugin(result["plugin"]),
-        "files": [
-            {"path": path, "content": content}
-            for path, content in result["files"].items()
-        ],
+        "files": [info(path, content) for path, content in result["files"].items()],
         "revision": result["revision"],
     }
 
@@ -423,11 +416,15 @@ def plugin_contracts(
     items = []
 
     for plugin in manager.list():
-        contract = plugin_contract(plugin.path) if plugin.path.is_dir() else {
-            "description": None,
-            "arguments": [],
-            "outputs": [],
-        }
+        contract = (
+            plugin_contract(plugin.path)
+            if plugin.path.is_dir()
+            else {
+                "description": None,
+                "arguments": [],
+                "outputs": [],
+            }
+        )
         items.append({**_serialize_plugin(plugin), **contract})
 
     items.sort(key=lambda item: item["qualified_name"])
@@ -611,6 +608,107 @@ def plugin_files(
     return _files_payload(result)
 
 
+@router.post("/{qualified_name}/contract")
+def generate_contract(
+    qualified_name: str,
+    payload: PluginFilesRequest,
+    request: Request,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """
+    plugin.json with "arguments" and "outputs" filled in from the source (the
+    current edits included); what is already declared is kept.
+    """
+
+    import json
+    import tempfile
+
+    from core.web.plugin_studio.workspace import read_files
+    from lib.plugins.contract import inferred
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.write")
+
+    try:
+        plugin = _studio(request)._resolve(qualified_name)
+    except Exception as exc:
+        raise _translate(exc) from exc
+    files = {**read_files(plugin.path), **payload.files}
+    for path in payload.removed:
+        files.pop(path, None)
+    try:
+        manifest = json.loads(files.get("plugin.json") or "{}")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="plugin.json is not valid JSON.") from None
+    with tempfile.TemporaryDirectory(prefix="entropy-contract-") as directory:
+        root = Path(directory)
+        for path, content in files.items():
+            if path.endswith(".py"):
+                target = root / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content, encoding="utf-8")
+        found = inferred(root)
+
+    def merge(existing: Any, found_items: list, fields: tuple) -> list:
+        items = (
+            [item for item in existing if isinstance(item, dict)]
+            if isinstance(existing, list)
+            else []
+        )
+        names = {item.get("name") for item in items}
+        for item in found_items:
+            if item["name"] not in names:
+                entry = {key: item[key] for key in fields if item.get(key) not in (None, "")}
+                entry.setdefault("description", "")
+                items.append(entry)
+        return items
+
+    arguments = merge(
+        manifest.get("arguments"),
+        found["arguments"],
+        ("name", "type", "required", "default", "minimum", "maximum"),
+    )
+    for item in arguments:
+        # A required argument takes no default; types the builder cannot name become "any".
+        if item.get("required"):
+            item.pop("default", None)
+        if item.get("type") == "any" and "type" in item:
+            item["type"] = "any"
+    outputs = merge(manifest.get("outputs"), found["outputs"], ("name", "type"))
+    ordered: Dict[str, Any] = {}
+    for key, value in manifest.items():
+        if key in ("arguments", "outputs"):
+            continue
+        ordered[key] = value
+        if key in ("dependencies", "required_plugins"):
+            ordered["arguments"] = arguments
+            ordered["outputs"] = outputs
+    ordered.setdefault("arguments", arguments)
+    ordered.setdefault("outputs", outputs)
+    return {
+        "content": json.dumps(ordered, indent=4, ensure_ascii=False) + "\n",
+        "added": {
+            "arguments": [
+                i["name"]
+                for i in arguments
+                if i["name"]
+                not in {
+                    x.get("name") for x in (manifest.get("arguments") or []) if isinstance(x, dict)
+                }
+            ],
+            "outputs": [
+                i["name"]
+                for i in outputs
+                if i["name"]
+                not in {
+                    x.get("name") for x in (manifest.get("outputs") or []) if isinstance(x, dict)
+                }
+            ],
+        },
+    }
+
+
 @router.post("/{qualified_name}/validate")
 def validate_plugin(
     qualified_name: str,
@@ -626,7 +724,9 @@ def validate_plugin(
     _require_permission(request, user, "plugins.write")
 
     try:
-        diagnostics = _studio(request).validate(qualified_name, payload.files)
+        diagnostics = _studio(request).validate(
+            qualified_name, payload.files, removed=payload.removed
+        )
     except Exception as exc:
         raise _translate(exc) from exc
 
@@ -658,6 +758,7 @@ def save_plugin_files(
             payload.revision,
             install=payload.install,
             backup=_keep(request, qualified_name, user),
+            removed=payload.removed,
         )
     except Exception as exc:
         raise _translate(exc) from exc

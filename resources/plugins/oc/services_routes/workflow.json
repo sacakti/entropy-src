@@ -15,14 +15,16 @@
                 "services_routes"
             ],
             "arguments": {
-                "resources": [
+                "services": [
                     {
                         "name": "app1",
                         "kind": "Service",
                         "action": "CREATE",
                         "source": "/Users/aravinthselvaraj/Desktop/releases/SR01/App/openshift/yamls/service.yaml",
                         "repository": "/Users/aravinthselvaraj/Desktop/yamls/SIT/services/app1-service.yaml"
-                    },
+                    }
+                ],
+                "routes": [
                     {
                         "name": "app1",
                         "kind": "Route",

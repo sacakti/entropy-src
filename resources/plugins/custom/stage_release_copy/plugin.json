@@ -1,14 +1,113 @@
 {
     "name": "stage_release_copy",
     "namespace": "custom",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "copy_type",
+            "type": "string",
+            "required": false,
+            "default": "single",
+            "description": "Copy one source directory ('single') or several mappings ('multi').",
+            "choices": [
+                "single",
+                "multi"
+            ]
+        },
+        {
+            "name": "source",
+            "type": "path",
+            "required": false,
+            "description": "Source directory whose contents are copied; required when copy_type is 'single'.",
+            "path": "directory"
+        },
+        {
+            "name": "destination",
+            "type": "path",
+            "required": false,
+            "description": "Destination directory; required when copy_type is 'single'.",
+            "path": "directory"
+        },
+        {
+            "name": "mappings",
+            "type": "list",
+            "required": false,
+            "description": "List of {source, destination} directory pairs; required when copy_type is 'multi'."
+        },
+        {
+            "name": "replace_rules",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Rules routing matching files into a destination subfolder and replacing older versions: each {source glob, destination relative folder, version_pattern regex with a named 'version' group}."
+        },
+        {
+            "name": "backup",
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Back up destination files before they are overwritten."
+        },
+        {
+            "name": "rotate_backup_type",
+            "type": "string",
+            "required": false,
+            "default": "max_files",
+            "description": "How old backups are rotated.",
+            "choices": [
+                "max_files",
+                "max_timestamp"
+            ]
+        },
+        {
+            "name": "max_files",
+            "type": "integer",
+            "required": false,
+            "default": 5,
+            "description": "Number of backups kept when rotating by max_files.",
+            "minimum": 1
+        },
+        {
+            "name": "max_timestamp",
+            "type": "integer",
+            "required": false,
+            "default": 5,
+            "description": "Age of backups kept when rotating by max_timestamp, in max_timestamp_unit.",
+            "minimum": 1
+        },
+        {
+            "name": "max_timestamp_unit",
+            "type": "string",
+            "required": false,
+            "default": "days",
+            "description": "Unit of max_timestamp.",
+            "choices": [
+                "hours",
+                "days"
+            ]
+        }
+    ],
+    "outputs": [
+        {
+            "name": "copy_type",
+            "type": "string",
+            "description": "Copy type that ran."
+        },
+        {
+            "name": "mappings",
+            "type": "list",
+            "description": "Source/destination pairs that were copied."
+        },
+        {
+            "name": "files_copied",
+            "type": "integer",
+            "description": "Total number of files copied."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

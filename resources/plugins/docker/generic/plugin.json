@@ -1,14 +1,149 @@
 {
     "name": "generic",
     "namespace": "docker",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "operation",
+            "type": "string",
+            "required": false,
+            "description": "Docker operation to run; when omitted the step is skipped.",
+            "choices": [
+                "login",
+                "pull",
+                "push",
+                "tag",
+                "inspect",
+                "raw"
+            ]
+        },
+        {
+            "name": "registry",
+            "type": "string",
+            "required": false,
+            "description": "Registry to log in to; required for the login operation."
+        },
+        {
+            "name": "username",
+            "type": "string",
+            "required": false,
+            "description": "Registry username for login; must be given together with password."
+        },
+        {
+            "name": "password",
+            "type": "string",
+            "required": false,
+            "description": "Registry password for login, passed through stdin; must be given together with username.",
+            "secret": true
+        },
+        {
+            "name": "images",
+            "type": "any",
+            "required": false,
+            "description": "Images for pull, push or inspect: a list of image references or a docker build image mapping ({name: {image: ...}})."
+        },
+        {
+            "name": "source",
+            "type": "string",
+            "required": false,
+            "description": "Source image reference for the tag operation."
+        },
+        {
+            "name": "target",
+            "type": "string",
+            "required": false,
+            "description": "Target image reference for the tag operation."
+        },
+        {
+            "name": "command",
+            "type": "string",
+            "required": false,
+            "description": "Docker subcommand (without 'docker') for the raw operation."
+        },
+        {
+            "name": "arguments",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Additional string arguments passed to the raw Docker command."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "skipped",
+            "type": "boolean",
+            "description": "True when no operation was given and the step was skipped."
+        },
+        {
+            "name": "operation",
+            "type": "string",
+            "description": "Operation that was executed."
+        },
+        {
+            "name": "registry",
+            "type": "string",
+            "description": "Registry logged in to (login)."
+        },
+        {
+            "name": "success",
+            "type": "boolean",
+            "description": "Whether the Docker command succeeded (login, tag, raw)."
+        },
+        {
+            "name": "exit_code",
+            "type": "integer",
+            "description": "Exit code of the Docker command (login, tag, raw)."
+        },
+        {
+            "name": "successful",
+            "type": "list",
+            "description": "Images processed successfully (pull, push, inspect)."
+        },
+        {
+            "name": "failed",
+            "type": "list",
+            "description": "Images that failed (pull, push, inspect)."
+        },
+        {
+            "name": "total",
+            "type": "integer",
+            "description": "Number of images processed (pull, push, inspect)."
+        },
+        {
+            "name": "source",
+            "type": "string",
+            "description": "Source image (tag)."
+        },
+        {
+            "name": "target",
+            "type": "string",
+            "description": "Target image (tag)."
+        },
+        {
+            "name": "command",
+            "type": "any",
+            "description": "Command that was executed (raw)."
+        },
+        {
+            "name": "stdout",
+            "type": "string",
+            "description": "Standard output of the command (raw)."
+        },
+        {
+            "name": "stderr",
+            "type": "string",
+            "description": "Standard error of the command (raw)."
+        },
+        {
+            "name": "duration",
+            "type": "number",
+            "description": "Command duration in seconds (raw)."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

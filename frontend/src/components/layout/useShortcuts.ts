@@ -24,11 +24,27 @@ function parse(combo: ShortcutKey): Parsed {
     }
 }
 
+/**
+ * The physical key for a letter or digit (`KeyS`, `Digit1`). Windows and
+ * non-US layouts (or Alt held down) can report another character in
+ * `event.key`, so the physical key is matched too.
+ */
+function codeOf(key: string): string | null {
+    if (/^[a-z]$/.test(key)) return `Key${key.toUpperCase()}`
+    if (/^[0-9]$/.test(key)) return `Digit${key}`
+    return null
+}
+
+export function keyMatches(event: KeyboardEvent, key: string): boolean {
+    const wanted = key.toLowerCase()
+    return event.key.toLowerCase() === wanted || (codeOf(wanted) !== null && event.code === codeOf(wanted))
+}
+
 function matches(event: KeyboardEvent, combo: Parsed): boolean {
     const mod = event.ctrlKey || event.metaKey
 
     return (
-        event.key.toLowerCase() === combo.key &&
+        keyMatches(event, combo.key) &&
         mod === combo.mod &&
         event.shiftKey === combo.shift &&
         event.altKey === combo.alt

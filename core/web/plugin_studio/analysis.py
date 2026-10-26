@@ -484,7 +484,44 @@ def check_manifest(
             )
         ]
 
-    return []
+    return check_contract(directory)
+
+
+def check_contract(directory: Path) -> list[Diagnostic]:
+    """The plugin's declared contract, as the installer checks it."""
+
+    from lib.plugins.contract import ContractError, check_source, declared, read_manifest
+
+    try:
+        contract = declared(read_manifest(directory))
+    except ContractError as exc:
+        return [
+            Diagnostic(
+                path="plugin.json",
+                severity="error",
+                message=f"Contract: {problem}.",
+                source="contract",
+            )
+            for problem in exc.problems
+        ]
+    if contract is None:
+        return [
+            Diagnostic(
+                path="plugin.json",
+                severity="error",
+                message=(
+                    'Declare the plugin\'s "arguments" and "outputs" in plugin.json '
+                    "(Generate contract fills them in from the source)."
+                ),
+                source="contract",
+            )
+        ]
+    return [
+        Diagnostic(
+            path="plugin.py", severity="error", message=f"Contract: {problem}.", source="contract"
+        )
+        for problem in check_source(directory, contract)
+    ]
 
 
 def check_files(files: dict[str, str]) -> list[Diagnostic]:

@@ -1,12 +1,29 @@
 {
     "name": "post_validation",
     "namespace": "sqlplus",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "",
     "author": "",
     "entropy": ">=1.0.0",
 
     "dependencies": [],
+
+    "arguments": [
+        {"name": "path", "type": "path", "path": "directory", "required": true, "description": "Directory whose application subdirectories hold the pre-validation JSON and SQLPlus deployment logs to check.", "example": "/opt/releases/H004/DBScripts"},
+        {"name": "archive", "type": "boolean", "required": false, "default": false, "description": "Copy each application's pre-validation JSON and log into the workspace's post_validation_archive directory."},
+        {"name": "embed_log", "type": "boolean", "required": false, "default": true, "description": "Embed the deployment log in each application's HTML report."}
+    ],
+
+    "outputs": [
+        {"name": "success", "type": "boolean", "description": "True when no application failed validation."},
+        {"name": "dashboard", "type": "string", "description": "Path to the HTML dashboard summarising all applications."},
+        {"name": "applications", "type": "integer", "description": "Number of application directories processed."},
+        {"name": "validated", "type": "integer", "description": "Number of applications validated against a pre-validation JSON."},
+        {"name": "analyzed", "type": "integer", "description": "Number of applications only analysed from their log (no pre-validation JSON)."},
+        {"name": "failed", "type": "integer", "description": "Number of applications whose status is fail."},
+        {"name": "warnings", "type": "integer", "description": "Number of warnings reported."},
+        {"name": "results", "type": "list", "description": "Per-application dashboard entries, including mode, status and report path."}
+    ],
 
     "tags": [],
 

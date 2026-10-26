@@ -1,14 +1,146 @@
 {
     "name": "git",
     "namespace": "builtin",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "operation",
+            "type": "string",
+            "required": true,
+            "description": "Git operation to run in the repository.",
+            "choices": [
+                "status",
+                "pull",
+                "fetch",
+                "add",
+                "commit",
+                "push",
+                "log",
+                "checkout",
+                "branch",
+                "revision",
+                "deployment"
+            ]
+        },
+        {
+            "name": "repository",
+            "type": "path",
+            "required": true,
+            "description": "Local Git working copy the operation runs in.",
+            "path": "directory"
+        },
+        {
+            "name": "paths",
+            "type": "list",
+            "required": false,
+            "description": "Paths to stage for the 'add' operation (the whole repository, '.', when omitted).",
+            "example": [
+                "."
+            ]
+        },
+        {
+            "name": "message",
+            "type": "string",
+            "required": false,
+            "description": "Commit message; required for the 'commit' operation."
+        },
+        {
+            "name": "tag",
+            "type": "string",
+            "required": false,
+            "description": "Release tag committed as 'Deployment - <tag>'; required for the 'deployment' operation."
+        },
+        {
+            "name": "count",
+            "type": "integer",
+            "required": false,
+            "default": 10,
+            "description": "Number of commits shown by the 'log' operation.",
+            "minimum": 1
+        },
+        {
+            "name": "reference",
+            "type": "string",
+            "required": false,
+            "description": "Branch or revision to check out; required for the 'checkout' operation."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "operation",
+            "type": "string",
+            "description": "The Git operation that ran."
+        },
+        {
+            "name": "repository",
+            "type": "string",
+            "description": "Repository path the operation ran in."
+        },
+        {
+            "name": "status",
+            "type": "string",
+            "description": "Output of 'git status' (status operation)."
+        },
+        {
+            "name": "stdout",
+            "type": "string",
+            "description": "Standard output of git pull, fetch or push."
+        },
+        {
+            "name": "stderr",
+            "type": "string",
+            "description": "Standard error of git pull, fetch or push."
+        },
+        {
+            "name": "paths",
+            "type": "list",
+            "description": "Paths that were staged (add, revision and deployment operations)."
+        },
+        {
+            "name": "message",
+            "type": "string",
+            "description": "Commit message used (commit, revision and deployment operations)."
+        },
+        {
+            "name": "committed",
+            "type": "boolean",
+            "description": "Whether a commit was created."
+        },
+        {
+            "name": "nothing_to_commit",
+            "type": "boolean",
+            "description": "True when there were no changes to commit."
+        },
+        {
+            "name": "revision",
+            "type": "integer",
+            "description": "Generated revision number (revision operation)."
+        },
+        {
+            "name": "tag",
+            "type": "string",
+            "description": "Deployment tag committed (deployment operation)."
+        },
+        {
+            "name": "log",
+            "type": "string",
+            "description": "Output of 'git log --oneline' (log operation)."
+        },
+        {
+            "name": "reference",
+            "type": "string",
+            "description": "Branch or revision checked out (checkout operation)."
+        },
+        {
+            "name": "branches",
+            "type": "string",
+            "description": "Output of 'git branch' (branch operation)."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

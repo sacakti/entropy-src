@@ -30,7 +30,6 @@
                 "max_files": 5,
                 "max_timestamp": 5,
                 "max_timestamp_unit": "days",
-                "release_path": "/Users/aravinthselvaraj/Desktop/releases/H002.zip",
                 "replace_rules": [
                     {
                         "destination": ".",

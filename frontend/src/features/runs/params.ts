@@ -5,6 +5,9 @@ export interface ParamSpec {
     type: PluginArgumentType
     required: boolean
     default: unknown
+    description?: string
+    secret?: boolean
+    choices?: unknown[]
 }
 
 export interface ParamRow {

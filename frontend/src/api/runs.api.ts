@@ -33,6 +33,8 @@ export interface Run {
     schedule_id: number | null
     /** The run's plan when it started (newer runs only). */
     options?: RunOptionsSnapshot | null
+    /** A plugin run started with "Debug": its debug messages are shown. */
+    debug?: boolean
     /** Set on a segment of a multi-node run. */
     parent_job_id?: number | null
     /** Runs steps on several nodes, one segment after another. */
@@ -227,10 +229,11 @@ export const runsApi = {
         qualifiedName: string,
         node: string,
         argumentsMap: Record<string, unknown> = {},
+        debug = false,
     ): Promise<{ run: Run }> {
         return apiRequest(
             `/api/plugins/${encodeURIComponent(qualifiedName)}/run`,
-            json('POST', { node, arguments: argumentsMap }),
+            json('POST', { node, arguments: argumentsMap, debug }),
         )
     },
 

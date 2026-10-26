@@ -1,18 +1,146 @@
 {
     "name": "image_transfer",
     "namespace": "custom",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Pull image from azure image registry and push it to quay image registry",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "release",
+            "type": "path",
+            "required": true,
+            "description": "Release ZIP archive; it is extracted beside the archive.",
+            "path": "file"
+        },
+        {
+            "name": "release_scripts_directory",
+            "type": "string",
+            "required": false,
+            "default": "scripts/deploy",
+            "description": "Directory inside the extracted release that holds the deployment scripts."
+        },
+        {
+            "name": "transfer_script",
+            "type": "string",
+            "required": false,
+            "default": "image_transfer.sh",
+            "description": "Name of the image transfer script in the scripts directory."
+        },
+        {
+            "name": "apply_script",
+            "type": "string",
+            "required": false,
+            "default": "apply_yaml.sh",
+            "description": "Name of the OpenShift apply script in the scripts directory."
+        },
+        {
+            "name": "release_base_path",
+            "type": "string",
+            "required": false,
+            "default": "/home/devops",
+            "description": "Base path replaced by the extracted release path in the apply script's 'oc apply -f' commands."
+        },
+        {
+            "name": "min_free_storage_gb",
+            "type": "number",
+            "required": false,
+            "default": 10,
+            "description": "Minimum free Docker storage in GB (must be greater than zero)."
+        },
+        {
+            "name": "old_image_pattern",
+            "type": "string",
+            "required": false,
+            "default": "25.01.01.",
+            "description": "Regular expression matching old Docker images that may be removed to free storage."
+        },
+        {
+            "name": "cleanup_builder_cache",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Prune the Docker builder cache before transferring images."
+        },
+        {
+            "name": "skip_docker",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Skip the Docker storage checks and the image transfer."
+        },
+        {
+            "name": "validate_yaml",
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Check that the YAML files referenced by the apply script exist."
+        },
+        {
+            "name": "force_remove_processed",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Remove an existing extracted release directory before extracting."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "configuration",
+            "type": "dictionary",
+            "description": "The resolved plugin configuration."
+        },
+        {
+            "name": "force_remove_processed",
+            "type": "boolean",
+            "description": "Whether an existing extracted release could be removed."
+        },
+        {
+            "name": "docker_storage",
+            "type": "dictionary",
+            "description": "Docker storage check: docker_root, free_bytes, free_gb, minimum_required_gb."
+        },
+        {
+            "name": "cleanup_performed",
+            "type": "boolean",
+            "description": "Whether old Docker images were removed."
+        },
+        {
+            "name": "docker_skipped",
+            "type": "boolean",
+            "description": "Whether Docker checks and the image transfer were skipped."
+        },
+        {
+            "name": "image_transfer",
+            "type": "boolean",
+            "description": "Whether images were transferred."
+        },
+        {
+            "name": "yaml_script_prepared",
+            "type": "boolean",
+            "description": "Whether the apply script was prepared."
+        },
+        {
+            "name": "yaml_validation_enabled",
+            "type": "boolean",
+            "description": "Whether YAML path validation ran."
+        },
+        {
+            "name": "yaml_paths",
+            "type": "list",
+            "description": "YAML paths referenced by the prepared apply script."
+        },
+        {
+            "name": "release_path",
+            "type": "string",
+            "description": "Directory the release was extracted to."
+        }
+    ],
     "tags": [
         "image",
         "quay",
         "azure"
     ],
-
     "license": ""
 }

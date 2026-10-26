@@ -1,14 +1,70 @@
 {
     "name": "rsync",
     "namespace": "oc",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
-
     "dependencies": [],
-
+    "arguments": [
+        {
+            "name": "environment",
+            "type": "string",
+            "required": true,
+            "description": "OpenShift environment whose existing login session (kubeconfig) is used.",
+            "example": "SIT"
+        },
+        {
+            "name": "rsync_plan",
+            "type": "list",
+            "required": true,
+            "description": "Rsync operations, each with deployment, target (path in the pod) and source (local path); an empty list does nothing.",
+            "example": [
+                {
+                    "deployment": "app-1",
+                    "target": "/opt/app/jrxml",
+                    "source": "/opt/releases/common_path/jrxml"
+                }
+            ]
+        }
+    ],
+    "outputs": [
+        {
+            "name": "success",
+            "type": "boolean",
+            "description": "Whether every rsync operation succeeded."
+        },
+        {
+            "name": "environment",
+            "type": "string",
+            "description": "OpenShift environment used."
+        },
+        {
+            "name": "resources_processed",
+            "type": "integer",
+            "description": "Number of rsync operations processed."
+        },
+        {
+            "name": "resources_succeeded",
+            "type": "integer",
+            "description": "Number of rsync operations that succeeded."
+        },
+        {
+            "name": "resources_failed",
+            "type": "integer",
+            "description": "Number of rsync operations that failed."
+        },
+        {
+            "name": "changes",
+            "type": "integer",
+            "description": "Number of successful rsync operations."
+        },
+        {
+            "name": "results",
+            "type": "list",
+            "description": "Per-operation results (deployment, pod, source, target, destination, success, exit_code, stdout, stderr, duration)."
+        }
+    ],
     "tags": [],
-
     "license": ""
 }

@@ -17,7 +17,14 @@
                 "rsync"
             ],
             "arguments": {
-
+                "environment": "SIT",
+                "rsync_plan": [
+                    {
+                        "deployment": "app-1",
+                        "target": "/opt/app/jrxml",
+                        "source": "/opt/releases/common_path/jrxml"
+                    }
+                ]
             }
         }
     ]

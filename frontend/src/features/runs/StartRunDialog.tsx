@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, LoaderCircle, Play, Server } from 'lucide-react'
 
 import { pluginsApi } from '../../api/plugins.api'
-import { nodesApi, runsApi, type EntropyNode, type RunRerunConfig } from '../../api/runs.api'
+import { nodesApi, runsApi, type EntropyNode, type Run, type RunRerunConfig } from '../../api/runs.api'
 import { workflowsApi } from '../../api/workflows.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
@@ -23,11 +23,17 @@ export default function StartRunDialog({
     kind,
     target,
     rerunFrom,
+    debug: initialDebug = false,
+    onStarted,
     onClose,
 }: {
     kind: 'workflow' | 'plugin'
     target: string
     rerunFrom?: number
+    /** Plugins: start with "Debug run" ticked. */
+    debug?: boolean
+    /** Called instead of opening the run's live screen. */
+    onStarted?: (run: Run) => void
     onClose: () => void
 }) {
     const { notify } = useFeedback()
@@ -41,6 +47,9 @@ export default function StartRunDialog({
     const [advanced, setAdvanced] = useState<AdvancedState>(EMPTY_ADVANCED)
     const [planCheck, setPlanCheck] = useState<PlanCheck>({ state: 'checking' })
     const [rerunConfig, setRerunConfig] = useState<RunRerunConfig | null>(null)
+    const [debug, setDebug] = useState(initialDebug)
+    // A declared contract refuses arguments it does not list.
+    const [declared, setDeclared] = useState(false)
 
     useEffect(() => {
         let active = true
@@ -110,6 +119,7 @@ export default function StartRunDialog({
                     setCheck({ state: 'invalid', error: `Plugin '${target}' is not installed.` })
                     return
                 }
+                setDeclared(contract.contract === 'declared')
                 setRows(rowsFor(contract.arguments))
                 setCheck({
                     state: 'valid',
@@ -172,10 +182,11 @@ export default function StartRunDialog({
                               parsed.values,
                               planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {},
                           )
-                    : await runsApi.startPlugin(target, node, parsed.values)
+                    : await runsApi.startPlugin(target, node, parsed.values, debug)
             notify.success(`Run #${run.id} started on ${run.node}.`, { title: `${target} started` })
             onClose()
-            openRun(run.id)
+            if (onStarted) onStarted(run)
+            else openRun(run.id)
         } catch (cause) {
             setError(errorMessage(cause, 'Unable to start the run.'))
         } finally {
@@ -185,7 +196,7 @@ export default function StartRunDialog({
 
     return (
         <Dialog
-            title={kind === 'workflow' ? `Run ${target}?` : `Test ${target}?`}
+            title={kind === 'workflow' ? `Run ${target}?` : debug ? `Debug ${target}?` : `Test ${target}?`}
             subtitle={
                 kind === 'workflow'
                     ? 'Runs as you on the selected node. You can follow it live and stop it at any time.'
@@ -279,8 +290,19 @@ export default function StartRunDialog({
                             : 'This plugin reads no arguments.'
                     }
                     addLabel={kind === 'workflow' ? 'Add variable' : 'Add argument'}
+                    allowExtra={kind === 'workflow' || !declared}
                 />
             </div>
+
+            {kind === 'plugin' && (
+                <label className="start-run-debug">
+                    <input type="checkbox" checked={debug} onChange={(event) => setDebug(event.target.checked)} />
+                    <span>
+                        Debug run
+                        <small>Shows the plugin's debug messages and Entropy's debug log (local node).</small>
+                    </span>
+                </label>
+            )}
 
             {kind === 'workflow' && check.state === 'valid' && (
                 <RunAdvancedOptions

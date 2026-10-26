@@ -1,11 +1,77 @@
 {
     "name": "deployment",
     "namespace": "oc",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "description": "Update OpenShift Deployment YAML resources.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
     "dependencies": [],
+    "arguments": [
+        {
+            "name": "mode",
+            "type": "string",
+            "required": false,
+            "default": "folder",
+            "description": "Execution mode: 'folder' (source and target directories) or 'deployments' (resources from release context).",
+            "choices": [
+                "folder",
+                "deployments"
+            ]
+        },
+        {
+            "name": "source",
+            "type": "path",
+            "required": false,
+            "description": "Directory of Deployment update definitions; required in folder mode.",
+            "path": "directory"
+        },
+        {
+            "name": "target",
+            "type": "path",
+            "required": false,
+            "description": "Existing directory of Deployment YAML files to update; required in folder mode.",
+            "path": "directory"
+        },
+        {
+            "name": "deployments",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Deployment resources from release context (name, kind, action, repository, file or source, operations or container/target_image); used in deployments mode."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "success",
+            "type": "boolean",
+            "description": "Whether every Deployment was processed without errors."
+        },
+        {
+            "name": "resources_processed",
+            "type": "integer",
+            "description": "Number of Deployment resources processed."
+        },
+        {
+            "name": "resources_succeeded",
+            "type": "integer",
+            "description": "Number of Deployment resources updated or created."
+        },
+        {
+            "name": "resources_failed",
+            "type": "integer",
+            "description": "Number of Deployment resources that failed."
+        },
+        {
+            "name": "changes",
+            "type": "integer",
+            "description": "Number of effective changes applied."
+        },
+        {
+            "name": "errors",
+            "type": "list",
+            "description": "Errors per Deployment (kind, name, path, message)."
+        }
+    ],
     "tags": [],
     "license": ""
 }
