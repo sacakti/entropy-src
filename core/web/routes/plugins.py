@@ -2,6 +2,7 @@
 Installed plugin inventory and browser plugin development API.
 """
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -707,6 +708,53 @@ def generate_contract(
             ],
         },
     }
+
+
+class PluginBuilderRequest(BaseModel):
+    """The visual builder's model (none: the starter), and plugin.json as edited."""
+
+    model: Optional[Dict[str, Any]] = None
+    manifest: Optional[str] = None
+
+
+@router.post("/{qualified_name}/builder")
+def build_plugin(
+    qualified_name: str,
+    payload: PluginBuilderRequest,
+    request: Request,
+    session_record: tuple = Depends(_current_session),
+    _: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """plugin.py, plugin.json and builder.json made from a visual builder model."""
+
+    import json
+
+    from core.web.plugin_studio.workspace import read_files
+    from lib.plugins.builder import BuilderError, generate, starter
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.write")
+
+    try:
+        plugin = _studio(request)._resolve(qualified_name)
+    except Exception as exc:
+        raise _translate(exc) from exc
+    text = payload.manifest
+    if text is None:
+        text = read_files(plugin.path).get("plugin.json") or "{}"
+    try:
+        manifest = json.loads(text)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="plugin.json is not valid JSON.") from None
+    model = payload.model
+    if model is None:
+        words = re.split(r"[^A-Za-z0-9]+", plugin.name)
+        model = starter("".join(word.capitalize() for word in words if word) + "Plugin")
+    try:
+        files = generate(model, manifest if isinstance(manifest, dict) else {})
+    except BuilderError as exc:
+        raise HTTPException(status_code=422, detail={"problems": exc.problems}) from None
+    return {"files": files, "model": model}
 
 
 @router.post("/{qualified_name}/validate")

@@ -366,6 +366,8 @@ export default function Plugins() {
     const [summaryTotal, setSummaryTotal] = useState(0)
     const [createOpen, setCreateOpen] = useState(() => consumeCreateIntent('plugin'))
     const [editingPlugin, setEditingPlugin] = useState<PluginItem | null>(null)
+    // A plugin created for the visual builder opens there.
+    const [startVisual, setStartVisual] = useState(false)
     const [deletingName, setDeletingName] = useState<string | null>(null)
     // Row picked with a click; Ctrl+D deletes it.
     const [selectedName, setSelectedName] = useState<string | null>(null)
@@ -1264,8 +1266,9 @@ export default function Plugins() {
                 <AppPortal>
                     <CreatePluginModal
                         onClose={() => setCreateOpen(false)}
-                        onCreated={(plugin) => {
+                        onCreated={(plugin, visual) => {
                             setCreateOpen(false)
+                            setStartVisual(visual)
                             notify.success(
                                 `${plugin.qualified_name} was saved as a draft. Install it to use it in workflows.`,
                                 { title: 'Plugin created' },
@@ -1289,7 +1292,10 @@ export default function Plugins() {
                         <PluginEditor
                             key={`${editingPlugin.qualified_name}:${editorKey}`}
                             plugin={editingPlugin}
-                            onClose={() => setEditingPlugin(null)}
+                            onClose={() => {
+                                setEditingPlugin(null)
+                                setStartVisual(false)
+                            }}
                             onSaved={(saved) => {
                                 // The editor stays open; it asks whether to close.
                                 setEditingPlugin((current) => (current ? { ...current, ...saved } : current))
@@ -1297,6 +1303,7 @@ export default function Plugins() {
                             }}
                             readOnly={viewOnly}
                             runReason={runReason}
+                            startVisual={startVisual}
                             restoreReason={restoreReason}
                             onRestored={(version) => {
                                 setEditingPlugin((current) => (current ? { ...current, version } : current))

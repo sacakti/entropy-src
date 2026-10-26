@@ -274,6 +274,22 @@ export const pluginsApi = {
     },
 
     /**
+     * plugin.py, plugin.json and builder.json written from a visual builder
+     * model (none: the starter model). 422 with `problems` when it cannot be.
+     */
+    builder(
+        qualifiedName: string,
+        model: unknown,
+        manifest?: string,
+    ): Promise<{ files: Record<string, string>; model: unknown }> {
+        return apiRequest(pluginPath(qualifiedName, '/builder'), {
+            method: 'POST',
+            headers: jsonHeaders,
+            body: JSON.stringify({ model, manifest }),
+        })
+    },
+
+    /**
      * plugin.json with "arguments" and "outputs" filled in from the source
      * (unsaved edits included); what is declared already is kept.
      */

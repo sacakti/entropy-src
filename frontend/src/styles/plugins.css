@@ -897,3 +897,50 @@ operation menu {
         margin-left: 26px;
     }
 }
+
+.entropy-app .plugins-dev-style {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.entropy-app .plugins-dev-style legend {
+    margin-bottom: 6px;
+    padding: 0;
+    color: var(--app-text);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.entropy-app .plugins-dev-style label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--app-line);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.entropy-app .plugins-dev-style label.is-selected {
+    border-color: var(--app-accent);
+    background: color-mix(in srgb, var(--app-accent) 10%, transparent);
+}
+
+.entropy-app .plugins-dev-style input {
+    width: auto;
+    margin-top: 3px;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .plugins-dev-style span {
+    display: grid;
+    gap: 2px;
+}
+
+.entropy-app .plugins-dev-style small {
+    color: var(--app-muted);
+    font-size: 12px;
+}

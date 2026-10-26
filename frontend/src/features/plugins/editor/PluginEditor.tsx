@@ -54,6 +54,8 @@ import { monaco } from './monaco'
 import SearchPanel from './SearchPanel'
 import type { SearchMatch } from './search'
 import { registerSdkLanguage, toMarkers } from './sdkLanguage'
+import VisualBuilder from './visual/VisualBuilder'
+import { forSave, withIds, type BuilderModel } from './visual/model'
 
 type FileMap = Record<string, string>
 type EditorMode = 'edit' | 'review'
@@ -330,6 +332,8 @@ interface PluginEditorProps {
     onRestored?: (version: string) => void
     /** Why the plugin may not be run, or null when it may. */
     runReason?: string | null
+    /** A new draft made for the visual builder: start it there. */
+    startVisual?: boolean
 }
 
 export default function PluginEditor({
@@ -340,6 +344,7 @@ export default function PluginEditor({
     restoreReason = null,
     onRestored,
     runReason = null,
+    startVisual = false,
 }: PluginEditorProps) {
     const { notify, modal } = useFeedback()
     const qualifiedName = plugin.qualified_name
@@ -376,6 +381,12 @@ export default function PluginEditor({
     const [shortcutsOpen, setShortcutsOpen] = useState(false)
     const [infoFor, setInfoFor] = useState<TreeRow | null>(null)
     const [contractBusy, setContractBusy] = useState(false)
+    // Plugins with builder.json are made in the visual builder.
+    const [builderModel, setBuilderModel] = useState<BuilderModel | null>(null)
+    const [view, setView] = useState<'visual' | 'source'>('source')
+    const [builderProblems, setBuilderProblems] = useState<string[]>([])
+    const [generating, setGenerating] = useState(false)
+    const regenerate = useRef(false)
 
     const rootRef = useRef<HTMLDivElement>(null)
     const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
@@ -427,6 +438,25 @@ export default function PluginEditor({
                 setCatalog(sdk)
                 setOpenTabs(first ? [first] : [])
                 setActivePath(first)
+
+                if ('builder.json' in files) {
+                    try {
+                        setBuilderModel(withIds(JSON.parse(files['builder.json']) as BuilderModel))
+                        setView('visual')
+                    } catch {
+                        // An unreadable builder.json: the source stays editable.
+                    }
+                } else if (startVisual && result.plugin.draft) {
+                    pluginsApi
+                        .builder(qualifiedName, null)
+                        .then((built) => {
+                            if (!active) return
+                            setDrafts((existing) => ({ ...existing, ...built.files }))
+                            setBuilderModel(withIds(built.model as BuilderModel))
+                            setView('visual')
+                        })
+                        .catch(() => undefined)
+                }
             })
             .catch((error: unknown) => {
                 if (active) {
@@ -442,7 +472,7 @@ export default function PluginEditor({
         return () => {
             active = false
         }
-    }, [qualifiedName])
+    }, [qualifiedName, startVisual])
 
     useEffect(() => {
         if (!catalog) return
@@ -570,6 +600,36 @@ export default function PluginEditor({
         },
         [modelOf],
     )
+
+    // The builder writes plugin.py, plugin.json and builder.json from its model.
+    useEffect(() => {
+        if (!builderModel || !regenerate.current) return
+        regenerate.current = false
+        const timer = window.setTimeout(() => {
+            setGenerating(true)
+            pluginsApi
+                .builder(qualifiedName, forSave(builderModel), draftsRef.current['plugin.json'])
+                .then((built) => {
+                    for (const [path, text] of Object.entries(built.files)) {
+                        if (draftsRef.current[path] !== text) setContent(path, text)
+                    }
+                    setBuilderProblems([])
+                })
+                .catch((error: unknown) => {
+                    const detail = error instanceof ApiError ? (error.detail as { problems?: string[] } | null) : null
+                    setBuilderProblems(
+                        detail?.problems ?? [error instanceof Error ? error.message : 'The plugin could not be written.'],
+                    )
+                })
+                .finally(() => setGenerating(false))
+        }, 450)
+        return () => window.clearTimeout(timer)
+    }, [builderModel, qualifiedName, setContent])
+
+    const changeModel = (model: BuilderModel) => {
+        regenerate.current = true
+        setBuilderModel(model)
+    }
 
     /** Line-end markers (and the line-ending label) for the file on screen. */
     const paintLineEnds = useCallback(() => {
@@ -1160,6 +1220,28 @@ export default function PluginEditor({
                             {pending} unsaved
                         </span>
                     )}
+                    {builderModel && mode === 'edit' && (
+                        <div className="seg-control plugin-ide-view" role="tablist" aria-label="Editor view">
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={view === 'visual'}
+                                className={view === 'visual' ? 'is-active' : ''}
+                                onClick={() => setView('visual')}
+                            >
+                                Visual
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={view === 'source'}
+                                className={view === 'source' ? 'is-active' : ''}
+                                onClick={() => setView('source')}
+                            >
+                                Source
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="plugin-ide-actions">
@@ -1288,10 +1370,23 @@ export default function PluginEditor({
                 </div>
             ) : (
                 <>
+                    {builderModel && view === 'visual' && mode === 'edit' && (
+                        <div className="plugin-ide-body plugin-ide-visual">
+                            <VisualBuilder
+                                model={builderModel}
+                                onChange={changeModel}
+                                problems={builderProblems}
+                                source={drafts['plugin.py'] ?? ''}
+                                generating={generating}
+                                readOnly={readOnly}
+                            />
+                        </div>
+                    )}
+
                     {/* Kept mounted while reviewing so models, cursor and undo survive. */}
                     <div
                         className={`plugin-ide-body plugin-ide-workbench${sidebarOpen ? '' : ' is-sidebar-hidden'}`}
-                        hidden={mode !== 'edit'}
+                        hidden={mode !== 'edit' || (builderModel !== null && view === 'visual')}
                         style={{ '--ide-sidebar': `${prefs.sidebarWidth}px` } as CSSProperties}
                     >
                         {sidebarOpen && (
@@ -1458,6 +1553,14 @@ export default function PluginEditor({
                         )}
 
                         <section className="plugin-ide-main">
+                            {builderModel && (
+                                <div className="plugin-ide-banner" role="note">
+                                    <Info size={14} aria-hidden="true" />
+                                    This plugin is made in the visual builder: plugin.py and plugin.json are rewritten
+                                    from it whenever the model changes. Delete builder.json to edit the source by hand
+                                    for good.
+                                </div>
+                            )}
                             <div className="plugin-ide-tabbar">
                                 {!sidebarOpen && (
                                     <button

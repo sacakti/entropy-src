@@ -28,11 +28,13 @@ export default function CreatePluginModal({
     onCreated,
 }: {
     onClose: () => void
-    onCreated: (plugin: PluginItem) => void
+    /** `visual`: the plugin is made in the no-code builder. */
+    onCreated: (plugin: PluginItem, visual: boolean) => void
 }) {
     const [namespace, setNamespace] = useState('custom')
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
+    const [visual, setVisual] = useState(false)
     const [availability, setAvailability] = useState<Availability>({ state: 'idle' })
     const [creating, setCreating] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -108,7 +110,7 @@ export default function CreatePluginModal({
                 name: trimmedName,
                 description: description.trim(),
             })
-            onCreated(plugin)
+            onCreated(plugin, visual)
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Unable to create plugin.')
             setCreating(false)
@@ -216,6 +218,24 @@ export default function CreatePluginModal({
                         maxLength={200}
                     />
                 </label>
+
+                <fieldset className="plugins-field plugins-dev-style">
+                    <legend>How will you build it?</legend>
+                    <label className={!visual ? 'is-selected' : ''}>
+                        <input type="radio" name="dev-style" checked={!visual} onChange={() => setVisual(false)} />
+                        <span>
+                            <strong>Source code</strong>
+                            <small>Write Python in the editor; anything the Plugin SDK can do.</small>
+                        </span>
+                    </label>
+                    <label className={visual ? 'is-selected' : ''}>
+                        <input type="radio" name="dev-style" checked={visual} onChange={() => setVisual(true)} />
+                        <span>
+                            <strong>Visual builder (no code)</strong>
+                            <small>Inputs, outputs and steps from blocks; Entropy writes the Python for you.</small>
+                        </span>
+                    </label>
+                </fieldset>
 
                 {error && (
                     <div className="plugins-error" role="alert">

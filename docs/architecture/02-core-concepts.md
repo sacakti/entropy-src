@@ -271,6 +271,20 @@ A run is started in one of two modes:
   an hour. Interactive runs execute on the Entropy server (the local node).
 - `ent` runs plugins in the terminal and asks there.
 
+## Two ways to build a plugin
+
+- **Source code**: Python in the plugin editor, with the whole Plugin SDK.
+- **Visual builder (no code)**: chosen when the plugin is created. Methods are
+  boxes of blocks (print, set output, set variable, condition, loop, switch,
+  ask the user, run a command, call a method, fail); the side panel defines
+  inputs (type, mandatory, default, secret, choices, ask at run time), outputs
+  and dependencies (extensions and other plugins). The model is kept in
+  `builder.json`; Entropy writes `plugin.py` and `plugin.json` from it, so the
+  plugin follows the contract and lifecycle like any other. Expressions are
+  small Python expressions over inputs and variables, checked before any code
+  is written (no imports, files or other calls than a short allow-list).
+  Deleting `builder.json` turns the plugin into a source-code plugin for good.
+
 ## Paths on the server
 
 Path arguments have a browse button in the run dialog and in the workflow
