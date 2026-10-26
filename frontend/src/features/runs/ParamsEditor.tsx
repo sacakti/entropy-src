@@ -34,11 +34,11 @@ export default function ParamsEditor({
                     spec && spec.default !== null && spec.default !== undefined
                         ? `Default: ${display(spec.default)}`
                         : spec?.required
-                          ? spec.prompt
-                              ? 'Required (asked at run time in interactive runs)'
-                              : 'Required'
+                          ? 'Required (interactive runs ask when left empty)'
                           : spec
-                            ? 'Optional'
+                            ? ['list', 'dictionary'].includes(spec.type)
+                                ? 'Optional'
+                                : 'Optional (interactive runs ask when left empty)'
                             : 'Value (text or JSON)'
                 const choices = spec?.choices?.length
                     ? spec.choices.map(display)

@@ -264,8 +264,11 @@ A run is started in one of two modes:
 - **Interactive**: a plugin may ask while it runs —
   `self.ask("One-time code", secret=True)`, or with `choices=[...]`, `default=...`.
   The question appears on the run screen; the run's starter (or anyone who may
-  run workflows in the project) answers it there. Arguments declared with
-  `"prompt": true` are asked for this way when the run does not give them.
+  run workflows in the project) answers it there. Before the plugin starts,
+  the run also asks for the arguments left empty: required ones, ones declared
+  `"prompt": true`, and optional single values without a default (an empty
+  answer skips those). Answers may be JSON for objects and lists, or a vault
+  reference such as `${entv:prod/sftp}`.
   Secret answers are stored encrypted with the vault key, deleted as soon as the
   plugin reads them, and never logged. Unanswered questions fail the step after
   an hour. Interactive runs execute on the Entropy server (the local node).

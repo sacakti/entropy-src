@@ -83,3 +83,47 @@ def test_automated_runs_get_the_default_or_fail(monkeypatch) -> None:
     with pytest.raises(PluginValueError, match="automated"):
         context.ask("Code", secret=True)
     assert os.environ[RUN_MODE_ENV] == "automated"
+
+
+def test_interactive_runs_ask_for_what_was_left_empty(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    import lib.runs.prompts as prompts
+    from lib.plugins import contract
+    from lib.plugins.runner import PluginRunner
+
+    asked = []
+
+    class Store:
+        def ask(self, job_id, *, name, **_):
+            asked.append(name)
+            return name
+
+        def wait(self, prompt):
+            return {"conn": '{"host": "h"}', "source": "/tmp/a", "count": ""}.get(prompt, "")
+
+    monkeypatch.setenv(prompts.RUN_MODE_ENV, "interactive")
+    monkeypatch.setattr(prompts, "prompts_for", lambda _: Store())
+    declared = contract.normalize(
+        {
+            "arguments": [
+                {"name": "conn", "type": "dictionary", "required": True},
+                {"name": "source", "type": "string"},
+                {"name": "count", "type": "integer"},
+                {"name": "mode", "default": "fast"},
+                {"name": "archive", "type": "dictionary"},
+                {"name": "given", "type": "string"},
+            ],
+            "outputs": [],
+        }
+    )
+    context = SimpleNamespace(_entropy=None, node=None, job_id=1)
+    values = PluginRunner._prompt_missing(context, declared, {"given": "x"}, "demo.p")
+    # Required, and optional single values without a default; not objects or defaults.
+    assert asked == ["conn", "source", "count"]
+    assert values == {"given": "x", "conn": {"host": "h"}, "source": "/tmp/a"}
+
+    asked.clear()
+    monkeypatch.setenv(prompts.RUN_MODE_ENV, "automated")
+    assert PluginRunner._prompt_missing(context, declared, {}, "demo.p") == {}
+    assert asked == []

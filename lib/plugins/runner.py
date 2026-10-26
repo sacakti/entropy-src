@@ -72,9 +72,7 @@ class PluginRunner:
 
             from lib.git_repositories.store import checkout_assigned_repositories
 
-            context.repositories.update(
-                checkout_assigned_repositories(context, qualified_name)
-            )
+            context.repositories.update(checkout_assigned_repositories(context, qualified_name))
 
             result = self._lifecycle(
                 plugin,
@@ -220,21 +218,35 @@ class PluginRunner:
         name: str,
     ) -> dict:
         """
-        In interactive runs, ask for the "prompt" arguments the run did not
-        give; automated runs leave them to the usual checks.
+        In interactive runs, ask for what the run left empty: required
+        arguments, "prompt" arguments, and optional single values without a
+        default (which may be skipped). Answers may be JSON (objects,
+        lists) or vault references. Automated runs leave all of this to
+        the usual checks.
         """
 
+        import json
         import os
 
         from lib.runs.prompts import RUN_MODE_ENV, PromptError, prompts_for
 
+        if os.environ.get(RUN_MODE_ENV) != "interactive":
+
+            return values
+
+        single = ("string", "path", "integer", "number", "boolean", "any")
         wanted = [
             item
             for item in contract["arguments"]
-            if item.get("prompt") and values.get(item["name"]) in (None, "")
+            if values.get(item["name"]) in (None, "")
+            and (
+                item.get("prompt")
+                or item["required"]
+                or (item["default"] is None and item["type"] in single)
+            )
         ]
 
-        if not wanted or os.environ.get(RUN_MODE_ENV) != "interactive":
+        if not wanted:
 
             return values
 
@@ -243,24 +255,33 @@ class PluginRunner:
 
         for item in wanted:
 
+            optional = not item["required"]
             choices = item.get("choices")
             if item["type"] == "boolean":
                 choices = ["true", "false"]
+            hints = [item.get("description") or ""]
+            if item["type"] in ("dictionary", "list"):
+                hints.append(f"Answer with JSON ({item['type']}) or a vault reference.")
+            if optional:
+                if choices:
+                    hints.append(f"One of: {', '.join(map(str, choices))}.")
+                hints.append("Optional: leave empty to skip.")
 
             prompt = store.ask(
                 context.job_id,
                 name=item["name"],
                 label=item.get("label") or item["name"],
                 step=getattr(node, "name", None),
-                description=item.get("description") or "",
+                description=" ".join(hint for hint in hints if hint),
                 secret=item.get("secret", False),
                 default=None if item["default"] is None else str(item["default"]),
-                choices=[str(choice) for choice in choices] if choices else None,
+                # An optional question may be left empty, so it takes free text.
+                choices=[str(choice) for choice in choices] if choices and not optional else None,
             )
 
             try:
 
-                answer = store.wait(prompt)
+                answer = store.wait(prompt).strip()
 
             except PromptError as exc:
 
@@ -268,11 +289,60 @@ class PluginRunner:
                     f"Plugin '{name}': '{item['name']}': {exc}",
                 ) from None
 
-            if answer != "":
+            if answer == "":
 
-                values[item["name"]] = answer
+                continue
+
+            value: object = answer
+
+            if "${" in answer:
+
+                value = PluginRunner._resolve_answer(context, answer)
+
+            elif item["type"] in ("dictionary", "list", "any"):
+
+                try:
+
+                    value = json.loads(answer)
+
+                except ValueError:
+
+                    if item["type"] != "any":
+
+                        raise PluginValueError(
+                            f"Plugin '{name}': '{item['name']}' must be JSON "
+                            f"({item['type']}) or a vault reference.",
+                        ) from None
+
+            values[item["name"]] = value
 
         return values
+
+    @staticmethod
+    def _resolve_answer(
+        context: ExecutionContext,
+        answer: str,
+    ) -> object:
+        """A typed-in vault reference, read with the run user's access."""
+
+        from lib.workflow.exceptions import VariableNotFoundError
+        from lib.workflow.variables.resolver import WorkflowVariableResolver
+
+        entropy = context._entropy
+        session = entropy.session_manager.require()
+        resolver = WorkflowVariableResolver(
+            entropy.vault_manager,
+            session.user_id,
+            getattr(context, "secrets", None),
+        )
+
+        try:
+
+            return resolver.resolve(answer, {})
+
+        except VariableNotFoundError as exc:
+
+            raise PluginValueError(str(exc)) from exc
 
     def _create_context(
         self,
@@ -386,9 +456,7 @@ class PluginRunner:
 
             from lib.git_repositories.store import checkout_assigned_repositories
 
-            context.repositories.update(
-                checkout_assigned_repositories(context, identifier)
-            )
+            context.repositories.update(checkout_assigned_repositories(context, identifier))
 
             result = self._lifecycle(
                 plugin,

@@ -54,8 +54,8 @@ export function parseRows(
         if (!key) continue
 
         if (!text) {
-            // Interactive runs ask for "prompt" arguments left empty.
-            if (row.spec?.required && row.spec.default === null && !(interactive && row.spec.prompt)) {
+            // Interactive runs ask for what is left empty.
+            if (row.spec?.required && row.spec.default === null && !interactive) {
                 return { values, error: `'${key}' is required.` }
             }
             continue
