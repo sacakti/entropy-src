@@ -28,7 +28,8 @@
             "name": "sftp",
             "type": "dictionary",
             "required": true,
-            "description": "Connection credentials: host, port (1-65535), user and either password or key_filename.",
+            "description": "Connection credentials: host, port (1-65535), user and either password or key_filename. Keep them in the vault as a JSON object and pass ${entv:namespace/key}.",
+            "example": "${entv:prod/sftp}",
             "secret": true
         },
         {

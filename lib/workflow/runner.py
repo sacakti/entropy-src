@@ -84,9 +84,13 @@ class WorkflowRunner:
 
         session = self._context.session_manager.require()
 
+        # Filled as vault references resolve; the run's messages mask them.
+        secrets: set[str] = set()
+
         resolver = WorkflowVariableResolver(
             self._context.vault_manager,
             session.user_id,
+            secrets,
         )
 
         selection = self._selector.select(
@@ -150,6 +154,8 @@ class WorkflowRunner:
             )
 
         runtime = execution.context
+
+        runtime.secrets = secrets
 
         #
         # Resolve persistent job.

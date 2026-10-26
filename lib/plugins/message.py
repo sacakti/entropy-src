@@ -37,6 +37,14 @@ class PluginMessage:
 
         assert node is not None
 
+        secrets = getattr(self._runtime, "secrets", None)
+
+        if secrets:
+
+            from lib.vault.masking import mask
+
+            message = mask(str(message), secrets)
+
         self._emitter.emit(
             level=level,
             execution=self._runtime.execution,

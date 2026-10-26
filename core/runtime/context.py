@@ -66,6 +66,9 @@ class ExecutionContext:
 
         self.job_id: int | None = None
 
+        # Vault values this run read; masked in plugin messages.
+        self.secrets: set[str] = set()
+
         #
         # Runtime State
         #

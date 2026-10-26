@@ -651,6 +651,13 @@ function BlockCard({
                         />
                     </>
                 )}
+                {block.type === 'vault' && (
+                    <>
+                        {field('variable', 'Keep as')}
+                        <span className="vb-eq">=</span>
+                        {field('key', 'Vault entry: namespace/key')}
+                    </>
+                )}
                 {block.type === 'run' && (
                     <>
                         {field('command', 'Command, e.g. ls {folder}', false)}

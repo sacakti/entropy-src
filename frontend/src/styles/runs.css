@@ -988,7 +988,7 @@
 .entropy-app .params-row {
     display: grid;
     /* The last column holds a browse or remove button; fixed so rows line up. */
-    grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.6fr) 32px;
+    grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.6fr) 68px;
     align-items: center;
     gap: 8px;
 }
@@ -2410,4 +2410,9 @@
     margin: 0;
     color: var(--app-danger, #d64545);
     font-size: 12.5px;
+}
+
+.entropy-app .params-actions {
+    display: inline-flex;
+    gap: 2px;
 }

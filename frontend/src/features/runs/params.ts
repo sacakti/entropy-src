@@ -63,6 +63,12 @@ export function parseRows(
 
         const type = row.spec?.type ?? 'any'
 
+        // Vault and workflow references are resolved when the run starts.
+        if (text.startsWith('${') && text.endsWith('}')) {
+            values[key] = text
+            continue
+        }
+
         if (type === 'string' || type === 'path') {
             values[key] = row.value
         } else if (type === 'boolean') {

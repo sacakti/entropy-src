@@ -285,6 +285,21 @@ A run is started in one of two modes:
   is written (no imports, files or other calls than a short allow-list).
   Deleting `builder.json` turns the plugin into a source-code plugin for good.
 
+## Vault values in plugins
+
+- **As arguments (preferred):** any argument may be `${entv:namespace/key}`
+  (`${entvfile:...}` for a file's path). The run resolves it with the vault
+  access of the user it belongs to; a vault entry holding a JSON object arrives
+  as an object, e.g. SFTP credentials
+  `{"host": ..., "port": 22, "user": ..., "password": ...}` for `sftp`.
+  The run dialog has a vault picker next to every argument; the workflow
+  builder offers vault entries among its references.
+- **In plugin code:** `self.vault("namespace/key")` (the visual builder's
+  "Read from vault" block) reads an entry the same way.
+- Values read from the vault are masked in the run's messages: plain string
+  entries as a whole, and fields of objects whose names look secret
+  (password, token, key, ...).
+
 ## Paths on the server
 
 Path arguments have a browse button in the run dialog and in the workflow

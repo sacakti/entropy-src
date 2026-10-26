@@ -17,7 +17,7 @@ import {
 import WallpaperLayer from '../../preferences/WallpaperLayer'
 import '../../../styles/workflow-builder.css'
 import { listPlugins, pluginsApi, type PluginContract } from '../../../api/plugins.api'
-import { vaultApi } from '../../../api/vault.api'
+import { loadVaultKeys } from '../../vault/vaultKeys'
 import {
     workflowDraftsApi,
     workflowsApi,
@@ -61,26 +61,6 @@ async function loadPluginsWithoutContracts(): Promise<PluginContract[]> {
         )
 
         if (page >= result.pagination.total_pages) return plugins
-    }
-}
-
-async function loadVaultKeys(): Promise<string[]> {
-    try {
-        const { items } = await vaultApi.listNamespaces()
-        const entries = await Promise.all(
-            items.map(async (namespace) => {
-                try {
-                    const result = await vaultApi.listEntries(namespace.name)
-                    return result.items.map((entry) => `${namespace.name}/${entry.key}`)
-                } catch {
-                    return []
-                }
-            }),
-        )
-        return entries.flat().sort()
-    } catch {
-        // Vault access is optional for building workflows.
-        return []
     }
 }
 

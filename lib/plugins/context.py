@@ -195,6 +195,48 @@ class PluginContext:
         return self._runtime.workspace
 
     # ------------------------------------------------------------------
+    # Vault
+    # ------------------------------------------------------------------
+
+    def vault(
+        self,
+        reference: str,
+    ) -> Any:
+        """
+        A vault value, read with the access of the user the run belongs to:
+        "namespace/key", "${environment}/key" style references are not
+        resolved here (pass them as arguments instead). JSON objects stored
+        in the vault arrive as dictionaries; "namespace/prefix*" returns
+        every matching entry.
+        """
+
+        from lib.plugins.exceptions import PluginValueError
+        from lib.workflow.exceptions import VariableNotFoundError
+        from lib.workflow.variables.resolver import WorkflowVariableResolver
+
+        text = str(reference or "").strip()
+        if text.startswith("${entv:") and text.endswith("}"):
+            text = text[len("${entv:") : -1]
+        if "${" in text:
+            raise PluginValueError(
+                f"Vault reference '{reference}' must be 'namespace/key'.",
+            )
+
+        entropy = self._runtime._entropy
+        if entropy.vault_manager is None or entropy.session_manager is None:
+            raise PluginValueError("The vault is not available to this run.")
+        session = entropy.session_manager.require()
+        resolver = WorkflowVariableResolver(
+            entropy.vault_manager,
+            session.user_id,
+            getattr(self._runtime, "secrets", None),
+        )
+        try:
+            return resolver.resolve("${entv:" + text + "}", {})
+        except VariableNotFoundError as exc:
+            raise PluginValueError(str(exc)) from exc
+
+    # ------------------------------------------------------------------
     # Input
     # ------------------------------------------------------------------
 

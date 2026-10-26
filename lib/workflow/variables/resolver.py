@@ -8,6 +8,7 @@ import json
 from typing import Any, Dict, Set
 
 from lib.vault.exceptions import VaultEntryNotFoundError
+from lib.vault.masking import register
 from lib.workflow.exceptions import (
     VariableCircularReferenceError,
     VariableNotFoundError,
@@ -42,11 +43,15 @@ class WorkflowVariableResolver:
         self,
         vault,
         user_id: int,
+        secrets: Set[str] | None = None,
     ) -> None:
 
         self._vault = vault
 
         self._user_id = user_id
+
+        # Vault values resolved here are added, to be masked in messages.
+        self._secrets = secrets
 
     # ------------------------------------------------------------------
     # Variables
@@ -568,11 +573,15 @@ class WorkflowVariableResolver:
 
                 if key.endswith("*"):
 
-                    return self._vault.resolve_matching(
+                    matching = self._vault.resolve_matching(
                         namespace,
                         key,
                         self._user_id,
                     )
+
+                    register(self._secrets, matching)
+
+                    return matching
 
                 value = self._vault.resolve(
                     namespace,
@@ -586,11 +595,15 @@ class WorkflowVariableResolver:
                     f"Entropy Vault entry " f"'{namespace}/{key}' could not be resolved.",
                 ) from exc
 
-            return self._vault_value(
+            result = self._vault_value(
                 value,
                 f"{namespace}/{key}",
                 as_file,
             )
+
+            register(self._secrets, result)
+
+            return result
 
         path = self._parse_path(
             reference,

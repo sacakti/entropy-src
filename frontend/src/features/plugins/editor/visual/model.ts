@@ -46,6 +46,7 @@ export type BlockType =
     | 'loop'
     | 'switch'
     | 'ask'
+    | 'vault'
     | 'run'
     | 'call'
     | 'fail'
@@ -79,6 +80,8 @@ export interface Block {
     check?: boolean
     method?: string
     message?: string
+    /** Vault entry, `namespace/key`. */
+    key?: string
 }
 
 export const LIFECYCLE = ['validate', 'prepare', 'execute', 'cleanup'] as const
@@ -91,6 +94,7 @@ export const BLOCKS: Array<{ type: BlockType; label: string; help: string }> = [
     { type: 'loop', label: 'Loop', help: 'Repeat blocks for each item of a list (or range(n))' },
     { type: 'switch', label: 'Switch', help: 'Pick blocks by value (switch / case / default)' },
     { type: 'ask', label: 'Ask the user', help: 'Interactive runs: ask for plain or secret input' },
+    { type: 'vault', label: 'Read from vault', help: 'Keep a vault value (JSON objects become objects), read with the run user’s access' },
     { type: 'run', label: 'Run a command', help: 'Run a shell command and keep its output' },
     { type: 'call', label: 'Call a method', help: 'Run one of this plugin’s own methods' },
     { type: 'fail', label: 'Fail', help: 'Stop the step with an error message' },
@@ -121,6 +125,8 @@ export function newBlock(type: BlockType, outputs: string[], methods: string[]):
             return { id, type, variable: 'answer', label: 'Your answer', secret: false }
         case 'run':
             return { id, type, variable: 'command', command: 'echo hello', check: true }
+        case 'vault':
+            return { id, type, variable: 'secret', key: 'namespace/key' }
         case 'call':
             return { id, type, method: methods.find((name) => !LIFECYCLE.includes(name as never)) ?? '' }
         case 'fail':

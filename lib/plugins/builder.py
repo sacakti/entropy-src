@@ -182,7 +182,7 @@ def _collect_variables(blocks: Any, found: Set[str]) -> None:
         if not isinstance(block, dict):
             continue
         kind = block.get("type")
-        if kind in ("set_var", "ask", "run") and block.get(
+        if kind in ("set_var", "ask", "run", "vault") and block.get(
             "variable" if kind != "set_var" else "name"
         ):
             found.add(str(block.get("variable" if kind != "set_var" else "name")))
@@ -316,6 +316,12 @@ class _Writer:
                     'raise PluginException(f"Command failed ({result.exit_code}): '
                     '{result.stderr.strip() or result.stdout.strip()}")',
                 )
+        elif kind == "vault":
+            name = self.name(block.get("variable"), where, "variable name")
+            key = str(block.get("key") or "").strip()
+            if "/" not in key or key.startswith("/") or key.endswith("/"):
+                self.problems.append(f"{where}: the vault entry is 'namespace/key'")
+            self.emit(depth, f"self.vars[{name!r}] = self.vault({key!r})")
         elif kind == "call":
             method = block.get("method")
             if method not in self.methods or method in LIFECYCLE:

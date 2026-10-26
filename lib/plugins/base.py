@@ -139,6 +139,22 @@ class BasePlugin(ABC):
 
         return self._context.workspace
 
+    def vault(
+        self,
+        reference: str,
+    ) -> Any:
+        """
+        Read a vault value ("namespace/key") with the run user's vault
+        access, for example SFTP credentials stored as a JSON object:
+        `sftp = self.vault("prod/sftp")` gives {"host": ..., "port": ...}.
+        Prefer taking it as an argument (`${entv:prod/sftp}`) so the
+        workflow decides which entry is used.
+        """
+
+        return self._context.vault(
+            reference,
+        )
+
     def ask(
         self,
         label: str,
