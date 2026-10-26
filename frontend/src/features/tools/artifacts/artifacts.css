@@ -1,0 +1,67 @@
+.entropy-app .artifacts-tool { display: grid; gap: 18px; color: var(--app-text); }
+.entropy-app .artifacts-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.entropy-app .artifacts-heading > div { display: flex; align-items: center; gap: 12px; }
+.entropy-app .artifacts-mark { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border: 1px solid var(--app-accent-border); border-radius: 12px; color: var(--app-accent-fg); background: var(--app-accent-soft); }
+.entropy-app .artifacts-heading h3 { margin: 0; font-size: 1.15rem; }
+.entropy-app .artifacts-heading p { margin: 4px 0 0; color: var(--app-muted); }
+.entropy-app .artifacts-ingest { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(300px, 1fr); gap: 14px; }
+.entropy-app .artifacts-dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; min-height: 220px; padding: 22px; border: 1px dashed var(--app-line); border-radius: 13px; color: var(--app-muted); background: color-mix(in srgb, var(--app-surface) 70%, transparent); text-align: center; transition: border-color .15s, background .15s; }
+.entropy-app .artifacts-dropzone.is-dragging { border-color: var(--app-accent); background: var(--app-accent-soft); }
+.entropy-app .artifacts-dropzone.is-busy { opacity: .7; }
+.entropy-app .artifacts-dropzone strong { color: var(--app-text); }
+.entropy-app .artifacts-dropzone button { margin-top: 4px; }
+.entropy-app .artifacts-ingest-tags { display: flex; align-items: center; gap: 7px; width: min(360px, 100%); color: var(--app-text); font-size: .84rem; font-weight: 600; }
+.entropy-app .artifacts-ingest-tags input { flex: 1; min-width: 0; padding: 7px 9px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 7px; font: inherit; font-weight: 400; }
+.entropy-app .artifacts-path-form { display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 18px; border: 1px solid var(--app-line); border-radius: 13px; background: var(--app-surface); }
+.entropy-app .artifacts-path-form label { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+.entropy-app .artifacts-path-form > div { display: flex; gap: 8px; }
+.entropy-app .artifacts-path-form input { flex: 1; min-width: 0; padding: 9px 11px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .artifacts-path-form small { color: var(--app-muted); line-height: 1.45; }
+.entropy-app .artifacts-path-tags { display: flex !important; align-items: center; gap: 8px !important; font-size: .86rem; }
+.entropy-app .artifacts-path-tags input { flex: 1; }
+.entropy-app .artifacts-search { display: flex; align-items: center; gap: 9px; max-width: 520px; padding: 9px 12px; color: var(--app-muted); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; }
+.entropy-app .artifacts-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.entropy-app .artifacts-controls .artifacts-search { flex: 1 1 300px; }
+.entropy-app .artifacts-sort { display: flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid var(--app-line); border-radius: 8px; color: var(--app-muted); font-size: .85rem; }
+.entropy-app .artifacts-sort select { color: var(--app-text); background: var(--app-surface); border: 0; font: inherit; }
+.entropy-app .artifacts-tag-filter { display: inline-flex; align-items: center; gap: 7px; justify-self: start; padding: 6px 10px; color: var(--app-muted); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 99px; cursor: pointer; }
+.entropy-app .artifacts-tag-filter strong { color: var(--app-accent-fg); }
+.entropy-app .artifacts-bulkbar { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; min-height: 38px; color: var(--app-muted); }
+.entropy-app .artifacts-bulkbar > label { display: flex; align-items: center; gap: 7px; }
+.entropy-app .artifacts-bulkbar > span { margin-right: auto; }
+.entropy-app .artifacts-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .artifacts-tabs button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--app-muted); background: transparent; border: 0; border-bottom: 2px solid transparent; font: inherit; font-weight: 650; cursor: pointer; }
+.entropy-app .artifacts-tabs button.is-active { color: var(--app-text); border-bottom-color: var(--app-accent); }
+.entropy-app .artifacts-tabs button span { min-width: 22px; padding: 1px 7px; color: var(--app-muted); background: var(--app-surface); border-radius: 99px; font-size: .78rem; text-align: center; }
+.entropy-app .artifacts-search input { flex: 1; min-width: 0; padding: 0; color: var(--app-text); background: transparent; border: 0; outline: 0; font: inherit; }
+.entropy-app .artifacts-list { display: grid; gap: 8px; }
+.entropy-app .artifact-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 13px; border: 1px solid var(--app-line); border-radius: 11px; background: var(--app-surface); }
+.entropy-app .artifact-select { width: 17px; height: 17px; flex: 0 0 auto; accent-color: var(--app-accent); }
+.entropy-app .artifact-run-group { display: grid; gap: 8px; }
+.entropy-app .artifact-run-group + .artifact-run-group { margin-top: 12px; }
+.entropy-app .artifact-run-group h4 { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: .9rem; }
+.entropy-app .artifact-run-group h4 span { color: var(--app-muted); font-size: .78rem; font-weight: 500; }
+.entropy-app .artifact-file-icon { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 auto; border-radius: 10px; color: var(--app-accent-fg); background: var(--app-accent-soft); }
+.entropy-app .artifact-main { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.entropy-app .artifact-main strong, .entropy-app .artifact-main span, .entropy-app .artifact-main code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .artifact-main span { color: var(--app-muted); font-size: .82rem; }
+.entropy-app .artifact-main code { color: var(--app-muted); font-size: .78rem; }
+.entropy-app .artifact-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.entropy-app .artifact-tags button { padding: 2px 7px; border: 1px solid var(--app-accent-border); border-radius: 20px; color: var(--app-accent-fg); background: var(--app-accent-soft); font: inherit; font-size: .73rem; cursor: pointer; }
+.entropy-app .artifact-tags button.is-active { color: var(--app-bg); background: var(--app-accent); }
+.entropy-app .artifact-housekeeping-form { display: grid; gap: 15px; }
+.entropy-app .artifact-housekeeping-form label { display: grid; gap: 7px; color: var(--app-text); font-weight: 650; }
+.entropy-app .artifact-housekeeping-form input { width: 100%; padding: 9px 11px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .artifact-housekeeping-form small { color: var(--app-muted); line-height: 1.45; }
+.entropy-app .artifact-no-tags { color: var(--app-muted); font-size: .76rem; }
+.entropy-app .artifact-tag-editor { display: flex; align-items: center; gap: 4px; color: var(--app-muted); }
+.entropy-app .artifact-tag-editor input { flex: 1; min-width: 80px; padding: 5px 7px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 6px; font: inherit; font-size: .8rem; }
+.entropy-app .artifact-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.entropy-app .artifacts-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; min-height: 210px; color: var(--app-muted); text-align: center; }
+.entropy-app .artifacts-empty strong { color: var(--app-text); }
+@media (max-width: 760px) {
+    .entropy-app .artifacts-ingest { grid-template-columns: 1fr; }
+    .entropy-app .artifact-row { align-items: flex-start; flex-wrap: wrap; }
+    .entropy-app .artifact-main { flex-basis: calc(100% - 54px); }
+    .entropy-app .artifact-actions { margin-left: 48px; }
+}

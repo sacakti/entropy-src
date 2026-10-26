@@ -179,7 +179,7 @@ resources/config/*.local.json
 *.crt
 
 # Build Artifacts
-artifacts/
+# artifacts/
 
 # Temporary
 tmp/*
