@@ -125,8 +125,7 @@ class PluginDependencyResolver:
         ):
 
             raise PluginDependencyError(
-                f"Required plugin '{requirement.name}' "
-                "is not installed.",
+                f"Required plugin '{requirement.name}' " "is not installed.",
             )
 
         plugin = self._repository.get_by_qualified_name(
@@ -136,8 +135,7 @@ class PluginDependencyResolver:
         if not plugin.enabled:
 
             raise PluginDependencyError(
-                f"Required plugin '{requirement.name}' "
-                "is disabled.",
+                f"Required plugin '{requirement.name}' " "is disabled.",
             )
 
         if requirement.version is not None:
@@ -146,9 +144,12 @@ class PluginDependencyResolver:
                 requirement.version,
             )
 
-            if Version(
-                plugin.version,
-            ) not in specifier:
+            if (
+                Version(
+                    plugin.version,
+                )
+                not in specifier
+            ):
 
                 # raise PluginDependencyError(
                 #     f"Required plugin '{requirement.name}' "
@@ -332,4 +333,3 @@ class PluginDependencyResolver:
                 f"was not found in plugin "
                 f"'{plugin.qualified_name}'.",
             )
-

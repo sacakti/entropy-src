@@ -74,7 +74,6 @@ class PluginManager:
             context,
         )
 
-
         self._dependencies = PluginDependencyResolver(
             repository=self._repository,
             reader=self._reader,

@@ -10,6 +10,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from lib.models.plugin import PluginManifest
 from .exceptions import PluginValidationError
 
+
 class ManifestValidator:
     """
     Validates plugin manifests.
@@ -225,8 +226,7 @@ class ManifestValidator:
                 if reference in import_seen:
 
                     raise PluginValidationError(
-                        f"Duplicate import '{reference}' "
-                        f"for plugin '{name}'.",
+                        f"Duplicate import '{reference}' " f"for plugin '{name}'.",
                     )
 
                 import_seen.add(
@@ -236,13 +236,11 @@ class ManifestValidator:
                 if not imported.module.strip():
 
                     raise PluginValidationError(
-                        f"Import module cannot be empty "
-                        f"for plugin '{name}'.",
+                        f"Import module cannot be empty " f"for plugin '{name}'.",
                     )
 
                 if not imported.symbol.strip():
 
                     raise PluginValidationError(
-                        f"Import symbol cannot be empty "
-                        f"for plugin '{name}'.",
+                        f"Import symbol cannot be empty " f"for plugin '{name}'.",
                     )

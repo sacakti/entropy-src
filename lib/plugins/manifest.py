@@ -241,8 +241,7 @@ class ManifestReader:
             if len(parts) != 2:
 
                 raise PluginInvalidRequirementError(
-                    f"Invalid plugin import '{reference}'. "
-                    "Expected 'module.Symbol'.",
+                    f"Invalid plugin import '{reference}'. " "Expected 'module.Symbol'.",
                 )
 
             module, symbol = parts
