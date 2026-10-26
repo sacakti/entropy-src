@@ -1,7 +1,7 @@
 {
     "name": "sftp",
     "namespace": "custom",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "",
     "author": "",
     "entropy": ">=1.0.0",
@@ -54,7 +54,8 @@
             "name": "settings",
             "type": "dictionary",
             "required": false,
-            "description": "Optional SSH settings: connection {timeout, banner_timeout, auth_timeout}, algorithms {kex, host_key, cipher, mac} and host_key {policy: known_hosts or auto_add}."
+            "description": "Optional SSH settings: add_host (true: trust an unknown server on first connection and save its key to known_hosts), known_hosts (file, default ~/.ssh/known_hosts), algorithms {host_key_algorithms, ciphers, kex, macs: a name or a preference list; host-key algorithms and ciphers have secure defaults}, connection {timeout, banner_timeout, auth_timeout} and host_key {policy: known_hosts or auto_add}.",
+            "example": {"add_host": true, "algorithms": {"ciphers": ["aes256-gcm@openssh.com", "aes256-ctr"]}}
         }
     ],
     "outputs": [

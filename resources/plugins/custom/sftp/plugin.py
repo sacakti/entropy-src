@@ -121,6 +121,12 @@ class SftpPlugin(
         try:
             client.connect()
 
+            if client.added_host_key:
+                self.message.warning(
+                    f"Trusted '{request.sftp.host}' on first connection and saved its key "
+                    f"({client.added_host_key}) to known_hosts; later runs verify it.",
+                )
+
             result = self._dispatch(
                 request=request,
                 client=client,

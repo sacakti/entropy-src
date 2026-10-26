@@ -19,16 +19,38 @@ class SftpConnectionSettings:
     auth_timeout: float | None = None
 
 
+# Preferred when the settings name none: modern first, legacy RSA last.
+DEFAULT_HOST_KEY_ALGORITHMS = (
+    "ssh-ed25519",
+    "ecdsa-sha2-nistp256",
+    "ecdsa-sha2-nistp384",
+    "ecdsa-sha2-nistp521",
+    "rsa-sha2-512",
+    "rsa-sha2-256",
+    "ssh-rsa",
+)
+
+# Authenticated (GCM) and counter-mode AES only; no CBC or 3DES.
+DEFAULT_CIPHERS = (
+    "aes256-gcm@openssh.com",
+    "aes128-gcm@openssh.com",
+    "aes256-ctr",
+    "aes192-ctr",
+    "aes128-ctr",
+)
+
+
 @dataclass(frozen=True)
 class SftpAlgorithmSettings:
     """
-    Optional SSH algorithm configuration.
+    Optional SSH algorithm configuration: each a preference list, the
+    first the server also offers is used.
     """
 
-    kex: str | None = None
-    host_key: str | None = None
-    cipher: str | None = None
-    mac: str | None = None
+    kex: tuple[str, ...] | None = None
+    host_key: tuple[str, ...] | None = None
+    cipher: tuple[str, ...] | None = None
+    mac: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +71,10 @@ class SftpSettings:
     connection: SftpConnectionSettings | None = None
     algorithms: SftpAlgorithmSettings | None = None
     host_key: SftpHostKeySettings | None = None
+    # Trust an unknown server on first connection and save its key to
+    # `known_hosts`; later runs verify against it.
+    add_host: bool = False
+    known_hosts: Path | None = None
 
 
 @dataclass(frozen=True)

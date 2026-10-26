@@ -335,10 +335,31 @@ class SftpResolver:
             value.get("host_key"),
         )
 
+        add_host = value.get("add_host", False)
+
+        if not isinstance(add_host, bool):
+            raise SftpPluginException(
+                "'settings.add_host' must be true or false.",
+            )
+
+        known_hosts = value.get("known_hosts")
+
+        if known_hosts is not None:
+            if not isinstance(known_hosts, str) or not known_hosts.strip():
+                raise SftpPluginException(
+                    "'settings.known_hosts' must be a non-empty path.",
+                )
+
+            known_hosts = Path(
+                known_hosts.strip(),
+            ).expanduser()
+
         return SftpSettings(
             connection=connection,
             algorithms=algorithms,
             host_key=host_key,
+            add_host=add_host,
+            known_hosts=known_hosts,
         )
 
     @staticmethod
@@ -451,37 +472,38 @@ class SftpResolver:
                 "'settings.algorithms' must be an object.",
             )
 
+        def pick(*names: str) -> Any:
+            # Singular or plural spelling: "cipher" or "ciphers".
+            for name in names:
+                if value.get(name) is not None:
+                    return SftpResolver._resolve_algorithm(value[name], name)
+            return None
+
         return SftpAlgorithmSettings(
-            kex=SftpResolver._resolve_algorithm(
-                value.get("kex"),
-                "kex",
-            ),
-            host_key=SftpResolver._resolve_algorithm(
-                value.get("host_key"),
-                "host_key",
-            ),
-            cipher=SftpResolver._resolve_algorithm(
-                value.get("cipher"),
-                "cipher",
-            ),
-            mac=SftpResolver._resolve_algorithm(
-                value.get("mac"),
-                "mac",
-            ),
+            kex=pick("kex"),
+            host_key=pick("host_key", "host_keys", "host_key_algorithms"),
+            cipher=pick("cipher", "ciphers"),
+            mac=pick("mac", "macs"),
         )
 
     @staticmethod
     def _resolve_algorithm(
         value: Any,
         name: str,
-    ) -> str | None:
-        if value is None:
-            return None
+    ) -> tuple[str, ...]:
+        """One algorithm name, or a preference list of them."""
 
-        if not isinstance(value, str) or not value.strip():
+        items = value if isinstance(value, list) else [value]
+        names = tuple(
+            item.strip()
+            for item in items
+            if isinstance(item, str) and item.strip()
+        )
+
+        if not names or len(names) != len(items):
             raise SftpPluginException(
                 f"'settings.algorithms.{name}' must be "
-                f"a non-empty string.",
+                f"an algorithm name or a list of them.",
             )
 
-        return value.strip()
+        return names

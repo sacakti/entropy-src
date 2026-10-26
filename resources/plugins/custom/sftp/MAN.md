@@ -326,6 +326,52 @@ Document:
 
 ------------------------------------------------------------------------
 
+## Settings
+
+`settings` is optional. Unknown servers are refused unless their key is in
+`known_hosts` (`~/.ssh/known_hosts` of the user Entropy runs as):
+
+```
+Unable to establish SFTP connection to 'sftp.myapp.com:22': Server 'sftp.myapp.com' not found in known_hosts
+```
+
+Either add the key yourself (`ssh-keyscan sftp.myapp.com >> ~/.ssh/known_hosts`),
+or let the plugin do it once:
+
+```json
+"settings": {
+    "add_host": true,
+    "known_hosts": "~/.ssh/known_hosts"
+}
+```
+
+- `add_host`: trust a server seen for the first time and save its key; the run
+  log names the key it saved. Later runs verify against it, and a server whose
+  key **changed** is still refused.
+- `known_hosts`: the file to read and save keys in (default `~/.ssh/known_hosts`).
+- `algorithms`: each a name or a preference list (the first the server also
+  offers is used).
+  - `host_key_algorithms` (or `host_key`) — default: ssh-ed25519,
+    ecdsa-sha2-nistp256/384/521, rsa-sha2-512, rsa-sha2-256, ssh-rsa.
+  - `ciphers` (or `cipher`) — default: aes256-gcm@openssh.com,
+    aes128-gcm@openssh.com, aes256-ctr, aes192-ctr, aes128-ctr (no CBC/3DES).
+  - `kex`, `macs` (or `mac`) — Paramiko's defaults unless named.
+  - A name the client does not support fails with the list of supported ones.
+- `connection`: `timeout`, `banner_timeout`, `auth_timeout` (seconds).
+- `host_key.policy`: `auto_add` accepts any unknown key without saving it
+  (prefer `add_host`).
+
+```json
+"settings": {
+    "add_host": true,
+    "algorithms": {
+        "host_key_algorithms": ["ssh-ed25519", "rsa-sha2-512"],
+        "ciphers": ["aes256-gcm@openssh.com", "aes256-ctr"]
+    },
+    "connection": {"timeout": 20}
+}
+```
+
 ## Security
 
 Document security-related behavior.
