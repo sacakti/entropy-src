@@ -236,6 +236,8 @@ def list_releases(request: Request, response: Response, include_archived: bool =
     project = _project(request, user, "releases.read")
     _apply_housekeeping(request, project["id"])
     store = _store(request)
+    # Promotions first: a finished one moves its releases to the target environment.
+    promotions = _sync_promotions(request, project["id"], include_archived)
     items = [_sync_run(request, item) for item in store.list(project["id"], include_archived)]
     workflows = []
     for entry in request.app.state.entropy_context.workflow_manager.list():
@@ -245,7 +247,7 @@ def list_releases(request: Request, response: Response, include_archived: bool =
     assert user.id is not None
     return {
         "items": items,
-        "promotions": _sync_promotions(request, project["id"], include_archived),
+        "promotions": promotions,
         "environments": [row["name"] for row in request.app.state.entropy_context.database_manager.connection.fetchall(
             "SELECT name FROM release_environments ORDER BY name COLLATE NOCASE")],
         "housekeeping_rules": _housekeeping_rules(request, project["id"]),
@@ -254,6 +256,42 @@ def list_releases(request: Request, response: Response, include_archived: bool =
         "permissions": {name: request.app.state.entropy_context.authorization.has_permission(user.id, name, project["id"])
                         for name in ("releases.create", "releases.manage", "releases.promote", "workflows.execute", "tasks.create", "artifacts.read")},
     }
+
+
+@router.get("/report.xlsx")
+def release_workbook(request: Request, ids: str = Query("", max_length=20000),
+                     include_archived: bool = Query(False),
+                     record: SessionRecord = Depends(_current_session)) -> Response:
+    """Releases, their tasks and a pivot summary as a formatted Excel workbook."""
+
+    import tempfile
+    from datetime import datetime
+    from pathlib import Path
+
+    from lib.releases.report import build_workbook
+
+    _, _, user = record
+    project = _project(request, user, "releases.read")
+    wanted = {int(part) for part in ids.split(",") if part.strip().isdigit()}
+    promotions = _sync_promotions(request, project["id"], True)
+    releases = [_sync_run(request, item) for item in _store(request).list(project["id"], include_archived)]
+    if wanted:
+        releases = [item for item in releases if item["id"] in wanted]
+    if not releases:
+        raise HTTPException(status_code=404, detail="No releases to report.")
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "releases.xlsx"
+        build_workbook(path, project.get("name") or project.get("key") or "Project", releases, promotions,
+                       user.full_name or user.username)
+        content = path.read_bytes()
+    name = f"release-{releases[0]['id']}" if len(releases) == 1 else "releases"
+    stamp = datetime.now().strftime("%Y%m%d-%H%M")
+    return Response(
+        content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{name}-traceability-{stamp}.xlsx"',
+                 "Cache-Control": "no-store"},
+    )
 
 
 @router.post("/environments", status_code=201, dependencies=[Depends(verify_csrf)])
@@ -456,7 +494,7 @@ def _add_task(request: Request, user: User, release: Dict[str, Any], payload: Re
         raise HTTPException(status_code=409, detail="Completed releases cannot accept new tasks.")
     project_id = release["project_id"]
     require(request, user, "tasks.create", project_id)
-    if payload.assignee:
+    if payload.assignee and payload.assignee.lower() != user.username.lower():
         members = projects(request).members(project_id)
         if not any(m.get("kind") == "user" and m.get("name", "").lower() == payload.assignee.lower() for m in members):
             raise HTTPException(status_code=422, detail=f"'{payload.assignee}' is not a member of this project.")

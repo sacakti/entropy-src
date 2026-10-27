@@ -144,3 +144,10 @@
     .entropy-app .release-housekeeping-add { grid-template-columns: 1fr; }
     .entropy-app .release-traceability-dialog > footer { align-items: stretch; flex-direction: column; }
 }
+
+.entropy-app .release-env-chip { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 2px 9px; border: 1px solid color-mix(in srgb, var(--app-accent, #4f7cff) 35%, var(--app-line)); border-radius: 999px; color: var(--app-text); background: color-mix(in srgb, var(--app-accent, #4f7cff) 9%, transparent); font-size: .78rem; font-weight: 600; white-space: nowrap; }
+.entropy-app .release-env-chip.is-empty { border-style: dashed; color: var(--app-muted); background: transparent; font-weight: 500; }
+.entropy-app .release-env-edit { display: flex; gap: 8px; align-items: center; }
+.entropy-app .release-env-edit input { flex: 1; min-width: 0; }
+.entropy-app .promotion-environments { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 10px; color: var(--app-muted); font-size: .84rem; }
+.entropy-app .promotion-environments input { width: 170px; }

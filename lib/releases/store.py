@@ -92,7 +92,11 @@ def ensure_releases_schema(connection: DatabaseConnection) -> None:
 
 class ReleaseStore:
     def __init__(self, connection: DatabaseConnection) -> None:
+        from lib.tasks.store import ensure_tasks_schema
+
         self.connection = connection
+        # Linked tasks are read with their newer columns (keys, references, assignment).
+        ensure_tasks_schema(connection)
 
     def list(self, project_id: int, include_archived: bool = False) -> List[Dict[str, Any]]:
         archived_filter = "" if include_archived else " AND archived_at IS NULL"
@@ -156,7 +160,7 @@ class ReleaseStore:
             )
             promotion_id = cursor.lastrowid
             if not promotion_number:
-                promotion_number = f"HANDOFF-{int(promotion_id):06d}"
+                promotion_number = f"PROMO-{int(promotion_id):06d}"
                 self.connection.execute(
                     "UPDATE release_promotions SET promotion_number = ? WHERE id = ?",
                     (promotion_number, promotion_id),
@@ -209,7 +213,11 @@ class ReleaseStore:
     def _full(self, row: Any) -> Dict[str, Any]:
         release = dict(row)
         release["tasks"] = [dict(item) for item in self.connection.fetchall(
-            "SELECT t.id,t.task_key AS key,t.type,t.title,t.description,t.remarks,t.status,t.assignee,t.created_at,t.updated_at FROM tasks t"
+            "SELECT t.id,t.task_key AS key,t.type,t.title,t.description,t.remarks,t.status,t.assignee,"
+            "t.assigned_by,t.assigned_at,t.external_ref,t.due_date,t.created_at,t.updated_at,"
+            "(SELECT COUNT(*) FROM task_attachments a WHERE a.task_id = t.id) AS attachment_count,"
+            "(SELECT group_concat(g.name, ', ') FROM task_group_members m JOIN task_groups g ON g.id = m.group_id"
+            " WHERE m.task_id = t.id) AS group_names FROM tasks t"
             " JOIN release_tasks rt ON rt.task_id = t.id"
             " WHERE rt.release_id = ? ORDER BY t.id", (release["id"],)
         )]

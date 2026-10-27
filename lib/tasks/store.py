@@ -21,6 +21,12 @@ PREFIX = re.compile(r"^[A-Z][A-Z0-9]{1,9}$")
 TYPE_NAME = re.compile(r"^[a-z][a-z0-9_-]{0,29}$")
 
 
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
 class TaskStatusError(ValueError):
     """A status change the task's life cycle does not allow."""
 
@@ -93,6 +99,8 @@ def ensure_task_extensions(connection: DatabaseConnection) -> None:
         ("number", "INTEGER"),
         ("task_key", "TEXT"),
         ("due_date", "TEXT"),
+        ("assigned_by", "TEXT"),
+        ("assigned_at", "TEXT"),
     ):
         if name not in columns:
             connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
@@ -258,11 +266,13 @@ class TaskStore:
             prefix, number = _reserve(self.connection, project_id)
             cursor = self.connection.execute(
                 "INSERT INTO tasks (project_id,title,description,remarks,assignee,reminder_at,creator,"
-                "type,external_ref,status,number,task_key,due_date,created_at,updated_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?, datetime('now')),COALESCE(?, datetime('now')))",
+                "type,external_ref,status,number,task_key,due_date,assigned_by,assigned_at,created_at,updated_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,"
+                "CASE WHEN ? IS NULL THEN NULL ELSE COALESCE(?, datetime('now')) END,"
+                "COALESCE(?, datetime('now')),COALESCE(?, datetime('now')))",
                 (project_id, title, description, remarks, assignee, reminder_at, creator,
                  type, external_ref, status, number, task_key(prefix, number), due_date,
-                 created_at, created_at),
+                 creator if assignee else None, assignee, created_at, created_at, created_at),
             )
             task_id = cursor.lastrowid
             self._set_groups(task_id, group_ids)
@@ -279,6 +289,12 @@ class TaskStore:
         }}
         if "reminder_at" in allowed:
             allowed["reminder_sent"] = 0
+        if "assignee" in allowed:
+            row = self.connection.fetchone("SELECT assignee FROM tasks WHERE id = ?", (task_id,))
+            if row is not None and (row["assignee"] or "") != (allowed["assignee"] or ""):
+                # Who handed the task over, and when (cleared when unassigned).
+                allowed["assigned_by"] = actor if allowed["assignee"] else None
+                allowed["assigned_at"] = _utc_now() if allowed["assignee"] else None
         previous = None
         if "status" in allowed:
             row = self.connection.fetchone("SELECT status FROM tasks WHERE id = ?", (task_id,))

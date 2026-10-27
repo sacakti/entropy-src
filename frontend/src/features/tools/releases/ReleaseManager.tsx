@@ -1,21 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Archive, ArrowUpRight, Clipboard, Download, FileJson2, FileSpreadsheet, ListPlus, PackageCheck, Play, Plus, RefreshCw, Search, Settings2, Upload, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { Archive, ArrowUpRight, Clipboard, Download, FileJson2, FileSpreadsheet, ListPlus, MapPin, PackageCheck, Play, Plus, RefreshCw, Search, Settings2, Upload, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { currentProject } from '../../../services/project'
+import { copyRich, outlookReport, releaseLabel, releaseRows, taskRows, taskStatus } from './outlook'
 import { apiRequest } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import './release-manager.css'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 
 type Stage = 'workflow_queue' | 'workflow_done' | 'task_queue' | 'completed'
-type ReleaseTask = { id: number; title: string; status: string; assignee: string | null; comments?: { author: string; body: string; created_at: string }[] }
-type Release = {
+export type ReleaseTask = {
+    id: number; key?: string | null; title: string; description?: string; remarks?: string; status: string; assignee: string | null
+    assigned_by?: string | null; assigned_at?: string | null; external_ref?: string | null; attachment_count?: number
+    group_names?: string | null; comments?: { author: string; body: string; created_at: string }[]
+}
+export type Release = {
     id: number; name: string; version: string; environment: string; description: string
     workflow_name: string; workflow_job_id: number | null; workflow_state: string | null
     stage: Stage; created_by: string; created_at: string; updated_at: string; archived_at?: string | null
     tags: string[]; artifacts: { id: number; name: string; source: string; size_bytes: number }[]; tasks: ReleaseTask[]
 }
 type Workflow = { name: string; version: string; description: string }
-type Promotion = {
+export type Promotion = {
     id: number; promotion_number: string; target_environment: string; workflow_name: string; workflow_job_id: number | null
     workflow_state?: string; status: string; created_by: string; created_at: string; archived_at?: string | null
     releases: { id: number; name: string; version: string; environment: string }[]
@@ -27,7 +33,7 @@ type Data = {
 }
 type HousekeepingRule = { entity: 'release' | 'promotion'; older_than_days: number; statuses: string[] }
 type Artifact = { id: number; name: string; size_bytes: number }
-type ProjectTaskData = { items: { id: number; title: string }[]; members: { username: string; full_name: string | null }[] }
+type ProjectTaskData = { items: { id: number; key?: string; title: string }[]; members: { username: string; full_name: string | null }[] }
 type ReleaseDraft = { name: string; version: string; environment: string; description: string; workflow_name: string; tags: string; artifact_ids: number[] }
 type TaskDraft = { title: string; description: string; remarks: string; assignee: string }
 
@@ -40,8 +46,6 @@ const stages: { id: Stage; label: string }[] = [
 const blankRelease: ReleaseDraft = { name: '', version: '', environment: '', description: '', workflow_name: '', tags: '', artifact_ids: [] }
 const blankTask: TaskDraft = { title: '', description: '', remarks: '', assignee: '' }
 const readable = (value: string) => value.replaceAll('_', ' ')
-const xmlEscape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;')
-const htmlEscape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;')
 
 function ReleaseModalLayer({ children, onClose }: { children: ReactNode; onClose: () => void }) {
     const host = document.querySelector('.entropy-app') ?? document.body
@@ -64,6 +68,9 @@ export default function ReleaseManager() {
     const [taskDraft, setTaskDraft] = useState<TaskDraft>(blankTask)
     const [showTaskForm, setShowTaskForm] = useState(false)
     const [promotionWorkflow, setPromotionWorkflow] = useState('')
+    const [runWorkflows, setRunWorkflows] = useState<Record<number, string>>({})
+    const [environmentEdit, setEnvironmentEdit] = useState<{ id: number; value: string } | null>(null)
+    const [newEnvironment, setNewEnvironment] = useState('')
     const [targetEnvironment, setTargetEnvironment] = useState('')
     const [promotionNumber, setPromotionNumber] = useState('')
     const [promotionReleaseIds, setPromotionReleaseIds] = useState<Set<number>>(new Set())
@@ -78,7 +85,7 @@ export default function ReleaseManager() {
     const [housekeepingDraft, setHousekeepingDraft] = useState<HousekeepingRule>({ entity: 'release', older_than_days: 30, statuses: ['completed'] })
     const [traceabilityOpen, setTraceabilityOpen] = useState(false)
     const [traceabilityView, setTraceabilityView] = useState<'releases' | 'tasks'>('releases')
-    const [existingTasks, setExistingTasks] = useState<{ id: number; title: string }[]>([])
+    const [existingTasks, setExistingTasks] = useState<{ id: number; key?: string; title: string }[]>([])
     const [projectMembers, setProjectMembers] = useState<ProjectTaskData['members']>([])
     const [linkTaskId, setLinkTaskId] = useState('')
     const [busy, setBusy] = useState(false)
@@ -114,6 +121,9 @@ export default function ReleaseManager() {
             })
             .catch(() => setExistingTasks([]))
     }, [selected?.id, selected?.tasks.length, data?.permissions['tasks.create']])
+
+    const environmentDraft = selected && environmentEdit?.id === selected.id ? environmentEdit.value : selected?.environment ?? ''
+    const setEnvironmentDraft = (value: string) => selected && setEnvironmentEdit({ id: selected.id, value })
 
     const archivedFilter = useCallback((item: { archived_at?: string | null }) => Boolean(item.archived_at) === showArchived, [showArchived])
     const visibleReleases = useMemo(() => (data?.items ?? []).filter(archivedFilter).filter((item) => {
@@ -282,89 +292,79 @@ export default function ReleaseManager() {
         catch (reason) { notify.error((reason as Error).message, { title: 'Unable to unlink task' }) }
     }
 
+    const downloadWorkbook = (ids: number[]) => {
+        const params = new URLSearchParams()
+        if (ids.length) params.set('ids', ids.join(','))
+        if (showArchived) params.set('include_archived', 'true')
+        const project = currentProject()
+        if (project) params.set('project', project)
+        const link = window.document.createElement('a')
+        link.href = `/api/releases/report.xlsx?${params.toString()}`
+        link.click()
+        notify.success('The Excel report has Summary (pivot tables), Releases and Tasks sheets.', { title: 'Excel report' })
+    }
+
     const exportTraceabilityExcel = () => {
         if (!selected) return
-        const rows = [
-            ['Release traceability report', ''],
-            ['Release', selected.name], ['Version', selected.version], ['Environment', selected.environment],
-            ['Stage', readable(selected.stage)], ['Workflow', selected.workflow_name],
-            ['Workflow run', selected.workflow_job_id ? `#${selected.workflow_job_id} (${readable(selected.workflow_state ?? 'unknown')})` : 'Not started'],
-            ['Description', selected.description], ['Created by', selected.created_by], ['Created at', selected.created_at],
-            ['', ''], ['Task ID', 'Title', 'Status', 'Assignee'],
-            ...selected.tasks.map((task) => [String(task.id), task.title, readable(task.status), task.assignee ?? 'Unassigned']),
-        ]
-        const worksheet = rows.map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${xmlEscape(cell)}</Data></Cell>`).join('')}</Row>`).join('')
-        const spreadsheetXml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Traceability"><Table>${worksheet}</Table></Worksheet></Workbook>`
-        const url = URL.createObjectURL(new Blob([spreadsheetXml], { type: 'application/vnd.ms-excel;charset=utf-8' }))
-        const link = window.document.createElement('a'); link.href = url; link.download = `release-${selected.id}-traceability.xls`
-        link.click(); URL.revokeObjectURL(url)
         setTraceabilityMenu(false)
-        notify.success('Excel-compatible traceability report downloaded.', { title: 'Report generated' })
+        downloadWorkbook([selected.id])
+    }
+
+    const copyReport = async (releases: Release[], heading: string) => {
+        const { html, plain } = outlookReport(heading, releases, data?.promotions ?? [])
+        try {
+            await copyRich(html, plain)
+            notify.success('Paste it into an Outlook message: the release and task tables keep their layout.', { title: 'Report copied' })
+        } catch (reason) {
+            notify.error((reason as Error).message, { title: 'Unable to copy report' })
+        }
     }
 
     const copyTraceabilityReport = async () => {
         if (!selected) return
-        const taskRows = selected.tasks.length
-            ? selected.tasks.map((task) => `<tr><td>${task.id}</td><td>${htmlEscape(task.title)}</td><td>${htmlEscape(readable(task.status))}</td><td>${htmlEscape(task.assignee ?? 'Unassigned')}</td></tr>`).join('')
-            : '<tr><td colspan="4">No linked tasks</td></tr>'
-        const html = `<h2>Release status: ${htmlEscape(selected.name)}${selected.version ? ` · ${htmlEscape(selected.version)}` : ''}</h2><table border="1" cellpadding="6" cellspacing="0"><tbody><tr><th align="left">Environment</th><td>${htmlEscape(selected.environment || '—')}</td></tr><tr><th align="left">Stage</th><td>${htmlEscape(readable(selected.stage))}</td></tr><tr><th align="left">Workflow</th><td>${htmlEscape(selected.workflow_name)}${selected.workflow_job_id ? ` (#${selected.workflow_job_id}, ${htmlEscape(readable(selected.workflow_state ?? 'unknown'))})` : ''}</td></tr><tr><th align="left">Description</th><td>${htmlEscape(selected.description || '—')}</td></tr></tbody></table><h3>Linked tasks (${selected.tasks.length})</h3><table border="1" cellpadding="6" cellspacing="0"><thead><tr><th>ID</th><th>Task</th><th>Status</th><th>Assignee</th></tr></thead><tbody>${taskRows}</tbody></table>`
-        const plain = `Release status: ${selected.name}${selected.version ? ` ${selected.version}` : ''}\nEnvironment: ${selected.environment || '—'}\nStage: ${readable(selected.stage)}\nWorkflow: ${selected.workflow_name}${selected.workflow_job_id ? ` (#${selected.workflow_job_id}, ${readable(selected.workflow_state ?? 'unknown')})` : ''}\nDescription: ${selected.description || '—'}\n\nLinked tasks:\n${selected.tasks.map((task) => `- #${task.id} ${task.title} — ${readable(task.status)} — ${task.assignee ?? 'Unassigned'}`).join('\n') || '- None'}`
-        try {
-            await navigator.clipboard.write([new ClipboardItem({
-                'text/html': new Blob([html], { type: 'text/html' }),
-                'text/plain': new Blob([plain], { type: 'text/plain' }),
-            })])
-            notify.success('The release status report is ready to paste into Outlook.', { title: 'Report copied' })
-        } catch {
-            try {
-                await navigator.clipboard.writeText(plain)
-                notify.success('Plain-text release status copied to the clipboard.', { title: 'Report copied' })
-            } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to copy report' }) }
-        }
         setTraceabilityMenu(false)
+        await copyReport([selected], `Release status: ${releaseLabel(selected)}`)
     }
 
-    const traceabilityRows = () => {
-        const releases = visibleReleases
-        const releaseRows = [['Release ID', 'Release', 'Status', 'Environment', 'Promotion history', 'When / what happened', 'Task IDs'], ...releases.map((release) => {
-            const history = (data?.promotions ?? []).filter((promotion) => promotion.releases.some((item) => item.id === release.id))
-                .map((promotion) => `${promotion.promotion_number} ${promotion.target_environment} (${readable(promotion.workflow_state ?? promotion.status)} · ${promotion.created_at})`).join('; ') || '—'
-            const events = [`Created ${release.created_at} by ${release.created_by}`, `Updated ${release.updated_at}`, release.workflow_job_id ? `Workflow run #${release.workflow_job_id}: ${readable(release.workflow_state ?? 'unknown')}` : 'Workflow not started', ...history.split('; ').filter((item) => item !== '—')].join('; ')
-            return [String(release.id), `${release.name}${release.version ? ` ${release.version}` : ''}`, readable(release.stage), release.environment || '—', history, events, release.tasks.map((task) => `#${task.id}`).join(', ') || '—']
-        })]
-        const taskRows = [['Task ID', 'Release', 'Task name', 'Status', 'Assignee', 'Comments'], ...releases.flatMap((release) => release.tasks.map((task) => [String(task.id), `${release.name}${release.version ? ` ${release.version}` : ''}`, task.title, readable(task.status), task.assignee ?? 'Unassigned', (task.comments ?? []).map((comment) => `${comment.author} (${comment.created_at}): ${comment.body}`).join(' | ') || '—']))]
-        return { releaseRows, taskRows }
-    }
+    const traceabilityRows = () => ({
+        releaseRows: releaseRows(visibleReleases, data?.promotions ?? []),
+        taskRows: taskRows(visibleReleases),
+    })
 
-    const spreadsheetRows = (rows: string[][]) => rows.map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${xmlEscape(cell)}</Data></Cell>`).join('')}</Row>`).join('')
     const exportCombinedTraceabilityExcel = () => {
         if (!visibleReleases.length) return
-        const { releaseRows, taskRows } = traceabilityRows()
-        const workbook = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Releases"><Table>${spreadsheetRows(releaseRows)}</Table></Worksheet><Worksheet ss:Name="Tasks"><Table>${spreadsheetRows(taskRows)}</Table></Worksheet></Workbook>`
-        const url = URL.createObjectURL(new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8' }))
-        const link = window.document.createElement('a'); link.href = url; link.download = 'releases-traceability.xls'; link.click()
-        URL.revokeObjectURL(url); setTraceabilityOpen(false)
-        notify.success('Traceability report downloaded with separate Releases and Tasks sheets.', { title: 'Report generated' })
+        setTraceabilityOpen(false)
+        downloadWorkbook(visibleReleases.map((release) => release.id))
     }
 
     const copyCombinedTraceabilityReport = async () => {
         if (!visibleReleases.length) return
-        const { releaseRows, taskRows } = traceabilityRows()
-        const rows = traceabilityView === 'releases' ? releaseRows : taskRows
-        const heading = traceabilityView === 'releases' ? 'Release traceability' : 'Task traceability'
-        const htmlTable = `<h2>${heading}</h2><table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse"><thead><tr>${rows[0].map((value) => `<th align="left">${htmlEscape(value)}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map((row) => `<tr>${row.map((value) => `<td>${htmlEscape(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
-        const plain = `${heading}\n${rows.map((row) => row.join(' | ')).join('\n')}`
-        try {
-            await navigator.clipboard.write([new ClipboardItem({
-                'text/html': new Blob([htmlTable], { type: 'text/html' }),
-                'text/plain': new Blob([plain], { type: 'text/plain' }),
-            })])
-            notify.success(`${heading} is ready to paste into Outlook.`, { title: 'Report copied' })
-        } catch {
-            try { await navigator.clipboard.writeText(plain); notify.success(`${heading} copied as plain text.`, { title: 'Report copied' }) }
-            catch (reason) { notify.error((reason as Error).message, { title: 'Unable to copy report' }) }
-        }
+        await copyReport(visibleReleases, 'Release traceability')
         setTraceabilityOpen(false)
+    }
+
+    const saveEnvironment = async (release: Release) => {
+        const environment = environmentDraft.trim()
+        if (environment === release.environment) return
+        try {
+            await apiRequest(`/api/releases/${release.id}`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ environment }),
+            })
+            setEnvironmentEdit(null); await refresh()
+            notify.success(environment ? `${releaseLabel(release)} is in ${environment}.` : 'Environment cleared.', { title: 'Environment updated' })
+        } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to update the environment' }) }
+    }
+
+    const addEnvironment = async () => {
+        const name = newEnvironment.trim()
+        if (!name) return
+        try {
+            await apiRequest('/api/releases/environments', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+            })
+            setNewEnvironment(''); await refresh()
+            notify.success(`${name} can now be chosen for releases and promotions.`, { title: 'Environment added' })
+        } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to add the environment' }) }
     }
 
     const createPromotionRecord = async () => {
@@ -373,23 +373,25 @@ export default function ReleaseManager() {
         try {
             const result = await apiRequest<{ promotion: Promotion }>('/api/releases/promotions', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ release_ids: [...promotionReleaseIds], target_environment: targetEnvironment.trim(), promotion_number: promotionNumber.trim() || null }),
+                body: JSON.stringify({ release_ids: [...promotionReleaseIds], target_environment: targetEnvironment.trim(), promotion_number: promotionNumber.trim() || null, workflow_name: promotionWorkflow }),
             })
             setPromotionReleaseIds(new Set()); setPromotionNumber(''); setTab('promotions'); await refresh()
-            notify.success(`Promotion ${result.promotion.promotion_number} is ready in the promotion queue.`, { title: 'Handoff created' })
+            notify.success(`Promotion ${result.promotion.promotion_number} is ready in the promotion queue.`, { title: 'Promotion created' })
         } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to create promotion' }) } finally { setBusy(false) }
     }
 
+    const workflowFor = (promotion: Promotion) => runWorkflows[promotion.id] ?? promotion.workflow_name ?? ''
     const runPromotion = async (promotion: Promotion) => {
-        if (!promotionWorkflow) return
+        const workflow = workflowFor(promotion)
+        if (!workflow) return
         setBusy(true)
         try {
             await apiRequest(`/api/releases/promotions/${promotion.id}/run`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ workflow_name: promotionWorkflow }),
+                body: JSON.stringify({ workflow_name: workflow }),
             })
             await refresh()
-            notify.success(`Consolidation started for ${promotion.promotion_number}.`, { title: 'Promotion started' })
+            notify.success(`${workflow} is promoting ${promotion.promotion_number} to ${promotion.target_environment}.`, { title: 'Promotion started' })
         } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to start promotion' }) } finally { setBusy(false) }
     }
 
@@ -427,7 +429,7 @@ export default function ReleaseManager() {
                 <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void refresh()} title="Refresh"><RefreshCw size={15} /></button>
                 {data?.permissions['releases.manage'] && <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => { setHousekeepingRules(data.housekeeping_rules ?? []); setHousekeepingOpen(true) }}><Settings2 size={15} /> Housekeeping</button>}
                 <button type="button" className={`entropy-button entropy-button-secondary entropy-button-sm${showArchived ? ' active' : ''}`} onClick={() => { setShowArchived((value) => !value); setSelectedReleaseIds(new Set()); setSelectedPromotionIds(new Set()) }}><Archive size={15} /> {showArchived ? 'Archived' : 'Active'}</button>
-                <div className="release-traceability"><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!visibleReleases.length} aria-expanded={combinedTraceabilityMenu} onClick={() => setCombinedTraceabilityMenu((open) => !open)}>Traceability</button>{combinedTraceabilityMenu && <div className="release-traceability-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setTraceabilityView('releases'); setTraceabilityOpen(true); setCombinedTraceabilityMenu(false) }}><FileSpreadsheet size={15} /> Generate Excel report</button><button type="button" role="menuitem" onClick={() => { setTraceabilityView('releases'); setTraceabilityOpen(true); setCombinedTraceabilityMenu(false) }}><Clipboard size={15} /> Copy Outlook status report</button></div>}</div>
+                <div className="release-traceability"><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!visibleReleases.length} aria-expanded={combinedTraceabilityMenu} onClick={() => setCombinedTraceabilityMenu((open) => !open)}>Traceability</button>{combinedTraceabilityMenu && <div className="release-traceability-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setTraceabilityView('releases'); setTraceabilityOpen(true); setCombinedTraceabilityMenu(false) }}><Search size={15} /> Review report</button><button type="button" role="menuitem" onClick={() => { setCombinedTraceabilityMenu(false); exportCombinedTraceabilityExcel() }}><FileSpreadsheet size={15} /> Download Excel report</button><button type="button" role="menuitem" onClick={() => { setCombinedTraceabilityMenu(false); void copyCombinedTraceabilityReport() }}><Clipboard size={15} /> Copy for Outlook</button></div>}</div>
                 {data?.permissions['releases.manage'] && <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={exportReleases} disabled={!data.items.length} title="Export release JSON"><Download size={15} /> Export</button>}
                 {data?.permissions['releases.create'] && <label className="entropy-button entropy-button-secondary entropy-button-sm release-import-button" title="Import an Entropy release JSON export"><Upload size={15} /> Import<input type="file" accept=".json,application/json" disabled={busy} onChange={(event) => { void importReleases(event.currentTarget.files?.[0]); event.currentTarget.value = '' }} /></label>}
                 {data?.permissions['releases.create'] && <button className="entropy-button entropy-button-primary entropy-button-sm" onClick={() => { setDraft({ ...blankRelease, workflow_name: data.workflows[0]?.name ?? '' }); setCreating(true) }}><Plus size={16} /> New release</button>}
@@ -450,8 +452,9 @@ export default function ReleaseManager() {
                         {data.permissions['releases.manage'] && !showArchived && <label className="release-select-checkbox" aria-label={`Select release ${release.name}`}><input type="checkbox" checked={selectedReleaseIds.has(release.id)} onChange={() => toggleArchiveSelection(release.id, 'release')} /></label>}
                         <button className="release-main" onClick={() => setSelectedId(release.id)}>
                             <span className="release-title">{release.name}{release.version && <small>{release.version}</small>}</span>
-                            <span className="release-subtitle"><WorkflowIcon size={14} /> {release.workflow_name} {release.environment && <><span className="release-dot">·</span>{release.environment}</>}</span>
+                            <span className="release-subtitle"><WorkflowIcon size={14} /> {release.workflow_name}</span>
                         </button>
+                        <span className={`release-env-chip${release.environment ? '' : ' is-empty'}`} title="Environment"><MapPin size={12} /> {release.environment || 'No environment'}</span>
                         <span className={`release-stage stage-${release.stage}`}>{readable(stages.find((stage) => stage.id === release.stage)?.label ?? release.stage)}</span>
                         <span className="release-task-count">{release.tasks.length} task{release.tasks.length === 1 ? '' : 's'}</span>
                         <span className={`release-run-state ${release.workflow_state ?? ''}`}>{release.workflow_state ? `Workflow ${readable(release.workflow_state)}` : ''}</span>
@@ -462,21 +465,22 @@ export default function ReleaseManager() {
 
             {tab === 'promotions' && <>
                 {data.permissions['releases.promote'] && <section className="promotion-queue">
-                    <div className="promotion-queue-heading"><div><h4>Create promotion handoff</h4><p>Select completed releases, assign a unique handoff number and target environment. Run consolidation from the queue when ready.</p></div><ArrowUpRight size={18} /></div>
-                    <div className="promotion-controls"><span className="promotion-selection">{promotionReleaseIds.size} selected</span><button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setPromotionReleaseIds((current) => current.size === completed.length ? new Set() : new Set(completed.map((item) => item.id)))}>{promotionReleaseIds.size === completed.length && completed.length ? 'Clear selection' : 'Select all completed'}</button><input value={promotionNumber} onChange={(event) => setPromotionNumber(event.target.value)} placeholder="Handoff number (optional)" aria-label="Handoff number" /><input list="release-environment-options" aria-label="Target environment" placeholder="Target environment" value={targetEnvironment} onChange={(event) => setTargetEnvironment(event.target.value)} /><button className="entropy-button entropy-button-primary entropy-button-sm" disabled={!promotionReleaseIds.size || !targetEnvironment.trim() || busy} onClick={() => void createPromotionRecord()}><Plus size={14} /> Create handoff</button></div>
+                    <div className="promotion-queue-heading"><div><h4>Create promotion</h4><p>Select completed releases, choose the target environment and the promotion workflow. Run the promotion from the queue when ready; the releases move to the target environment when it completes.</p></div><ArrowUpRight size={18} /></div>
+                    <div className="promotion-controls"><span className="promotion-selection">{promotionReleaseIds.size} selected</span><button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setPromotionReleaseIds((current) => current.size === completed.length ? new Set() : new Set(completed.map((item) => item.id)))}>{promotionReleaseIds.size === completed.length && completed.length ? 'Clear selection' : 'Select all completed'}</button><input value={promotionNumber} onChange={(event) => setPromotionNumber(event.target.value)} placeholder="Promotion number (optional)" aria-label="Promotion number" /><input list="release-environment-options" aria-label="Target environment" placeholder="Target environment" value={targetEnvironment} onChange={(event) => setTargetEnvironment(event.target.value)} /><select aria-label="Promotion workflow" value={promotionWorkflow} onChange={(event) => setPromotionWorkflow(event.target.value)}><option value="">Promotion workflow…</option>{data.workflows.map((workflow) => <option key={workflow.name} value={workflow.name}>{workflow.name}</option>)}</select><button className="entropy-button entropy-button-primary entropy-button-sm" disabled={!promotionReleaseIds.size || !targetEnvironment.trim() || busy} onClick={() => void createPromotionRecord()}><Plus size={14} /> Create promotion</button></div>
+                    <div className="promotion-environments"><MapPin size={14} /><span>Environments:</span>{data.environments.length ? data.environments.map((environment) => <span className="release-env-chip" key={environment}>{environment}</span>) : <small>None yet</small>}<input value={newEnvironment} onChange={(event) => setNewEnvironment(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void addEnvironment() }} placeholder="New environment" aria-label="New environment" maxLength={100} /><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!newEnvironment.trim()} onClick={() => void addEnvironment()}><Plus size={14} /> Add</button></div>
                     <div className="promotion-release-picker">{completed.map((release) => <label key={release.id}><input type="checkbox" checked={promotionReleaseIds.has(release.id)} onChange={() => togglePromotionRelease(release.id)} /><span><strong>{release.name}{release.version ? ` ${release.version}` : ''}</strong><small>{release.environment || 'No environment'} · {release.tasks.length} tasks</small></span></label>)}{!completed.length && <small>No completed releases are available to promote.</small>}</div>
                 </section>}
                 {visiblePromotions.filter((item) => item.status === 'queued').length ? <div className="promotion-list">{visiblePromotions.filter((item) => item.status === 'queued').map((promotion) => <article key={promotion.id}>
-                    <div><strong>{promotion.promotion_number} · {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'} → {promotion.target_environment}</strong><span>Created by {promotion.created_by} · {new Date(promotion.created_at).toLocaleString()}</span></div><div className="promotion-release-names">{promotion.releases.map((release) => `${release.name}${release.version ? ` ${release.version}` : ''}`).join(', ')}</div><div className="promotion-run-controls"><select aria-label={`Consolidation workflow for ${promotion.promotion_number}`} value={promotionWorkflow} onChange={(event) => setPromotionWorkflow(event.target.value)}><option value="">Choose consolidation workflow</option>{data.workflows.map((workflow) => <option key={workflow.name} value={workflow.name}>{workflow.name}</option>)}</select><button type="button" className="entropy-button entropy-button-primary entropy-button-sm" disabled={!promotionWorkflow || busy} onClick={() => void runPromotion(promotion)}><Play size={14} /> Run consolidation</button></div>
-                </article>)}</div> : <div className="release-empty"><ArrowUpRight size={25} /><strong>No queued promotions</strong><span>Select completed releases to create a handoff record.</span></div>}
+                    <div><strong>{promotion.promotion_number} · {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'} → {promotion.target_environment}</strong><span>Created by {promotion.created_by} · {new Date(promotion.created_at).toLocaleString()}</span></div><div className="promotion-release-names">{promotion.releases.map((release) => `${release.name}${release.version ? ` ${release.version}` : ''}`).join(', ')}</div><div className="promotion-run-controls"><select aria-label={`Promotion workflow for ${promotion.promotion_number}`} value={workflowFor(promotion)} onChange={(event) => { const value = event.target.value; setRunWorkflows((current) => ({ ...current, [promotion.id]: value })) }}><option value="">Choose promotion workflow</option>{data.workflows.map((workflow) => <option key={workflow.name} value={workflow.name}>{workflow.name}</option>)}</select><button type="button" className="entropy-button entropy-button-primary entropy-button-sm" disabled={!workflowFor(promotion) || busy || !data.permissions['workflows.execute']} title={data.permissions['workflows.execute'] ? undefined : 'You may not run workflows'} onClick={() => void runPromotion(promotion)}><Play size={14} /> Run promotion</button></div>
+                </article>)}</div> : <div className="release-empty"><ArrowUpRight size={25} /><strong>No queued promotions</strong><span>Select completed releases to create a promotion.</span></div>}
             </>}
 
             {tab === 'history' && <>
                 {data.permissions['releases.manage'] && !showArchived && historyPromotions.length > 0 && <div className="release-bulk-toolbar"><label><input type="checkbox" checked={historyPromotions.every((item) => selectedPromotionIds.has(item.id))} onChange={(event) => setSelectedPromotionIds(event.target.checked ? new Set(historyPromotions.map((item) => item.id)) : new Set())} /> Select all {historyPromotions.length} promotion records</label><span>{selectedPromotionIds.size} selected</span><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!selectedPromotionIds.size || busy} onClick={() => void archiveSelected('promotion')}><Archive size={15} /> Archive selected</button><small>Archiving keeps all promotion history; it does not delete anything.</small></div>}
                 {historyPromotions.length ? <div className="promotion-list">{historyPromotions.map((promotion) => <article className="promotion-history-row" key={promotion.id}>
                 {data.permissions['releases.manage'] && !showArchived && <label className="release-select-checkbox" aria-label={`Select promotion ${promotion.promotion_number}`}><input type="checkbox" checked={selectedPromotionIds.has(promotion.id)} onChange={() => toggleArchiveSelection(promotion.id, 'promotion')} /></label>}
-                <div><strong>{promotion.promotion_number} · {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'} → {promotion.target_environment}</strong><span>Workflow: {promotion.workflow_name || 'Not started'}</span></div><div className="promotion-release-names">{promotion.releases.map((release) => `${release.name}${release.version ? ` ${release.version}` : ''}`).join(', ')}</div><span className={`promotion-status status-${promotion.status}`}>{readable(promotion.workflow_state ?? promotion.status)}</span>
-            </article>)}</div> : <div className="release-empty"><ArrowUpRight size={25} /><strong>No promotion history</strong><span>Completed and failed consolidation runs will appear here.</span></div>}
+                <div><strong>{promotion.promotion_number} · {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'} → {promotion.target_environment}</strong><span>Promotion workflow: {promotion.workflow_name || 'Not chosen'}{promotion.workflow_job_id ? <> · <a href={`#/runs/${promotion.workflow_job_id}`}>run #{promotion.workflow_job_id}</a></> : null}</span></div><div className="promotion-release-names">{promotion.releases.map((release) => `${release.name}${release.version ? ` ${release.version}` : ''}`).join(', ')}</div><span className={`promotion-status status-${promotion.status}`}>{readable(promotion.workflow_state ?? promotion.status)}</span>
+            </article>)}</div> : <div className="release-empty"><ArrowUpRight size={25} /><strong>No promotion history</strong><span>Completed and failed promotion runs will appear here.</span></div>}
             </>}
         </>}
 
@@ -500,24 +504,28 @@ export default function ReleaseManager() {
         </section></ReleaseModalLayer>}
 
         {traceabilityOpen && <ReleaseModalLayer onClose={() => setTraceabilityOpen(false)}><section className="release-dialog release-traceability-dialog">
-            <header><div><h3>Combined release traceability</h3><p>Review release status and task details separately before copying to Outlook.</p></div><button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => setTraceabilityOpen(false)} aria-label="Close"><X size={18} /></button></header>
+            <header><div><h3>Release traceability</h3><p>Review the releases and their tasks. Copying for Outlook takes both tables; the Excel report adds pivot summaries.</p></div><button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => setTraceabilityOpen(false)} aria-label="Close"><X size={18} /></button></header>
             <nav className="release-tabs" aria-label="Traceability report views"><button className={traceabilityView === 'releases' ? 'active' : ''} onClick={() => setTraceabilityView('releases')}>Releases</button><button className={traceabilityView === 'tasks' ? 'active' : ''} onClick={() => setTraceabilityView('tasks')}>Tasks</button></nav>
             <div className="release-traceability-table-wrap"><table className="release-traceability-table"><thead><tr>{(traceabilityView === 'releases' ? traceabilityRows().releaseRows[0] : traceabilityRows().taskRows[0]).map((heading) => <th key={heading}>{heading}</th>)}</tr></thead><tbody>{(traceabilityView === 'releases' ? traceabilityRows().releaseRows : traceabilityRows().taskRows).slice(1).map((row, index) => <tr key={`${index}-${row[0]}`}>{row.map((cell, cellIndex) => <td key={`${cellIndex}-${cell}`}>{cell}</td>)}</tr>)}</tbody></table></div>
-            <footer><button type="button" className="entropy-button entropy-button-secondary" onClick={exportCombinedTraceabilityExcel}><FileSpreadsheet size={15} /> Download Excel</button><button type="button" className="entropy-button entropy-button-primary" onClick={() => void copyCombinedTraceabilityReport()}><Clipboard size={15} /> Copy this view for Outlook</button></footer>
+            <footer><button type="button" className="entropy-button entropy-button-secondary" onClick={exportCombinedTraceabilityExcel}><FileSpreadsheet size={15} /> Download Excel</button><button type="button" className="entropy-button entropy-button-primary" onClick={() => void copyCombinedTraceabilityReport()}><Clipboard size={15} /> Copy releases and tasks for Outlook</button></footer>
         </section></ReleaseModalLayer>}
 
         {selected && data && <ReleaseModalLayer onClose={() => setSelectedId(null)}><section className="release-dialog release-detail">
-            <header><div><span className="release-eyebrow">RELEASE #{selected.id}</span><h3>{selected.name}{selected.version ? ` · ${selected.version}` : ''}</h3><p>{selected.workflow_name} {selected.environment && `· ${selected.environment}`}</p></div><div className="release-detail-actions"><div className="release-traceability"><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" aria-expanded={traceabilityMenu} onClick={() => setTraceabilityMenu((open) => !open)}>Traceability</button>{traceabilityMenu && <div className="release-traceability-menu" role="menu"><button type="button" role="menuitem" onClick={exportTraceabilityExcel}><FileSpreadsheet size={15} /> Generate Excel report</button><button type="button" role="menuitem" onClick={() => void copyTraceabilityReport()}><Clipboard size={15} /> Copy Outlook status report</button></div>}</div><button className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => setSelectedId(null)} aria-label="Close"><X size={18} /></button></div></header>
+            <header><div><span className="release-eyebrow">RELEASE #{selected.id}</span><h3>{selected.name}{selected.version ? ` · ${selected.version}` : ''}</h3><p>{selected.workflow_name} {selected.environment && `· ${selected.environment}`}</p></div><div className="release-detail-actions"><div className="release-traceability"><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" aria-expanded={traceabilityMenu} onClick={() => setTraceabilityMenu((open) => !open)}>Traceability</button>{traceabilityMenu && <div className="release-traceability-menu" role="menu"><button type="button" role="menuitem" onClick={exportTraceabilityExcel}><FileSpreadsheet size={15} /> Download Excel report</button><button type="button" role="menuitem" onClick={() => void copyTraceabilityReport()}><Clipboard size={15} /> Copy for Outlook</button></div>}</div><button className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => setSelectedId(null)} aria-label="Close"><X size={18} /></button></div></header>
             <div className="release-detail-scroll">
                 <div className="release-detail-summary"><span className={`release-stage stage-${selected.stage}`}>{readable(stages.find((stage) => stage.id === selected.stage)?.label ?? selected.stage)}</span><span>Created by <strong>{selected.created_by}</strong></span>{selected.workflow_job_id && <a href={`#/runs/${selected.workflow_job_id}`}>Workflow run #{selected.workflow_job_id} · {readable(selected.workflow_state ?? 'unknown')}</a>}</div>
                 {selected.description && <p className="release-description">{selected.description}</p>}
                 {selected.tags?.length > 0 && <div className="release-tag-list">{selected.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
                 {selected.artifacts?.length > 0 && <section className="release-linked-artifacts"><h4>Linked artifacts</h4><ul>{selected.artifacts.map((artifact) => <li key={artifact.id}><strong>{artifact.name}</strong><small>{artifact.size_bytes.toLocaleString()} bytes</small></li>)}</ul></section>}
+                <label className="release-stage-field">Environment
+                    {data.permissions['releases.manage'] && !selected.archived_at && selected.stage !== 'completed' ? <span className="release-env-edit"><input list="release-environment-options" value={environmentDraft} onChange={(event) => setEnvironmentDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void saveEnvironment(selected) }} placeholder="Choose or type an environment" maxLength={100} /><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={environmentDraft.trim() === selected.environment} onClick={() => void saveEnvironment(selected)}>Save</button></span> : <span className="release-env-chip"><MapPin size={12} /> {selected.environment || 'No environment'}</span>}
+                    <small>{selected.stage === 'completed' ? 'Completed releases change environment through a promotion.' : 'New names are added to the environment list.'}</small>
+                </label>
                 {data.permissions['releases.manage'] && !selected.archived_at && <label className="release-stage-field">Stage<select value={selected.stage} onChange={(event) => void updateStage(selected, event.target.value as Stage)}>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select><small>Mark Completed after every linked task is done. Completed releases enter the promotion queue.</small></label>}
                 <section className="release-linked-tasks"><div className="release-section-heading"><div><h4>Linked tasks <span>{selected.tasks.length}</span></h4><p>Linked tasks are tagged to this release and remain in Tasks.</p></div>{data.permissions['tasks.create'] && <div className="release-task-actions"><button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setShowTaskForm((value) => !value)}><ListPlus size={15} /> Add task</button><label className="entropy-button entropy-button-secondary entropy-button-sm release-import-button" title='Upload JSON: [{"title":"Task title","description":"Details","remarks":"Notes","assignee":"username"}]'><FileJson2 size={15} /> Import JSON<input type="file" accept=".json,application/json" onChange={(event) => { void importTasks(event.target.files?.[0]); event.currentTarget.value = '' }} /></label></div>}</div>
-                    {data.permissions['tasks.create'] && existingTasks.length > 0 && <div className="release-link-existing"><select aria-label="Select existing task" value={linkTaskId} onChange={(event) => setLinkTaskId(event.target.value)}><option value="">Link an existing task…</option>{existingTasks.map((task) => <option key={task.id} value={task.id}>#{task.id} · {task.title}</option>)}</select><button className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!linkTaskId} onClick={() => void linkExistingTask()}>Link task</button></div>}
+                    {data.permissions['tasks.create'] && existingTasks.length > 0 && <div className="release-link-existing"><select aria-label="Select existing task" value={linkTaskId} onChange={(event) => setLinkTaskId(event.target.value)}><option value="">Link an existing task…</option>{existingTasks.map((task) => <option key={task.id} value={task.id}>{task.key ?? `#${task.id}`} · {task.title}</option>)}</select><button className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!linkTaskId} onClick={() => void linkExistingTask()}>Link task</button></div>}
                     {showTaskForm && <form className="release-task-form" onSubmit={(event) => void addTask(event)}><label>Title<input autoFocus value={taskDraft.title} onChange={(event) => setTaskField('title', event.target.value)} required /></label><label>Description<textarea rows={2} value={taskDraft.description} onChange={(event) => setTaskField('description', event.target.value)} /></label><label>Remarks<textarea rows={2} value={taskDraft.remarks} onChange={(event) => setTaskField('remarks', event.target.value)} /></label><label>Assign to<select value={taskDraft.assignee} onChange={(event) => setTaskField('assignee', event.target.value)}><option value="">Unassigned</option>{projectMembers.map((member) => <option key={member.username} value={member.username}>{member.full_name ? `${member.full_name} (${member.username})` : member.username}</option>)}</select></label><button className="entropy-button entropy-button-primary entropy-button-sm" disabled={busy}><Plus size={14} /> Create linked task</button></form>}
-                    {selected.tasks.length ? <ul>{selected.tasks.map((task) => <li key={task.id}><span><strong>#{task.id} · {task.title}</strong><small>{readable(task.status)}{task.assignee ? ` · ${task.assignee}` : ''}{task.comments?.length ? ` · ${task.comments.length} comment${task.comments.length === 1 ? '' : 's'}: ${task.comments.map((comment) => comment.body).join(' | ')}` : ''}</small></span>{!selected.archived_at && <button className="entropy-button entropy-button-ghost entropy-button-sm" title="Unlink task" onClick={() => void unlinkTask(task.id)}><X size={15} /></button>}</li>)}</ul> : <div className="release-task-empty">No tasks linked. Add tasks manually, import JSON, or link existing project tasks.</div>}
+                    {selected.tasks.length ? <ul>{selected.tasks.map((task) => <li key={task.id}><span><strong>{task.key ?? `#${task.id}`} · {task.title}</strong><small>{taskStatus(task.status)}{task.assignee ? ` · ${task.assignee}` : ''}{task.comments?.length ? ` · ${task.comments.length} comment${task.comments.length === 1 ? '' : 's'}: ${task.comments.map((comment) => comment.body).join(' | ')}` : ''}</small></span>{!selected.archived_at && <button className="entropy-button entropy-button-ghost entropy-button-sm" title="Unlink task" onClick={() => void unlinkTask(task.id)}><X size={15} /></button>}</li>)}</ul> : <div className="release-task-empty">No tasks linked. Add tasks manually, import JSON, or link existing project tasks.</div>}
                 </section>
             </div>
         </section></ReleaseModalLayer>}
