@@ -219,3 +219,65 @@ def test_dates() -> None:
     assert parse_date("02/Jan/24 1:05 PM") == "2024-01-02 13:05:00"
     assert parse_date("2024-01-02T10:00:00Z") == "2024-01-02 10:00:00"
     assert parse_date("nonsense") is None
+
+
+def test_closed_tasks_are_only_reopened_with_a_reason(store: TaskStore) -> None:
+    from lib.tasks.store import TaskStatusError
+
+    task = store.create(1, "Ship", "", "", None, None, "admin", due_date="2030-01-31")
+    assert task["due_date"] == "2030-01-31"
+    store.update(task["id"], {"status": "done"}, "admin")
+    with pytest.raises(TaskStatusError):
+        store.update(task["id"], {"status": "todo"}, "admin")
+    with pytest.raises(TaskStatusError):
+        store.update(task["id"], {"status": "reopened"}, "admin", "  ")
+    with pytest.raises(TaskStatusError):
+        store.update(store.create(1, "x", "", "", None, None, "a")["id"], {"status": "reopened"}, "a", "why")
+    reopened = store.update(task["id"], {"status": "reopened"}, "pm", "Customer found a regression")
+    assert reopened["status"] == "reopened"
+    assert [(h["from_status"], h["to_status"], h["changed_by"]) for h in reopened["history"]] == [
+        (None, "todo", "admin"),
+        ("todo", "done", "admin"),
+        ("done", "reopened", "pm"),
+    ]
+    assert reopened["history"][-1]["reason"] == "Customer found a regression"
+    # Unchanged status is not history.
+    assert len(store.update(task["id"], {"status": "reopened", "title": "Ship it"}, "pm")["history"]) == 3
+
+
+def test_import_reopens_instead_of_moving_closed_back(store: TaskStore) -> None:
+    issues = parse(JIRA_JSON.encode(), "search.json")
+    import_issues(store, 1, issues, MEMBERS, "admin")
+    task = store.list(1)[0]
+    assert task["status"] == "done"
+    issues[0].status = "in_progress"
+    import_issues(store, 1, issues, MEMBERS, "admin")
+    task = store.get(task["id"])
+    assert task["status"] == "reopened" and "Jira" in task["history"][-1]["reason"]
+
+
+def test_report_embeds_fields_and_attachments(store: TaskStore, tmp_path: Path) -> None:
+    from lib.tasks.report import build_report
+
+    root = tmp_path / "files"
+    root.mkdir()
+    (root / "a-shot.png").write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    (root / "b-notes.txt").write_text("line <one>")
+    (root / "c-demo.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
+    task = store.create(1, "Fix <login>", "Users see 500.", "", "writer", None, "admin",
+                        external_ref="APP-1", due_date="2000-01-01")
+    group = store.create_group(1, "Release 2.4", "release", "", None, "admin")
+    store.add_to_group(group["id"], [task["id"]])
+    for name, kind, stored in (("shot.png", "image/png", "a-shot.png"),
+                               ("notes.txt", "text/plain", "b-notes.txt"),
+                               ("demo.mp4", "video/mp4", "c-demo.mp4")):
+        store.add_attachment(task["id"], name, kind, 10, "admin", storage_name=stored)
+    store.create(1, "Loose end", "", "", None, None, "admin")
+    tasks = store.list(1)
+    html = build_report(project="Payments", scope="All tasks", tasks=tasks, groups=store.groups(1),
+                        members=MEMBERS, attachments={t["id"]: store.attachments(t["id"]) for t in tasks},
+                        attachment_root=root, generated_by="Admin")
+    assert "Fix &lt;login&gt;" in html and "APP-1" in html and "Will Writer" in html
+    assert "data:image/png;base64," in html and "line &lt;one&gt;" in html and "data:video/mp4;base64," in html
+    assert "Overdue" in html and "Release 2.4" in html and "Not in a group" in html
+    assert "window.print" not in html

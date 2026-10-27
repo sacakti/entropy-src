@@ -9,13 +9,33 @@ from typing import Any, Dict, Iterable, List, Optional
 from lib.database.connection import DatabaseConnection
 
 
-STATUSES = ("todo", "in_progress", "done")
+STATUSES = ("todo", "in_progress", "done", "reopened")
+# A closed task never goes back to open; it can only be reopened, with a reason.
+CLOSED = "done"
+REOPENED = "reopened"
 # Offered in every project; imports and project settings may add more.
 DEFAULT_TYPES = ("issue", "bug", "task", "story", "improvement", "epic", "incident", "change")
 GROUP_KINDS = ("release", "sprint", "epic", "other")
 DEFAULT_PREFIX = "ENTASK"
 PREFIX = re.compile(r"^[A-Z][A-Z0-9]{1,9}$")
 TYPE_NAME = re.compile(r"^[a-z][a-z0-9_-]{0,29}$")
+
+
+class TaskStatusError(ValueError):
+    """A status change the task's life cycle does not allow."""
+
+
+def check_transition(current: str, target: str, reason: Optional[str]) -> None:
+    """Closed -> reopened (with a reason) is the only way out of closed."""
+
+    if current == target:
+        return
+    if current == CLOSED and target != REOPENED:
+        raise TaskStatusError("A closed task cannot be moved back; reopen it with a reason.")
+    if target == REOPENED and current != CLOSED:
+        raise TaskStatusError("Only a closed task can be reopened.")
+    if target == REOPENED and not (reason or "").strip():
+        raise TaskStatusError("Give a reason to reopen the task.")
 
 
 def task_key(prefix: str, number: int) -> str:
@@ -72,6 +92,7 @@ def ensure_task_extensions(connection: DatabaseConnection) -> None:
         ("external_ref", "TEXT"),
         ("number", "INTEGER"),
         ("task_key", "TEXT"),
+        ("due_date", "TEXT"),
     ):
         if name not in columns:
             connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
@@ -110,6 +131,16 @@ def ensure_task_extensions(connection: DatabaseConnection) -> None:
         "storage_name TEXT, url TEXT, uploaded_by TEXT NOT NULL,"
         "created_at TEXT NOT NULL DEFAULT (datetime('now'))"
         ")"
+    )
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS task_status_history ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,"
+        "from_status TEXT, to_status TEXT NOT NULL, reason TEXT NOT NULL DEFAULT '', changed_by TEXT NOT NULL,"
+        "changed_at TEXT NOT NULL DEFAULT (datetime('now'))"
+        ")"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS task_status_history_task ON task_status_history(task_id, id)"
     )
     _backfill_keys(connection)
 
@@ -222,28 +253,44 @@ class TaskStore:
                assignee: Optional[str], reminder_at: Optional[str], creator: str,
                *, type: str = "issue", external_ref: Optional[str] = None,
                status: str = "todo", group_ids: Iterable[int] = (),
-               created_at: Optional[str] = None) -> Dict[str, Any]:
+               created_at: Optional[str] = None, due_date: Optional[str] = None) -> Dict[str, Any]:
         with self.connection.transaction():
             prefix, number = _reserve(self.connection, project_id)
             cursor = self.connection.execute(
                 "INSERT INTO tasks (project_id,title,description,remarks,assignee,reminder_at,creator,"
-                "type,external_ref,status,number,task_key,created_at,updated_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?, datetime('now')),COALESCE(?, datetime('now')))",
+                "type,external_ref,status,number,task_key,due_date,created_at,updated_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?, datetime('now')),COALESCE(?, datetime('now')))",
                 (project_id, title, description, remarks, assignee, reminder_at, creator,
-                 type, external_ref, status, number, task_key(prefix, number), created_at, created_at),
+                 type, external_ref, status, number, task_key(prefix, number), due_date,
+                 created_at, created_at),
             )
             task_id = cursor.lastrowid
             self._set_groups(task_id, group_ids)
+            self._record_status(task_id, None, status, creator, "", created_at)
         return self.get(task_id)  # type: ignore[arg-type,return-value]
 
-    def update(self, task_id: int, values: Dict[str, Any]) -> Dict[str, Any]:
+    def update(self, task_id: int, values: Dict[str, Any], actor: str = "system",
+               reason: Optional[str] = None) -> Dict[str, Any]:
+        """Change a task; a status change is checked and kept in its history."""
+
         allowed = {key: value for key, value in values.items() if key in {
-            "title", "description", "remarks", "status", "assignee", "reminder_at", "type", "external_ref"
+            "title", "description", "remarks", "status", "assignee", "reminder_at", "type",
+            "external_ref", "due_date",
         }}
         if "reminder_at" in allowed:
             allowed["reminder_sent"] = 0
+        previous = None
+        if "status" in allowed:
+            row = self.connection.fetchone("SELECT status FROM tasks WHERE id = ?", (task_id,))
+            previous = row["status"] if row else None
+            if previous == allowed["status"]:
+                allowed.pop("status")
+            elif previous is not None:
+                check_transition(previous, allowed["status"], reason)
         assignments = ", ".join(f"{key} = ?" for key in allowed)
         with self.connection.transaction():
+            if "status" in allowed:
+                self._record_status(task_id, previous, allowed["status"], actor, (reason or "").strip())
             if assignments:
                 self.connection.execute(
                     f"UPDATE tasks SET {assignments}, updated_at = datetime('now') WHERE id = ?",
@@ -259,10 +306,31 @@ class TaskStore:
 
         attachments = self.attachments(task_id)
         with self.connection.transaction():
-            for table in ("task_comments", "task_followers", "task_group_members", "task_attachments"):
+            for table in ("task_comments", "task_followers", "task_group_members", "task_attachments",
+                          "task_status_history"):
                 self.connection.execute(f"DELETE FROM {table} WHERE task_id = ?", (task_id,))
             self.connection.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
         return attachments
+
+    def _record_status(self, task_id: int, previous: Optional[str], status: str, actor: str,
+                       reason: str, at: Optional[str] = None) -> None:
+        self.connection.execute(
+            "INSERT INTO task_status_history(task_id,from_status,to_status,reason,changed_by,changed_at)"
+            " VALUES (?,?,?,?,?,COALESCE(?, datetime('now')))",
+            (task_id, previous, status, reason, actor, at),
+        )
+
+    def status_history(self, task_id: int) -> List[Dict[str, Any]]:
+        return [dict(row) for row in self.connection.fetchall(
+            "SELECT from_status,to_status,reason,changed_by,changed_at FROM task_status_history"
+            " WHERE task_id = ? ORDER BY id", (task_id,)
+        )]
+
+    def follower_contacts(self, task_id: int) -> List[Dict[str, Any]]:
+        return [dict(row) for row in self.connection.fetchall(
+            "SELECT u.id, u.username, u.email FROM task_followers f JOIN users u ON u.id = f.user_id"
+            " WHERE f.task_id = ? AND u.is_active = 1", (task_id,)
+        )]
 
     def _set_groups(self, task_id: int, group_ids: Iterable[int]) -> None:
         self.connection.execute("DELETE FROM task_group_members WHERE task_id = ?", (task_id,))
@@ -396,6 +464,7 @@ class TaskStore:
         task["group_ids"] = [item["group_id"] for item in self.connection.fetchall(
             "SELECT group_id FROM task_group_members WHERE task_id = ? ORDER BY group_id", (task["id"],)
         )]
+        task["history"] = self.status_history(task["id"])
         task["attachments"] = [
             {key: value for key, value in item.items() if key != "storage_name"}
             for item in self.attachments(task["id"])

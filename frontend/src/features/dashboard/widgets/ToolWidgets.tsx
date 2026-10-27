@@ -16,7 +16,7 @@ const TOOL_REFRESH_MS = 30_000
 // Tasks
 // ----------------------------------------------------------------------
 
-type TaskStatus = 'todo' | 'in_progress' | 'done'
+type TaskStatus = 'todo' | 'in_progress' | 'done' | 'reopened'
 type Task = {
     id: number
     key?: string
@@ -34,7 +34,7 @@ type TaskData = {
     permissions: { 'tasks.create': boolean; 'tasks.manage': boolean }
 }
 
-const TASK_LABELS: Record<TaskStatus, string> = { todo: 'To do', in_progress: 'In progress', done: 'Done' }
+const TASK_LABELS: Record<TaskStatus, string> = { todo: 'Open', in_progress: 'In progress', done: 'Closed', reopened: 'Reopened' }
 
 export function TasksWidget(props: WidgetProps) {
     const { notify } = useFeedback()
@@ -77,7 +77,7 @@ export function TasksWidget(props: WidgetProps) {
             await apiRequest(`/api/tasks/${task.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: task.status === 'done' ? 'todo' : 'done' }),
+                body: JSON.stringify({ status: 'done' }),
             })
             state.reload()
         } catch (cause) {
@@ -90,7 +90,7 @@ export function TasksWidget(props: WidgetProps) {
     return (
         <WidgetBody state={state} tool="Tasks">
             {(data) => {
-                const counts = { todo: 0, in_progress: 0, done: 0 }
+                const counts = { todo: 0, in_progress: 0, done: 0, reopened: 0 }
                 data.items.forEach((task) => (counts[task.status] += 1))
                 const items = data.items
                     .filter((task) =>
@@ -142,9 +142,15 @@ export function TasksWidget(props: WidgetProps) {
                                             className="dw-check"
                                             role="checkbox"
                                             aria-checked={task.status === 'done'}
-                                            aria-label={`${task.status === 'done' ? 'Reopen' : 'Complete'} ${task.title}`}
-                                            disabled={!data.permissions['tasks.manage'] || busy === task.id}
-                                            title={data.permissions['tasks.manage'] ? undefined : 'You may not change tasks'}
+                                            aria-label={`${task.status === 'done' ? 'Closed:' : 'Close'} ${task.title}`}
+                                            disabled={!data.permissions['tasks.manage'] || busy === task.id || task.status === 'done'}
+                                            title={
+                                                !data.permissions['tasks.manage']
+                                                    ? 'You may not change tasks'
+                                                    : task.status === 'done'
+                                                      ? 'Closed. Reopen it in Tasks, with a reason.'
+                                                      : 'Close task'
+                                            }
                                             onClick={() => void toggle(task)}
                                         >
                                             {busy === task.id ? (

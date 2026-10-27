@@ -9,15 +9,25 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import Query
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from core.web.projects import current_project, projects, require
 from core.web.routes.auth import _current_session, verify_csrf
 from lib.models.session import Session
 from lib.models.users import User
-from lib.tasks.store import GROUP_KINDS, PREFIX, STATUSES, TYPE_NAME, TaskStore
+from lib.tasks.store import (
+    CLOSED,
+    GROUP_KINDS,
+    PREFIX,
+    REOPENED,
+    STATUSES,
+    TYPE_NAME,
+    TaskStatusError,
+    TaskStore,
+)
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 SessionRecord = Tuple[Session, str, User]
@@ -38,6 +48,7 @@ class TaskCreate(BaseModel):
     external_ref: Optional[str] = Field(default=None, max_length=120)
     status: str = "todo"
     group_ids: List[int] = Field(default_factory=list, max_length=50)
+    due_date: Optional[str] = Field(default=None, max_length=10)
 
 
 class TaskUpdate(BaseModel):
@@ -50,6 +61,9 @@ class TaskUpdate(BaseModel):
     type: Optional[str] = Field(default=None, max_length=30)
     external_ref: Optional[str] = Field(default=None, max_length=120)
     group_ids: Optional[List[int]] = Field(default=None, max_length=50)
+    due_date: Optional[str] = Field(default=None, max_length=10)
+    # Required to reopen a closed task; kept in its status history.
+    reason: Optional[str] = Field(default=None, max_length=2000)
 
 
 class CommentCreate(BaseModel):
@@ -145,6 +159,18 @@ def _validate_reminder(value: Optional[str]) -> None:
             raise HTTPException(status_code=422, detail="Reminder must be a valid date and time.") from None
 
 
+def _validate_due(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Due date must be a date (YYYY-MM-DD).") from None
+
+
+STATUS_LABELS = {"todo": "Open", "in_progress": "In progress", CLOSED: "Closed", REOPENED: "Reopened"}
+
+
 def _label(item: Dict[str, Any]) -> str:
     return f"{item.get('key')} {item['title']}" if item.get("key") else item["title"]
 
@@ -157,6 +183,43 @@ def _notify_followers(request: Request, item: Dict[str, Any], actor_id: int, mes
         if follower_id != actor_id and follower_id not in (skip or set()):
             notify_user(request.app.state.entropy_context, follower_id,
                         f"Task updated: {_label(item)}", message, "info", f"task:{item['id']}")
+
+
+def _alert_status(request: Request, background: BackgroundTasks, item: Dict[str, Any],
+                  user: User, previous: str, reason: Optional[str]) -> None:
+    """Tell the task's followers, in Entropy and by e-mail, that its status changed."""
+
+    from lib.database.repositories.notifications import notify_user
+
+    context = request.app.state.entropy_context
+    status = STATUS_LABELS.get(item["status"], item["status"])
+    message = (f"{user.username} moved {_label(item)} from "
+               f"{STATUS_LABELS.get(previous, previous)} to {status}.")
+    if reason:
+        message += f" Reason: {reason.strip()}"
+    addresses = []
+    for follower in _store(request).follower_contacts(item["id"]):
+        if follower["id"] == user.id:
+            continue
+        notify_user(context, follower["id"], f"Task {status.lower()}: {_label(item)}",
+                    message, "info", f"task:{item['id']}")
+        if follower.get("email"):
+            addresses.append(follower["email"])
+    if addresses:
+        background.add_task(_mail_followers, context, addresses, f"[Entropy] {_label(item)} is {status.lower()}",
+                            message)
+
+
+def _mail_followers(context: Any, addresses: List[str], subject: str, text: str) -> None:
+    from lib.system.mailer import MailError, send_mail
+    from lib.system.settings import settings_for
+
+    try:
+        smtp = settings_for(context).values("smtp")
+        if smtp.get("enabled"):
+            send_mail(smtp, addresses, subject, text + "\n\nYou receive this because you follow the task.")
+    except (MailError, Exception):  # noqa: BLE001 - a mail failure never fails the update
+        pass
 
 
 def _notify_mentions(request: Request, item: Dict[str, Any], user: User, body: str) -> set:
@@ -205,12 +268,60 @@ def list_tasks(request: Request, response: Response, record: SessionRecord = Dep
             "groups": store.groups(project_id),
             "settings": store.settings(project_id),
             "statuses": list(STATUSES),
+            "status_labels": STATUS_LABELS,
             "group_kinds": list(GROUP_KINDS),
             "members": [{"username": row["username"], "full_name": row["full_name"]} for row in _members(request, project_id)],
             "user_id": user.id, "username": user.username,
             "permissions": {name: authorization.has_permission(user.id, name, project_id)
                             for name in ("tasks.create", "tasks.manage", "tasks.comment", "tasks.follow")},
             "mail_ready": mail_ready}
+
+
+@router.get("/report")
+def task_report(request: Request, scope: str = Query("all", pattern="^(all|selected|group)$"),
+                ids: str = Query("", max_length=20000), group_id: Optional[int] = None,
+                format: str = Query("html", pattern="^(html|pdf)$"),
+                record: SessionRecord = Depends(_current_session)) -> Response:
+    """A self-contained HTML report (printed by the browser for PDF)."""
+
+    from lib.tasks.report import build_report
+
+    _, _, user = record
+    project = current_project(request, user)
+    require(request, user, "tasks.read", project["id"])
+    store = _store(request)
+    tasks = store.list(project["id"])
+    tasks.sort(key=lambda task: task.get("number") or task["id"])
+    groups = store.groups(project["id"])
+    label = "All tasks"
+    if scope == "selected":
+        wanted = {int(part) for part in ids.split(",") if part.strip().isdigit()}
+        tasks = [task for task in tasks if task["id"] in wanted]
+        label = "Selected tasks"
+    elif scope == "group":
+        group = next((g for g in groups if g["id"] == group_id), None)
+        if group is None:
+            raise HTTPException(status_code=404, detail="Choose a group of the current project.")
+        tasks = [task for task in tasks if group["id"] in task["group_ids"]]
+        groups = [group]
+        label = f"Group: {group['name']}"
+    groups = sorted(groups, key=lambda g: g["name"].lower())
+    html = build_report(
+        project=project.get("name") or f"Project {project['id']}",
+        scope=label,
+        tasks=tasks,
+        groups=groups,
+        members=_members(request, project["id"]),
+        attachments={task["id"]: store.attachments(task["id"]) for task in tasks},
+        attachment_root=_attachment_root(request, project["id"]),
+        generated_by=user.full_name or user.username,
+        print_mode=format == "pdf",
+    )
+    headers = {"Cache-Control": "no-store"}
+    if format == "html":
+        stamp = datetime.now().strftime("%Y%m%d-%H%M")
+        headers["Content-Disposition"] = f'attachment; filename="task-report-{stamp}.html"'
+    return HTMLResponse(html, headers=headers)
 
 
 @router.post("", status_code=201, dependencies=[Depends(verify_csrf)])
@@ -222,7 +333,7 @@ def create_task(payload: TaskCreate, request: Request, record: SessionRecord = D
     _validate_reminder(payload.reminder_at)
     _validate_type(store, project_id, payload.type)
     _validate_groups(store, project_id, payload.group_ids)
-    if payload.status not in STATUSES:
+    if payload.status not in STATUSES or payload.status == REOPENED:
         raise HTTPException(status_code=422, detail="Choose a valid task status.")
     title = payload.title.strip()
     if not title:
@@ -230,15 +341,18 @@ def create_task(payload: TaskCreate, request: Request, record: SessionRecord = D
     item = store.create(project_id, title, payload.description, payload.remarks, payload.assignee,
                         payload.reminder_at, user.username, type=payload.type,
                         external_ref=(payload.external_ref or "").strip() or None,
-                        status=payload.status, group_ids=payload.group_ids)
+                        status=payload.status, group_ids=payload.group_ids,
+                        due_date=_validate_due(payload.due_date))
     _notify_mentions(request, item, user, payload.description)
     return item
 
 
 @router.patch("/{task_id}", dependencies=[Depends(verify_csrf)])
-def update_task(task_id: int, payload: TaskUpdate, request: Request, record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+def update_task(task_id: int, payload: TaskUpdate, request: Request, background: BackgroundTasks,
+                record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
     _, _, user = record
     data = payload.model_dump(exclude_unset=True)
+    reason = data.pop("reason", None)
     # Taking a task needs no more than commenting on it; everything else needs tasks.manage.
     self_assign = set(data) == {"assignee"} and (data["assignee"] or "").lower() == user.username.lower()
     item = _task(request, user, task_id, "tasks.comment" if self_assign else "tasks.manage")
@@ -254,9 +368,16 @@ def update_task(task_id: int, payload: TaskUpdate, request: Request, record: Ses
     if "external_ref" in data:
         data["external_ref"] = (data["external_ref"] or "").strip() or None
     _validate_reminder(data.get("reminder_at"))
-    updated = store.update(task_id, data)
-    if data:
-        assert user.id is not None
+    if "due_date" in data:
+        data["due_date"] = _validate_due(data["due_date"])
+    try:
+        updated = store.update(task_id, data, user.username, reason)
+    except TaskStatusError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    assert user.id is not None
+    if updated["status"] != item["status"]:
+        _alert_status(request, background, updated, user, item["status"], reason)
+    elif data:
         _notify_followers(request, item, user.id, f"{user.username} updated this task.")
     return updated
 

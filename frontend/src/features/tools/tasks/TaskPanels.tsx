@@ -6,6 +6,7 @@ import {
     ExternalLink,
     FileUp,
     Hand,
+    History,
     Link2,
     LoaderCircle,
     MessageSquare,
@@ -20,17 +21,23 @@ import {
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import MentionInput, { MentionText } from './MentionInput'
 import TypeIcon from './TypeIcon'
+import { useStatusChange } from './statusChange'
 import {
     GROUP_KINDS,
     STATUSES,
     formatSize,
+    isOverdue,
     localDate,
+    nextStatuses,
+    statusTitle,
     reminderInput,
     reminderValue,
+    reportUrl,
     tasksApi,
     typeLabel,
     type Group,
     type GroupKind,
+    type ReportScope,
     type Status,
     type Task,
     type TaskData,
@@ -145,6 +152,7 @@ type Draft = {
     assignee: string
     external_ref: string
     reminder_at: string
+    due_date: string
     group_ids: number[]
 }
 
@@ -157,7 +165,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
     const { notify } = useFeedback()
     const blank: Draft = {
         title: '', type: 'issue', status: 'todo', description: '', remarks: '', assignee: '',
-        external_ref: '', reminder_at: '', group_ids: initialGroup ? [initialGroup] : [],
+        external_ref: '', reminder_at: '', due_date: '', group_ids: initialGroup ? [initialGroup] : [],
     }
     const [draft, setDraft] = useState<Draft>(blank)
     const [busy, setBusy] = useState(false)
@@ -175,6 +183,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
                 assignee: draft.assignee || null,
                 external_ref: draft.external_ref.trim() || null,
                 reminder_at: reminderValue(draft.reminder_at),
+                due_date: draft.due_date || null,
             })
             notify.success(`${created.key} created.`, { title: 'Task created' })
             const keep = another.current
@@ -205,7 +214,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
                     <label>
                         Status
                         <select value={draft.status} onChange={(event) => set('status', event.target.value as Status)}>
-                            {STATUSES.map((status) => (
+                            {STATUSES.filter((status) => status.id !== 'reopened').map((status) => (
                                 <option key={status.id} value={status.id}>
                                     {status.title}
                                 </option>
@@ -237,11 +246,17 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
                     <span>Groups</span>
                     <GroupPicker groups={data.groups} value={draft.group_ids} onChange={(ids) => set('group_ids', ids)} />
                 </div>
-                <label className="task-reminder-label">
-                    Reminder
-                    {!data.mail_ready && <small>Email reminders need SMTP configuration in Administration → Settings.</small>}
-                    <input type="datetime-local" value={draft.reminder_at} onChange={(event) => set('reminder_at', event.target.value)} />
-                </label>
+                <div className="task-form-row">
+                    <label>
+                        Due date
+                        <input type="date" value={draft.due_date} onChange={(event) => set('due_date', event.target.value)} />
+                    </label>
+                    <label className="task-reminder-label">
+                        Reminder
+                        <input type="datetime-local" value={draft.reminder_at} onChange={(event) => set('reminder_at', event.target.value)} />
+                    </label>
+                </div>
+                {!data.mail_ready && <small className="task-muted">Email reminders need SMTP configuration in Administration → Settings.</small>}
                 <footer>
                     <button type="button" className="entropy-button entropy-button-secondary" onClick={onClose}>
                         Cancel
@@ -276,6 +291,7 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
     const fileInput = useRef<HTMLInputElement>(null)
     const manage = data.permissions['tasks.manage']
     const canComment = data.permissions['tasks.comment']
+    const checkStatus = useStatusChange()
 
     const run = async (label: string, action: () => Promise<unknown>, failure: string) => {
         setBusy(label)
@@ -291,6 +307,12 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
         }
     }
     const save = (changes: Record<string, unknown>) => run('save', () => tasksApi.update(task.id, changes), 'Unable to update the task')
+    const changeStatus = async (status: Status) => {
+        const change = await checkStatus(task, status)
+        if (change && (await save(change)) && change.reason) {
+            notify.success(`${task.key} reopened.`, { title: 'Task reopened' })
+        }
+    }
 
     const remove = async () => {
         const confirmed = await modal.confirm({
@@ -362,10 +384,10 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                     </label>
                     <label>
                         Status
-                        <select disabled={!manage} value={task.status} onChange={(event) => void save({ status: event.target.value })}>
-                            {STATUSES.map((status) => (
-                                <option key={status.id} value={status.id}>
-                                    {status.title}
+                        <select disabled={!manage} value={task.status} onChange={(event) => void changeStatus(event.target.value as Status)}>
+                            {nextStatuses(task.status).map((status) => (
+                                <option key={status} value={status}>
+                                    {statusTitle(status)}
                                 </option>
                             ))}
                         </select>
@@ -395,6 +417,13 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                 <div className="task-field">
                     <span>Groups</span>
                     <GroupPicker groups={data.groups} value={task.group_ids} disabled={!manage} onChange={(ids) => void save({ group_ids: ids })} />
+                </div>
+                <div className="task-form-row">
+                    <label>
+                        Due date {isOverdue(task) && <span className="task-overdue">Overdue</span>}
+                        <input type="date" disabled={!manage} value={task.due_date ?? ''} onChange={(event) => void save({ due_date: event.target.value || null })} />
+                    </label>
+                    <span />
                 </div>
                 <div className="task-detail-info">
                     <span>Created by <strong>{task.creator}</strong> {localDate(task.created_at)}</span>
@@ -518,6 +547,24 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                         </form>
                     )}
                 </section>
+
+                {(task.history?.length ?? 0) > 0 && (
+                    <section className="task-history">
+                        <h4><History size={16} /> Status history <span>{task.history.length}</span></h4>
+                        <ol>
+                            {task.history.map((item, index) => (
+                                <li key={index} className={item.to_status === 'reopened' ? 'is-reopen' : ''}>
+                                    <div>
+                                        {item.from_status ? <>{statusTitle(item.from_status)} → </> : 'Created as '}
+                                        <strong>{statusTitle(item.to_status)}</strong>
+                                        <span className="task-muted"> · {item.changed_by} · {localDate(item.changed_at)}</span>
+                                    </div>
+                                    {item.reason && <p>{item.reason}</p>}
+                                </li>
+                            ))}
+                        </ol>
+                    </section>
+                )}
             </div>
         </Panel>
     )
@@ -794,6 +841,90 @@ export function ImportPanel({ onClose, onImported }: { onClose: () => void; onIm
                     </button>
                 </footer>
             </form>
+        </Panel>
+    )
+}
+
+// ----------------------------------------------------------------------
+// Report
+// ----------------------------------------------------------------------
+
+export function ReportPanel({ data, selection, groupFilter, onClose, onPickTasks }: {
+    data: TaskData
+    selection: number[]
+    groupFilter: number | null
+    onClose: () => void
+    onPickTasks: () => void
+}) {
+    const [scope, setScope] = useState<ReportScope>(selection.length ? 'selected' : groupFilter ? 'group' : 'all')
+    const [groupId, setGroupId] = useState<number | null>(groupFilter ?? data.groups[0]?.id ?? null)
+    const [format, setFormat] = useState<'html' | 'pdf'>('html')
+    const count =
+        scope === 'all' ? data.items.length
+            : scope === 'selected' ? selection.length
+                : data.items.filter((task) => groupId !== null && task.group_ids.includes(groupId)).length
+    const ready = count > 0 && (scope !== 'group' || groupId !== null)
+
+    const generate = () => {
+        const url = reportUrl(scope, format, selection, groupId)
+        if (format === 'pdf') {
+            // The report opens in a tab and asks the browser to print it: choose "Save as PDF".
+            window.open(url, '_blank', 'noopener')
+            return
+        }
+        const link = document.createElement('a')
+        link.href = url
+        link.click()
+    }
+
+    return (
+        <Panel title="Task report" eyebrow="For sharing" onClose={onClose}>
+            <div className="task-form task-report">
+                <p className="task-muted">
+                    A readable report for people outside Entropy: a summary, then each group's tasks with their
+                    fields, comments, status history and attachments (images, text files and videos are included).
+                </p>
+                <fieldset>
+                    <legend>Tasks</legend>
+                    <label className="task-choice">
+                        <input type="radio" checked={scope === 'all'} onChange={() => setScope('all')} />
+                        All tasks <span className="task-muted">{data.items.length}</span>
+                    </label>
+                    <label className="task-choice">
+                        <input type="radio" checked={scope === 'group'} disabled={!data.groups.length} onChange={() => setScope('group')} />
+                        One group
+                        <select value={groupId ?? ''} disabled={scope !== 'group'} onChange={(event) => setGroupId(Number(event.target.value) || null)} aria-label="Report group">
+                            {data.groups.map((group) => <option key={group.id} value={group.id}>{group.name} ({group.task_count})</option>)}
+                        </select>
+                    </label>
+                    <label className="task-choice">
+                        <input type="radio" checked={scope === 'selected'} disabled={!selection.length} onChange={() => setScope('selected')} />
+                        Selected tasks <span className="task-muted">{selection.length}</span>
+                    </label>
+                    {!selection.length && (
+                        <button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={onPickTasks}>
+                            Select tasks in the list view
+                        </button>
+                    )}
+                </fieldset>
+                <fieldset>
+                    <legend>Format</legend>
+                    <label className="task-choice">
+                        <input type="radio" checked={format === 'html'} onChange={() => setFormat('html')} />
+                        HTML file <span className="task-muted">one file, opens in any browser; videos play</span>
+                    </label>
+                    <label className="task-choice">
+                        <input type="radio" checked={format === 'pdf'} onChange={() => setFormat('pdf')} />
+                        PDF <span className="task-muted">opens the print dialog: choose “Save as PDF”</span>
+                    </label>
+                </fieldset>
+                <footer>
+                    <button type="button" className="entropy-button entropy-button-secondary" onClick={onClose}>Cancel</button>
+                    <button type="button" className="entropy-button entropy-button-primary" disabled={!ready} onClick={generate}>
+                        <Download size={15} /> {format === 'pdf' ? 'Open PDF' : 'Download'} ({count} task{count === 1 ? '' : 's'})
+                    </button>
+                </footer>
+            </div>
         </Panel>
     )
 }

@@ -47,6 +47,7 @@ class JiraIssue:
     assignee: Dict[str, str] = field(default_factory=dict)
     reporter: str = ""
     created: Optional[str] = None
+    due: Optional[str] = None
     comments: List[Dict[str, str]] = field(default_factory=list)
     attachments: List[Dict[str, Any]] = field(default_factory=list)
     # (kind, name): release (fix version), sprint, epic.
@@ -58,6 +59,25 @@ class JiraIssue:
 # ----------------------------------------------------------------------
 # Values
 # ----------------------------------------------------------------------
+
+
+def _due(value: Any) -> Optional[str]:
+    """A Jira due date as YYYY-MM-DD."""
+
+    parsed = parse_date(value) if value else None
+    return parsed[:10] if parsed else None
+
+
+def _import_status(current: str, incoming: str) -> Tuple[str, Optional[str]]:
+    """Jira's status, kept within the task life cycle (closed -> reopened only)."""
+
+    from lib.tasks.store import CLOSED, REOPENED
+
+    if current == CLOSED and incoming != CLOSED:
+        return REOPENED, "Reopened in Jira (import)."
+    if current == REOPENED and incoming == "todo":
+        return REOPENED, None
+    return incoming, None
 
 DONE = {
     "done",
@@ -126,6 +146,9 @@ DATE_FORMATS = (
     "%Y-%m-%d %H:%M:%S",
     "%d/%m/%Y %H:%M",
     "%m/%d/%Y %H:%M",
+    "%d/%b/%y",
+    "%d/%b/%Y",
+    "%Y-%m-%d",
 )
 
 
@@ -278,6 +301,7 @@ def _from_json(text: str) -> List[JiraIssue]:
             assignee=_person(fields.get("assignee")),
             reporter=_person_label(_person(fields.get("reporter") or fields.get("creator"))),
             created=parse_date(fields.get("created")),
+            due=_due(fields.get("duedate")),
             labels=[str(label) for label in fields.get("labels") or []],
         )
         comments = fields.get("comment") or {}
@@ -364,6 +388,7 @@ def _from_xml(text: str) -> List[JiraIssue]:
             ),
             reporter=value("reporter"),
             created=parse_date(value("created")),
+            due=_due(value("due")),
             labels=[
                 (label.text or "").strip()
                 for label in item.findall("labels/label")
@@ -456,6 +481,7 @@ def _from_csv(text: str) -> List[JiraIssue]:
             ),
             reporter=one(row, "Reporter"),
             created=parse_date(one(row, "Created")),
+            due=_due(one(row, "Due Date", "Due date")),
             labels=all_of(row, "Labels"),
         )
         for entry in all_of(row, "Comment"):
@@ -599,17 +625,18 @@ def import_issues(
             continue
         title = issue.summary[:200]
         if existing:
-            store.update(
-                existing["id"],
-                {
-                    "title": title,
-                    "description": issue.description[:10000],
-                    "status": issue.status,
-                    "type": issue.type,
-                    "assignee": assignee or existing["assignee"],
-                    "group_ids": sorted(set(existing["group_ids"]) | set(groups)),
-                },
-            )
+            status, reason = _import_status(existing["status"], issue.status)
+            values = {
+                "title": title,
+                "description": issue.description[:10000],
+                "status": status,
+                "type": issue.type,
+                "assignee": assignee or existing["assignee"],
+                "group_ids": sorted(set(existing["group_ids"]) | set(groups)),
+            }
+            if issue.due:
+                values["due_date"] = issue.due
+            store.update(existing["id"], values, actor, reason)
             task = existing
             summary["updated"] += 1
         else:
@@ -626,6 +653,7 @@ def import_issues(
                 status=issue.status,
                 group_ids=groups,
                 created_at=issue.created,
+                due_date=issue.due,
             )
             summary["created"] += 1
         summary["keys"].append({"key": task["key"], "external_ref": issue.key})

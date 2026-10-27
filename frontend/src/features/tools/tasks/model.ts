@@ -14,7 +14,8 @@ import {
 import { apiRequest } from '../../../services/api'
 import { currentProject } from '../../../services/project'
 
-export type Status = 'todo' | 'in_progress' | 'done'
+export type Status = 'todo' | 'in_progress' | 'done' | 'reopened'
+export type StatusChange = { from_status: Status | null; to_status: Status; reason: string; changed_by: string; changed_at: string }
 export type Comment = { id: number; author: string; body: string; created_at: string }
 export type Attachment = {
     id: number
@@ -37,12 +38,14 @@ export type Task = {
     assignee: string | null
     creator: string
     reminder_at: string | null
+    due_date: string | null
     created_at: string
     updated_at: string
     comments: Comment[]
     follower_ids: number[]
     group_ids: number[]
     attachments: Attachment[]
+    history: StatusChange[]
 }
 export type GroupKind = 'release' | 'sprint' | 'epic' | 'other'
 export type Group = {
@@ -79,10 +82,32 @@ export type ImportSummary = {
 }
 
 export const STATUSES: { id: Status; title: string }[] = [
-    { id: 'todo', title: 'To do' },
+    { id: 'todo', title: 'Open' },
     { id: 'in_progress', title: 'In progress' },
-    { id: 'done', title: 'Done' },
+    { id: 'done', title: 'Closed' },
+    { id: 'reopened', title: 'Reopened' },
 ]
+
+/** Where a task may go next: a closed task is only reopened (with a reason). */
+export function nextStatuses(current: Status | null): Status[] {
+    if (current === 'done') return ['done', 'reopened']
+    const open: Status[] = ['todo', 'in_progress', 'done']
+    return current === 'reopened' ? ['reopened', ...open] : open
+}
+
+export const isOverdue = (task: Task) =>
+    Boolean(task.due_date) && task.status !== 'done' && task.due_date! < new Date().toLocaleDateString('en-CA')
+
+export type ReportScope = 'all' | 'selected' | 'group'
+
+export function reportUrl(scope: ReportScope, format: 'html' | 'pdf', ids: number[] = [], groupId?: number | null): string {
+    const params = new URLSearchParams({ scope, format })
+    if (scope === 'selected') params.set('ids', ids.join(','))
+    if (scope === 'group' && groupId) params.set('group_id', String(groupId))
+    const project = currentProject()
+    if (project) params.set('project', project)
+    return `/api/tasks/report?${params.toString()}`
+}
 
 export const GROUP_KINDS: { id: GroupKind; title: string }[] = [
     { id: 'release', title: 'Release' },
@@ -185,7 +210,7 @@ export function exportJiraCsv(data: TaskData): void {
     const sprintColumns = width(sprints)
     const rows = [
         [
-            'Issue key', 'Issue Type', 'Summary', 'Description', 'Status', 'Assignee', 'External reference',
+            'Issue key', 'Issue Type', 'Summary', 'Description', 'Status', 'Assignee', 'External reference', 'Due Date',
             ...Array<string>(releaseColumns).fill('Fix Version/s'), ...Array<string>(sprintColumns).fill('Sprint'), 'Labels',
         ],
         ...data.items.map((task) => {
@@ -193,8 +218,8 @@ export function exportJiraCsv(data: TaskData): void {
             const sprint = sprints(task).map((group) => group?.name ?? '')
             return [
                 task.key, typeLabel(task.type), task.title, task.description,
-                task.status === 'todo' ? 'To Do' : task.status === 'in_progress' ? 'In Progress' : 'Done',
-                task.assignee ?? '', task.external_ref ?? '',
+                task.status === 'in_progress' ? 'In Progress' : task.status === 'done' ? 'Done' : task.status === 'reopened' ? 'Reopened' : 'To Do',
+                task.assignee ?? '', task.external_ref ?? '', task.due_date ?? '',
                 ...release, ...Array<string>(releaseColumns - release.length).fill(''),
                 ...sprint, ...Array<string>(sprintColumns - sprint.length).fill(''),
                 'entropy-task',

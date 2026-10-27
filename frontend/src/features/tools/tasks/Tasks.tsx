@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     Bell,
+    CalendarClock,
     Columns3,
+    FileText,
     Download,
     Layers,
     Link2,
@@ -20,11 +22,13 @@ import {
 
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
-import { CreatePanel, DetailPanel, GroupsPanel, ImportPanel, SettingsPanel } from './TaskPanels'
+import { CreatePanel, DetailPanel, GroupsPanel, ImportPanel, ReportPanel, SettingsPanel } from './TaskPanels'
+import { useStatusChange } from './statusChange'
 import TypeIcon from './TypeIcon'
 import {
     STATUSES,
     exportJiraCsv,
+    isOverdue,
     localDate,
     statusTitle,
     tasksApi,
@@ -41,6 +45,7 @@ type PanelState =
     | { kind: 'groups' }
     | { kind: 'settings' }
     | { kind: 'import' }
+    | { kind: 'report' }
     | null
 
 const VIEW_KEY = 'entropy.tasks.view'
@@ -63,6 +68,7 @@ export default function Tasks() {
     const [groupFilter, setGroupFilter] = useState<number | null>(null)
     const [assigneeFilter, setAssigneeFilter] = useState('')
     const [selection, setSelection] = useState<number[]>([])
+    const checkStatus = useStatusChange()
 
     const setView = (next: 'board' | 'list') => {
         setViewState(next)
@@ -117,9 +123,10 @@ export default function Tasks() {
     }, [data, query, typeFilter, groupFilter, assigneeFilter])
 
     const move = async (task: Task, status: Status) => {
-        if (task.status === status) return
+        const change = await checkStatus(task, status)
+        if (!change) return
         try {
-            await tasksApi.update(task.id, { status })
+            await tasksApi.update(task.id, change)
             await refresh()
         } catch (cause) {
             notify.error((cause as Error).message, { title: `Unable to move ${task.key}` })
@@ -181,6 +188,11 @@ export default function Tasks() {
             {task.comments.length > 0 && <span><MessageSquare size={13} /> {task.comments.length}</span>}
             {task.attachments.length > 0 && <span><Paperclip size={13} /> {task.attachments.length}</span>}
             {task.reminder_at && <span title={`Reminder ${localDate(task.reminder_at)}`}><Bell size={13} /></span>}
+            {task.due_date && (
+                <span className={isOverdue(task) ? 'task-overdue' : ''} title={isOverdue(task) ? 'Overdue' : 'Due date'}>
+                    <CalendarClock size={13} /> {task.due_date}
+                </span>
+            )}
         </span>
     )
 
@@ -236,6 +248,7 @@ export default function Tasks() {
                 <div className="tasks-actions">
                     <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void refresh()} title="Refresh tasks" aria-label="Refresh tasks"><RefreshCw size={15} /></button>
                     <button className={`entropy-button entropy-button-secondary entropy-button-sm${panel?.kind === 'groups' ? ' is-active' : ''}`} onClick={() => setPanel(panel?.kind === 'groups' ? null : { kind: 'groups' })}><Layers size={15} /> Groups</button>
+                    <button className={`entropy-button entropy-button-secondary entropy-button-sm${panel?.kind === 'report' ? ' is-active' : ''}`} onClick={() => setPanel(panel?.kind === 'report' ? null : { kind: 'report' })} disabled={!data.items.length} title="HTML or PDF report for sharing"><FileText size={15} /> Report</button>
                     <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => exportJiraCsv(data)} disabled={!data.items.length} title="Export a CSV Jira can import"><Download size={15} /> Export</button>
                     {permissions['tasks.create'] && <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setPanel({ kind: 'import' })} title="Import a Jira XML, CSV or JSON export"><Upload size={15} /> Import Jira</button>}
                     {permissions['tasks.manage'] && <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setPanel({ kind: 'settings' })} title="Key prefix and task types" aria-label="Task settings"><Settings2 size={15} /></button>}
@@ -366,6 +379,9 @@ export default function Tasks() {
                 )}
                 {panel?.kind === 'settings' && <SettingsPanel data={data} onClose={() => setPanel(null)} onChanged={refresh} />}
                 {panel?.kind === 'import' && <ImportPanel onClose={() => setPanel(null)} onImported={refresh} />}
+                {panel?.kind === 'report' && (
+                    <ReportPanel data={data} selection={selection} groupFilter={groupFilter} onClose={() => setPanel(null)} onPickTasks={() => setView('list')} />
+                )}
             </div>
         </div>
     )
