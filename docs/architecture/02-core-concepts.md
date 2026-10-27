@@ -267,12 +267,16 @@ A run is started in one of two modes:
   run workflows in the project) answers it there. Before the plugin starts,
   the run also asks for the arguments left empty: required ones, ones declared
   `"prompt": true`, and optional single values without a default (an empty
-  answer skips those). Answers may be JSON for objects and lists, or a vault
+  answer skips those; `"prompt": false` keeps an optional argument from being
+  asked, for plugins that ask themselves what their mode needs). Answers may be JSON for objects and lists, or a vault
   reference such as `${entv:prod/sftp}`.
   Secret answers are stored encrypted with the vault key, deleted as soon as the
   plugin reads them, and never logged. Unanswered questions fail the step after
   an hour. Interactive runs execute on the Entropy server (the local node).
 - `ent` runs plugins in the terminal and asks there.
+- `self.can_ask` tells a plugin whether `ask()` reaches a person (an
+  interactive run, or `ent` in a terminal), for questions that depend on
+  other arguments.
 
 ## Two ways to build a plugin
 
@@ -319,6 +323,14 @@ repositories (Tools -> Git repositories) the user may use in the project, and
 the plugin calls `self.git_repository(name_or_id)` to get a working copy in the
 run's workspace (committed as the run user). `builtin.git` takes one as
 `git_repository`, instead of a `repository` path.
+
+## Plugin data
+
+The run workspace is temporary (one per run). `self.data_directory` is a folder
+of the plugin's own that is kept between runs and plugin upgrades, one per
+project: `<workspace>/plugin-data/<namespace.name>/project-<id>`. For example
+`custom.xl_generator` keeps its saved templates and generated Excel files
+there.
 
 ## Paths on the server
 

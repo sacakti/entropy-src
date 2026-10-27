@@ -108,11 +108,15 @@ class PluginContext:
         context: ExecutionContext,
         mode: PluginMode,
         arguments: dict[str, Any] | None = None,
+        name: str | None = None,
     ) -> None:
 
         self._runtime = context
 
         self._mode = mode
+
+        # Qualified name of the plugin (namespace.name), for its data folder.
+        self._name = name
 
         self._outputs: dict[str, Any] = {}
         self._artifacts: dict[str, Path] = {}
@@ -193,6 +197,32 @@ class PluginContext:
         """
 
         return self._runtime.workspace
+
+    @property
+    def data_directory(self) -> Path:
+        """
+        A folder of the plugin's own that is kept between runs and plugin
+        upgrades (the run workspace is not): one per plugin and project,
+        under <workspace>/plugin-data/<plugin>/project-<id>.
+        """
+
+        from lib.authorization.projects import default_project_id
+        from lib.plugins.exceptions import PluginValueError
+        from lib.vault.projects import run_project
+
+        if not self._name:
+            raise PluginValueError(
+                "This plugin has no data folder (it was not started by Entropy)."
+            )
+        # Plugins run from a folder (`ent plugin run <dir>`) are named by it.
+        name = self._name
+        if "/" in name or "\\" in name:
+            name = f"local.{Path(name).name}"
+        root = Path(self._runtime._entropy.paths.workspace.root)
+        project = run_project() or default_project_id(self._runtime.database.connection)
+        path = root / "plugin-data" / name / f"project-{project}"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
 
     # ------------------------------------------------------------------
     # Git repositories
@@ -527,6 +557,19 @@ class PluginContext:
         """
 
         return self._mode is PluginMode.WORKFLOW
+
+    @property
+    def can_ask(self) -> bool:
+        """
+        True when ask() reaches a person: `ent` in a terminal, or a run
+        started in interactive mode. Otherwise ask() returns its default.
+        """
+
+        from lib.runs.prompts import RUN_MODE_ENV
+
+        if self._mode is PluginMode.CLI and sys.stdin.isatty():
+            return True
+        return os.environ.get(RUN_MODE_ENV) == "interactive"
 
     @property
     def session_directory(self) -> Path:

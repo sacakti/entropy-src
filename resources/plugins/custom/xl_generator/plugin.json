@@ -1,0 +1,180 @@
+{
+    "name": "xl_generator",
+    "namespace": "custom",
+    "version": "1.0.0",
+    "description": "Generate Excel (.xlsx) files from record templates: fill the source name, ip and region on every record, for one source or many.",
+    "author": "",
+    "entropy": ">=1.0.0",
+    "dependencies": [],
+    "arguments": [
+        {
+            "name": "action",
+            "type": "string",
+            "required": false,
+            "default": "generate",
+            "choices": ["generate", "create_template", "list_templates", "delete_template"],
+            "description": "generate an Excel file, create (or replace) a template, list the templates, or delete a saved template."
+        },
+        {
+            "name": "mode",
+            "type": "string",
+            "required": false,
+            "default": "single",
+            "choices": ["single", "multiple"],
+            "description": "single: one source (source_name, source_ip, source_region) on all records. multiple: every source in 'sources' / 'sources_file' gets its own copy of the records."
+        },
+        {
+            "name": "template",
+            "type": "string",
+            "required": false,
+            "default": "firewall",
+            "description": "Template to start from: one shipped in the plugin's templates/ folder or one saved with action create_template. Run action list_templates to see them."
+        },
+        {
+            "name": "template_file",
+            "prompt": false,
+            "type": "path",
+            "path": "file",
+            "required": false,
+            "description": "A .csv or .xlsx file on the server used as the template instead of 'template' (first row: column names; next rows: records)."
+        },
+        {
+            "name": "source_name",
+            "type": "string",
+            "required": false,
+            "prompt": false,
+            "description": "Mode single: source name written on every record."
+        },
+        {
+            "name": "source_ip",
+            "type": "string",
+            "required": false,
+            "prompt": false,
+            "description": "Mode single: source ip (or network) written on every record."
+        },
+        {
+            "name": "source_region",
+            "prompt": false,
+            "type": "string",
+            "required": false,
+            "description": "Mode single: source region, optional; left as in the template when empty."
+        },
+        {
+            "name": "sources",
+            "prompt": false,
+            "type": "any",
+            "required": false,
+            "description": "Mode multiple: one source per line (or separated by ';') as 'name, ip[, region]', or a list of objects {\"name\", \"ip\", \"region\"}.",
+            "example": "web-01, 10.1.1.10, EU\nweb-02, 10.1.1.11"
+        },
+        {
+            "name": "sources_file",
+            "prompt": false,
+            "type": "path",
+            "path": "file",
+            "required": false,
+            "description": "Mode multiple: .csv or .xlsx file of sources, with a header row (name, ip, region) or plain columns in that order."
+        },
+        {
+            "name": "layout",
+            "type": "string",
+            "required": false,
+            "default": "rows",
+            "choices": ["rows", "sheets"],
+            "description": "Mode multiple: all records on one sheet (rows) or one sheet per source (sheets)."
+        },
+        {
+            "name": "records",
+            "prompt": false,
+            "type": "any",
+            "required": false,
+            "description": "Only these template records (1-based numbers and ranges, like '1,3,5-7'); all when empty.",
+            "example": "1-3,8"
+        },
+        {
+            "name": "values",
+            "type": "dictionary",
+            "required": false,
+            "description": "Other columns to set on every record, by column name.",
+            "example": {"NAT IP": "172.16.0.10"}
+        },
+        {
+            "name": "output_name",
+            "prompt": false,
+            "type": "string",
+            "required": false,
+            "description": "File name of the Excel file (.xlsx is added). Default: <template>-<source>-<date-time>.xlsx."
+        },
+        {
+            "name": "output_dir",
+            "prompt": false,
+            "type": "path",
+            "path": "directory",
+            "required": false,
+            "description": "Folder the Excel file is written to. Default: the plugin's data folder (<workspace>/plugin-data/custom.xl_generator/project-<id>/files). The file is also listed in Tools -> Artifacts."
+        },
+        {
+            "name": "overwrite",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Replace an existing Excel file (generate) or saved template (create_template) of the same name."
+        },
+        {
+            "name": "template_name",
+            "prompt": false,
+            "type": "string",
+            "required": false,
+            "description": "create_template / delete_template: name of the saved template (letters, digits, '_', '-', '.')."
+        },
+        {
+            "name": "columns",
+            "type": "list",
+            "required": false,
+            "description": "create_template: column names of the new template. When empty, the new template copies 'template' / 'template_file'.",
+            "example": ["Source name", "Source ip", "Destination name", "Ip", "Port", "Protocol"]
+        },
+        {
+            "name": "rows",
+            "prompt": false,
+            "type": "any",
+            "required": false,
+            "description": "create_template: the static records, as CSV text (one record per line) or a list of lists or objects by column name. When empty, the records of the copied template are kept.",
+            "example": [{"Destination name": "db-primary", "Ip": "10.20.2.21", "Port": 1521, "Protocol": "TCP"}]
+        }
+    ],
+    "outputs": [
+        {
+            "name": "file",
+            "type": "string",
+            "description": "generate: the Excel file written. create_template: the saved template file."
+        },
+        {
+            "name": "rows",
+            "type": "integer",
+            "description": "Records written (generate) or kept in the template (create_template)."
+        },
+        {
+            "name": "sheets",
+            "type": "integer",
+            "description": "generate: sheets in the Excel file."
+        },
+        {
+            "name": "sources",
+            "type": "integer",
+            "description": "generate: sources filled in."
+        },
+        {
+            "name": "template",
+            "type": "string",
+            "description": "Template used, created or deleted."
+        },
+        {
+            "name": "templates",
+            "type": "list",
+            "description": "list_templates: name, origin (plugin or saved), columns and record count of each template."
+        }
+    ],
+    "tags": ["excel", "xlsx", "firewall"],
+    "license": ""
+}

@@ -195,6 +195,24 @@ class BasePlugin(ABC):
             choices=choices,
         )
 
+    @property
+    def data_directory(self) -> Path:
+        """
+        The plugin's own folder, kept between runs and upgrades (one per
+        project); the run workspace is temporary.
+        """
+
+        return self._context.data_directory
+
+    @property
+    def can_ask(self) -> bool:
+        """
+        True when ask() reaches a person (`ent` in a terminal, or an
+        interactive run); otherwise ask() returns its default.
+        """
+
+        return self._context.can_ask
+
     # ------------------------------------------------------------------
     # Infrastructure
     # ------------------------------------------------------------------

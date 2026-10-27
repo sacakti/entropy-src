@@ -1,0 +1,6 @@
+# This plugin has no Python dependencies: .xlsx files are written with the
+# standard library.
+#
+# Runtime dependencies must also be declared in plugin.json.
+#
+# This file is intended for development environments only.

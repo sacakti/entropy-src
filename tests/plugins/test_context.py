@@ -55,3 +55,29 @@ def test_context_activity_delegates(execution_context):
     assert result[0] == "activity"
     assert result[1]["name"] == "build"
     assert result[1]["metadata"]["image"] == "quay.io/example/app"
+
+
+
+def test_data_directory_is_kept_per_plugin_and_project(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import lib.vault.projects as projects
+    from lib.plugins.context import PluginContext
+
+    monkeypatch.setattr(projects, "run_project", lambda: 7)
+
+    def context(name):
+        plugin_context = PluginContext.__new__(PluginContext)
+        plugin_context._name = name
+        plugin_context._runtime = SimpleNamespace(
+            _entropy=SimpleNamespace(paths=SimpleNamespace(workspace=SimpleNamespace(root=tmp_path)))
+        )
+        return plugin_context
+
+    folder = context("custom.demo").data_directory
+    assert folder == tmp_path / "plugin-data" / "custom.demo" / "project-7"
+    assert folder.is_dir()
+
+    # A plugin run from a folder is named by the folder, inside plugin-data.
+    local = context("/src/plugins/demo").data_directory
+    assert local == tmp_path / "plugin-data" / "local.demo" / "project-7"

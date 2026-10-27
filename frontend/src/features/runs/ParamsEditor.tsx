@@ -37,7 +37,7 @@ export default function ParamsEditor({
                         : spec?.required
                           ? 'Required (interactive runs ask when left empty)'
                           : spec
-                            ? ['list', 'dictionary'].includes(spec.type)
+                            ? ['list', 'dictionary'].includes(spec.type) || spec.prompt === false
                                 ? 'Optional'
                                 : 'Optional (interactive runs ask when left empty)'
                             : 'Value (text or JSON)'

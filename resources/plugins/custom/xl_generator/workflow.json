@@ -1,0 +1,35 @@
+{
+    "name": "Firewall request workbook",
+    "version": "1.0.0",
+    "description": "Example workflow for custom.xl_generator: one Excel file for one source, one for several sources.",
+    "steps": [
+        {
+            "name": "One source",
+            "plugin": "custom.xl_generator",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "template": "firewall",
+                "mode": "single",
+                "source_name": "billing-app",
+                "source_ip": "10.50.1.10",
+                "source_region": "EU"
+            },
+            "tags": ["single"]
+        },
+        {
+            "name": "Several sources, one sheet each",
+            "plugin": "custom.xl_generator",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "template": "firewall",
+                "mode": "multiple",
+                "layout": "sheets",
+                "sources": "billing-app, 10.50.1.10, EU\nbilling-batch, 10.50.1.11",
+                "records": "1-5"
+            },
+            "tags": ["multiple"]
+        }
+    ]
+}

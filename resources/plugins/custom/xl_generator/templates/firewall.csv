@@ -1,0 +1,11 @@
+Source name,Source ip,Source test region,Destination name,Ip,Destination region,Port,Service name,Protocol,NAT IP
+,,,app-server-01,10.20.1.11,DC1,443,HTTPS,TCP,
+,,,app-server-02,10.20.1.12,DC1,443,HTTPS,TCP,
+,,,db-primary,10.20.2.21,DC1,1521,Oracle DB,TCP,
+,,,db-standby,10.30.2.21,DC2,1521,Oracle DB,TCP,
+,,,ldap,10.20.3.5,DC1,636,LDAPS,TCP,
+,,,dns,10.20.0.53,DC1,53,DNS,UDP,
+,,,ntp,10.20.0.123,DC1,123,NTP,UDP,
+,,,smtp-relay,10.20.4.25,DC1,25,SMTP,TCP,
+,,,sftp-gateway,10.40.5.22,DMZ,22,SFTP,TCP,172.16.5.22
+,,,mq-broker,10.20.6.14,DC1,1414,IBM MQ,TCP,

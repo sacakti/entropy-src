@@ -10,8 +10,8 @@ export interface ParamSpec {
     choices?: unknown[]
     /** For type 'path': a file, a directory or either. */
     path?: 'file' | 'directory' | 'any'
-    /** Asked for at run time in interactive runs when left empty. */
-    prompt?: boolean
+    /** Interactive runs: true always asks when left empty; false never asks (optional arguments). */
+    prompt?: boolean | null
     picker?: 'git_repository'
 }
 

@@ -220,9 +220,9 @@ class PluginRunner:
         """
         In interactive runs, ask for what the run left empty: required
         arguments, "prompt" arguments, and optional single values without a
-        default (which may be skipped). Answers may be JSON (objects,
-        lists) or vault references. Automated runs leave all of this to
-        the usual checks.
+        default (which may be skipped) unless they say "prompt": false.
+        Answers may be JSON (objects, lists) or vault references. Automated
+        runs leave all of this to the usual checks.
         """
 
         import json
@@ -242,7 +242,11 @@ class PluginRunner:
             and (
                 item.get("prompt")
                 or item["required"]
-                or (item["default"] is None and item["type"] in single)
+                or (
+                    item.get("prompt") is not False
+                    and item["default"] is None
+                    and item["type"] in single
+                )
             )
         ]
 
@@ -349,6 +353,7 @@ class PluginRunner:
         context: ExecutionContext,
         mode: PluginMode,
         arguments: dict | None = None,
+        name: str | None = None,
     ) -> PluginContext:
         """
         Create the public plugin context.
@@ -358,6 +363,7 @@ class PluginRunner:
             context=context,
             mode=mode,
             arguments=arguments,
+            name=name,
         )
 
     def _instantiate(
@@ -381,6 +387,7 @@ class PluginRunner:
                 context=context,
                 mode=mode,
                 arguments=arguments,
+                name=name,
             ),
         )
 

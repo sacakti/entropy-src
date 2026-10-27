@@ -294,7 +294,9 @@ def normalize(data: Any) -> dict[str, Any]:
             "default": item.get("default"),
             "description": str(item.get("description") or ""),
             "secret": item.get("secret") is True,
-            "prompt": item.get("prompt") is True,
+            # True: always ask in interactive runs; False: never ask for it
+            # when optional; None: ask for optional single values without a default.
+            "prompt": item.get("prompt") if isinstance(item.get("prompt"), bool) else None,
         }
         if required and item.get("default") is not None:
             problems.append(f"{where}: a required argument has no default")

@@ -43,7 +43,7 @@ SAFE_METHODS = {
 RESERVED = {
     "arguments", "artifacts", "ask", "archive", "configuration", "context", "environment",
     "filesystem", "information", "inputs", "log", "message", "mode", "outputs", "path",
-    "repositories", "shell", "ui", "variables", "vars", "workspace", "interactive", "automated",
+    "repositories", "shell", "ui", "variables", "vars", "workspace", "interactive", "automated", "can_ask", "data_directory",
 }  # fmt: skip
 
 

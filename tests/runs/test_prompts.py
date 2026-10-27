@@ -80,6 +80,10 @@ def test_automated_runs_get_the_default_or_fail(monkeypatch) -> None:
     context._mode = PluginMode.WORKFLOW
     context._runtime = SimpleNamespace()
     assert context.ask("Colour", default="red") == "red"
+    assert context.can_ask is False
+    monkeypatch.setenv(RUN_MODE_ENV, "interactive")
+    assert context.can_ask is True
+    monkeypatch.setenv(RUN_MODE_ENV, "automated")
     with pytest.raises(PluginValueError, match="automated"):
         context.ask("Code", secret=True)
     assert os.environ[RUN_MODE_ENV] == "automated"
@@ -113,13 +117,15 @@ def test_interactive_runs_ask_for_what_was_left_empty(monkeypatch) -> None:
                 {"name": "mode", "default": "fast"},
                 {"name": "archive", "type": "dictionary"},
                 {"name": "given", "type": "string"},
+                {"name": "quiet", "type": "string", "prompt": False},
             ],
             "outputs": [],
         }
     )
     context = SimpleNamespace(_entropy=None, node=None, job_id=1)
     values = PluginRunner._prompt_missing(context, declared, {"given": "x"}, "demo.p")
-    # Required, and optional single values without a default; not objects or defaults.
+    # Required, and optional single values without a default; not objects,
+    # defaults or arguments that say "prompt": false.
     assert asked == ["conn", "source", "count"]
     assert values == {"given": "x", "conn": {"host": "h"}, "source": "/tmp/a"}
 
