@@ -37,6 +37,7 @@ def runtime(
     return ExecutionContext(
         entropy=entropy_context,
         workspace=tmp_path,
+        user="tester",
     )
 
 

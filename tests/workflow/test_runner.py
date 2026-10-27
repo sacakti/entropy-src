@@ -143,3 +143,46 @@ def test_step_output_is_used_without_override(
     )
 
     assert runtime.arguments["source"] == "/workflow/release"
+
+
+def _failed_step(runtime, policy):
+    step = Mock()
+    step.name = "deploy"
+    step.on_failure = policy
+    runtime.set_step_result(
+        "deploy",
+        PluginResult(success=False, errors=[{"message": "host unreachable"}]),
+    )
+    return step
+
+
+def test_unsuccessful_result_fails_the_step(workflow_runner, runtime):
+    from lib.workflow.exceptions import StepFailedError
+
+    step = _failed_step(runtime, "abort")
+    with pytest.raises(StepFailedError, match="host unreachable"):
+        workflow_runner._check_step_result(runtime, step)
+    assert workflow_runner._recover(runtime, step, StepFailedError("x")) is False
+
+
+def test_continue_policy_goes_on(workflow_runner, runtime):
+    step = _failed_step(runtime, "continue")
+    workflow_runner._context.ui = Mock()
+    assert workflow_runner._recover(runtime, step, RuntimeError("boom")) is True
+
+
+@pytest.mark.parametrize("answer, expected", [("resume", True), ("terminate", False)])
+def test_pause_policy_waits_for_the_user(workflow_runner, runtime, monkeypatch, answer, expected):
+    step = _failed_step(runtime, "pause")
+    workflow_runner._context.ui = Mock()
+    monkeypatch.setattr(workflow_runner, "_ask_resume", lambda *args: answer)
+    assert workflow_runner._recover(runtime, step, RuntimeError("boom")) is expected
+
+
+def test_pause_without_anyone_to_ask_terminates(workflow_runner, runtime, monkeypatch):
+    monkeypatch.delenv("ENTROPY_RUN_MODE", raising=False)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    step = _failed_step(runtime, "pause")
+    workflow_runner._context.ui = Mock()
+    assert workflow_runner._recover(runtime, step, RuntimeError("boom")) is False
+

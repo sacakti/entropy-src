@@ -21,7 +21,12 @@ from lib.plugins.exceptions import PluginDisabledError
 from lib.report.builder import ReportBuilder
 from lib.report.html import HtmlReportRenderer
 from lib.workflow.arguments import WorkflowArgumentResolver
-from lib.workflow.exceptions import WorkflowArgumentError, WorkflowCancelledError, WorkflowError
+from lib.workflow.exceptions import (
+    StepFailedError,
+    WorkflowArgumentError,
+    WorkflowCancelledError,
+    WorkflowError,
+)
 from lib.workflow.overrides import WorkflowArgumentOverrides
 from lib.workflow.selector import WorkflowStepSelector
 from lib.workflow.variables import WorkflowVariableResolver
@@ -229,39 +234,65 @@ class WorkflowRunner:
                     start=1,
                 ):
 
-                    with runtime.step(
-                        step.name,
-                        index=index,
-                        total=total_steps,
-                        plugin=step.plugin,
-                    ):
+                    try:
 
-                        self._initialize(
-                            runtime,
-                            workflow,
-                            step,
-                            resolver,
-                            options.step_overrides.get(
-                                step.name,
-                            ),
-                        )
+                        with runtime.step(
+                            step.name,
+                            index=index,
+                            total=total_steps,
+                            plugin=step.plugin,
+                        ):
 
-                        self._execute(
-                            runtime,
-                            workflow,
-                            step,
-                        )
+                            self._initialize(
+                                runtime,
+                                workflow,
+                                step,
+                                resolver,
+                                options.step_overrides.get(
+                                    step.name,
+                                ),
+                            )
 
-                        self._report_step_result(
-                            runtime,
-                            step,
-                        )
+                            self._execute(
+                                runtime,
+                                workflow,
+                                step,
+                            )
 
-                        self._finalize(
+                            self._report_step_result(
+                                runtime,
+                                step,
+                            )
+
+                            self._check_step_result(
+                                runtime,
+                                step,
+                            )
+
+                            self._finalize(
+                                runtime,
+                                workflow,
+                                step,
+                            )
+
+                    except (KeyboardInterrupt, WorkflowCancelledError, PluginDisabledError):
+
+                        raise
+
+                    except Exception as exc:
+
+                        #
+                        # The step failed: its on_failure policy decides
+                        # whether the workflow goes on.
+                        #
+
+                        if not self._recover(
                             runtime,
-                            workflow,
                             step,
-                        )
+                            exc,
+                            session.user_id,
+                        ):
+                            raise
 
             #
             # Successful completion.
@@ -657,6 +688,143 @@ class WorkflowRunner:
             result=result.to_dict(),
         )
 
+    def _check_step_result(
+        self,
+        runtime: ExecutionContext,
+        step: WorkflowStep,
+    ) -> None:
+        """
+        Fail the step when its plugin reported success=False.
+        """
+
+        result = runtime.get_step_result(
+            step.name,
+        )
+
+        if result is None or result.success:
+            return
+
+        raise StepFailedError(
+            f"Step '{step.name}' failed: {_result_errors(result)}",
+        )
+
+    def _recover(
+        self,
+        runtime: ExecutionContext,
+        step: WorkflowStep,
+        exc: BaseException,
+        user_id: Any = None,
+    ) -> bool:
+        """
+        Apply the step's on_failure policy; True when the workflow goes on.
+
+        abort    - the workflow fails (the default).
+        continue - the failure is reported and the next step runs.
+        pause    - the run waits for someone to resume or terminate it:
+                   on the run screen for server runs, in the terminal
+                   for `ent`. Without anyone to ask it terminates.
+        """
+
+        policy = (step.on_failure or "abort").lower()
+        reason = _failure_reason(exc)
+
+        if policy == "continue":
+
+            self._context.ui.warning(
+                f"Step '{step.name}' failed; continuing (on_failure: continue). {reason}",
+            )
+
+            return True
+
+        if policy != "pause":
+            return False
+
+        answer = self._ask_resume(
+            runtime,
+            step,
+            reason,
+            user_id,
+        )
+
+        if answer == "resume":
+
+            self._context.ui.warning(
+                f"Step '{step.name}' failed; resumed by user.",
+            )
+
+            return True
+
+        self._context.ui.error(
+            f"Step '{step.name}' failed; run terminated"
+            + (" by user." if answer == "terminate" else f" ({answer})."),
+        )
+
+        return False
+
+    def _ask_resume(
+        self,
+        runtime: ExecutionContext,
+        step: WorkflowStep,
+        reason: str,
+        user_id: Any,
+    ) -> str:
+        """
+        "resume", "terminate", or why nobody could be asked.
+        """
+
+        import sys
+
+        from lib.runs.prompts import RUN_MODE_ENV, PromptError, prompts_for
+
+        label = f"Step '{step.name}' failed. Resume the workflow or terminate it?"
+
+        if os.environ.get(RUN_MODE_ENV) is None:
+
+            # A local `ent` run: ask in the terminal when there is one.
+            if not sys.stdin.isatty():
+                return "no one to ask"
+
+            self._context.ui.error(reason)
+            answer = input(f"{label} [resume/terminate]: ").strip().lower()
+
+            return "resume" if answer in ("r", "resume") else "terminate"
+
+        if runtime.job_id is None:
+            return "no run to pause"
+
+        store = prompts_for(self._context)
+        prompt = store.ask(
+            int(runtime.job_id),
+            name="on_failure",
+            label=label,
+            step=step.name,
+            description=reason[:2000],
+            choices=["resume", "terminate"],
+            default="terminate",
+        )
+
+        from lib.database.repositories.notifications import notify_user
+
+        notify_user(
+            self._context,
+            user_id,
+            f"Run #{runtime.job_id} is paused",
+            f"Step '{step.name}' failed and waits for you to resume or terminate it.",
+            "warning",
+            "runs",
+        )
+
+        self._context.ui.warning(
+            f"Paused: step '{step.name}' failed. Waiting for resume or terminate.",
+        )
+
+        try:
+            answer = store.wait(prompt)
+        except PromptError as exc:
+            return str(exc).rstrip(".")
+
+        return "resume" if answer.strip().lower() == "resume" else "terminate"
+
     # ------------------------------------------------------------------
     # Finalize
     # ------------------------------------------------------------------
@@ -755,3 +923,20 @@ class WorkflowRunner:
         self._context.ui.info(f"Execution report generated: {report_path}")
 
         return report_path
+
+
+def _result_errors(result: PluginResult) -> str:
+    """The plugin's own error messages, or a generic one."""
+
+    messages = []
+    for error in result.errors or []:
+        if isinstance(error, dict):
+            messages.append(str(error.get("message") or error.get("error") or error))
+        else:
+            messages.append(str(error))
+    return "; ".join(messages) or "the plugin reported success=False."
+
+
+def _failure_reason(exc: BaseException) -> str:
+    message = str(exc).strip()
+    return message.splitlines()[0][:500] if message else type(exc).__name__

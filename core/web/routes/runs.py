@@ -307,10 +307,8 @@ def run_events(
 
 
 def _waiting_prompts(request: Request, run: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Questions the run's plugins wait on (interactive runs only)."""
+    """Questions the run waits on: plugin inputs (interactive runs) or a paused step."""
 
-    if run.get("mode") != "interactive":
-        return []
     from lib.runs.prompts import prompts_for
     from lib.runs.service import ACTIVE_STATES
 

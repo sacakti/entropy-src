@@ -436,3 +436,11 @@ class WorkspaceVariableNotFoundError(
     Raised when a workspace template references a variable
     that cannot be resolved.
     """
+
+
+class StepFailedError(
+    WorkflowError,
+):
+    """
+    A workflow step's plugin returned success=False.
+    """

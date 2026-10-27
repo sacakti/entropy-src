@@ -11,7 +11,7 @@ import type { PluginContract } from '../../../api/plugins.api'
 
 export type CodeFormat = 'json' | 'yaml'
 export type VariableKind = 'string' | 'number' | 'boolean' | 'list' | 'object' | 'vault'
-export type OnFailure = 'abort' | 'continue'
+export type OnFailure = 'abort' | 'continue' | 'pause'
 export type WorkspacePosition = 'before' | 'after'
 export type WorkspaceType = 'variable' | 'custom'
 
@@ -240,7 +240,7 @@ export function stateFromDefinition(definition: unknown): BuilderState {
             name: typeof step.name === 'string' ? step.name : '',
             plugin: typeof step.plugin === 'string' ? step.plugin : '',
             enabled: step.enabled !== false,
-            onFailure: step.on_failure === 'continue' ? 'continue' : 'abort',
+            onFailure: step.on_failure === 'continue' || step.on_failure === 'pause' ? step.on_failure : 'abort',
             tags: Array.isArray(step.tags) ? step.tags.map(String) : [],
             arguments: isRecord(step.arguments) ? { ...step.arguments } : {},
             extra: pickExtra(step, STEP_KEYS),

@@ -198,6 +198,7 @@ export default function StepCard({
                     >
                         <option value="abort">Abort workflow</option>
                         <option value="continue">Continue</option>
+                        <option value="pause">Pause for resume / terminate</option>
                     </select>
                 </label>
 

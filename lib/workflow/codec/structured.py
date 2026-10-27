@@ -346,12 +346,13 @@ class StructuredWorkflowCodec(
         if on_failure not in {
             "abort",
             "continue",
+            "pause",
         }:
 
             raise InvalidWorkflowError(
                 f"Unsupported 'on_failure' policy '{on_failure}' "
                 f"for workflow step '{name}'. "
-                "Supported values: abort, continue.",
+                "Supported values: abort, continue, pause.",
             )
 
         suppress_result = value.get(
