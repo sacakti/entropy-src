@@ -26,6 +26,7 @@ import {
     RotateCcw,
     Save,
     Search,
+    Table2,
     WrapText,
     X,
 } from 'lucide-react'
@@ -47,6 +48,7 @@ import { keyMatches } from '../../../components/layout/useShortcuts'
 import WallpaperLayer from '../../preferences/WallpaperLayer'
 import HistoryDialog from '../../history/HistoryDialog'
 import StartRunDialog from '../../runs/StartRunDialog'
+import CsvGrid from './csv/CsvGrid'
 import DiffView from './DiffView'
 import FileTree, { FileIcon } from './FileTree'
 import { buildTree, type TreeRow } from './tree'
@@ -62,7 +64,7 @@ type EditorMode = 'edit' | 'review'
 type SidebarView = 'explorer' | 'search'
 type FileMeta = Record<string, { size?: number; modified?: string }>
 
-const EDITABLE_SUFFIXES = ['.py', '.json', '.md', '.txt']
+const EDITABLE_SUFFIXES = ['.py', '.json', '.md', '.txt', '.csv']
 const PATH_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/
 const VALIDATION_DELAY = 600
 const PREFS_KEY = 'entropy.pluginEditor'
@@ -361,6 +363,8 @@ export default function PluginEditor({
     const [revision, setRevision] = useState('')
     const [openTabs, setOpenTabs] = useState<string[]>([])
     const [activePath, setActivePath] = useState<string | null>(null)
+    /** CSV files shown as text instead of the spreadsheet view. */
+    const [csvAsText, setCsvAsText] = useState<string[]>([])
     const [diagnostics, setDiagnostics] = useState<PluginDiagnostic[]>([])
     const [validating, setValidating] = useState(false)
     const [mode, setMode] = useState<EditorMode>('edit')
@@ -1151,6 +1155,8 @@ export default function PluginEditor({
         (item) => item.severity === 'error',
     )
     const activeEndings = activePath ? lineEndings(drafts[activePath] ?? '') : null
+    const isCsv = Boolean(activePath?.endsWith('.csv'))
+    const showGrid = isCsv && !csvAsText.includes(activePath ?? '')
 
     const infoRows = (row: TreeRow): Array<[string, string]> => {
         if (row.kind === 'folder') {
@@ -1622,7 +1628,7 @@ export default function PluginEditor({
                                         className="plugin-ide-tool"
                                         aria-label="Find in this file"
                                         title="Find in this file (Ctrl/⌘ + F)"
-                                        disabled={!activePath}
+                                        disabled={!activePath || showGrid}
                                         onClick={() => editorAction('actions.find')}
                                     >
                                         <Search size={15} />
@@ -1633,7 +1639,7 @@ export default function PluginEditor({
                                             className="plugin-ide-tool"
                                             aria-label="Replace in this file"
                                             title="Replace in this file (Ctrl/⌘ + H)"
-                                            disabled={!activePath}
+                                            disabled={!activePath || showGrid}
                                             onClick={() => editorAction('editor.action.startFindReplaceAction')}
                                         >
                                             <Replace size={15} />
@@ -1644,11 +1650,27 @@ export default function PluginEditor({
                                         className="plugin-ide-tool"
                                         aria-label="Go to line"
                                         title="Go to line (Ctrl/⌘ + G)"
-                                        disabled={!activePath}
+                                        disabled={!activePath || showGrid}
                                         onClick={() => editorAction('editor.action.gotoLine')}
                                     >
                                         <ListOrdered size={15} />
                                     </button>
+                                    {isCsv && activePath && (
+                                        <button
+                                            type="button"
+                                            className={`plugin-ide-tool${showGrid ? ' is-active' : ''}`}
+                                            aria-pressed={showGrid}
+                                            aria-label="Spreadsheet view"
+                                            title={showGrid ? 'Show the CSV file as text' : 'Show the CSV file as a spreadsheet'}
+                                            onClick={() =>
+                                                setCsvAsText((paths) =>
+                                                    showGrid ? [...paths, activePath] : paths.filter((path) => path !== activePath),
+                                                )
+                                            }
+                                        >
+                                            <Table2 size={15} />
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         className={`plugin-ide-tool${prefs.wrap ? ' is-active' : ''}`}
@@ -1727,7 +1749,20 @@ export default function PluginEditor({
                                             readOnly,
                                         }}
                                     />
-                                ) : (
+                                ) : null}
+                                {activePath && showGrid && (
+                                    <div className="plugin-ide-csv">
+                                        <CsvGrid
+                                            key={activePath}
+                                            text={drafts[activePath] ?? ''}
+                                            readOnly={readOnly}
+                                            onChange={(text) => setContent(activePath, text)}
+                                            onUndo={() => editorRef.current?.trigger('csv-grid', 'undo', null)}
+                                            onRedo={() => editorRef.current?.trigger('csv-grid', 'redo', null)}
+                                        />
+                                    </div>
+                                )}
+                                {!activePath && (
                                     <div
                                         className="plugin-ide-state"
                                         onDoubleClick={() => newFile('')}

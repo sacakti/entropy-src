@@ -5,6 +5,7 @@ import {
     ChevronRight,
     FileCode2,
     FilePlus2,
+    FileSpreadsheet,
     FileText,
     Folder,
     FolderInput,
@@ -20,6 +21,7 @@ import type { TreeRow } from './tree'
 export function FileIcon({ path }: { path: string }) {
     if (path.endsWith('.py')) return <FileCode2 size={15} className="plugin-ide-icon-py" />
     if (path.endsWith('.json')) return <Braces size={15} className="plugin-ide-icon-json" />
+    if (path.endsWith('.csv')) return <FileSpreadsheet size={15} className="plugin-ide-icon-csv" />
     return <FileText size={15} className="plugin-ide-icon-md" />
 }
 

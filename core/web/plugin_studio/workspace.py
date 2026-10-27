@@ -30,7 +30,7 @@ from core.web.versioning import bump_version
 from lib.plugins.manifest import ManifestReader
 from lib.plugins.validator import ManifestValidator
 
-EDITABLE_SUFFIXES = (".py", ".json", ".md", ".txt")
+EDITABLE_SUFFIXES = (".py", ".json", ".md", ".txt", ".csv")
 MAX_FILE_BYTES = 512_000
 MAX_FILES = 200
 MAX_DESCRIPTION_LENGTH = 200

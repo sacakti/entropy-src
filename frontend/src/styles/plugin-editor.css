@@ -313,6 +313,7 @@
 
 .entropy-app .plugin-ide-icon-py { color: #4f9fe8; }
 .entropy-app .plugin-ide-icon-json { color: #e6b422; }
+.entropy-app .plugin-ide-icon-csv { color: #2e9d5b; }
 .entropy-app .plugin-ide-icon-md { color: var(--app-muted); }
 .entropy-app .plugin-ide-error { color: var(--ide-error); }
 .entropy-app .plugin-ide-warning { color: var(--ide-warning); }
@@ -1582,4 +1583,230 @@
 
 .entropy-app .vb-panel {
     overflow-x: hidden;
+}
+
+/* CSV files: spreadsheet view ------------------------------------------- */
+
+.entropy-app .plugin-ide-csv {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: var(--ide-bg-base);
+}
+
+.entropy-app .csv-grid {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    font-size: 12.5px;
+}
+
+.entropy-app .csv-grid-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--ide-line);
+    background: var(--ide-panel);
+    flex-wrap: wrap;
+}
+
+.entropy-app .csv-grid-ref {
+    min-width: 64px;
+    padding: 3px 8px;
+    border: 1px solid var(--ide-line);
+    border-radius: 4px;
+    font-family: var(--app-mono, ui-monospace, monospace);
+    color: var(--app-muted);
+    text-align: center;
+}
+
+.entropy-app .csv-grid-formula {
+    flex: 1 1 220px;
+    min-width: 140px;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid var(--ide-line);
+    border-radius: 4px;
+    background: var(--ide-bg-base);
+    color: var(--app-text);
+    font: inherit;
+}
+
+.entropy-app .csv-grid-formula:focus {
+    outline: none;
+    border-color: var(--app-accent);
+}
+
+.entropy-app .csv-grid-sep {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: var(--ide-line);
+}
+
+.entropy-app .csv-grid-delimiter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 4px;
+    color: var(--app-muted);
+}
+
+.entropy-app .csv-grid-delimiter select {
+    height: 26px;
+    border: 1px solid var(--ide-line);
+    border-radius: 4px;
+    background: var(--ide-bg-base);
+    color: var(--app-text);
+    font: inherit;
+}
+
+.entropy-app .csv-grid-size {
+    margin-left: auto;
+    color: var(--app-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .csv-grid-scroll {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    outline: none;
+    user-select: none;
+}
+
+.entropy-app .csv-grid-canvas {
+    position: relative;
+}
+
+.entropy-app .csv-grid-head,
+.entropy-app .csv-grid-pinned {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: flex;
+    height: 26px;
+}
+
+.entropy-app .csv-grid-pinned {
+    z-index: 2;
+    font-weight: 600;
+    box-shadow: 0 2px 4px color-mix(in srgb, #000 18%, transparent);
+}
+
+.entropy-app .csv-grid-row {
+    position: absolute;
+    left: 0;
+    display: flex;
+    height: 26px;
+}
+
+.entropy-app .csv-grid-corner,
+.entropy-app .csv-grid-colhead,
+.entropy-app .csv-grid-rownum {
+    flex: none;
+    background: var(--ide-panel-base);
+    color: var(--app-muted);
+    border-right: 1px solid var(--ide-line);
+    border-bottom: 1px solid var(--ide-line);
+    font-size: 11.5px;
+    cursor: default;
+}
+
+.entropy-app .csv-grid-corner {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+}
+
+.entropy-app .csv-grid-colhead {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.entropy-app .csv-grid-rownum {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .csv-grid-colhead.is-selected,
+.entropy-app .csv-grid-rownum.is-selected {
+    background: color-mix(in srgb, var(--app-accent) 18%, var(--ide-panel-base));
+    color: var(--app-text);
+}
+
+.entropy-app .csv-grid-colhead.is-extra,
+.entropy-app .csv-grid-row.is-extra .csv-grid-rownum {
+    opacity: 0.55;
+}
+
+.entropy-app .csv-grid-resize {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    z-index: 1;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+}
+
+.entropy-app .csv-grid-cell {
+    position: relative;
+    flex: none;
+    overflow: hidden;
+    padding: 0 6px;
+    line-height: 25px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border-right: 1px solid color-mix(in srgb, var(--ide-line) 70%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--ide-line) 70%, transparent);
+    background: var(--ide-bg-base);
+    cursor: cell;
+}
+
+.entropy-app .csv-grid-cell.is-number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .csv-grid-row.is-header .csv-grid-cell,
+.entropy-app .csv-grid-pinned .csv-grid-cell {
+    font-weight: 600;
+    background: color-mix(in srgb, var(--ide-panel-base) 70%, var(--ide-bg-base));
+}
+
+.entropy-app .csv-grid-cell.is-selected {
+    background: color-mix(in srgb, var(--app-accent) 14%, var(--ide-bg-base));
+}
+
+.entropy-app .csv-grid-cell.is-active {
+    box-shadow: inset 0 0 0 2px var(--app-accent);
+}
+
+.entropy-app .csv-grid-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    min-height: 100%;
+    padding: 3px 6px;
+    border: 2px solid var(--app-accent);
+    background: var(--ide-bg-base);
+    color: var(--app-text);
+    font: inherit;
+    line-height: 17px;
+    resize: none;
+    outline: none;
+    overflow: hidden;
+    user-select: text;
 }

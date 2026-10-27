@@ -173,6 +173,7 @@ def test_rejects_unsafe_paths(path: str) -> None:
 def test_accepts_plugin_relative_paths() -> None:
     assert normalize_path("ops/runner.py") == "ops/runner.py"
     assert normalize_path(" README.md ") == "README.md"
+    assert normalize_path("data/hosts.csv") == "data/hosts.csv"
 
 
 # ----------------------------------------------------------------------
@@ -259,6 +260,18 @@ def test_save_reinstalls_with_changes(tmp_path: Path) -> None:
     assert installed["plugin.py"] == edited
     assert installed["engine.py"] == "X = 1\n"
     assert result["revision"] == revision(installed)
+
+
+def test_save_keeps_csv_files(tmp_path: Path) -> None:
+    studio, manager = make_studio(tmp_path)
+    current = studio.files("custom.demo")
+    table = 'host;port\r\n"a;b";22\r\n'
+
+    studio.save("custom.demo", {"data/hosts.csv": table}, current["revision"])
+
+    root = manager.get("custom.demo").path
+    assert (root / "data" / "hosts.csv").read_bytes() == table.encode()
+    assert studio.files("custom.demo")["files"]["data/hosts.csv"] == table
 
 
 def test_save_rejects_stale_revision(tmp_path: Path) -> None:

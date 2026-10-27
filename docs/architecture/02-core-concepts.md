@@ -303,6 +303,15 @@ A run is started in one of two modes:
   entries as a whole, and fields of objects whose names look secret
   (password, token, key, ...).
 
+## Data files
+
+Plugins may carry `.csv` files next to their code (with `.py`, `.json`, `.md`
+and `.txt`). The plugin editor opens them as a spreadsheet: edit cells in place
+(Enter or typing; Alt+Enter for a line break), select ranges, copy and paste
+blocks from Excel, insert or delete rows and columns, sort by a column, resize
+columns. The delimiter (comma, semicolon, tab, pipe), quoting and line ends of
+the file are kept. The table button switches to the plain text.
+
 ## Git repositories from Tools
 
 An argument may declare `"picker": "git_repository"`: forms show the managed
