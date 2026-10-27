@@ -627,3 +627,65 @@ def test_tls_modes_and_profiles() -> None:
         effective_tls(normalize_request({"tls": {"mode": "profile", "profile": "gone"}}), settings)
     with pytest.raises(EagleStoreError, match="two TLS profiles"):
         normalize_settings({"tls_profiles": [{"name": "A"}, {"name": "a"}]})
+
+
+def _dropping_server(material: Dict[str, Any], tmp_path, drops: int) -> Dict[str, Any]:
+    """A TLS server that closes its first `drops` connections before the handshake."""
+
+    import socket
+
+    (tmp_path / "cert.pem").write_bytes(material["server_cert"])
+    (tmp_path / "key.pem").write_bytes(material["server_key"])
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(tmp_path / "cert.pem", tmp_path / "key.pem")
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(5)
+    state = {"connections": 0}
+
+    def serve() -> None:
+        while True:
+            try:
+                connection, _ = listener.accept()
+            except OSError:
+                return
+            state["connections"] += 1
+            if state["connections"] <= drops:
+                connection.close()
+                continue
+            try:
+                with context.wrap_socket(connection, server_side=True) as tls:
+                    tls.recv(65536)
+                    tls.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+            except (OSError, ssl.SSLError):
+                pass
+
+    threading.Thread(target=serve, daemon=True).start()
+    return {"url": f"https://127.0.0.1:{listener.getsockname()[1]}/", "state": state, "socket": listener}
+
+
+def test_dropped_first_tls_handshake_is_retried(tls_server, tmp_path) -> None:
+    server = _dropping_server(tls_server, tmp_path, drops=1)
+    try:
+        definition = {"url": server["url"], "tls": {"ca_bundle": _ref("CA")}}
+        result = execute(definition, _tls_resolver(tls_server), NS)
+        assert result.get("status") == 200 and result["body"] == "ok"
+        assert "sent again" in result["tls_retry"] and server["state"]["connections"] == 2
+    finally:
+        server["socket"].close()
+
+
+def test_tls_is_retried_once_only(tls_server, tmp_path) -> None:
+    server = _dropping_server(tls_server, tmp_path, drops=5)
+    try:
+        definition = {"url": server["url"], "tls": {"ca_bundle": _ref("CA")}}
+        result = execute(definition, _tls_resolver(tls_server), NS)
+        assert result.get("error") and server["state"]["connections"] == 2
+    finally:
+        server["socket"].close()
+
+
+def test_certificate_errors_are_not_retried(tls_server) -> None:
+    # No CA bundle: the self-signed chain fails verification the same way twice.
+    result = execute({"url": tls_server["url"] + "/echo"}, _tls_resolver(tls_server), NS)
+    assert "CERTIFICATE_VERIFY_FAILED" in result["error"] and "tls_retry" not in result

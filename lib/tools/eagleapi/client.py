@@ -114,6 +114,10 @@ def ssl_context(tls: Tls, folder: str) -> ssl.SSLContext:
             raise EagleRequestError("The CA bundle is not a PEM certificate file.") from exc
 
     cert, key, password = tls.cert, tls.key, tls.password
+    if tls.cert or tls.pfx:
+        # TLS 1.3 servers may ask for the client certificate after the
+        # handshake (per path); without this the request is refused.
+        context.post_handshake_auth = True
     if tls.pfx:
         cert, key = _pfx_to_pem(tls.pfx, tls.password)
         password = None
@@ -160,11 +164,40 @@ def _read(response: Any, limit: int) -> Tuple[bytes, bool]:
     return raw[:limit], len(raw) > limit
 
 
+# Handshake failures a second connection usually gets past: servers and load
+# balancers that drop a client's first TLS handshake (client certificate
+# negotiation, renegotiation, a back end not ready). Certificate errors are
+# not among them: they would fail the same way again.
+_TRANSIENT_TLS = ("UNEXPECTED_EOF", "EOF OCCURRED", "CONNECTION RESET", "TLSV1_ALERT_INTERNAL_ERROR",
+                  "SSLV3_ALERT_HANDSHAKE_FAILURE", "DECRYPTION_FAILED", "BAD_RECORD_MAC")
+
+
+def _transient_tls(result: Dict[str, Any]) -> bool:
+    error = str(result.get("error") or "").upper()
+    if not error.startswith(("TLS ERROR", "CONNECTION FAILED")):
+        return False
+    return any(marker in error for marker in _TRANSIENT_TLS)
+
+
 def send(prepared: Prepared, max_body: int = MAX_BODY_BYTES) -> Dict[str, Any]:
     """
     Send the request. Network failures come back as {"error": ...}; any
     HTTP status (also 4xx/5xx) is a response.
+
+    An HTTPS request whose TLS handshake is dropped is sent once more on a
+    new connection: the handshake comes before any of the request is sent,
+    so this is safe for every method. The result says so (tls_retry).
     """
+
+    result = _send_once(prepared, max_body)
+    if urlsplit(prepared.url).scheme.lower() == "https" and _transient_tls(result):
+        first = result["error"]
+        result = _send_once(prepared, max_body)
+        result["tls_retry"] = f"The first TLS handshake failed ({first}); the request was sent again."
+    return result
+
+
+def _send_once(prepared: Prepared, max_body: int) -> Dict[str, Any]:
 
     folder = tempfile.mkdtemp(prefix="entropy-eagleapi-")
     os.chmod(folder, 0o700)

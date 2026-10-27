@@ -133,6 +133,11 @@ export default function ResponseViewer({
                         TLS: {current.tls_source}
                     </span>
                 )}
+                {current.tls_retry && (
+                    <span className="eagle-warn-text" title={current.tls_retry}>
+                        TLS handshake retried
+                    </span>
+                )}
                 {shown !== null && (
                     <button type="button" className="entropy-button entropy-button-link" onClick={() => onShow(null)}>
                         Poll attempt {shown} · show main response

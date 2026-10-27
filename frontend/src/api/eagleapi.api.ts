@@ -197,6 +197,8 @@ export interface EagleResult {
     poll?: { url?: string; error?: string; done?: boolean; reason?: string; value?: unknown }
     /** Where the TLS settings came from: "request", "profile <name>", "default <name>" or "none". */
     tls_source?: string
+    /** The first TLS handshake was dropped and the request sent again. */
+    tls_retry?: string
     /** The history entry of this call, when it was recorded. */
     history_id?: number
 }
