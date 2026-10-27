@@ -1,5 +1,6 @@
 import { useState, type DragEvent, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 /**
  * Drop target with a pick button: one side of a file or folder compare.
@@ -29,6 +30,8 @@ export default function DropZone({
     onClear: () => void
 }) {
     const [over, setOver] = useState(false)
+
+    useErrorToast(error)
 
     return (
         <div
@@ -94,11 +97,6 @@ export default function DropZone({
                 )}
             </div>
 
-            {error && (
-                <p className="tools-drop-error" role="alert">
-                    {error}
-                </p>
-            )}
         </div>
     )
 }

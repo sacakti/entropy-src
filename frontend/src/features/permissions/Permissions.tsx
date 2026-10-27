@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-    AlertCircle,
     Check,
-    LoaderCircle,
     Search,
     ShieldCheck,
 } from 'lucide-react'
 
 import { getCurrentUser } from '../../services/auth'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 interface PermissionGroup {
     name: string
@@ -93,6 +93,7 @@ function Permissions() {
     const [search, setSearch] = useState('')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    useErrorToast(error)
 
     const loadPermissions = useCallback(async () => {
         setLoading(true)
@@ -139,11 +140,9 @@ function Permissions() {
         // <section className="content-panel permissions-page">
         <section className="permissions-page">
             {error ? (
-                <div className="permissions-message permissions-error" role="alert">
-                    <AlertCircle size={19} />
+                <div className="permissions-message">
                     <div className="permissions-message-content">
-                        <strong>Unable to load permissions</strong>
-                        <p>{error}</p>
+                        <p className="entropy-unavailable">Your permissions are not available.</p>
                         <button
                             type="button"
                             className="entropy-button entropy-button-secondary"
@@ -155,13 +154,7 @@ function Permissions() {
                     </div>
                 </div>
             ) : loading ? (
-                <div className="permissions-message permissions-loading" role="status">
-                    <LoaderCircle
-                        size={22}
-                        className="permissions-spinning"
-                    />
-                    <span>Loading your permissions...</span>
-                </div>
+                <EntropyLoader label="Loading your permissions…" />
             ) : (
                 <>
                     <div className="permissions-summary">

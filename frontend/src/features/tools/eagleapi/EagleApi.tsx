@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-    AlertCircle,
     Bird,
     Download,
     FilePlus,
@@ -41,6 +40,8 @@ import { FILE_SUGGESTIONS, VALUE_SUGGESTIONS } from './TlsFields'
 import TlsSettingsDialog from './TlsSettingsDialog'
 import { defaultRequest, ENV_STORAGE_KEY, itemPath, itemReadOnlyReason, METHODS, sameRequest, vaultRef } from './model'
 import '../../../styles/eagleapi.css'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 type NameRequest =
     | { kind: 'new-folder' | 'new-request'; parentId: number | null; data?: EagleRequestData; name?: string }
@@ -117,6 +118,7 @@ export default function EagleApi() {
     const [items, setItems] = useState<EagleItem[]>([])
     const [loading, setLoading] = useState(true)
     const [loadError, setLoadError] = useState<string | null>(null)
+    useErrorToast(loadError)
     const [expanded, setExpanded] = useState<Set<number>>(new Set())
 
     const [selected, setSelected] = useState<EagleItem | null>(null)
@@ -133,6 +135,7 @@ export default function EagleApi() {
 
     const [result, setResult] = useState<EagleResult | null>(null)
     const [sendError, setSendError] = useState<string | null>(null)
+    useErrorToast(sendError)
     const [sending, setSending] = useState(false)
     const [poll, setPoll] = useState<PollRun | null>(null)
     const [shown, setShown] = useState<number | null>(null)
@@ -661,14 +664,9 @@ export default function EagleApi() {
                         </div>
                     </div>
                     {loading ? (
-                        <p className="eagle-muted eagle-pad" role="status">
-                            <LoaderCircle size={14} className="entropy-spin" aria-hidden="true" /> Loading…
-                        </p>
+                        <EntropyLoader />
                     ) : loadError ? (
-                        <div className="entropy-alert entropy-alert-error" role="alert">
-                            <AlertCircle size={16} />
-                            <span>{loadError}</span>
-                        </div>
+                        <p className="entropy-unavailable">Not available.</p>
                     ) : (
                         <CollectionTree
                             items={items}
@@ -822,12 +820,6 @@ export default function EagleApi() {
                                 onOpenSettings={settings ? () => setTlsOpen(true) : undefined}
                             />
 
-                            {sendError && (
-                                <div className="entropy-alert entropy-alert-error" role="alert">
-                                    <AlertCircle size={16} />
-                                    <span>{sendError}</span>
-                                </div>
-                            )}
                             <ResponseViewer
                                 result={result}
                                 sending={sending}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertCircle, LoaderCircle, Trash2 } from 'lucide-react'
+import { LoaderCircle, Trash2 } from 'lucide-react'
 
 import { nodesApi, type EntropyNode, type NodeCredentials } from '../../api/runs.api'
 import Dialog from '../../components/layout/Dialog'
@@ -7,6 +7,7 @@ import { errorMessage } from '../runs/format'
 import CredentialsFields from './CredentialsFields'
 import { credentialsReady } from './credentials'
 import ProvisioningLog from './ProvisioningLog'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 /** Remove a node, optionally uninstalling its agent over SSH. */
 export default function RemoveNodeDialog({
@@ -22,6 +23,7 @@ export default function RemoveNodeDialog({
     const [credentials, setCredentials] = useState<NodeCredentials>({ auth: 'password' })
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [recordId, setRecordId] = useState<number | null>(null)
     const [finished, setFinished] = useState(false)
 
@@ -101,12 +103,6 @@ export default function RemoveNodeDialog({
                         </label>
                     </div>
                     {uninstall && <CredentialsFields value={credentials} onChange={setCredentials} />}
-                    {error && (
-                        <div className="entropy-alert entropy-alert-error admin-field-wide" role="alert">
-                            <AlertCircle size={16} />
-                            <span>{error}</span>
-                        </div>
-                    )}
                 </div>
             )}
         </Dialog>

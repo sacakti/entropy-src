@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-    AlertCircle,
     Archive,
     Database,
     Globe,
@@ -30,6 +29,8 @@ import { apiRequest } from '../../services/api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import '../../styles/admin-settings.css'
 import DatabasePanel from './DatabasePanel'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 type Tab = 'general' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database'
 
@@ -178,6 +179,7 @@ export default function AdminSettings() {
     const { notify, modal } = useFeedback()
     const [settings, setSettings] = useState<AllSettings | null>(null)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [tab, setTab] = useState<Tab>('smtp')
     const [saving, setSaving] = useState(false)
     const [groups, setGroups] = useState<string[]>([])
@@ -315,18 +317,13 @@ export default function AdminSettings() {
 
     if (error) {
         return (
-            <div className="entropy-alert entropy-alert-error" role="alert">
-                <AlertCircle size={16} />
-                <span>{error}</span>
-            </div>
+            <p className="entropy-unavailable">Not available.</p>
         )
     }
 
     if (!settings) {
         return (
-            <div className="list-empty" role="status">
-                <LoaderCircle size={18} className="entropy-spin" /> Loading settings…
-            </div>
+            <EntropyLoader label={`Loading settings…`} />
         )
     }
 

@@ -34,6 +34,7 @@ import Memories from './Memories'
 import WallpaperPicker from './WallpaperPicker'
 import { useNotificationCenter } from '../notifications/context'
 import '../../styles/Preferences.css'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 export interface PreferencesProps {
     theme: UserPreferences['theme']
@@ -428,6 +429,8 @@ export default function Preferences({
         )
     }
 
+    useErrorToast(preferencesError)
+
     return (
         <section className="preferences-panel">
             <header className="page-heading">
@@ -458,11 +461,6 @@ export default function Preferences({
                 </button>
             </header>
 
-            {preferencesError && (
-                <p className="preferences-error" role="alert">
-                    {preferencesError}
-                </p>
-            )}
             {/* <div className="preferences-toolbar">
                 <button
                     type="button"

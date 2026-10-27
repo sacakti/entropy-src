@@ -1,6 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-    AlertCircle,
     ArrowRightLeft,
     BellRing,
     Download,
@@ -35,6 +34,8 @@ import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 // The builder pulls in Monaco and YAML; load it only when opened.
 const WorkflowBuilder = lazy(() => import('./builder/WorkflowBuilder'))
@@ -74,6 +75,7 @@ export default function Workflows() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [search, setSearch] = useState('')
     const [builder, setBuilder] = useState<BuilderTarget>(() =>
         consumeCreateIntent('workflow') ? { mode: 'create' } : null,
@@ -341,12 +343,6 @@ export default function Workflows() {
 
     return (
         <section className="list-page workflows-page">
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             <section className="dashboard-section list-section">
                 <div className="dashboard-section-heading list-section-heading">
@@ -496,10 +492,7 @@ export default function Workflows() {
                             {loading ? (
                                 <tr>
                                     <td colSpan={5}>
-                                        <div className="list-empty" role="status">
-                                            <LoaderCircle size={18} className="entropy-spin" />
-                                            Loading workflows…
-                                        </div>
+                                        <EntropyLoader label={`Loading workflows…`} />
                                     </td>
                                 </tr>
                             ) : filtered.length === 0 && newDrafts.length === 0 ? (

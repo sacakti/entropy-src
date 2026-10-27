@@ -27,6 +27,7 @@ import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { openTool } from './widgets/core'
 import { createWidget, defaultWidgets, findWidget, WIDGETS, type WidgetDefinition, type WidgetSetting } from './widgets/registry'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
 
 const SIZES: Array<[WidgetSize, string]> = [
     ['small', 'Small'],
@@ -148,10 +149,7 @@ export default function Dashboard() {
     if (!layout) {
         return (
             <section className="dashboard-page">
-                <div className="dashboard-loading" role="status">
-                    <LoaderCircle size={22} className="entropy-spin" />
-                    <span>Loading your dashboard…</span>
-                </div>
+                <EntropyLoader label="Loading your dashboard…" />
             </section>
         )
     }

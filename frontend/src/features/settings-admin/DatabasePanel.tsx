@@ -3,6 +3,8 @@ import { CheckCircle2, Database, Download, LoaderCircle, Save, ShieldAlert, Shie
 
 import { apiRequest } from '../../services/api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 interface Backup {
     name: string
@@ -46,6 +48,7 @@ export default function DatabasePanel() {
     const { notify } = useFeedback()
     const [status, setStatus] = useState<DatabaseStatus | null>(null)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [form, setForm] = useState({ backup_dir: '', interval_hours: '6', keep: '28' })
     const [busy, setBusy] = useState<string | null>(null)
 
@@ -79,16 +82,12 @@ export default function DatabasePanel() {
 
     if (error) {
         return (
-            <div className="entropy-alert entropy-alert-error" role="alert">
-                <span>{error}</span>
-            </div>
+            <p className="entropy-unavailable">Not available.</p>
         )
     }
     if (!status) {
         return (
-            <p className="settings-muted" role="status">
-                <LoaderCircle size={14} className="entropy-spin" aria-hidden="true" /> Loading…
-            </p>
+            <EntropyLoader />
         )
     }
 

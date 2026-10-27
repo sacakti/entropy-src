@@ -168,8 +168,10 @@ def _read(response: Any, limit: int) -> Tuple[bytes, bool]:
 # balancers that drop a client's first TLS handshake (client certificate
 # negotiation, renegotiation, a back end not ready). Certificate errors are
 # not among them: they would fail the same way again.
-_TRANSIENT_TLS = ("UNEXPECTED_EOF", "EOF OCCURRED", "CONNECTION RESET", "TLSV1_ALERT_INTERNAL_ERROR",
-                  "SSLV3_ALERT_HANDSHAKE_FAILURE", "DECRYPTION_FAILED", "BAD_RECORD_MAC")
+_TRANSIENT_TLS = (
+    "UNEXPECTED_EOF", "EOF OCCURRED", "CONNECTION RESET", "TLSV1_ALERT_INTERNAL_ERROR",
+    "SSLV3_ALERT_HANDSHAKE_FAILURE", "DECRYPTION_FAILED", "BAD_RECORD_MAC",
+)
 
 
 def _transient_tls(result: Dict[str, Any]) -> bool:

@@ -12,6 +12,8 @@ import ParamsEditor from './ParamsEditor'
 import RunAdvancedOptions from './RunAdvancedOptions'
 import { EMPTY_ADVANCED, runOptionsFor, type AdvancedState, type PlanCheck } from './runOptions'
 import { parseRows, rowsFor, type ParamRow } from './params'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 type Check = { state: 'checking' } | { state: 'valid'; summary: string } | { state: 'invalid'; error: string }
 
@@ -43,6 +45,7 @@ export default function StartRunDialog({
     const [check, setCheck] = useState<Check>({ state: 'checking' })
     const [starting, setStarting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [nodesLoaded, setNodesLoaded] = useState(false)
     const [advanced, setAdvanced] = useState<AdvancedState>(EMPTY_ADVANCED)
     const [planCheck, setPlanCheck] = useState<PlanCheck>({ state: 'checking' })
@@ -247,7 +250,7 @@ export default function StartRunDialog({
             <div className="admin-field">
                 <span>Runner node</span>
                 <div className="start-run-nodes" role="radiogroup" aria-label="Runner node">
-                    {nodes.length === 0 && <p className="run-card-muted">Loading nodes…</p>}
+                    {nodes.length === 0 && <EntropyLoader inline label="Loading nodes…" />}
                     {nodes.map((item) => (
                         <label
                             key={item.name}
@@ -357,12 +360,6 @@ export default function StartRunDialog({
                 </p>
             )}
 
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
         </Dialog>
     )
 }

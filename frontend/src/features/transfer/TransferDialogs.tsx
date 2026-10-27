@@ -15,6 +15,7 @@ import Dialog from '../../components/layout/Dialog'
 import { apiRequest, PROJECT_HEADER } from '../../services/api'
 import { currentProject } from '../../services/project'
 import '../../styles/transfer.css'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const MIN_PASSPHRASE = 12
 
@@ -134,6 +135,7 @@ export function MoveToProjectDialog({
     const [withSchedules, setWithSchedules] = useState(true)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
     const [result, setResult] = useState<TransferResult | null>(null)
 
     useEffect(() => {
@@ -253,11 +255,6 @@ export function MoveToProjectDialog({
                     )}
                 </div>
             )}
-            {error && (
-                <p className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={15} /> {error}
-                </p>
-            )}
         </Dialog>
     )
 }
@@ -274,6 +271,7 @@ export function VaultExportDialog({ preselected, onClose }: { preselected?: stri
     const [confirm, setConfirm] = useState('')
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
 
     useEffect(() => {
         vaultApi
@@ -345,11 +343,6 @@ export function VaultExportDialog({ preselected, onClose }: { preselected?: stri
                 </fieldset>
                 <NewPassphrase value={passphrase} confirm={confirm} onChange={setPassphrase} onConfirm={setConfirm} />
             </div>
-            {error && (
-                <p className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={15} /> {error}
-                </p>
-            )}
         </Dialog>
     )
 }
@@ -374,6 +367,7 @@ export function VaultImportDialog({ onClose, onDone }: { onClose: () => void; on
     const [overwrite, setOverwrite] = useState(false)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
     const [summary, setSummary] = useState<(VaultRestoreSummary & { exported_by: string | null }) | null>(null)
 
     const run = async () => {
@@ -434,11 +428,6 @@ export function VaultImportDialog({ onClose, onDone }: { onClose: () => void; on
                     </label>
                 </div>
             )}
-            {error && (
-                <p className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={15} /> {error}
-                </p>
-            )}
         </Dialog>
     )
 }
@@ -457,6 +446,7 @@ export function ProjectDumpDialog({ project, onClose }: { project: { key: string
     const [confirm, setConfirm] = useState('')
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
 
     useEffect(() => {
         // The dumped project's namespaces, whichever project is current.
@@ -543,11 +533,6 @@ export function ProjectDumpDialog({ project, onClose }: { project: { key: string
                 )}
                 {needsPassphrase && <NewPassphrase value={passphrase} confirm={confirm} onChange={setPassphrase} onConfirm={setConfirm} />}
             </div>
-            {error && (
-                <p className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={15} /> {error}
-                </p>
-            )}
         </Dialog>
     )
 }
@@ -563,6 +548,7 @@ export function ProjectRestoreDialog({ project, onClose, onDone }: { project: { 
     const [passphrase, setPassphrase] = useState('')
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
     const [result, setResult] = useState<RestoreResult | null>(null)
 
     const choose = async (chosen: File | null) => {
@@ -723,11 +709,6 @@ export function ProjectRestoreDialog({ project, onClose, onDone }: { project: { 
                         </>
                     )}
                 </div>
-            )}
-            {error && (
-                <p className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={15} /> {error}
-                </p>
             )}
         </Dialog>
     )

@@ -9,6 +9,7 @@ import {
 
 import { changePassword } from '../../services/auth'
 import '../../styles/settings.css'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 type PasswordFields = {
     currentPassword: string
@@ -45,6 +46,7 @@ export default function ChangePasswordForm({
     })
 
     const [error, setError] = useState('')
+    useErrorToast(error)
     const [loading, setLoading] = useState(false)
 
     function updateField(
@@ -212,11 +214,6 @@ export default function ChangePasswordForm({
                     Use at least 8 characters. Common passwords are not allowed.
                 </p>
 
-                {error && (
-                    <div className="password-feedback is-error" role="alert">
-                        {error}
-                    </div>
-                )}
 
 
                 <div className="password-form-actions">

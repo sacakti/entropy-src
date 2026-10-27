@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { AlertCircle, RefreshCw, Search, X } from 'lucide-react'
+import { RefreshCw, Search, X } from 'lucide-react'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 /** List page frame shared by Users, Groups, Roles and Permissions. */
 export function AdminPanel({
@@ -23,6 +24,8 @@ export function AdminPanel({
     onRefresh: () => void
     children: ReactNode
 }) {
+    useErrorToast(error)
+
     return (
         <section className="dashboard-section list-section">
             <div className="dashboard-section-heading list-section-heading">
@@ -51,12 +54,6 @@ export function AdminPanel({
                 </div>
             </div>
 
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             {toolbar && <div className="list-toolbar">{toolbar}</div>}
 

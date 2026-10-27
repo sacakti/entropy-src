@@ -1,7 +1,8 @@
 import { useEffect, useId, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { LoaderCircle, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 import Dialog from './Dialog'
+import EntropyLoader from '../feedback/EntropyLoader'
 
 export interface PickerItem {
     id: string
@@ -97,10 +98,7 @@ export default function PickerDialog({
             </label>
 
             {items === null ? (
-                <p className="picker-dialog-status">
-                    <LoaderCircle size={15} className="entropy-spin" />
-                    Loading…
-                </p>
+                <EntropyLoader />
             ) : items.length === 0 ? (
                 <p className="picker-dialog-status">{empty}</p>
             ) : (

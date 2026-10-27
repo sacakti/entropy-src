@@ -5,6 +5,7 @@ import { pluginsApi, type BundledUpdate } from '../../api/plugins.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 function message(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback
@@ -23,6 +24,10 @@ export default function PluginUpdates({ onInstalled }: { onInstalled: () => void
     const [chosen, setChosen] = useState<Set<string>>(new Set())
     const [busy, setBusy] = useState(false)
     const [failures, setFailures] = useState<{ qualified_name: string; error: string }[]>([])
+    useErrorToast(
+        failures.length ? failures.map((failure) => `${failure.qualified_name}: ${failure.error}`).join(' · ') : null,
+        'Some plugins were not installed',
+    )
 
     const load = useCallback(async () => {
         try {
@@ -179,15 +184,6 @@ export default function PluginUpdates({ onInstalled }: { onInstalled: () => void
                     </div>
                     {section('Upgrades', upgrades)}
                     {section('New plugins', fresh)}
-                    {failures.length > 0 && (
-                        <div className="entropy-alert entropy-alert-error" role="alert">
-                            {failures.map((failure) => (
-                                <p key={failure.qualified_name}>
-                                    <strong>{failure.qualified_name}</strong>: {failure.error}
-                                </p>
-                            ))}
-                        </div>
-                    )}
                 </Dialog>
             )}
         </>

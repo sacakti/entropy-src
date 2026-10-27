@@ -5,6 +5,8 @@ import { apiRequest } from '../../../services/api'
 import RepositoryBrowser from './RepositoryBrowser'
 import Dialog from '../../../components/layout/Dialog'
 import './git-repositories.css'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 type Assignment = { target_type: 'workflow' | 'plugin'; target_key: string }
 type Repository = {
@@ -39,10 +41,12 @@ export default function GitRepositories() {
     const [drafts, setDrafts] = useState<Record<number, Assignment[]>>({})
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
     const [browsing, setBrowsing] = useState<Repository | null>(null)
     const [pathPickerOpen, setPathPickerOpen] = useState(false)
     const [pathListing, setPathListing] = useState<LocalDirectoryListing | null>(null)
     const [pathPickerError, setPathPickerError] = useState('')
+    useErrorToast(pathPickerError)
     const [pathPickerLoading, setPathPickerLoading] = useState(false)
 
     const refresh = useCallback(async () => {
@@ -154,7 +158,6 @@ export default function GitRepositories() {
             <div><span className="git-repositories-mark"><GitBranch size={21} /></span><div><h3>Git repositories</h3><p>Create server-managed repositories and make checkouts available to workflows or plugins.</p></div></div>
             <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void refresh()} title="Refresh repositories"><RefreshCw size={15} /></button>
         </header>
-        {error && <div className="entropy-alert entropy-alert-error" role="alert">{error}</div>}
         <form className="git-repository-create" onSubmit={(event) => void createRepository(event)}>
             <label>Repository name<input value={name} onChange={(event) => setName(event.target.value)} placeholder="deployment-scripts" maxLength={80} required /></label>
             <label>Access scope<select value={scope} onChange={(event) => setScope(event.target.value as 'user' | 'project')}><option value="project" disabled={!data?.permissions.project_write}>Project — members with workflow access</option><option value="user">Personal — only you</option></select></label>
@@ -164,7 +167,7 @@ export default function GitRepositories() {
             <small>Personal repositories are private to your account. Project repositories can be used by members of {data?.project.name ?? 'the active project'} with workflow access. Remote URLs must not contain passwords or tokens. Private remotes use the Entropy server’s SSH key or Git credential helper.</small>
         </form>
 
-        {!data ? <div className="git-repositories-empty">Loading repositories…</div> : data.items.length ? <div className="git-repository-list">
+        {!data ? <EntropyLoader label="Loading repositories…" /> : data.items.length ? <div className="git-repository-list">
             {data.items.map((repository) => <article className="git-repository-card" key={repository.id}>
                 <div className="git-repository-card-heading"><span className="git-repository-mark"><GitBranch size={18} /></span><div><strong>{repository.name}</strong><span>{repository.scope === 'user' ? 'Personal · private to you' : `${data.project.name} · project scoped`} · {repository.source_display} · Created by {repository.created_by}</span></div><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setBrowsing(repository)}><Eye size={15} /> Browse</button>{repository.can_manage && <button type="button" className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm" onClick={() => void deleteRepository(repository)} title="Delete repository"><Trash2 size={16} /></button>}</div>
                 <div className="git-clone-command"><code>git clone '{repository.clone_path}'</code><button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => void copyClonePath(repository)} title="Copy clone command"><Copy size={15} /></button></div>
@@ -186,8 +189,7 @@ export default function GitRepositories() {
             <div className="git-server-path-picker">
                 <div className="git-server-path-current"><code title={pathListing?.path}>{pathListing?.path ?? 'Loading path…'}</code>{pathListing?.parent_path && <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void loadServerDirectory(pathListing.parent_path!)} disabled={pathPickerLoading}><ArrowUp size={15} /> Up</button>}</div>
                 {pathListing?.is_git_repository && <div className="entropy-alert entropy-alert-success" role="status">This folder is a Git repository and can be imported.</div>}
-                {pathPickerError && <div className="entropy-alert entropy-alert-error" role="alert">{pathPickerError}</div>}
-                {pathPickerLoading ? <div className="git-server-path-empty">Loading server folders…</div> : <div className="git-server-path-list" role="listbox" aria-label="Server folders">{pathListing?.directories.map((directory) => <button type="button" role="option" key={directory.path} onClick={() => void loadServerDirectory(directory.path)}><Folder size={16} /><span>{directory.name}</span></button>)}{!pathListing?.directories.length && !pathPickerError && <div className="git-server-path-empty">No child folders in this directory.</div>}{pathListing?.truncated && <small>Showing the first 500 folders.</small>}</div>}
+                {pathPickerLoading ? <EntropyLoader label="Loading server folders…" /> : <div className="git-server-path-list" role="listbox" aria-label="Server folders">{pathListing?.directories.map((directory) => <button type="button" role="option" key={directory.path} onClick={() => void loadServerDirectory(directory.path)}><Folder size={16} /><span>{directory.name}</span></button>)}{!pathListing?.directories.length && !pathPickerError && <div className="git-server-path-empty">No child folders in this directory.</div>}{pathListing?.truncated && <small>Showing the first 500 folders.</small>}</div>}
             </div>
         </Dialog>}
     </section>

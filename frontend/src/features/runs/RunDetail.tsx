@@ -44,6 +44,8 @@ import {
     runDuration,
     runnerName,
 } from './format'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const POLL_MS = 1000
 
@@ -250,6 +252,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
     const [events, setEvents] = useState<RunEvent[]>([])
     const [output, setOutput] = useState('')
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [view, setView] = useState<View>('progress')
     const [source, setSource] = useState<LogSource>('events')
     const [follow, setFollow] = useState(true)
@@ -385,15 +388,9 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                     <ArrowLeft size={16} /> Runs
                 </button>
                 {error ? (
-                    <div className="entropy-alert entropy-alert-error" role="alert">
-                        <AlertCircle size={16} />
-                        <span>{error}</span>
-                    </div>
+                    <p className="entropy-unavailable">Run #{runId} is not available.</p>
                 ) : (
-                    <div className="list-empty" role="status">
-                        <LoaderCircle size={18} className="entropy-spin" />
-                        Loading run #{runId}…
-                    </div>
+                    <EntropyLoader label={`Loading run #${runId}…`} />
                 )}
             </section>
         )
@@ -513,12 +510,6 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                     <div className="entropy-alert entropy-alert-error" role="alert">
                         <AlertCircle size={16} />
                         <span>{eventText(runFailure)}</span>
-                    </div>
-                )}
-                {error && (
-                    <div className="entropy-alert entropy-alert-error" role="alert">
-                        <AlertCircle size={16} />
-                        <span>{error}</span>
                     </div>
                 )}
             </header>

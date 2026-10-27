@@ -591,3 +591,12 @@
         animation-duration: 2.4s;
     }
 }
+
+/* What a panel shows when its content could not be loaded (the reason is a toast). */
+.entropy-unavailable {
+    margin: 0;
+    padding: 20px;
+    color: var(--app-muted);
+    font-size: 13px;
+    text-align: center;
+}

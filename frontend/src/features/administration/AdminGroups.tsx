@@ -13,6 +13,7 @@ import { membershipLabels, sameMemberships, toMembershipInputs, uniqueMembership
 import { missingPermission } from './permissionReason'
 import { ProjectMembershipEditor } from './ProjectMemberships'
 import { usePermissions } from './usePermissions'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 export default function AdminGroups() {
     const { notify, modal } = useFeedback()
@@ -295,6 +296,7 @@ function GroupDialog({
     )
     const [saving, setSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
+    useErrorToast(formError)
 
     const canDetails = creating ? can('groups.create') : can('groups.modify')
     const canMembers = can('groups.users')
@@ -458,11 +460,6 @@ function GroupDialog({
                 )}
             </form>
 
-            {formError && (
-                <div className="entropy-alert entropy-alert-error admin-form-error" role="alert">
-                    <span>{formError}</span>
-                </div>
-            )}
         </Dialog>
     )
 }

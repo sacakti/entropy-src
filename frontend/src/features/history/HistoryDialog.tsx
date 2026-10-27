@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Columns2, History, LoaderCircle, RotateCcw, Rows2 } from 'lucide-react'
+import { Columns2, History, LoaderCircle, RotateCcw, Rows2 } from 'lucide-react'
 
 import { pluginHistoryApi, workflowHistoryApi, type HistoryEntry } from '../../api/history.api'
 import { pluginsApi } from '../../api/plugins.api'
@@ -9,6 +9,8 @@ import Dialog from '../../components/layout/Dialog'
 import DiffView from '../plugins/editor/DiffView'
 import { errorMessage, formatDateTime } from '../runs/format'
 import '../../styles/history.css'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 type Kind = 'workflow' | 'plugin'
 
@@ -68,6 +70,7 @@ export default function HistoryDialog({
     const [file, setFile] = useState<string | null>(null)
     const [sideBySide, setSideBySide] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [restoring, setRestoring] = useState(false)
 
     const theme = document.documentElement.dataset.theme === 'light' ? 'entropy-light' : 'entropy-dark'
@@ -175,15 +178,9 @@ export default function HistoryDialog({
                 </>
             }
         >
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             {entries === null ? (
-                !error && <p className="run-card-muted">Loading…</p>
+                !error && <EntropyLoader />
             ) : entries.length === 0 ? (
                 <p className="history-empty">
                     <History size={18} aria-hidden="true" />
@@ -253,7 +250,7 @@ export default function HistoryDialog({
 
                         <div className="history-diff">
                             {!kept || !current ? (
-                                <p className="run-card-muted">Loading…</p>
+                                <EntropyLoader />
                             ) : shownFile === null ? (
                                 <p className="run-card-muted">This version is the same as the current one.</p>
                             ) : (

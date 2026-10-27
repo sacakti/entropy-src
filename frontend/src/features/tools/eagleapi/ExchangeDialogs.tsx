@@ -5,6 +5,7 @@ import Dialog from '../../../components/layout/Dialog'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { eagleApi, type EagleItem, type ExportFormat, type ImportSummary } from '../../../api/eagleapi.api'
 import { itemPath } from './model'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 function errorText(cause: unknown, fallback: string): string {
     return cause instanceof Error && cause.message ? cause.message : fallback
@@ -48,6 +49,7 @@ export function ExportDialog({ items, initial, onClose }: { items: EagleItem[]; 
     const [preserve, setPreserve] = useState(true)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     // An item inside a collection (opened from its menu) is offered as is.
     const extra = initial.filter((id) => !collections.some((item) => item.id === id)).map((id) => items.find((item) => item.id === id)).filter(Boolean) as EagleItem[]
     const choices = [...extra, ...collections]
@@ -137,11 +139,6 @@ export function ExportDialog({ items, initial, onClose }: { items: EagleItem[]; 
                         <code>baseUrl</code> variable for the environment’s base URL.
                     </p>
                 )}
-                {error && (
-                    <p className="eagle-warn-text" role="alert">
-                        {error}
-                    </p>
-                )}
             </div>
         </Dialog>
     )
@@ -165,6 +162,7 @@ export function ImportDialog({
     const [preview, setPreview] = useState<ImportSummary | null>(null)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const folders = items.filter((item) => item.kind === 'folder' && item.access !== 'read')
 
     const inspect = async (next: File | null, keep = preserve) => {
@@ -271,11 +269,6 @@ export function ImportDialog({
                     Variables become references to this project’s EagleAPI vault namespace; add their values in Environment. A leading{' '}
                     <code>{'{{baseUrl}}'}</code> is replaced by the environment’s base URL.
                 </p>
-                {error && (
-                    <p className="eagle-warn-text" role="alert">
-                        {error}
-                    </p>
-                )}
             </div>
         </Dialog>
     )

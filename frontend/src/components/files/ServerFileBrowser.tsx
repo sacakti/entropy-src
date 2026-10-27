@@ -3,6 +3,7 @@ import { ArrowUp, Check, File, Folder, FolderOpen, HardDrive, Home, LoaderCircle
 
 import { serverFilesApi, type ServerFileEntry, type ServerFolder } from '../../api/serverFiles.api'
 import Dialog from '../layout/Dialog'
+import { useErrorToast } from '../feedback/useToast'
 
 export type PathKind = 'file' | 'directory' | 'any'
 
@@ -35,6 +36,7 @@ export default function ServerFileBrowser({
     const [folder, setFolder] = useState<ServerFolder | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [selected, setSelected] = useState<string | null>(null)
     const [typed, setTyped] = useState(initial)
     const [filter, setFilter] = useState('')
@@ -192,11 +194,6 @@ export default function ServerFileBrowser({
                 </label>
             </div>
 
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    {error}
-                </div>
-            )}
 
             <ul className="server-files-list" role="listbox" aria-label={folder?.path ?? 'Folder'}>
                 {!loading && entries.length === 0 && !error && (

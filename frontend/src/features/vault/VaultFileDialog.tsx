@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { AlertCircle, FileKey2, LoaderCircle, Upload } from 'lucide-react'
+import { FileKey2, LoaderCircle, Upload } from 'lucide-react'
 
 import { vaultApi } from '../../api/vault.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const MAX_BYTES = 5 * 1024 * 1024
 const KEY_PATTERN = /^[A-Za-z0-9_]+$/
@@ -42,6 +43,7 @@ export default function VaultFileDialog({
     const [sensitive, setSensitive] = useState(true)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
 
     const tooLarge = Boolean(file && file.size > MAX_BYTES)
     const keyError = key && !KEY_PATTERN.test(key) ? 'Letters, numbers and underscore (_) only.' : ''
@@ -124,11 +126,6 @@ export default function VaultFileDialog({
                     Encrypt (recommended for private keys and keystores)
                 </label>
             </div>
-            {error && (
-                <p className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={15} /> {error}
-                </p>
-            )}
         </Dialog>
     )
 }

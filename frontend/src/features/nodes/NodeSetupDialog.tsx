@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, ChevronDown, LoaderCircle, ServerCog } from 'lucide-react'
+import { ChevronDown, LoaderCircle, ServerCog } from 'lucide-react'
 
 import {
     nodesApi,
@@ -13,6 +13,7 @@ import { errorMessage } from '../runs/format'
 import CredentialsFields from './CredentialsFields'
 import { credentialsReady } from './credentials'
 import ProvisioningLog from './ProvisioningLog'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const NAME = /^[a-z0-9][a-z0-9._-]{0,62}$/
 
@@ -61,6 +62,7 @@ export default function NodeSetupDialog({
     const [advanced, setAdvanced] = useState(false)
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [recordId, setRecordId] = useState<number | null>(null)
     const [finished, setFinished] = useState(false)
 
@@ -336,12 +338,6 @@ export default function NodeSetupDialog({
                         </>
                     )}
 
-                    {error && (
-                        <div className="entropy-alert entropy-alert-error admin-field-wide" role="alert">
-                            <AlertCircle size={16} />
-                            <span>{error}</span>
-                        </div>
-                    )}
                 </div>
             )}
         </Dialog>

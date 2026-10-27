@@ -15,6 +15,8 @@ import {
 import { systemApi, type PackageInfo, type SystemInfo, type UpgradeJob } from '../../api/system.api'
 import Dialog from '../../components/layout/Dialog'
 import { errorMessage, formatDateTime, formatTime } from '../runs/format'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const DEPS_LABELS: Record<SystemInfo['deps'], string> = {
     bundled: 'Bundled wheels',
@@ -30,6 +32,7 @@ function formatSize(bytes: number): string {
 export default function AdminSystem() {
     const [info, setInfo] = useState<SystemInfo | null>(null)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [uploading, setUploading] = useState<number | null>(null)
     const [selected, setSelected] = useState<PackageInfo | null>(null)
     const [allowDowngrade, setAllowDowngrade] = useState(false)
@@ -151,19 +154,13 @@ export default function AdminSystem() {
 
     return (
         <div className="list-page admin-page system-page">
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             <section className="dashboard-section">
                 <header className="system-section-head">
                     <h3>Installation</h3>
                 </header>
                 {!info ? (
-                    <p className="run-card-muted">Loading…</p>
+                    <EntropyLoader />
                 ) : (
                     <dl className="run-meta system-facts">
                         <div>

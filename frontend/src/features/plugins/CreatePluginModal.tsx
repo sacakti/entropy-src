@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, LoaderCircle, Plus, X, XCircle } from 'lucide-react'
 
 import { pluginsApi, type PluginItem } from '../../api/plugins.api'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const NAME_PATTERN = /^[a-z][a-z0-9_]*$/
 const CHECK_DELAY = 350
@@ -38,6 +39,7 @@ export default function CreatePluginModal({
     const [availability, setAvailability] = useState<Availability>({ state: 'idle' })
     const [creating, setCreating] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     const trimmedNamespace = namespace.trim()
     const trimmedName = name.trim()
@@ -237,12 +239,6 @@ export default function CreatePluginModal({
                     </label>
                 </fieldset>
 
-                {error && (
-                    <div className="plugins-error" role="alert">
-                        <XCircle size={16} />
-                        <span>{error}</span>
-                    </div>
-                )}
 
                 <footer className="plugins-modal-footer">
                     <button

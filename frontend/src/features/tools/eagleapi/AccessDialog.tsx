@@ -4,6 +4,8 @@ import { LoaderCircle, Lock, Plus, Trash2, Users } from 'lucide-react'
 import Dialog from '../../../components/layout/Dialog'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { eagleApi, type EagleAccessEntry, type EagleAccessInfo, type EagleItem } from '../../../api/eagleapi.api'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 function errorText(cause: unknown, fallback: string): string {
     return cause instanceof Error && cause.message ? cause.message : fallback
@@ -25,11 +27,13 @@ export default function AccessDialog({
     const { notify } = useFeedback()
     const [info, setInfo] = useState<EagleAccessInfo | null>(null)
     const [loadError, setLoadError] = useState<string | null>(null)
+    useErrorToast(loadError)
     const [restricted, setRestricted] = useState(false)
     const [entries, setEntries] = useState<EagleAccessEntry[]>([])
     const [pick, setPick] = useState('')
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     useEffect(() => {
         let active = true
@@ -106,13 +110,9 @@ export default function AccessDialog({
             }
         >
             {loadError ? (
-                <p className="eagle-warn-text" role="alert">
-                    {loadError}
-                </p>
+                <p className="entropy-unavailable">Not available.</p>
             ) : !info ? (
-                <p className="eagle-muted" role="status">
-                    <LoaderCircle size={14} className="entropy-spin" aria-hidden="true" /> Loading…
-                </p>
+                <EntropyLoader />
             ) : (
                 <div className="eagle-access">
                     {readOnly && (
@@ -200,11 +200,6 @@ export default function AccessDialog({
                             )}
                             <p className="eagle-muted">Only members of this project can be given access.</p>
                         </>
-                    )}
-                    {error && (
-                        <p className="eagle-warn-text" role="alert">
-                            {error}
-                        </p>
                     )}
                 </div>
             )}

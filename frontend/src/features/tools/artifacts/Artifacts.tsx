@@ -5,6 +5,8 @@ import Dialog from '../../../components/layout/Dialog'
 import { apiRequest, downloadFile, PROJECT_HEADER } from '../../../services/api'
 import { currentProject } from '../../../services/project'
 import './artifacts.css'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 type Artifact = {
     id: number; name: string; source: 'upload' | 'server_path'; classification: 'added' | 'generated'; origin: string | null; run_id: string | null; path: string
@@ -39,6 +41,7 @@ export default function Artifacts() {
     const [busy, setBusy] = useState(false)
     const [dragging, setDragging] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
     const inputRef = useRef<HTMLInputElement>(null)
 
     const refresh = useCallback(async () => {
@@ -226,7 +229,6 @@ export default function Artifacts() {
             <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void refresh()} title="Refresh artifacts"><RefreshCw size={15} /></button>
         </header>
 
-        {error && <div className="entropy-alert entropy-alert-error" role="alert">{error}</div>}
 
         {data?.permissions['artifacts.write'] && <div className="artifacts-ingest">
             <div className={`artifacts-dropzone${dragging ? ' is-dragging' : ''}${busy ? ' is-busy' : ''}`}
@@ -249,7 +251,7 @@ export default function Artifacts() {
             </form>
         </div>}
 
-        {!data ? <div className="artifacts-empty">Loading artifacts…</div> : <>
+        {!data ? <EntropyLoader label="Loading artifacts…" /> : <>
             <nav className="artifacts-tabs" aria-label="Artifact classification">
                 <button type="button" className={classification === 'added' ? 'is-active' : ''} onClick={() => { setClassification('added'); setSelectedIds(new Set()); setActiveTag(null) }}>Added <span>{addedCount}</span></button>
                 <button type="button" className={classification === 'generated' ? 'is-active' : ''} onClick={() => { setClassification('generated'); setSelectedIds(new Set()); setActiveTag(null) }}>Generated <span>{generatedCount}</span></button>

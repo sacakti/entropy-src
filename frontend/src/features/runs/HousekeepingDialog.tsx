@@ -5,6 +5,7 @@ import { runsApi, type ArchiveRules, type Housekeeping } from '../../api/runs.ap
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { errorMessage } from './format'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 /** Archive policy for finished runs and their events. */
 export default function HousekeepingDialog({
@@ -28,6 +29,7 @@ export default function HousekeepingDialog({
     })
     const [busy, setBusy] = useState<'save' | 'run' | null>(null)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     useEffect(() => {
         let active = true
@@ -109,11 +111,6 @@ export default function HousekeepingDialog({
                 </>
             }
         >
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    {error}
-                </div>
-            )}
             <div className="admin-form-grid">
                 <label className="admin-field">
                     <span>Archive finished runs after (days)</span>

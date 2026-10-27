@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, LoaderCircle, Package, Plus, RefreshCw, Search, ShieldCheck, Trash2, Wrench, X } from 'lucide-react'
+import { LoaderCircle, Package, Plus, RefreshCw, Search, ShieldCheck, Trash2, Wrench, X } from 'lucide-react'
 
 import { extensionsApi, type BuiltinLibrary, type ExtensionVersion } from '../../api/extensions.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
@@ -9,6 +9,8 @@ import { usePermissions } from '../administration/usePermissions'
 import { errorMessage, formatDateTime } from '../runs/format'
 import InstallExtensionDialog from './InstallExtensionDialog'
 import '../../styles/extensions.css'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 function size(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
@@ -37,6 +39,7 @@ export default function Extensions() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [tab, setTab] = useState<'installed' | 'builtin'>('installed')
     const [search, setSearch] = useState('')
     const [installing, setInstalling] = useState(false)
@@ -130,12 +133,6 @@ export default function Extensions() {
 
     return (
         <section className="list-page extensions-page">
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             <section className="dashboard-section list-section">
                 <div className="dashboard-section-heading list-section-heading">
@@ -222,10 +219,7 @@ export default function Extensions() {
                                 {loading ? (
                                     <tr>
                                         <td colSpan={6}>
-                                            <div className="list-empty" role="status">
-                                                <LoaderCircle size={18} className="entropy-spin" />
-                                                <span>Loading extensions…</span>
-                                            </div>
+                                            <EntropyLoader label={`Loading extensions…`} />
                                         </td>
                                     </tr>
                                 ) : shownInstalled.length === 0 ? (

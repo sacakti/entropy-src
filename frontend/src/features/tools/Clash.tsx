@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, type ComponentType, type LazyExoticComponent } from 'react'
-import { FileDiff, FolderTree, GitCompareArrows, LoaderCircle } from 'lucide-react'
+import { FileDiff, FolderTree, GitCompareArrows } from 'lucide-react'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
 
 type CompareMode = 'text' | 'file' | 'folder'
 const MODES: { id: CompareMode; label: string; icon: typeof GitCompareArrows; component: LazyExoticComponent<ComponentType> }[] = [
@@ -27,7 +28,7 @@ export default function Clash() {
             ><Icon size={16} />{label}</button>)}
         </div>
         <div id="clash-panel" role="tabpanel" aria-labelledby={`clash-tab-${mode}`}>
-            <Suspense fallback={<div className="tools-empty" role="status"><LoaderCircle size={18} className="entropy-spin" /> Loading compare tool…</div>}>
+            <Suspense fallback={<EntropyLoader label="Loading compare tool…" />}>
                 <CompareTool />
             </Suspense>
         </div>

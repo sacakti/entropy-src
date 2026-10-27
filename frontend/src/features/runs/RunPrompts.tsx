@@ -3,6 +3,7 @@ import { KeyRound, LoaderCircle, MessageSquareText, Send } from 'lucide-react'
 
 import { runsApi, type RunPrompt } from '../../api/runs.api'
 import { errorMessage } from './format'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 /** Questions an interactive run waits on, each with its answer form. */
 export default function RunPrompts({
@@ -37,6 +38,7 @@ function PromptCard({
     const [value, setValue] = useState(prompt.default ?? '')
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     const submit = async () => {
         setBusy(true)
@@ -100,11 +102,6 @@ function PromptCard({
                     {busy ? <LoaderCircle size={15} className="entropy-spin" /> : <Send size={15} />} Answer
                 </button>
             </div>
-            {error && (
-                <p className="run-prompt-error" role="alert">
-                    {error}
-                </p>
-            )}
         </form>
     )
 }

@@ -5,6 +5,7 @@ import { runsApi } from '../../api/runs.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { errorMessage } from './format'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 export default function PurgeArchiveDialog({
     archivedJobs,
@@ -20,6 +21,7 @@ export default function PurgeArchiveDialog({
     const [purgeAll, setPurgeAll] = useState(false)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     const selection = purgeAll ? { purge_all: true } : { older_than_days: Number(days) }
 
@@ -76,11 +78,6 @@ export default function PurgeArchiveDialog({
                 </>
             }
         >
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    {error}
-                </div>
-            )}
             <div className="admin-form-grid">
                 <label className="admin-field">
                     <span>Purge archived runs older than (days)</span>

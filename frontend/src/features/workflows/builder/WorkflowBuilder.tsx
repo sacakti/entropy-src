@@ -42,6 +42,8 @@ import {
     type Issue,
     type ParseFailure,
 } from './model'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 type View = 'form' | CodeFormat
 
@@ -91,6 +93,7 @@ export default function WorkflowBuilder({
     // Bumped to load the workflow again, e.g. after restoring a version.
     const [reload, setReload] = useState(0)
     const [loadError, setLoadError] = useState<string | null>(null)
+    useErrorToast(loadError)
     const [contracts, setContracts] = useState<PluginContract[]>([])
     const [vaultKeys, setVaultKeys] = useState<string[]>([])
     const [contractsError, setContractsError] = useState<string | null>(null)
@@ -666,14 +669,10 @@ export default function WorkflowBuilder({
 
             <div className="wf-builder-body">
                 {loading ? (
-                    <div className="wf-builder-state">
-                        <LoaderCircle size={22} className="entropy-spin" />
-                        Loading plugins{editing ? ' and workflow' : ''}…
-                    </div>
+                    <EntropyLoader label={`Loading plugins${editing ? ' and workflow' : ''}…`} />
                 ) : loadError ? (
-                    <div className="wf-builder-state" role="alert">
-                        <AlertCircle size={22} />
-                        {loadError}
+                    <div className="wf-builder-state">
+                        <p className="entropy-unavailable">Not available.</p>
                         <button type="button" className="entropy-button entropy-button-secondary" onClick={onClose}>
                             Close
                         </button>

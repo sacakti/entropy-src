@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import './login.css'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 interface Providers {
   ldap: boolean
@@ -33,6 +34,7 @@ export default function Login({ onLogin, endedSession }: LoginProps) {
   const [username, setUsername] = useState(endedSession?.username ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(takeSsoError)
+  useErrorToast(error)
   const [loading, setLoading] = useState(false)
   const [providers, setProviders] = useState<Providers | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -103,7 +105,6 @@ export default function Login({ onLogin, endedSession }: LoginProps) {
           {providers?.ldap && <p className="login-hint">Use your directory (LDAP) account or your Entropy account.</p>}
           <div className="form-field"><label htmlFor="username">Username</label><input id="username" name="username" type="text" placeholder="Enter your username" autoComplete="username" autoFocus={!endedSession?.username} value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /></div>
           <div className="form-field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" autoFocus={Boolean(endedSession?.username)} value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /></div>
-          {error && <p className="login-error" role="alert">{error}</p>}
           <button className="entropy-button entropy-button-primary entropy-button-block login-button" type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
         </form>
         {providers?.oidc.enabled && (

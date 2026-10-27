@@ -1,8 +1,9 @@
 import { Component, Suspense, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
-import { AlertCircle, ChevronLeft, LoaderCircle, Search, Wrench, X } from 'lucide-react'
+import { AlertCircle, ChevronLeft, Search, Wrench, X } from 'lucide-react'
 
 import { TOOLS, findTool, matchesTool, type ToolDefinition } from './registry'
 import '../../styles/tools.css'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
 
 /** Keeps a failing tool (e.g. a chunk that cannot load) from blanking the page. */
 class ToolBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -74,10 +75,7 @@ function ToolView({ tool, onBack }: { tool: ToolDefinition; onBack: () => void }
             <ToolBoundary key={tool.id}>
                 <Suspense
                     fallback={
-                        <div className="tools-empty" role="status">
-                            <LoaderCircle size={20} className="entropy-spin" aria-hidden="true" />
-                            <strong>Loading {tool.name.toLowerCase()}…</strong>
-                        </div>
+                        <EntropyLoader label={`Loading ${tool.name.toLowerCase()}…`} />
                     }
                 >
                     <ToolComponent />

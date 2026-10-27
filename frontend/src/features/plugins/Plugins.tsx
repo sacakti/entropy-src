@@ -1,7 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import {
     Activity,
-    AlertCircle,
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
@@ -43,6 +42,8 @@ import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import CreatePluginModal from './CreatePluginModal'
 import PluginUpdates from './PluginUpdates'
 import StartRunDialog from '../runs/StartRunDialog'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 // Monaco is large; load the editor only when a plugin is opened.
 const PluginEditor = lazy(() => import('./editor/PluginEditor'))
@@ -347,6 +348,7 @@ export default function Plugins() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     const [searchInput, setSearchInput] = useState('')
     const [search, setSearch] = useState('')
@@ -726,20 +728,6 @@ export default function Plugins() {
 
     return (
         <section className="list-page">
-            {error && (
-                <div className="list-error" role="alert">
-                    <AlertCircle size={18} />
-                    <span>{error}</span>
-                    <button
-                        type="button"
-                        className="entropy-button entropy-button-secondary entropy-button-sm"
-                        onClick={refreshPlugins}
-                        disabled={refreshing}
-                    >
-                        Retry
-                    </button>
-                </div>
-            )}
 
             {notice && (
                 <div className="list-notice" role="status">
@@ -1017,16 +1005,7 @@ export default function Plugins() {
                             {loading && plugins.length === 0 ? (
                                 <tr>
                                     <td colSpan={7}>
-                                        <div
-                                            className="list-loading"
-                                            role="status"
-                                        >
-                                            <RefreshCw
-                                                size={19}
-                                                className="entropy-spin"
-                                            />
-                                            <span>Loading plugins…</span>
-                                        </div>
+                                        <EntropyLoader label="Loading plugins…" />
                                     </td>
                                 </tr>
                             ) : plugins.length > 0 ? (

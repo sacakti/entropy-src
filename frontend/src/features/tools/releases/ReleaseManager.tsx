@@ -4,6 +4,7 @@ import { Archive, ArrowUpRight, Clipboard, Download, FileJson2, FileSpreadsheet,
 import { apiRequest } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import './release-manager.css'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
 
 type Stage = 'workflow_queue' | 'workflow_done' | 'task_queue' | 'completed'
 type ReleaseTask = { id: number; title: string; status: string; assignee: string | null; comments?: { author: string; body: string; created_at: string }[] }
@@ -433,7 +434,7 @@ export default function ReleaseManager() {
             </div>
         </header>
 
-        {!data ? <div className="release-empty">Loading releases…</div> : <>
+        {!data ? <EntropyLoader label="Loading releases…" /> : <>
             <nav className="release-tabs" aria-label="Release views">
                 <button className={tab === 'releases' ? 'active' : ''} onClick={() => setTab('releases')}>Releases <span>{visibleReleases.length}</span></button>
                 <button className={tab === 'promotions' ? 'active' : ''} onClick={() => setTab('promotions')}>Promotions <span>{visiblePromotions.filter((item) => item.status === 'queued').length}</span></button>

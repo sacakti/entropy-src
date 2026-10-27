@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import Editor from '@monaco-editor/react'
-import { ArrowLeft, ChevronDown, FileCode2, FilePlus2, FolderUp, GitBranch, GitCommitHorizontal, LoaderCircle, Plus, Save, Upload } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileCode2, FilePlus2, FolderUp, GitBranch, GitCommitHorizontal, Plus, Save, Upload } from 'lucide-react'
 import { apiRequest } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import Dialog from '../../../components/layout/Dialog'
 import DiffView from '../../plugins/editor/DiffView'
 import '../../plugins/editor/monaco'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 type Branches = { branches: string[]; committed_branches: string[]; default_branch: string | null }
 type Commit = { sha: string; short_sha: string; subject: string; author: string; date: string }
@@ -51,6 +53,7 @@ export default function RepositoryBrowser({ repository, onBack }: {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
+    useErrorToast(error)
     const [dragging, setDragging] = useState(false)
     const [uploadMenuOpen, setUploadMenuOpen] = useState(false)
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -215,7 +218,6 @@ export default function RepositoryBrowser({ repository, onBack }: {
                     {uploadMenuOpen && <div className="git-browser-upload-menu"><button type="button" onClick={() => { setUploadMenuOpen(false); inputRef.current?.click() }}><FilePlus2 size={15} /> Upload file(s)</button><button type="button" onClick={() => { setUploadMenuOpen(false); folderInputRef.current?.click() }}><FolderUp size={15} /> Upload folder</button></div>}
                 </div></div>}
         </div>
-        {error && <div className="entropy-alert entropy-alert-error" role="alert">{error}</div>}
         <div className="git-browser-view-tabs" role="tablist" aria-label="Repository views">
             <button type="button" role="tab" aria-selected={view === 'files'} className={view === 'files' ? 'active' : ''} onClick={() => setView('files')}><FileCode2 size={15} /> Files</button>
             <button type="button" role="tab" aria-selected={view === 'editor'} className={view === 'editor' ? 'active' : ''} onClick={() => setView('editor')} disabled={!selectedFile || selectedFile.binary}><FileCode2 size={15} /> Editor{dirty ? ' •' : ''}</button>
@@ -232,7 +234,7 @@ export default function RepositoryBrowser({ repository, onBack }: {
                 <div className="git-browser-change-tabs">{commitChanges.map((change) => <button type="button" key={`${change.status}:${change.path}`} className={selectedChange?.path === change.path ? 'selected' : ''} onClick={() => setSelectedChange(change)}><code>{change.status}</code>{change.path}</button>)}</div>
                 {selectedChange && <><div className="git-browser-change-heading"><strong>{selectedChange.path}</strong><span>{selectedChange.status}</span></div>{selectedChange.binary ? <div className="git-browser-empty-cell">This binary or oversized file cannot be compared in the text diff viewer.</div> : <div className="git-browser-diff-view"><DiffView original={selectedChange.original} modified={selectedChange.modified} language={languageOf(selectedChange.path)} theme={theme} sideBySide={sideBySide} /></div>}</>}
             </section>}
-            {loading && <div className="git-browser-loading"><LoaderCircle size={17} className="git-browser-spinner" /> Loading repository data…</div>}
+            {loading && <EntropyLoader label="Loading repository data…" />}
         </div> : <div className="git-browser-editor-view">
             {selectedFile && !selectedFile.binary ? <><header><strong>{selectedFile.path}</strong><span>{isNewFile ? 'New file' : dirty ? 'Unsaved changes' : `${selectedFile.size.toLocaleString()} bytes`}</span></header><div className="git-browser-monaco"><Editor height="100%" language={languageOf(selectedFile.path)} value={content} theme={theme} onChange={(value) => setContent(value ?? '')} options={{ automaticLayout: true, fontSize: 13, minimap: { enabled: true }, scrollBeyondLastLine: false, tabSize: 4, renderWhitespace: 'selection', readOnly: !repository.can_manage }} /></div></> : <div className="git-browser-editor-empty">Select a text file from the Files view to open it in the editor.</div>}
         </div>}

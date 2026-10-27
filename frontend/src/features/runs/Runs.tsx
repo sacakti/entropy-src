@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-    AlertCircle,
     Archive,
     Blocks,
     ChevronLeft,
@@ -32,6 +31,8 @@ import {
     runnerName,
 } from './format'
 import { openRun, runsTabFromHash } from './navigation'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const PAGE_SIZE = 25
 
@@ -59,6 +60,7 @@ export default function Runs() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [stopping, setStopping] = useState<number | null>(null)
     const [housekeepingOpen, setHousekeepingOpen] = useState(false)
     const [purgeOpen, setPurgeOpen] = useState(false)
@@ -241,12 +243,6 @@ export default function Runs() {
 
     return (
         <section className="list-page runs-page">
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             <section className="dashboard-section list-section">
                 <div className="dashboard-section-heading list-section-heading">
@@ -407,10 +403,7 @@ export default function Runs() {
                             {loading && !data ? (
                                 <tr>
                                     <td colSpan={8}>
-                                        <div className="list-empty" role="status">
-                                            <LoaderCircle size={18} className="entropy-spin" />
-                                            Loading runs…
-                                        </div>
+                                        <EntropyLoader label={`Loading runs…`} />
                                     </td>
                                 </tr>
                             ) : items.length === 0 ? (

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-    AlertCircle,
     ArrowRight,
     ArrowUpCircle,
     BadgeCheck,
@@ -15,6 +14,7 @@ import { adminApi, type AdminSummary } from '../../api/admin.api'
 import { canOpen, type PageId } from '../../types/navigation'
 import AdminCharts from './AdminCharts'
 import { errorMessage } from './format'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const SECTIONS: {
     page: PageId
@@ -83,6 +83,7 @@ export default function Administration({
 }) {
     const [summary, setSummary] = useState<AdminSummary | null>(null)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     useEffect(() => {
         let active = true
@@ -105,12 +106,6 @@ export default function Administration({
 
     return (
         <div className="list-page admin-page">
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             <div className="admin-overview">
                 {SECTIONS.filter((section) => canOpen(section.page, permissions)).map(

@@ -4,6 +4,7 @@ import { FileUp, LoaderCircle, Package } from 'lucide-react'
 import Dialog from '../../components/layout/Dialog'
 import { extensionsApi, type BuiltinLibrary, type ExtensionVersion } from '../../api/extensions.api'
 import { Tabs } from '../administration/AdminPanel'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 function errorText(cause: unknown, fallback: string): string {
     return cause instanceof Error && cause.message ? cause.message : fallback
@@ -36,6 +37,7 @@ export default function InstallExtensionDialog({
     const [file, setFile] = useState<File | null>(null)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const fileRef = useRef<HTMLInputElement>(null)
 
     // A .py module needs a name and version; a .zip may be a package folder or a bundle of wheels.
@@ -189,11 +191,6 @@ export default function InstallExtensionDialog({
                     <LoaderCircle size={14} className="entropy-spin" aria-hidden="true" /> Fetching and installing; large libraries take a
                     while…
                 </p>
-            )}
-            {error && (
-                <div className="entropy-alert entropy-alert-error extension-error" role="alert">
-                    <pre>{error}</pre>
-                </div>
             )}
         </Dialog>
     )

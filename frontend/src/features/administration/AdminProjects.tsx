@@ -38,6 +38,8 @@ import { defaultProjectRole } from './memberships'
 import { missingPermission } from './permissionReason'
 import ScopeIntro from './ScopeIntro'
 import { usePermissions } from './usePermissions'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 /** Used when the signed-in user may not list roles (e.g. a project maintainer). */
 const BUILTIN_PROJECT_ROLES: { name: string; title: string }[] = [
@@ -437,7 +439,9 @@ function ProjectDetail({
     const [draft, setDraft] = useState<DraftMember[]>([])
     const [canManage, setCanManage] = useState(project.can_manage_members)
     const [loadError, setLoadError] = useState<string | null>(null)
+    useErrorToast(loadError)
     const [saveError, setSaveError] = useState<string | null>(null)
+    useErrorToast(saveError)
     const [saving, setSaving] = useState(false)
     const [picking, setPicking] = useState(false)
     const directory = useRef<Promise<PickerItem[]> | null>(null)
@@ -595,13 +599,9 @@ function ProjectDetail({
                     </header>
 
                     {loadError ? (
-                        <div className="entropy-alert entropy-alert-error" role="alert">
-                            <span>{loadError}</span>
-                        </div>
+                        <p className="entropy-unavailable">Not available.</p>
                     ) : saved === null ? (
-                        <p className="admin-checklist-empty">
-                            <LoaderCircle size={15} className="entropy-spin" /> Loading members…
-                        </p>
+                        <EntropyLoader inline label="Loading members…" />
                     ) : draft.length === 0 ? (
                         <p className="admin-checklist-empty">
                             No members yet.{canManage ? ' Add users or groups to give them access.' : ''}
@@ -665,11 +665,6 @@ function ProjectDetail({
                         </p>
                     )}
 
-                    {saveError && (
-                        <div className="entropy-alert entropy-alert-error" role="alert">
-                            <span>{saveError}</span>
-                        </div>
-                    )}
 
                     {canManage && (
                         <footer>
@@ -707,7 +702,7 @@ function ProjectDetail({
                     </header>
 
                     {nodes === null ? (
-                        <p className="admin-checklist-empty">{nodesError ?? 'Loading nodes…'}</p>
+                        nodesError ? <p className="admin-checklist-empty">{nodesError}</p> : <EntropyLoader inline label="Loading nodes…" />
                     ) : usable.length === 0 ? (
                         <p className="admin-checklist-empty">No node serves this project yet.</p>
                     ) : (
@@ -775,6 +770,7 @@ function ProjectDialog({
     const [description, setDescription] = useState(project?.description ?? '')
     const [saving, setSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
+    useErrorToast(formError)
 
     const keyProblem = !creating
         ? null
@@ -892,11 +888,6 @@ function ProjectDialog({
                 </div>
             </form>
 
-            {formError && (
-                <div className="entropy-alert entropy-alert-error admin-form-error" role="alert">
-                    <span>{formError}</span>
-                </div>
-            )}
         </Dialog>
     )
 }

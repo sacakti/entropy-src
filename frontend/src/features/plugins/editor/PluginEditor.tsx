@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 
 import '../../../styles/plugin-editor.css'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import {
     diagnosticsFrom,
     pluginsApi,
@@ -58,6 +59,7 @@ import type { SearchMatch } from './search'
 import { registerSdkLanguage, toMarkers } from './sdkLanguage'
 import VisualBuilder from './visual/VisualBuilder'
 import { forSave, withIds, type BuilderModel } from './visual/model'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 type FileMap = Record<string, string>
 type EditorMode = 'edit' | 'review'
@@ -355,6 +357,7 @@ export default function PluginEditor({
     const [current, setCurrent] = useState<PluginItem>(plugin)
     const [loading, setLoading] = useState(true)
     const [loadError, setLoadError] = useState<string | null>(null)
+    useErrorToast(loadError)
     const [catalog, setCatalog] = useState<PluginSdkCatalog | null>(null)
     const [originals, setOriginals] = useState<FileMap>({})
     const [drafts, setDrafts] = useState<FileMap>({})
@@ -1363,13 +1366,11 @@ export default function PluginEditor({
 
             {loading ? (
                 <div className="plugin-ide-state">
-                    <LoaderCircle size={22} className="entropy-spin" />
-                    <span>Opening {qualifiedName}…</span>
+                    <EntropyLoader label={`Opening ${qualifiedName}…`} />
                 </div>
             ) : loadError ? (
-                <div className="plugin-ide-state" role="alert">
-                    <AlertCircle size={22} />
-                    <span>{loadError}</span>
+                <div className="plugin-ide-state">
+                    <p className="entropy-unavailable">Not available.</p>
                     <button type="button" className="entropy-button entropy-button-secondary" onClick={onClose}>
                         Close
                     </button>

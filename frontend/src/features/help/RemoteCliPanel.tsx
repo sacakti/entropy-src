@@ -3,6 +3,7 @@ import { Check, Copy, KeyRound } from 'lucide-react'
 
 import { getCliInfo, issueCliToken, type CliInfo } from '../../api/cli.api'
 import type { CliGroup } from './helpContent'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const REMOTE_GROUPS: CliGroup[] = [
     {
@@ -47,6 +48,7 @@ export default function RemoteCliPanel({
 }) {
     const [info, setInfo] = useState<CliInfo | null>(null)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [tokenLogin, setTokenLogin] = useState<string | null>(null)
     const [issuing, setIssuing] = useState(false)
 
@@ -93,11 +95,6 @@ export default function RemoteCliPanel({
                 Use Entropy from any computer or node, like <code>oc</code> with a cluster URL: install{' '}
                 <code>ent</code>, then log in to this server. {info && `Requires ${info.requires}.`}
             </p>
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <span>{error}</span>
-                </div>
-            )}
             {info && (
                 <>
                     <section className="help-group">

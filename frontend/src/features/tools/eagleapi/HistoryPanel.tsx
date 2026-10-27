@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, LoaderCircle, Search, Trash2 } from 'lucide-react'
+import { Download, Search, Trash2 } from 'lucide-react'
 
 import FloatingMenu from '../../../components/layout/FloatingMenu'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { eagleApi, type EagleHistorySummary } from '../../../api/eagleapi.api'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 function errorText(cause: unknown, fallback: string): string {
     return cause instanceof Error && cause.message ? cause.message : fallback
@@ -47,6 +49,7 @@ export default function HistoryPanel({
     const [total, setTotal] = useState(0)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [query, setQuery] = useState('')
     const [chosen, setChosen] = useState<Set<number>>(new Set())
     const [reload, setReload] = useState(0)
@@ -154,13 +157,9 @@ export default function HistoryPanel({
             </label>
 
             {loading ? (
-                <p className="eagle-muted eagle-pad" role="status">
-                    <LoaderCircle size={14} className="entropy-spin" aria-hidden="true" /> Loading…
-                </p>
+                <EntropyLoader />
             ) : error ? (
-                <p className="eagle-warn-text eagle-pad" role="alert">
-                    {error}
-                </p>
+                <p className="entropy-unavailable">Not available.</p>
             ) : entries.length === 0 ? (
                 <div className="eagle-tree-blank">
                     <p>{query ? 'Nothing matches.' : 'No history yet.'}</p>

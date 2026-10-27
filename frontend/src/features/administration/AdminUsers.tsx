@@ -27,6 +27,7 @@ import { membershipLabels, sameMemberships, toMembershipInputs, uniqueMembership
 import { missingPermission } from './permissionReason'
 import { ProjectMembershipEditor } from './ProjectMemberships'
 import { usePermissions } from './usePermissions'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 type StatusFilter = 'all' | 'active' | 'disabled'
 
@@ -424,6 +425,7 @@ function UserDialog({
     )
     const [saving, setSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
+    useErrorToast(formError)
     const [temporary, setTemporary] = useState<string | null>(null)
     const [copied, setCopied] = useState(false)
 
@@ -717,11 +719,6 @@ function UserDialog({
                 </div>
             )}
 
-            {formError && (
-                <div className="entropy-alert entropy-alert-error admin-form-error" role="alert">
-                    <span>{formError}</span>
-                </div>
-            )}
         </Dialog>
     )
 }

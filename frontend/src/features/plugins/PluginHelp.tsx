@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-    AlertCircle,
     ArrowLeft,
     BookOpen,
     Check,
     Copy,
     FileInput,
     FileOutput,
-    LoaderCircle,
     Package,
     Pencil,
     Play,
@@ -19,6 +17,8 @@ import { getPluginDocs, type PluginArgumentSpec, type PluginDocs } from '../../a
 import WallpaperLayer from '../preferences/WallpaperLayer'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import '../../styles/plugin-help.css'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const TYPE_HINT: Record<string, string> = {
     string: 'Text',
@@ -89,6 +89,7 @@ export default function PluginHelp({
 }) {
     const [docs, setDocs] = useState<PluginDocs | null>(null)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     useEffect(() => {
         let active = true
@@ -168,15 +169,9 @@ export default function PluginHelp({
             </header>
 
             {error ? (
-                <div className="plugin-help-state" role="alert">
-                    <AlertCircle size={22} />
-                    {error}
-                </div>
+                <p className="entropy-unavailable">Not available.</p>
             ) : !docs ? (
-                <div className="plugin-help-state" role="status">
-                    <LoaderCircle size={22} className="entropy-spin" />
-                    Loading help…
-                </div>
+                <EntropyLoader label="Loading help…" />
             ) : (
                 <div className="plugin-help-layout">
                     <nav className="plugin-help-nav" aria-label="Sections">

@@ -10,6 +10,7 @@ import { AdminPanel, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
 import { errorMessage, sameSet } from './format'
 import ScopeIntro from './ScopeIntro'
 import { usePermissions } from './usePermissions'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 /** A role to start a new one from, e.g. when duplicating a built-in role. */
 interface RoleTemplate {
@@ -453,6 +454,7 @@ function RoleDialog({
     const [granted, setGranted] = useState<string[]>(role?.permissions ?? template?.permissions ?? [])
     const [saving, setSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
+    useErrorToast(formError)
 
     const canDetails = !locked && (creating ? can('roles.create') : can('roles.modify'))
     const canPermissions = !locked && can('roles.permissions')
@@ -738,11 +740,6 @@ function RoleDialog({
                 )}
             </form>
 
-            {formError && (
-                <div className="entropy-alert entropy-alert-error admin-form-error" role="alert">
-                    <span>{formError}</span>
-                </div>
-            )}
         </Dialog>
     )
 }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-    AlertCircle,
     ArrowRightLeft,
     BellRing,
     Blocks,
@@ -29,6 +28,8 @@ import RunAlertsDialog from '../runs/RunAlertsDialog'
 import { MoveToProjectDialog } from '../transfer/TransferDialogs'
 import { missingPermission } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const REFRESH_MS = 15_000
 
@@ -95,6 +96,7 @@ export default function Schedules() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [search, setSearch] = useState('')
     const [editing, setEditing] = useState<Schedule | 'new' | null>(() =>
         consumeCreateIntent('schedule') ? 'new' : null,
@@ -258,12 +260,6 @@ export default function Schedules() {
 
     return (
         <section className="list-page schedules-page">
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             <section className="dashboard-section list-section">
                 <div className="dashboard-section-heading list-section-heading">
@@ -423,10 +419,7 @@ export default function Schedules() {
                                 {loading ? (
                                     <tr>
                                         <td colSpan={8}>
-                                            <div className="list-empty" role="status">
-                                                <LoaderCircle size={18} className="entropy-spin" />
-                                                Loading schedules…
-                                            </div>
+                                            <EntropyLoader label={`Loading schedules…`} />
                                         </td>
                                     </tr>
                                 ) : filtered.length === 0 ? (

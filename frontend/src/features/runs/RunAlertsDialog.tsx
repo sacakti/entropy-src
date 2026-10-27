@@ -5,6 +5,8 @@ import { alertsApi, type RunAlertSettings } from '../../api/settings.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { errorMessage } from './format'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const OUTCOMES: { key: 'on_success' | 'on_failure' | 'on_cancel'; label: string }[] = [
     { key: 'on_success', label: 'Completed' },
@@ -48,6 +50,7 @@ export default function RunAlertsDialog({
     const [values, setValues] = useState<RunAlertSettings | null>(null)
     const [emails, setEmails] = useState('')
     const [error, setError] = useState('')
+    useErrorToast(error)
     const [saving, setSaving] = useState(false)
     const [sample, setSample] = useState('')
 
@@ -121,9 +124,7 @@ export default function RunAlertsDialog({
             }
         >
             {!values && !error && (
-                <div className="list-empty" role="status">
-                    <LoaderCircle size={18} className="entropy-spin" /> Loading…
-                </div>
+                <EntropyLoader label={`Loading…`} />
             )}
             {values && (
                 <div className="run-alerts">
@@ -206,11 +207,6 @@ export default function RunAlertsDialog({
                         </p>
                     )}
                 </div>
-            )}
-            {error && (
-                <p className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={15} /> {error}
-                </p>
             )}
         </Dialog>
     )

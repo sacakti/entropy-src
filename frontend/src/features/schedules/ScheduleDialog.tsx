@@ -14,6 +14,7 @@ import Dialog from '../../components/layout/Dialog'
 import ParamsEditor from '../runs/ParamsEditor'
 import { parseRows, rowsFor, type ParamRow } from '../runs/params'
 import { errorMessage, formatDateTime } from '../runs/format'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 const PRESETS = [
     { label: 'Every 5 minutes', cron: '*/5 * * * *' },
@@ -65,6 +66,7 @@ export default function ScheduleDialog({
     const [preview, setPreview] = useState<Preview>(null)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     useEffect(() => {
         let active = true
@@ -323,12 +325,6 @@ export default function ScheduleDialog({
                 </div>
             </div>
 
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
         </Dialog>
     )
 }

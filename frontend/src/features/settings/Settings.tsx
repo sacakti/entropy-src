@@ -22,6 +22,7 @@ import Dialog from '../../components/layout/Dialog'
 import Avatar from './Avatar'
 import ChangePasswordForm from './ChangePasswordForm'
 import '../../styles/settings.css'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
 
 const AVATAR_TYPES = 'image/jpeg,image/png,image/webp'
 
@@ -48,10 +49,7 @@ export default function Settings({
 
     if (!profile) {
         return (
-            <div className="entropy-alert" role="status">
-                <LoaderCircle size={16} className="entropy-spin" />
-                <span>Loading your profile…</span>
-            </div>
+            <EntropyLoader label="Loading your profile…" />
         )
     }
 

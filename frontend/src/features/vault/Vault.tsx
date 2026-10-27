@@ -16,37 +16,20 @@ import {
 } from 'react'
 
 import {
-
     Eye,
-
     EyeOff,
-
     KeyRound,
-
     Plus,
-
-    RefreshCw,
-
     Shield,
-
     Trash2,
-
     Pencil,
-
     X,
-
     ChevronDown,
-
     LockKeyhole,
-
     FileJson,
-
     FileKey2,
-
     Download,
-
     Upload,
-
 } from 'lucide-react'
 
 
@@ -82,6 +65,8 @@ import { useShortcuts } from '../../components/layout/useShortcuts'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Editor from '@monaco-editor/react'
 import { useMonacoTheme } from '../tools/monacoTools'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 
 
@@ -343,6 +328,7 @@ export default function Vault() {
     const [busy, setBusy] = useState(false)
 
     const [error, setError] = useState('')
+    useErrorToast(error)
 
     const [message, setMessage] = useState('')
 
@@ -1401,31 +1387,6 @@ export default function Vault() {
 
         <section className="list-page vault-page">
 
-            {error && (
-
-                <div className="vault-alert vault-alert-error" role="alert">
-
-                    <span>{error}</span>
-
-                    <button
-
-                        type="button"
-
-                        className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm"
-
-                        onClick={() => setError('')}
-
-                        aria-label="Dismiss error"
-
-                    >
-
-                        <X size={16} />
-
-                    </button>
-
-                </div>
-
-            )}
 
 
 
@@ -1731,13 +1692,7 @@ export default function Vault() {
 
             {loading ? (
 
-                <div className="vault-loading">
-
-                    <RefreshCw size={18} className="vault-spin" />
-
-                    <span>Loading vault…</span>
-
-                </div>
+                <EntropyLoader label="Loading vault…" />
 
             ) : namespaces.length === 0 ? (
 

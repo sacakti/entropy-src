@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { AlertCircle, Lock, LoaderCircle } from 'lucide-react'
+import { AlertCircle, Lock } from 'lucide-react'
 
 import type { WidgetState } from './core'
+import EntropyLoader from '../../../components/feedback/EntropyLoader'
 
 /** Loading, no-access and error states around a widget's content. */
 export function WidgetBody<T>({
@@ -34,10 +35,7 @@ export function WidgetBody<T>({
             )
         }
         return (
-            <div className="dw-state" role="status">
-                <LoaderCircle size={18} className="entropy-spin" />
-                <span>Loading…</span>
-            </div>
+            <EntropyLoader size={30} />
         )
     }
     return <>{children(state.data)}</>

@@ -5,6 +5,7 @@ import Dialog from '../../../components/layout/Dialog'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { eagleApi, type EagleSettings, type EagleTlsProfile } from '../../../api/eagleapi.api'
 import TlsFields from './TlsFields'
+import { useErrorToast } from '../../../components/feedback/useToast'
 
 function errorText(cause: unknown, fallback: string): string {
     return cause instanceof Error && cause.message ? cause.message : fallback
@@ -56,6 +57,7 @@ export default function TlsSettingsDialog({
     const [selectedId, setSelectedId] = useState<string | null>(settings.tls_profiles[0]?.id ?? null)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
 
     const profiles = draft.tls_profiles
     const selected = profiles.find((profile) => profile.id === selectedId) ?? null
@@ -233,11 +235,6 @@ export default function TlsSettingsDialog({
                     )}
                 </div>
             </div>
-            {error && (
-                <p className="eagle-warn-text" role="alert">
-                    {error}
-                </p>
-            )}
         </Dialog>
     )
 }

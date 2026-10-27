@@ -6,7 +6,6 @@ import {
     Copy,
     Cpu,
     HardDrive,
-    LoaderCircle,
     MemoryStick,
     MoreHorizontal,
     Pause,
@@ -32,6 +31,8 @@ import { usePermissions } from '../administration/usePermissions'
 import NodeSetupDialog from './NodeSetupDialog'
 import ProvisioningLog from './ProvisioningLog'
 import RemoveNodeDialog from './RemoveNodeDialog'
+import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { useErrorToast } from '../../components/feedback/useToast'
 
 type NodeAction = { kind: 'setup' | 'remove' | 'log'; node: EntropyNode }
 
@@ -140,7 +141,7 @@ function LastSetupDialog({ node, onClose }: { node: EntropyNode; onClose: () => 
             }
         >
             {id === undefined ? (
-                <p className="run-card-muted">Loading…</p>
+                <EntropyLoader inline />
             ) : id === null ? (
                 <p className="run-card-muted">No setup has been recorded for this node.</p>
             ) : (
@@ -415,6 +416,7 @@ export default function Nodes() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    useErrorToast(error)
     const [action, setAction] = useState<NodeAction | null>(null)
     const [adding, setAdding] = useState(false)
     const { notify } = useFeedback()
@@ -459,12 +461,6 @@ export default function Nodes() {
 
     return (
         <section className="list-page nodes-page">
-            {error && (
-                <div className="entropy-alert entropy-alert-error" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             <section className="dashboard-section list-section">
                 <div className="dashboard-section-heading list-section-heading">
@@ -503,10 +499,7 @@ export default function Nodes() {
             </section>
 
             {loading ? (
-                <div className="list-empty" role="status">
-                    <LoaderCircle size={18} className="entropy-spin" />
-                    Loading nodes…
-                </div>
+                <EntropyLoader label={`Loading nodes…`} />
             ) : (
                 nodes.map((node) => (
                     <NodeCard
