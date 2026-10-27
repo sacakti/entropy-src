@@ -1,7 +1,7 @@
 {
     "name": "git",
     "namespace": "builtin",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
@@ -29,9 +29,16 @@
         {
             "name": "repository",
             "type": "path",
-            "required": true,
-            "description": "Local Git working copy the operation runs in.",
+            "required": false,
+            "description": "Local Git working copy the operation runs in. Not needed with git_repository.",
             "path": "directory"
+        },
+        {
+            "name": "git_repository",
+            "type": "string",
+            "required": false,
+            "picker": "git_repository",
+            "description": "A repository from Tools -> Git repositories (name or id), checked out into the run's workspace; push sends commits back to it. Use instead of repository."
         },
         {
             "name": "paths",
@@ -74,6 +81,11 @@
             "name": "operation",
             "type": "string",
             "description": "The Git operation that ran."
+        },
+        {
+            "name": "git_repository",
+            "type": "string",
+            "description": "The Tools -> Git repositories repository used, if any."
         },
         {
             "name": "repository",

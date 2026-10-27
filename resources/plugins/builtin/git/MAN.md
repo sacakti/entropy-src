@@ -58,6 +58,24 @@ Document:
 
 ------------------------------------------------------------------------
 
+## Repositories from Tools -> Git repositories
+
+Instead of `repository` (a folder on the node), name a repository kept in
+**Tools -> Git repositories** with `git_repository`; the run dialog and the
+workflow builder list the ones you may use (yours and the project's).
+
+- The run checks it out into its workspace (once per run; later steps reuse
+  the checkout), so pull, log, branch, add, commit and push work on it.
+- `push` sends commits back to the managed repository. Commits are made as
+  the user who started the run.
+- The checkout path is in the `repository` output, for other steps
+  (`${steps.<name>.outputs.repository}`).
+
+```json
+{"name": "commit-notes", "plugin": "builtin.git",
+ "arguments": {"operation": "commit", "git_repository": "release-notes", "message": "Add notes"}}
+```
+
 ## Workflow Configuration
 
 The plugin is executed through a workflow step.

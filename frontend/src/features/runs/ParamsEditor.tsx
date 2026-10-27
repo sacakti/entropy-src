@@ -3,6 +3,7 @@ import { FolderOpen, KeyRound, Plus, Trash2 } from 'lucide-react'
 
 import ServerFileBrowser from '../../components/files/ServerFileBrowser'
 import PickerDialog from '../../components/layout/PickerDialog'
+import RepositorySelect from '../tools/git-repositories/RepositorySelect'
 import { loadVaultKeys, vaultReference } from '../vault/vaultKeys'
 import { display, type ParamRow } from './params'
 
@@ -80,7 +81,14 @@ export default function ParamsEditor({
                                 aria-label="Parameter name"
                             />
                         )}
-                        {spec && choices ? (
+                        {spec?.picker === 'git_repository' ? (
+                            <RepositorySelect
+                                value={row.value}
+                                onChange={(value) => update(index, { value })}
+                                label={spec.name}
+                                placeholder={spec.required ? 'Choose a repository' : 'Choose a repository (optional)'}
+                            />
+                        ) : spec && choices ? (
                             <select
                                 value={row.value}
                                 onChange={(event) => update(index, { value: event.target.value })}

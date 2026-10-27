@@ -171,6 +171,8 @@ export interface PluginArgumentSpec {
     example?: unknown
     /** Asked for at run time when an interactive run does not give it. */
     prompt?: boolean
+    /** A list the UI offers for the value. */
+    picker?: 'git_repository'
 }
 
 export interface PluginOutputSpec {

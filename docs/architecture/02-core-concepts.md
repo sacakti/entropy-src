@@ -303,6 +303,14 @@ A run is started in one of two modes:
   entries as a whole, and fields of objects whose names look secret
   (password, token, key, ...).
 
+## Git repositories from Tools
+
+An argument may declare `"picker": "git_repository"`: forms show the managed
+repositories (Tools -> Git repositories) the user may use in the project, and
+the plugin calls `self.git_repository(name_or_id)` to get a working copy in the
+run's workspace (committed as the run user). `builtin.git` takes one as
+`git_repository`, instead of a `repository` path.
+
 ## Paths on the server
 
 Path arguments have a browse button in the run dialog and in the workflow

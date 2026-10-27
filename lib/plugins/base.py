@@ -139,6 +139,20 @@ class BasePlugin(ABC):
 
         return self._context.workspace
 
+    def git_repository(
+        self,
+        name: str,
+    ):
+        """
+        Check out a repository from Tools -> Git repositories (by name or
+        id) into the run's workspace and return its path. Pushes from it go
+        back to the managed repository.
+        """
+
+        return self._context.git_repository(
+            name,
+        )
+
     def vault(
         self,
         reference: str,

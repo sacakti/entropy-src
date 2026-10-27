@@ -209,11 +209,16 @@ ARGUMENT_KEYS = {
     "example",
     # Asked for at run time when an interactive run does not give it.
     "prompt",
+    # What the UI offers to pick the value from, e.g. "git_repository".
+    "picker",
 }
 OUTPUT_KEYS = {"name", "type", "description"}
 
 # What a lifecycle may look like: hooks a plugin may define, in run order.
 LIFECYCLE = ("validate", "prepare", "execute", "cleanup")
+
+# Lists the UI can offer for an argument ("picker").
+PICKERS = ("git_repository",)
 
 
 class ContractError(ValueError):
@@ -312,6 +317,11 @@ def normalize(data: Any) -> dict[str, Any]:
             if path_kind not in PATH_KINDS:
                 problems.append(f"{where}: 'path' is file, directory or any")
             entry["path"] = path_kind if path_kind in PATH_KINDS else "any"
+        if "picker" in item:
+            if item["picker"] not in PICKERS:
+                problems.append(f"{where}: 'picker' is one of {', '.join(PICKERS)}")
+            else:
+                entry["picker"] = item["picker"]
         for extra in ("label", "example"):
             if extra in item:
                 entry[extra] = item[extra]

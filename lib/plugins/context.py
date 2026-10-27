@@ -195,6 +195,29 @@ class PluginContext:
         return self._runtime.workspace
 
     # ------------------------------------------------------------------
+    # Git repositories
+    # ------------------------------------------------------------------
+
+    def git_repository(
+        self,
+        name: str,
+    ) -> Path:
+        """
+        A working copy, in the run's workspace, of a repository from
+        Tools -> Git repositories (by name or id) that the run's user may
+        use: their own, or the project's. Its origin is that repository,
+        so pushes go back to it.
+        """
+
+        from lib.git_repositories.store import checkout_repository
+        from lib.plugins.exceptions import PluginValueError
+
+        try:
+            return checkout_repository(self._runtime, name)
+        except RuntimeError as exc:
+            raise PluginValueError(str(exc)) from exc
+
+    # ------------------------------------------------------------------
     # Vault
     # ------------------------------------------------------------------
 

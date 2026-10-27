@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { FolderOpen, X } from 'lucide-react'
 
 import ServerFileBrowser from '../../../components/files/ServerFileBrowser'
+import RepositorySelect from '../../tools/git-repositories/RepositorySelect'
 import type { PluginArgumentSpec, PluginArgumentType } from '../../../api/plugins.api'
 import { ReferencePicker, type ReferenceGroup } from './controls'
 
@@ -122,7 +123,17 @@ export default function ArgumentField({
               : 'Not set'
 
     let editor
-    if (isExpression(value)) {
+    if (spec?.picker === 'git_repository' && !isExpression(value)) {
+        editor = (
+            <RepositorySelect
+                className="entropy-select"
+                value={typeof value === 'string' ? value : ''}
+                onChange={(next) => onChange(next === '' ? undefined : next)}
+                label={name}
+                placeholder="Choose a repository"
+            />
+        )
+    } else if (isExpression(value)) {
         editor = (
             <input
                 className="wf-input wf-expression"

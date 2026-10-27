@@ -12,6 +12,7 @@ export interface ParamSpec {
     path?: 'file' | 'directory' | 'any'
     /** Asked for at run time in interactive runs when left empty. */
     prompt?: boolean
+    picker?: 'git_repository'
 }
 
 export interface ParamRow {

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from lib.database.connection import DatabaseConnection
 
@@ -97,8 +97,8 @@ def safe_checkout_name(value: str) -> str:
     return safe[:80] or "repository"
 
 
-def checkout_assigned_repositories(context: Any, plugin_name: str) -> Dict[str, Path]:
-    """Clone repositories assigned to the active workflow and plugin into its workspace."""
+def _run_identity(context: Any) -> Tuple[int, int]:
+    """(project id, user id) of the run, for which repositories it may use."""
     from lib.authorization.projects import default_project_id
     from lib.vault.projects import run_project
 
@@ -107,6 +107,42 @@ def checkout_assigned_repositories(context: Any, plugin_name: str) -> Dict[str, 
     project_id = run_project() or default_project_id(connection)
     user_row = connection.fetchone("SELECT id FROM users WHERE username = ?", (context.user,))
     user_id = int(user_row["id"]) if user_row else -1
+    return project_id, user_id
+
+
+def _checkout(context: Any, repo: Dict[str, Any]) -> Path:
+    """A working copy of a managed repository in the run's workspace (origin: the repository)."""
+    checkout_root = context.workspace / ".entropy-repositories"
+    checkout_root.mkdir(parents=True, exist_ok=True)
+    destination = checkout_root / f"{repo['id']}-{safe_checkout_name(repo['name'])}"
+    if not (destination / ".git").is_dir():
+        completed = subprocess.run(
+            ["git", "clone", "--quiet", "--", repo["bare_path"], str(destination)],
+            cwd=context.workspace,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        if completed.returncode:
+            detail = (completed.stderr or completed.stdout or "Git clone failed.").strip()
+            raise RuntimeError(f"Unable to prepare repository '{repo['name']}': {detail}")
+        # Commits made in the run are by its user, as in the repository browser.
+        user = str(context.user or "entropy")
+        for key, value in (("user.name", user), ("user.email", f"{user}@entropy.local")):
+            subprocess.run(
+                ["git", "-C", str(destination), "config", key, value],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+    return destination
+
+
+def checkout_assigned_repositories(context: Any, plugin_name: str) -> Dict[str, Path]:
+    """Clone repositories assigned to the active workflow and plugin into its workspace."""
+    connection = context.database.connection
+    project_id, user_id = _run_identity(context)
     workflow = getattr(context.execution, "workflow", None)
     workflow_name = getattr(workflow, "name", None) if workflow is not None else None
     rows = connection.fetchall(
@@ -121,8 +157,6 @@ def checkout_assigned_repositories(context: Any, plugin_name: str) -> Dict[str, 
         return {}
 
     result: Dict[str, Path] = {}
-    checkout_root = context.workspace / ".entropy-repositories"
-    checkout_root.mkdir(parents=True, exist_ok=True)
     for row in rows:
         repo = dict(row)
         if repo["name"] in result:
@@ -130,18 +164,45 @@ def checkout_assigned_repositories(context: Any, plugin_name: str) -> Dict[str, 
                 f"More than one assigned Git repository is named '{repo['name']}'. "
                 "Use distinct repository names for assigned repositories."
             )
-        destination = checkout_root / f"{repo['id']}-{safe_checkout_name(repo['name'])}"
-        if not (destination / ".git").is_dir():
-            completed = subprocess.run(
-                ["git", "clone", "--quiet", "--", repo["bare_path"], str(destination)],
-                cwd=context.workspace,
-                capture_output=True,
-                text=True,
-                timeout=120,
-                check=False,
-            )
-            if completed.returncode:
-                detail = (completed.stderr or completed.stdout or "Git clone failed.").strip()
-                raise RuntimeError(f"Unable to prepare repository '{repo['name']}': {detail}")
-        result[repo["name"]] = destination
+        result[repo["name"]] = _checkout(context, repo)
     return result
+
+
+def find_repository(
+    connection: DatabaseConnection, project_id: int, user_id: int, reference: str
+) -> Dict[str, Any]:
+    """
+    A repository from Tools -> Git repositories by name (or id) that the user may
+    use in the project: their own, or the project's.
+    """
+    ensure_git_repositories_schema(connection)
+    text = str(reference or "").strip()
+    if not text:
+        raise RuntimeError("Name a repository from Tools -> Git repositories.")
+    rows = [
+        dict(row)
+        for row in connection.fetchall(
+            "SELECT * FROM entropy_git_repositories WHERE "
+            "((scope = 'project' AND project_id = ?) OR owner_user_id = ?) "
+            "AND (name = ? COLLATE NOCASE OR CAST(id AS TEXT) = ?) ORDER BY id",
+            (project_id, user_id, text, text),
+        )
+    ]
+    if not rows:
+        raise RuntimeError(
+            f"No Git repository '{text}' is available to you in this project "
+            "(Tools -> Git repositories)."
+        )
+    if len(rows) > 1:
+        ids = ", ".join(str(row["id"]) for row in rows)
+        raise RuntimeError(
+            f"More than one Git repository is named '{text}' (ids {ids}); use the id instead."
+        )
+    return rows[0]
+
+
+def checkout_repository(context: Any, reference: str) -> Path:
+    """Check out a repository from Tools -> Git repositories (by name or id) for this run."""
+    project_id, user_id = _run_identity(context)
+    repo = find_repository(context.database.connection, project_id, user_id, reference)
+    return _checkout(context, repo)

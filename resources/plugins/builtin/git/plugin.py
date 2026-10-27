@@ -112,13 +112,40 @@ class GenericGitPlugin(
             required=True,
         )
 
-        repository = self.arguments.path(
-            "repository",
-            required=True,
+        managed = self.arguments.string(
+            "git_repository",
         )
 
+        if managed and self.arguments.get("repository"):
+
+            raise GenericGitPluginException(
+                "Give either 'repository' (a folder) or 'git_repository' "
+                "(Tools -> Git repositories), not both.",
+            )
+
+        if managed:
+
+            # A working copy in the run's workspace; pushes go back to it.
+            repository = self.git_repository(
+                managed,
+            )
+
+            self.outputs["git_repository"] = managed
+
+        else:
+
+            repository = self.arguments.path(
+                "repository",
+            )
+
+            if repository is None:
+
+                raise GenericGitPluginException(
+                    "Give 'git_repository' (a repository from Tools -> Git "
+                    "repositories) or 'repository' (a folder on the node).",
+                )
+
         assert operation is not None
-        assert repository is not None
 
         operation = operation.strip().lower()
 
