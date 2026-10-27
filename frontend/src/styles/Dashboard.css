@@ -646,3 +646,648 @@
 .entropy-app .dashboard-page > .page-toolbar {
   margin-bottom: -12px;
 }
+
+/* ----------------------------------------------------------
+   Widget dashboard
+
+   Widgets sit on a 12-column grid; their content adapts to the
+   widget's own width (container queries), not the window's.
+   ---------------------------------------------------------- */
+
+.entropy-app .dashboard-page {
+  gap: 20px;
+}
+
+.entropy-app .dashboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.entropy-app .dashboard-edit-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.entropy-app .dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  gap: 18px;
+  align-items: start;
+}
+
+.entropy-app .dashboard-widget {
+  grid-column: span 6;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--dashboard-panel);
+  border: 1px solid var(--app-line);
+  border-radius: 14px;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.entropy-app .dashboard-widget-small { grid-column: span 3; }
+.entropy-app .dashboard-widget-medium { grid-column: span 6; }
+.entropy-app .dashboard-widget-large { grid-column: span 8; }
+.entropy-app .dashboard-widget-full { grid-column: 1 / -1; }
+
+.entropy-app .dashboard-page.is-editing .dashboard-widget {
+  border-style: dashed;
+  border-color: var(--app-hover-border);
+  cursor: grab;
+}
+
+.entropy-app .dashboard-widget.is-dragging {
+  opacity: 0.45;
+}
+
+.entropy-app .dashboard-widget.is-over {
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 2px var(--app-accent-soft);
+}
+
+.entropy-app .dashboard-widget-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px 10px;
+}
+
+.entropy-app .dashboard-widget-head h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entropy-app .dashboard-widget-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  color: var(--app-accent-fg);
+  background: var(--app-accent-soft);
+  border: 1px solid var(--app-accent-border);
+  border-radius: 8px;
+}
+
+.entropy-app .dashboard-widget-grip {
+  flex: none;
+  color: var(--app-subtle);
+}
+
+.entropy-app .dashboard-widget-open {
+  flex: none;
+  gap: 4px;
+}
+
+.entropy-app .dashboard-widget-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  cursor: default;
+}
+
+.entropy-app .dashboard-widget-tools select {
+  height: 28px;
+  margin-right: 4px;
+  padding: 0 6px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.entropy-app .dashboard-widget-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 0 16px 10px;
+  padding: 12px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 10px;
+  cursor: default;
+}
+
+.entropy-app .dashboard-widget-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+  flex: 1 1 140px;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.entropy-app .dashboard-widget-settings label.is-toggle {
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.entropy-app .dashboard-widget-settings input:not([type='checkbox']),
+.entropy-app .dashboard-widget-settings select {
+  height: 30px;
+  padding: 0 8px;
+  color: var(--app-text);
+  background: var(--app-panel-bg);
+  border: 1px solid var(--app-line);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.entropy-app .dashboard-widget-body {
+  container-type: inline-size;
+  min-width: 0;
+  padding: 0 16px 16px;
+}
+
+.entropy-app .dashboard-widget-body .dashboard-summary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.entropy-app .dashboard-widget-body .dashboard-summary-card {
+  min-height: 84px;
+  padding: 14px;
+}
+
+@container (max-width: 720px) {
+  .entropy-app .dashboard-widget-body .dashboard-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 420px) {
+  .entropy-app .dashboard-widget-body .dashboard-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .entropy-app .dashboard-widget-body .dashboard-execution {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .entropy-app .dashboard-widget-body .dashboard-execution-meta {
+    grid-column: 2;
+    flex-direction: row;
+    justify-content: space-between;
+    min-width: 0;
+  }
+}
+
+/* Narrow widgets: numbers without the icons. */
+@container (max-width: 360px) {
+  .entropy-app .dashboard-widget-body .dashboard-summary-card {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .entropy-app .dashboard-widget-body .dashboard-summary-icon {
+    display: none;
+  }
+}
+
+/* Run rows open the run. */
+.entropy-app .dashboard-widget-body button.dashboard-execution {
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  border: 0;
+  cursor: pointer;
+}
+
+.entropy-app .dashboard-widget-body button.dashboard-execution + .dashboard-execution {
+  border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .dashboard-widget-body button.dashboard-execution:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: -2px;
+}
+
+.entropy-app .dashboard-add-tile {
+  grid-column: span 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 140px;
+  color: var(--app-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px dashed var(--app-hover-border);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.entropy-app .dashboard-add-tile:hover,
+.entropy-app .dashboard-add-tile:focus-visible {
+  color: var(--app-accent-fg);
+  border-color: var(--app-accent);
+  outline: none;
+}
+
+.entropy-app .dashboard-empty-board {
+  padding: 48px 20px;
+  background: var(--dashboard-panel);
+  border: 1px dashed var(--app-hover-border);
+  border-radius: 14px;
+}
+
+/* Widget content -------------------------------------------- */
+
+.entropy-app .dw-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 4px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.entropy-app .dw-state-error {
+  color: var(--app-danger, #d64545);
+}
+
+.entropy-app .dw-empty {
+  margin: 0;
+  padding: 18px 4px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.entropy-app .dw-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.entropy-app .dw-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 9px;
+  color: var(--app-muted);
+  font-size: 11px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 999px;
+}
+
+.entropy-app .dw-count strong {
+  color: var(--app-text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .dw-add {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.entropy-app .dw-add input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.entropy-app .dw-add input:focus {
+  border-color: var(--app-accent);
+  outline: none;
+}
+
+.entropy-app .dw-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--app-line);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.entropy-app .dw-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--app-surface) 58%, transparent);
+}
+
+.entropy-app .dw-row + .dw-row {
+  border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .dw-row:hover {
+  background: var(--dashboard-panel-hover);
+}
+
+.entropy-app .dw-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.entropy-app .dw-row-main strong {
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entropy-app .dw-row-main small {
+  overflow: hidden;
+  color: var(--app-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entropy-app .dw-row-main:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.entropy-app .dw-row.is-done .dw-row-main strong {
+  color: var(--app-muted);
+  text-decoration: line-through;
+}
+
+.entropy-app .dw-muted {
+  color: var(--app-muted);
+  font-weight: 500;
+}
+
+.entropy-app .dw-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  color: var(--app-accent-text, #111);
+  background: var(--app-panel-bg);
+  border: 1.5px solid var(--app-hover-border);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.entropy-app .dw-check[aria-checked='true'] {
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+}
+
+.entropy-app .dw-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.entropy-app .dw-pill {
+  flex: none;
+  padding: 2px 8px;
+  color: var(--app-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 999px;
+}
+
+.entropy-app .dw-task-todo { color: #5b8def; }
+.entropy-app .dw-task-in_progress { color: #c98a14; }
+.entropy-app .dw-task-done { color: #2e9d5b; }
+.entropy-app .dw-stage-workflow_queue { color: #5b8def; }
+.entropy-app .dw-stage-workflow_done { color: #8a6bd1; }
+.entropy-app .dw-stage-task_queue { color: #c98a14; }
+.entropy-app .dw-stage-completed { color: #2e9d5b; }
+.entropy-app .dw-http-ok { color: #2e9d5b; }
+.entropy-app .dw-http-warn { color: #c98a14; }
+.entropy-app .dw-http-error { color: #d64545; }
+
+.entropy-app .dw-method {
+  flex: none;
+  min-width: 46px;
+  color: var(--app-accent-fg);
+  font-family: var(--app-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.entropy-app .dw-alert {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  color: #d64545;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  background: color-mix(in srgb, #d64545 10%, transparent);
+  border: 1px solid color-mix(in srgb, #d64545 35%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.entropy-app .dw-launcher {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.entropy-app .dw-launch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px;
+  color: var(--app-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.entropy-app .dw-launch svg {
+  color: var(--app-accent-fg);
+}
+
+.entropy-app .dw-launch:hover,
+.entropy-app .dw-launch:focus-visible {
+  border-color: var(--app-accent);
+  outline: none;
+}
+
+/* Widget gallery -------------------------------------------- */
+
+.entropy-app .entropy-dialog.dashboard-gallery-dialog {
+  width: min(780px, 100%);
+}
+
+.dashboard-gallery-search {
+  width: 100%;
+  height: 36px;
+  margin-bottom: 14px;
+  padding: 0 12px;
+  color: var(--app-text);
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.dashboard-gallery-group h3 {
+  margin: 4px 0 8px;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dashboard-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.dashboard-gallery-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  color: var(--app-text);
+  font: inherit;
+  text-align: left;
+  background: var(--app-surface);
+  border: 1px solid var(--app-line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.dashboard-gallery-card:hover,
+.dashboard-gallery-card:focus-visible {
+  border-color: var(--app-accent);
+  outline: none;
+}
+
+.dashboard-gallery-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  color: var(--app-accent-fg);
+  background: var(--app-accent-soft);
+  border: 1px solid var(--app-accent-border);
+  border-radius: 9px;
+}
+
+.dashboard-gallery-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dashboard-gallery-text strong {
+  font-size: 13px;
+}
+
+.dashboard-gallery-text small {
+  color: var(--app-muted);
+  font-weight: 500;
+}
+
+.dashboard-gallery-text > span {
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dashboard-gallery-add {
+  flex: none;
+  color: var(--app-muted);
+}
+
+@media (max-width: 1100px) {
+  .entropy-app .dashboard-widget-small { grid-column: span 6; }
+  .entropy-app .dashboard-widget-large { grid-column: 1 / -1; }
+  .entropy-app .dashboard-add-tile { grid-column: span 6; }
+}
+
+@media (max-width: 760px) {
+  .entropy-app .dashboard-widget,
+  .entropy-app .dashboard-add-tile {
+    grid-column: 1 / -1;
+  }
+
+  .entropy-app .dashboard-widget-head {
+    flex-wrap: wrap;
+  }
+}

@@ -104,7 +104,7 @@ def list_tasks(request: Request, response: Response, record: SessionRecord = Dep
         pass
     return {"items": _store(request).list(project_id),
             "members": [{"username": row["username"], "full_name": row["full_name"]} for row in members],
-            "user_id": user.id, "permissions": {name: request.app.state.entropy_context.authorization.has_permission(user.id, name, project_id)
+            "user_id": user.id, "username": user.username, "permissions": {name: request.app.state.entropy_context.authorization.has_permission(user.id, name, project_id)
                 for name in ("tasks.create", "tasks.manage", "tasks.comment", "tasks.follow")},
             "mail_ready": mail_ready}
 

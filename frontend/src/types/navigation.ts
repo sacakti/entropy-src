@@ -110,7 +110,7 @@ export function pageFromHash(hash: string): PageId | null {
 
 /** Pages the API refuses without one of these permissions. */
 export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
-    dashboard: ['workflows.read'],
+    // No dashboard entry: its widgets show what the user may see (runs, tasks, ...).
     plugins: ['plugins.read'],
     extensions: ['extensions.list'],
     workflows: ['workflows.read'],

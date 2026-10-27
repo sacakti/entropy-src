@@ -61,3 +61,45 @@ def test_video_signatures() -> None:
     assert _video_mime_type(mp4) == "video/mp4"
     assert _video_mime_type(webm) == "video/webm"
     assert _video_mime_type(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16) is None
+
+
+def test_dashboard_layout_round_trip_and_checks(tmp_path: Path) -> None:
+    import pytest
+    from fastapi import HTTPException
+
+    from core.web.routes.preferences import DashboardLayout, _check_layout, _dashboard
+
+    repository = _repository(tmp_path)
+    empty = {"widgets": [], "refresh_seconds": 5, "customized": False}
+    assert _dashboard(repository.get_settings(3)) == empty
+
+    layout = DashboardLayout(
+        widgets=[
+            {
+                "id": "w1",
+                "type": "tasks.list",
+                "size": "large",
+                "settings": {"filter": "mine", "limit": 8},
+            },
+            {"id": "w2", "type": "runs.summary", "size": "full"},
+        ],
+        refresh_seconds=30,
+    )
+    _check_layout(layout)
+    stored = _dashboard(repository.update_settings(3, {"dashboard": layout.model_dump()}))
+    assert stored["customized"] is True
+    assert [widget["type"] for widget in stored["widgets"]] == ["tasks.list", "runs.summary"]
+    assert stored["widgets"][0]["settings"] == {"filter": "mine", "limit": 8}
+
+    # Reset: back to the web UI's default widgets.
+    assert _dashboard(repository.update_settings(3, {"dashboard": None}))["customized"] is False
+
+    with pytest.raises(HTTPException, match="used twice"):
+        _check_layout(DashboardLayout(widgets=[{"id": "a", "type": "x"}, {"id": "a", "type": "y"}]))
+    with pytest.raises(HTTPException, match="not a widget type"):
+        _check_layout(DashboardLayout(widgets=[{"id": "a", "type": "Bad Type!"}]))
+    with pytest.raises(HTTPException, match="too large"):
+        big = {"id": "a", "type": "x", "settings": {"t": "x" * 5000}}
+        _check_layout(DashboardLayout(widgets=[big]))
+    with pytest.raises(ValueError):
+        DashboardLayout(widgets=[{"id": "a", "type": "x", "size": "huge"}])

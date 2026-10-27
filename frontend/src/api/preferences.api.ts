@@ -106,3 +106,37 @@ export async function updateInterfaceSettings(settings: InterfaceSettings): Prom
         body: JSON.stringify(settings),
     })
 }
+
+export type WidgetSize = 'small' | 'medium' | 'large' | 'full'
+
+/** One widget on the dashboard; several of one type may be added. */
+export interface DashboardWidget {
+    id: string
+    type: string
+    size: WidgetSize
+    settings: Record<string, unknown>
+}
+
+export interface DashboardLayout {
+    widgets: DashboardWidget[]
+    /** Seconds between refreshes; 0 is off. */
+    refresh_seconds: number
+    /** False until the user changes the default widgets. */
+    customized?: boolean
+}
+
+export function getDashboardLayout(): Promise<DashboardLayout> {
+    return apiRequest<DashboardLayout>('/api/preferences/dashboard')
+}
+
+export function saveDashboardLayout(layout: DashboardLayout): Promise<DashboardLayout> {
+    return apiRequest<DashboardLayout>('/api/preferences/dashboard', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ widgets: layout.widgets, refresh_seconds: layout.refresh_seconds }),
+    })
+}
+
+export function resetDashboardLayout(): Promise<DashboardLayout> {
+    return apiRequest<DashboardLayout>('/api/preferences/dashboard', { method: 'DELETE' })
+}

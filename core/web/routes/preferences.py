@@ -5,7 +5,7 @@ User preferences API.
 from __future__ import annotations
 
 import re
-from typing import Dict, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -336,3 +336,98 @@ def update_interface_settings(
     )
 
     return _interface(settings)
+
+
+# ----------------------------------------------------------------------
+# Dashboard layout
+# ----------------------------------------------------------------------
+
+WIDGET_KEY = re.compile(r"^[a-z][a-z0-9_.-]{0,39}$")
+MAX_WIDGET_SETTINGS_BYTES = 4096
+
+
+class DashboardWidget(BaseModel):
+    # A widget instance: several of one type may sit on the dashboard.
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
+    type: str = Field(min_length=1, max_length=40)
+    size: Literal["small", "medium", "large", "full"] = "medium"
+    settings: Dict[str, object] = Field(default_factory=dict)
+
+
+class DashboardLayout(BaseModel):
+    widgets: List[DashboardWidget] = Field(default_factory=list, max_length=40)
+    # Seconds between refreshes; 0 turns automatic refresh off.
+    refresh_seconds: int = Field(default=5, ge=0, le=86400)
+
+
+def _check_layout(layout: DashboardLayout) -> None:
+    import json
+
+    seen = set()
+    for widget in layout.widgets:
+        if not WIDGET_KEY.match(widget.type):
+            raise HTTPException(status_code=422, detail=f"'{widget.type}' is not a widget type.")
+        if widget.id in seen:
+            raise HTTPException(status_code=422, detail=f"Widget id '{widget.id}' is used twice.")
+        seen.add(widget.id)
+        if len(json.dumps(widget.settings)) > MAX_WIDGET_SETTINGS_BYTES:
+            raise HTTPException(status_code=422, detail="Widget settings are too large.")
+
+
+def _dashboard(settings: dict) -> dict:
+    stored = settings.get("dashboard")
+    if not isinstance(stored, dict):
+        # No layout yet: the web UI shows its default widgets.
+        return {**DashboardLayout().model_dump(), "customized": False}
+    try:
+        return {**DashboardLayout(**stored).model_dump(), "customized": True}
+    except ValueError:
+        return {**DashboardLayout().model_dump(), "customized": False}
+
+
+@router.get("/dashboard")
+def get_dashboard_layout(
+    request: Request,
+    response: Response,
+    session_record: SessionRecord = Depends(_current_session),
+) -> dict:
+    """The user's dashboard widgets (the same in every project; data follows the project)."""
+
+    session, _, _ = session_record
+    response.headers["Cache-Control"] = "no-store"
+
+    return _dashboard(_wallpaper_repository(request).get_settings(session.user_id))
+
+
+@router.put("/dashboard", dependencies=[Depends(verify_csrf)])
+def update_dashboard_layout(
+    payload: DashboardLayout,
+    request: Request,
+    response: Response,
+    session_record: SessionRecord = Depends(_current_session),
+) -> dict:
+    session, _, _ = session_record
+    response.headers["Cache-Control"] = "no-store"
+    _check_layout(payload)
+
+    settings = _wallpaper_repository(request).update_settings(
+        session.user_id,
+        {"dashboard": payload.model_dump()},
+    )
+
+    return _dashboard(settings)
+
+
+@router.delete("/dashboard", dependencies=[Depends(verify_csrf)])
+def reset_dashboard_layout(
+    request: Request,
+    response: Response,
+    session_record: SessionRecord = Depends(_current_session),
+) -> dict:
+    """Back to the default widgets."""
+
+    session, _, _ = session_record
+    response.headers["Cache-Control"] = "no-store"
+
+    settings = _wallpaper_repository(request).update_settings(session.user_id, {"dashboard": None})
+    return _dashboard(settings)
