@@ -1,5 +1,5 @@
 {
-    "name": "xl_generator",
+    "name": "firewall_xl",
     "namespace": "custom",
     "version": "1.0.0",
     "description": "Generate Excel (.xlsx) files from record templates: fill the source name, ip and region on every record, for one source or many.",
