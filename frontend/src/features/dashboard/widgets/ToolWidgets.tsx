@@ -19,6 +19,7 @@ const TOOL_REFRESH_MS = 30_000
 type TaskStatus = 'todo' | 'in_progress' | 'done'
 type Task = {
     id: number
+    key?: string
     title: string
     status: TaskStatus
     assignee: string | null
@@ -155,6 +156,7 @@ export function TasksWidget(props: WidgetProps) {
                                         <button type="button" className="dw-row-main" onClick={() => openTool('tasks')}>
                                             <strong>{task.title}</strong>
                                             <small>
+                                                {task.key ? `${task.key} · ` : ''}
                                                 {task.assignee ? `@${task.assignee}` : 'Unassigned'}
                                                 {task.reminder_at ? ` · reminder ${formatWhen(task.reminder_at)}` : ''}
                                             </small>

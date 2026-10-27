@@ -209,7 +209,7 @@ class ReleaseStore:
     def _full(self, row: Any) -> Dict[str, Any]:
         release = dict(row)
         release["tasks"] = [dict(item) for item in self.connection.fetchall(
-            "SELECT t.id,t.title,t.description,t.remarks,t.status,t.assignee,t.created_at,t.updated_at FROM tasks t"
+            "SELECT t.id,t.task_key AS key,t.type,t.title,t.description,t.remarks,t.status,t.assignee,t.created_at,t.updated_at FROM tasks t"
             " JOIN release_tasks rt ON rt.task_id = t.id"
             " WHERE rt.release_id = ? ORDER BY t.id", (release["id"],)
         )]

@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -271,7 +272,8 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     }
   }, [activeModal, closeModal])
 
-  const value: FeedbackContextValue = {
+  // Stable across renders: callers keep notify/modal in effect dependencies.
+  const value = useMemo<FeedbackContextValue>(() => ({
     notify: {
       success: (message, options) =>
         showNotification('success', message, options),
@@ -289,7 +291,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       alert,
       open,
     },
-  }
+  }), [showNotification, dismissNotification, clearNotifications, confirm, alert, open])
 
   const ModalIcon =
     activeModal?.kind === 'confirm'
