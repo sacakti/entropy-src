@@ -7,7 +7,9 @@ from __future__ import annotations
 import datetime
 import io
 import re
+import tempfile
 import zipfile
+from pathlib import Path
 from typing import Optional, Tuple
 from uuid import uuid4
 
@@ -20,13 +22,22 @@ from fastapi import (
     Response,
     UploadFile,
 )
+from fastapi.responses import FileResponse
 from PIL import Image
+from starlette.background import BackgroundTask
 
 from lib.models.session import Session
 from lib.models.users import User
 
 from core.web.routes.auth import _current_session, verify_csrf
 from lib.system.install import theme_enabled
+from lib.system.wallpapers import (
+    move_one,
+    remove_wallpaper,
+    store_wallpaper,
+    wallpaper_file,
+    wallpaper_root,
+)
 
 
 router = APIRouter(
@@ -62,7 +73,6 @@ EXTENSIONS = {
     "video/webm": "webm",
 }
 
-RANGE_PATTERN = re.compile(r"^bytes=(\d*)-(\d*)$")
 
 
 def _video_mime_type(data: bytes) -> Optional[str]:
@@ -104,6 +114,12 @@ def _connection(request: Request):
         )
 
     return context.database_manager.connection
+
+
+def _wallpapers(request: Request) -> Path:
+    """Where wallpaper files are kept (see lib.system.wallpapers)."""
+
+    return wallpaper_root(request.app.state.entropy_context.bootstrap.home)
 
 
 def _seed_builtins(connection) -> None:
@@ -256,7 +272,7 @@ async def upload_background(
                 name,
                 mime_type,
                 len(image_data),
-                image_data,
+                b"",
                 datetime.datetime.now(datetime.timezone.utc).isoformat(),
             ),
         )
@@ -277,6 +293,17 @@ async def upload_background(
             status_code=500,
             detail="Background image was uploaded but could not be retrieved.",
         )
+
+    # The bytes live in a file; the database only keeps the metadata.
+    try:
+        store_wallpaper(_wallpapers(request), row["id"], image_data)
+    except OSError:
+        with connection.transaction():
+            connection.execute("DELETE FROM background_images WHERE id = ?", (row["id"],))
+        raise HTTPException(
+            status_code=500,
+            detail="The background could not be saved on the server.",
+        ) from None
 
     return {
         "id": row["id"],
@@ -299,7 +326,7 @@ def download_uploads(
 
     rows = connection.fetchall(
         """
-        SELECT id, name, mime_type, image_data
+        SELECT id, name, mime_type
         FROM background_images
         WHERE owner_user_id = ?
           AND source = 'upload'
@@ -314,11 +341,16 @@ def download_uploads(
             detail="You have not uploaded any backgrounds.",
         )
 
-    buffer = io.BytesIO()
+    root = _wallpapers(request)
     used = set()
+    # Uploads can reach gigabytes: the archive is written to disk, not memory.
+    with tempfile.NamedTemporaryFile(
+        prefix="entropy-backgrounds-", suffix=".zip", delete=False
+    ) as handle:
+        archive_path = Path(handle.name)
 
     # Images and videos are already compressed.
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as archive:
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_STORED, allowZip64=True) as archive:
         for row in rows:
             stem = re.sub(r"[^\w.-]+", "_", row["name"]).strip("._") or "background"
             extension = EXTENSIONS.get(row["mime_type"], "bin")
@@ -328,15 +360,16 @@ def download_uploads(
                 filename = f"{stem}-{row['id']}.{extension}"
 
             used.add(filename)
-            archive.writestr(filename, bytes(row["image_data"]))
+            source = move_one(connection, root, row["id"])
+            if source is not None:
+                archive.write(source, filename)
 
-    return Response(
-        content=buffer.getvalue(),
+    return FileResponse(
+        archive_path,
         media_type="application/zip",
-        headers={
-            "Content-Disposition": 'attachment; filename="entropy-backgrounds.zip"',
-            "Cache-Control": "no-store",
-        },
+        filename="entropy-backgrounds.zip",
+        headers={"Cache-Control": "no-store"},
+        background=BackgroundTask(archive_path.unlink, missing_ok=True),
     )
 
 
@@ -350,6 +383,14 @@ def delete_uploads(
     session, _, _ = session_record
     connection = _connection(request)
 
+    ids = [
+        row["id"]
+        for row in connection.fetchall(
+            "SELECT id FROM background_images WHERE owner_user_id = ? AND source = 'upload'",
+            (session.user_id,),
+        )
+    ]
+
     with connection.transaction():
         cursor = connection.execute(
             """
@@ -362,6 +403,10 @@ def delete_uploads(
         deleted = cursor.rowcount
 
         _clear_deleted_selection(connection, session.user_id)
+
+    root = _wallpapers(request)
+    for image_id in ids:
+        remove_wallpaper(root, image_id)
 
     return {
         "deleted": deleted,
@@ -382,7 +427,7 @@ def get_background_image(
 
     row = connection.fetchone(
         """
-        SELECT mime_type, image_data
+        SELECT mime_type
         FROM background_images
         WHERE id = ?
           AND (
@@ -403,45 +448,26 @@ def get_background_image(
             detail="Background image not found.",
         )
 
-    data = bytes(row["image_data"])
-    size = len(data)
-    headers = {
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "private, max-age=300",
-        "X-Content-Type-Options": "nosniff",
-    }
+    root = _wallpapers(request)
+    path = wallpaper_file(root, image_id)
+    if not path.is_file():
+        # Stored before wallpapers became files and not moved yet.
+        moved = move_one(connection, root, image_id)
+        if moved is None:
+            raise HTTPException(status_code=404, detail="Background image file is missing.")
+        path = moved
 
-    # Browsers (Safari in particular) stream video with byte ranges.
-    match = RANGE_PATTERN.match(request.headers.get("range", "").strip())
-
-    if match and (match.group(1) or match.group(2)):
-        first, last = match.groups()
-
-        if first:
-            start = int(first)
-            end = min(int(last), size - 1) if last else size - 1
-        else:
-            start = max(size - int(last), 0)
-            end = size - 1
-
-        if start >= size or start > end:
-            return Response(
-                status_code=416,
-                headers={**headers, "Content-Range": f"bytes */{size}"},
-            )
-
-        return Response(
-            content=data[start : end + 1],
-            status_code=206,
-            media_type=row["mime_type"],
-            headers={**headers, "Content-Range": f"bytes {start}-{end}/{size}"},
-        )
-
-    return Response(
-        content=data,
+    # A wallpaper's bytes never change under its id, so browsers may keep it.
+    return FileResponse(
+        path,
         media_type=row["mime_type"],
-        headers=headers,
+        headers={
+            "Cache-Control": "private, max-age=31536000, immutable",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
+
+
 
 @router.delete("/{image_id}", dependencies=[Depends(require_theme), Depends(verify_csrf)])
 def delete_background(
@@ -484,5 +510,7 @@ def delete_background(
         )
 
         _clear_deleted_selection(connection, session.user_id)
+
+    remove_wallpaper(_wallpapers(request), image_id)
 
     return {"message": "Background image deleted successfully."}

@@ -25,32 +25,13 @@ import { NotificationCenterContext } from './features/notifications/context'
 import { useNotifications } from './features/notifications/useNotifications'
 import Sidebar from './components/layout/Sidebar'
 import EntropyLogo from './components/layout/EntropyLogo'
-import Settings from './features/settings/Settings'
+import EntropyLoader from './components/feedback/EntropyLoader'
 import HelpDialog from './features/help/HelpDialog'
 import { useFeedback } from './components/feedback/FeedbackProvider'
 import { isTyping, useShortcuts } from './components/layout/useShortcuts'
 import { getProfile, type Profile } from './api/profile.api'
 import type { AuthUser } from './services/auth'
-import Dashboard from './features/dashboard/Dashboard'
-import Preferences from './features/preferences/Preferences'
-import Permissions from './features/permissions/Permissions'
-import Vault from './features/vault/Vault'
-import Workflows from './features/workflows/Workflows'
-import Runs from './features/runs/Runs'
-import RunDetail from './features/runs/RunDetail'
 import { runIdFromHash } from './features/runs/navigation'
-import Nodes from './features/nodes/Nodes'
-import Schedules from './features/schedules/Schedules'
-import Tools from './features/tools/Tools'
-import Plugins from './features/plugins/Plugins'
-import Extensions from './features/extensions/Extensions'
-import Administration from './features/administration/Administration'
-import AdminSystem from './features/administration/AdminSystem'
-import AdminUsers from './features/administration/AdminUsers'
-import AdminGroups from './features/administration/AdminGroups'
-import AdminRoles from './features/administration/AdminRoles'
-import AdminProjects from './features/administration/AdminProjects'
-import AdminSettings from './features/settings-admin/AdminSettings'
 
 import { PAGE_PERMISSIONS, pageFromHash, parentPage, type PageId } from './types/navigation'
 import AccessRestricted from './components/layout/AccessRestricted'
@@ -60,6 +41,27 @@ import Tour, { type TourStep } from './features/tour/Tour'
 import { PROJECT_CHANGED_EVENT } from './services/project'
 
 const ShellPanel = lazy(() => import('./features/shell/ShellPanel'))
+// Pages load when first opened, so the first visit downloads only the shell.
+const Settings = lazy(() => import('./features/settings/Settings'))
+const Dashboard = lazy(() => import('./features/dashboard/Dashboard'))
+const Preferences = lazy(() => import('./features/preferences/Preferences'))
+const Permissions = lazy(() => import('./features/permissions/Permissions'))
+const Vault = lazy(() => import('./features/vault/Vault'))
+const Workflows = lazy(() => import('./features/workflows/Workflows'))
+const Runs = lazy(() => import('./features/runs/Runs'))
+const RunDetail = lazy(() => import('./features/runs/RunDetail'))
+const Nodes = lazy(() => import('./features/nodes/Nodes'))
+const Schedules = lazy(() => import('./features/schedules/Schedules'))
+const Tools = lazy(() => import('./features/tools/Tools'))
+const Plugins = lazy(() => import('./features/plugins/Plugins'))
+const Extensions = lazy(() => import('./features/extensions/Extensions'))
+const Administration = lazy(() => import('./features/administration/Administration'))
+const AdminSystem = lazy(() => import('./features/administration/AdminSystem'))
+const AdminUsers = lazy(() => import('./features/administration/AdminUsers'))
+const AdminGroups = lazy(() => import('./features/administration/AdminGroups'))
+const AdminRoles = lazy(() => import('./features/administration/AdminRoles'))
+const AdminProjects = lazy(() => import('./features/administration/AdminProjects'))
+const AdminSettings = lazy(() => import('./features/settings-admin/AdminSettings'))
 
 /** The tool named by `#/tools/<id>`, if any. */
 /** The welcome tour; steps for things the user cannot use are left out. */
@@ -516,6 +518,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     onClearAllNotifications={notifications.clear}
                 />
                     <main className="entropy-content" key={projectVersion}>
+                        <Suspense fallback={<EntropyLoader label="Loading…" />}>
                         {restricted ? (
                         <AccessRestricted
                             page={pageTitle}
@@ -584,6 +587,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                         ) : activePage === 'admin-system' ? (
                             <AdminSystem />
                         ) : null}
+                        </Suspense>
                     </main>
                 </div>
 

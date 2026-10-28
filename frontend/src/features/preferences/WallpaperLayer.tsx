@@ -1,7 +1,39 @@
-import { useContext, useState, type CSSProperties } from 'react'
+import { useContext, useRef, useState, type CSSProperties } from 'react'
 
 import { isVideoBackground, type BackgroundImage } from '../../api/backgrounds.api'
+import { usePauseWhenHidden } from './usePauseWhenHidden'
 import { WallpaperContext, isPortrait, placementStyle } from './wallpaper'
+
+function WallpaperVideo({
+    background,
+    className,
+    style,
+    onMeasure,
+}: {
+    background: BackgroundImage
+    className: string
+    style?: CSSProperties
+    onMeasure?: (width: number, height: number) => void
+}) {
+    const video = useRef<HTMLVideoElement>(null)
+    usePauseWhenHidden(video)
+    return (
+        <video
+            ref={video}
+            className={className}
+            style={style}
+            src={background.url}
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden="true"
+            onLoadedMetadata={(event) =>
+                onMeasure?.(event.currentTarget.videoWidth, event.currentTarget.videoHeight)
+            }
+        />
+    )
+}
 
 function WallpaperMedia({
     background,
@@ -15,21 +47,7 @@ function WallpaperMedia({
     onMeasure?: (width: number, height: number) => void
 }) {
     if (isVideoBackground(background)) {
-        return (
-            <video
-                className={className}
-                style={style}
-                src={background.url}
-                autoPlay
-                muted
-                loop
-                playsInline
-                aria-hidden="true"
-                onLoadedMetadata={(event) =>
-                    onMeasure?.(event.currentTarget.videoWidth, event.currentTarget.videoHeight)
-                }
-            />
-        )
+        return <WallpaperVideo background={background} className={className} style={style} onMeasure={onMeasure} />
     }
 
     return (

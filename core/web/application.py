@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Dict, Tuple
 import pkgutil
 import importlib
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, HTMLResponse
 
@@ -48,6 +48,34 @@ def _start_background(context: EntropyContext):
 
     background = RunsBackground(context)
     return background if background.start() else None
+
+
+def _start_wallpaper_move(app: FastAPI, context: EntropyContext) -> None:
+    """
+    Move wallpapers still stored in the database to files, once, in the
+    background (see lib.system.wallpapers); until then each is moved when it
+    is first requested.
+    """
+
+    manager = getattr(context, "database_manager", None)
+    bootstrap = getattr(context, "bootstrap", None)
+    if manager is None or bootstrap is None:
+        return
+
+    import threading
+
+    from lib.system.wallpapers import move_blobs_to_files, wallpaper_root
+
+    connection = manager.connection
+    root = wallpaper_root(bootstrap.home)
+
+    def run() -> None:
+        try:
+            app.state.wallpaper_move = move_blobs_to_files(connection, root)
+        except Exception as error:  # noqa: BLE001 - kept for the status endpoint; files move lazily
+            app.state.wallpaper_move = {"error": str(error)}
+
+    threading.Thread(target=run, name="entropy-wallpaper-move", daemon=True).start()
 
 
 def _start_database_safety(context: EntropyContext):
@@ -98,13 +126,44 @@ def frontend_directory() -> Path | None:
     return directory if (directory / "index.html").is_file() else None
 
 
+# Text assets worth compressing; images, fonts and media already are.
+COMPRESSIBLE = {".js": "text/javascript", ".css": "text/css", ".html": "text/html",
+                ".svg": "image/svg+xml", ".json": "application/json", ".map": "application/json"}
+
+
+def _gzipped(path: Path, cache: Dict[Tuple[str, float], bytes]) -> bytes:
+    """A file's gzip bytes, compressed once per version of the file."""
+
+    key = (str(path), path.stat().st_mtime)
+    data = cache.get(key)
+    if data is None:
+        import gzip
+
+        data = gzip.compress(path.read_bytes(), compresslevel=6)
+        cache[key] = data
+    return data
+
+
 def mount_frontend(app: FastAPI, directory: Path) -> None:
     """Serve the single-page web UI; unknown paths fall back to index.html."""
 
     root = directory.resolve()
+    compressed: Dict[Tuple[str, float], bytes] = {}
+
+    def send(request: Request, file: Path, cache_control: str) -> Response:
+        headers = {"Cache-Control": cache_control, "Vary": "Accept-Encoding"}
+        media_type = COMPRESSIBLE.get(file.suffix)
+        accepts = "gzip" in request.headers.get("accept-encoding", "").lower()
+        if media_type and accepts and file.stat().st_size > 1024:
+            return Response(
+                _gzipped(file, compressed),
+                media_type=media_type,
+                headers={**headers, "Content-Encoding": "gzip"},
+            )
+        return FileResponse(file, headers=headers)
 
     @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
-    async def web_ui(path: str) -> FileResponse:
+    async def web_ui(path: str, request: Request) -> Response:
         if path == "api" or path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not Found")
 
@@ -112,16 +171,13 @@ def mount_frontend(app: FastAPI, directory: Path) -> None:
         if path and candidate.is_file() and root in candidate.parents:
             # Built assets carry content hashes in their names.
             immutable = candidate.parent.name == "assets"
-            return FileResponse(
+            return send(
+                request,
                 candidate,
-                headers={
-                    "Cache-Control": (
-                        "public, max-age=31536000, immutable" if immutable else "no-cache"
-                    )
-                },
+                "public, max-age=31536000, immutable" if immutable else "no-cache",
             )
 
-        return FileResponse(root / "index.html", headers={"Cache-Control": "no-cache"})
+        return send(request, root / "index.html", "no-cache")
 
 
 def register_routes(app: FastAPI) -> None:
@@ -168,6 +224,7 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
             app.state.database_safety = safety
             background = _start_background(context)
             app.state.runs_background = background
+            _start_wallpaper_move(app, context)
             yield
         finally:
             if background is not None:

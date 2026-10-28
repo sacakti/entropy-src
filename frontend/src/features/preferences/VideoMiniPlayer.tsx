@@ -21,6 +21,7 @@ import {
 
 import type { BackgroundImage } from '../../api/backgrounds.api'
 import AppPortal from '../../components/layout/AppPortal'
+import { usePauseWhenHidden } from './usePauseWhenHidden'
 import '../../styles/video-mini-player.css'
 
 /** Where the player sits, remembered per browser. */
@@ -188,6 +189,7 @@ export default function VideoMiniPlayer({
     const mode: Mode = maximized ? 'max' : spot.minimized ? 'pill' : 'mini'
 
     const videoRef = useRef<HTMLVideoElement | null>(null)
+    usePauseWhenHidden(videoRef)
     const frameRef = useRef<HTMLDivElement | null>(null)
     const maximizeRef = useRef<HTMLButtonElement | null>(null)
     const restoreRef = useRef<HTMLButtonElement | null>(null)
