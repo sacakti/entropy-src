@@ -1,6 +1,7 @@
 """
 Administration -> Settings: e-mail (SMTP), sign-in (LDAP, single sign-on),
-the public address, and data retention and purging.
+the public address, data retention and purging, and the connections for a
+database migration target, a Redis cache and a message queue.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from lib.models.session import Session
 from lib.models.users import User
 from lib.runs.housekeeping import DEFAULTS as RETENTION_DEFAULTS
 from lib.runs.housekeeping import Housekeeping
+from lib.system.connections import CHECKS, ConnectionCheckError
 from lib.system.mailer import MailError, addresses, send_mail
 from lib.system.settings import SECTIONS, SettingsError, settings_for
 
@@ -131,6 +133,25 @@ def update_section(
         # A new issuer or client must not reuse the old provider's keys.
         forget_cache()
     return saved
+
+
+@router.post("/connections/{section}/test", dependencies=[Depends(verify_csrf)])
+def test_connection(
+    section: str,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Check the saved database target, cache or queue connection."""
+
+    _admin(request, record)
+    check = CHECKS.get(section)
+    if check is None:
+        raise HTTPException(status_code=404, detail=f"No connection test for '{section}'.")
+    values = settings_for(request.app.state.entropy_context).values(section)
+    try:
+        return check(values)
+    except ConnectionCheckError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
 
 
 @router.post("/smtp/test", dependencies=[Depends(verify_csrf)])

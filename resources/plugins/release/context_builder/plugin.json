@@ -1,7 +1,7 @@
 {
     "name": "context_builder",
     "namespace": "release",
-    "version": "1.1.3",
+    "version": "1.1.5",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
@@ -13,7 +13,8 @@
         {"name": "docker_repository", "type": "path", "path": "directory", "required": true, "description": "Docker repository compared with the release to work out which images need building.", "example": "/opt/entropy/docker"},
         {"name": "yaml_repository", "type": "path", "path": "directory", "required": true, "description": "YAML repository holding the target OpenShift resources and its .entropy/resource_index.json.", "example": "/opt/entropy/yamls/SIT"},
         {"name": "image_tag", "type": "string", "required": true, "description": "Image tag the release images are built and deployed with.", "example": "1.1.7"},
-        {"name": "structure", "type": "path", "path": "file", "required": false, "description": "Release structure definition YAML; the plugin's bundled structure.yaml is used when omitted."}
+        {"name": "structure", "type": "path", "path": "file", "required": false, "description": "Release structure definition YAML; the plugin's bundled structure.yaml is used when omitted."},
+        {"name": "image_transfer_script", "type": "string", "required": false, "default": "scripts/deploy/image_transfer.sh", "prompt": false, "description": "Image transfer script inside the release; its 'docker push' images update matching Deployments."}
     ],
 
     "outputs": [

@@ -547,7 +547,7 @@ class ImageTransferPlugin(BasePlugin):
                     stripped,
                 )
 
-            except ImageTransferError as exc:
+            except ValueError as exc:
 
                 raise ImageTransferError(
                     "Invalid shell syntax in " "image_transfer.sh at line " f"{line_number}: {exc}"
@@ -608,16 +608,22 @@ class ImageTransferPlugin(BasePlugin):
             docker login REGISTRY -u USER -p PASSWORD
             docker login REGISTRY --username USER --password PASSWORD
             docker login REGISTRY -u USER --password PASSWORD
+            docker login REGISTRY $user $password
 
         The returned command contains only:
 
             docker login REGISTRY
+
+        Docker login takes one positional argument, the registry, so
+        any later positional argument is a credential and is removed.
         """
 
         result = [
             command[0],
             command[1],
         ]
+
+        registry_found = False
 
         index = 2
 
@@ -660,6 +666,20 @@ class ImageTransferPlugin(BasePlugin):
                 continue
 
             #
+            # Positional credentials after the registry.
+            #
+
+            if not argument.startswith("-"):
+
+                if registry_found:
+
+                    index += 1
+
+                    continue
+
+                registry_found = True
+
+            #
             # Keep the registry and any other
             # legitimate Docker login arguments.
             #
@@ -670,11 +690,68 @@ class ImageTransferPlugin(BasePlugin):
 
             index += 1
 
-        if len(result) < 3:
+        if not registry_found:
 
             raise ImageTransferError(
                 "Docker login command is missing " "the registry at line " f"{line_number}."
             )
+
+        return result
+
+    @staticmethod
+    def _remove_oc_login_credentials(
+        tokens: list[str],
+    ) -> list[str]:
+        """
+        Remove credentials from an oc login command.
+
+        Supported forms include:
+
+            oc login $1 $2
+            oc login -u USER -p PASSWORD SERVER
+            oc login --username=USER --password=PASSWORD SERVER
+            oc login --token TOKEN SERVER
+
+        Credential options are removed with their values, and
+        unresolved shell variables ($1, $user, ${TOKEN}) are removed
+        because the prepared script is not run with arguments.
+        """
+
+        options = {
+            "-u",
+            "--username",
+            "-p",
+            "--password",
+            "--token",
+        }
+
+        result: list[str] = []
+
+        index = 0
+
+        while index < len(tokens):
+
+            token = tokens[index]
+
+            if token in options:
+
+                index += 2
+
+                continue
+
+            if token.startswith(("--username=", "--password=", "--token=")) or token.startswith(
+                "$"
+            ):
+
+                index += 1
+
+                continue
+
+            result.append(
+                token,
+            )
+
+            index += 1
 
         return result
 
@@ -948,7 +1025,7 @@ class ImageTransferPlugin(BasePlugin):
                 fields[3],
             )
 
-        except ImageTransferError as exc:
+        except ValueError as exc:
 
             raise ImageTransferError(
                 "Invalid available-space value " "in df output: " f"{fields[3]!r}"
@@ -1435,21 +1512,15 @@ class ImageTransferPlugin(BasePlugin):
                         stripped,
                     )
 
-                except ImageTransferError as exc:
+                except ValueError as exc:
 
                     raise ImageTransferError(
                         "Invalid shell syntax in " "apply_yaml.sh: " f"{exc}"
                     ) from exc
 
-                tokens = [
-                    token
-                    for token in tokens
-                    if token
-                    not in {
-                        "$1",
-                        "$2",
-                    }
-                ]
+                tokens = self._remove_oc_login_credentials(
+                    tokens,
+                )
 
                 if tokens[:2] == [
                     "oc",
@@ -1568,7 +1639,7 @@ class ImageTransferPlugin(BasePlugin):
                 line,
             )
 
-        except ImageTransferError:
+        except ValueError:
 
             return False
 

@@ -68,15 +68,71 @@ export interface RetentionSettings {
     defaults: { archive_after_days: number; purge_archive_after_days: number; notifications_keep_days: number }
 }
 
+/** Where a later migration would move Entropy's data; Entropy still runs on SQLite. */
+export interface DatabaseTargetSettings {
+    enabled: boolean
+    engine: 'postgresql' | 'oracle'
+    host: string
+    port: number
+    /** PostgreSQL database, or Oracle service name. */
+    database: string
+    schema: string
+    username: string
+    password: string
+    password_set: boolean
+    ssl: boolean
+}
+
+export interface CacheSettings {
+    enabled: boolean
+    host: string
+    port: number
+    database: number
+    username: string
+    password: string
+    password_set: boolean
+    tls: boolean
+    verify_tls: boolean
+    key_prefix: string
+    default_ttl_seconds: number
+}
+
+export type Broker = 'activemq' | 'rabbitmq' | 'mqtt' | 'kafka'
+
+export interface QueueSettings {
+    enabled: boolean
+    broker: Broker
+    host: string
+    port: number
+    tls: boolean
+    verify_tls: boolean
+    username: string
+    password: string
+    password_set: boolean
+    virtual_host: string
+    client_id: string
+    topic_prefix: string
+}
+
+export interface ConnectionTestResult {
+    ok: boolean
+    summary: string
+    details: string[]
+}
+
 export interface AllSettings {
     general: GeneralSettings
     smtp: SmtpSettings
     ldap: LdapSettings
     oidc: OidcSettings
+    database_target: DatabaseTargetSettings
+    cache: CacheSettings
+    queue: QueueSettings
     retention: RetentionSettings
 }
 
-export type SectionName = 'general' | 'smtp' | 'ldap' | 'oidc'
+export type SectionName = 'general' | 'smtp' | 'ldap' | 'oidc' | 'database_target' | 'cache' | 'queue'
+export type ConnectionSection = 'database_target' | 'cache' | 'queue'
 
 const json = (method: string, body: unknown): RequestInit => ({
     method,
@@ -104,6 +160,11 @@ export const settingsApi = {
 
     testOidc(): Promise<{ issuer: string; authorization_endpoint: string; redirect_uri: string }> {
         return apiRequest('/api/admin/settings/oidc/test', json('POST', {}))
+    },
+
+    /** Checks the saved connection; rejects with the reason when it fails. */
+    testConnection(section: ConnectionSection): Promise<ConnectionTestResult> {
+        return apiRequest(`/api/admin/settings/connections/${section}/test`, json('POST', {}))
     },
 
     saveRetention(values: Partial<RetentionSettings>): Promise<RetentionSettings> {

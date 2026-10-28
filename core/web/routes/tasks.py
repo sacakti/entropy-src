@@ -23,6 +23,7 @@ from lib.tasks.store import (
     GROUP_KINDS,
     PREFIX,
     REOPENED,
+    SEVERITIES,
     STATUSES,
     TYPE_NAME,
     TaskStatusError,
@@ -49,6 +50,7 @@ class TaskCreate(BaseModel):
     status: str = "todo"
     group_ids: List[int] = Field(default_factory=list, max_length=50)
     due_date: Optional[str] = Field(default=None, max_length=10)
+    severity: str = "medium"
 
 
 class TaskUpdate(BaseModel):
@@ -62,12 +64,17 @@ class TaskUpdate(BaseModel):
     external_ref: Optional[str] = Field(default=None, max_length=120)
     group_ids: Optional[List[int]] = Field(default=None, max_length=50)
     due_date: Optional[str] = Field(default=None, max_length=10)
+    severity: Optional[str] = None
     # Required to reopen a closed task; kept in its status history.
     reason: Optional[str] = Field(default=None, max_length=2000)
 
 
 class CommentCreate(BaseModel):
     body: str = Field(min_length=1, max_length=5000)
+
+
+class AttachmentRename(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
 
 
 class FollowUpdate(BaseModel):
@@ -142,6 +149,11 @@ def _validate_assignee(request: Request, user: User, project_id: int, name: Opti
 def _validate_type(store: TaskStore, project_id: int, name: Optional[str]) -> None:
     if name is not None and name not in store.settings(project_id)["types"]:
         raise HTTPException(status_code=422, detail=f"'{name}' is not a task type of this project.")
+
+
+def _validate_severity(value: Optional[str]) -> None:
+    if value not in SEVERITIES:
+        raise HTTPException(status_code=422, detail="Choose a valid severity.")
 
 
 def _validate_groups(store: TaskStore, project_id: int, group_ids: Optional[List[int]]) -> None:
@@ -268,6 +280,7 @@ def list_tasks(request: Request, response: Response, record: SessionRecord = Dep
             "groups": store.groups(project_id),
             "settings": store.settings(project_id),
             "statuses": list(STATUSES),
+            "severities": list(SEVERITIES),
             "status_labels": STATUS_LABELS,
             "group_kinds": list(GROUP_KINDS),
             "members": [{"username": row["username"], "full_name": row["full_name"]} for row in _members(request, project_id)],
@@ -332,6 +345,7 @@ def create_task(payload: TaskCreate, request: Request, record: SessionRecord = D
     _validate_assignee(request, user, project_id, payload.assignee)
     _validate_reminder(payload.reminder_at)
     _validate_type(store, project_id, payload.type)
+    _validate_severity(payload.severity)
     _validate_groups(store, project_id, payload.group_ids)
     if payload.status not in STATUSES or payload.status == REOPENED:
         raise HTTPException(status_code=422, detail="Choose a valid task status.")
@@ -342,7 +356,7 @@ def create_task(payload: TaskCreate, request: Request, record: SessionRecord = D
                         payload.reminder_at, user.username, type=payload.type,
                         external_ref=(payload.external_ref or "").strip() or None,
                         status=payload.status, group_ids=payload.group_ids,
-                        due_date=_validate_due(payload.due_date))
+                        due_date=_validate_due(payload.due_date), severity=payload.severity)
     _notify_mentions(request, item, user, payload.description)
     return item
 
@@ -363,6 +377,8 @@ def update_task(task_id: int, payload: TaskUpdate, request: Request, background:
         _validate_assignee(request, user, item["project_id"], data["assignee"])
     if "type" in data:
         _validate_type(store, item["project_id"], data["type"])
+    if "severity" in data:
+        _validate_severity(data["severity"])
     if "group_ids" in data:
         _validate_groups(store, item["project_id"], data["group_ids"])
     if "external_ref" in data:
@@ -480,6 +496,22 @@ def download_attachment(task_id: int, attachment_id: int, request: Request,
         raise HTTPException(status_code=404, detail="The attachment file is missing.")
     return FileResponse(target, filename=attachment["filename"],
                         media_type=attachment.get("content_type") or "application/octet-stream")
+
+
+@router.patch("/{task_id}/attachments/{attachment_id}", dependencies=[Depends(verify_csrf)])
+def rename_attachment(task_id: int, attachment_id: int, payload: AttachmentRename, request: Request,
+                      record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    _, _, user = record
+    item, attachment = _attachment(request, user, task_id, attachment_id, "tasks.read")
+    # Same rule as removing: the uploader, or someone who manages tasks.
+    if attachment["uploaded_by"].lower() != user.username.lower():
+        require(request, user, "tasks.manage", item["project_id"])
+    name = Path(payload.filename.replace("\\", "/")).name.strip()[:255]
+    if not name or name in {".", ".."}:
+        raise HTTPException(status_code=422, detail="Choose a valid file name.")
+    store = _store(request)
+    store.rename_attachment(attachment_id, name)
+    return store.get(task_id) or {}
 
 
 @router.delete("/{task_id}/attachments/{attachment_id}", status_code=204, dependencies=[Depends(verify_csrf)])

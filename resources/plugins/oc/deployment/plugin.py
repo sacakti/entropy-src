@@ -95,16 +95,16 @@ class DeploymentPlugin(BasePlugin):
         for definition in definitions:
             processed += 1
             try:
-                target = self._find_target_for_definition(
+                deployment = self._find_target_for_definition(
                     target,
                     target_loader,
                     definition.target.name,
                 )
                 resource_changes = engine.apply(
-                    target.document,
+                    deployment.document,
                     definition,
                 )
-                self._write_target_file(target.target_file)
+                self._write_target_file(deployment.target_file)
                 changes += sum(
                     1 for change in resource_changes if change.get("status") != "unchanged"
                 )
@@ -136,6 +136,8 @@ class DeploymentPlugin(BasePlugin):
             self.message.info("No Deployment resources require updates.")
             return self._result(0, 0, 0, [])
 
+        default_repository = self.arguments.string("repository")
+
         target_loader = DeploymentTargetLoader(self.filesystem)
         engine = DeploymentUpdateEngine()
 
@@ -145,9 +147,23 @@ class DeploymentPlugin(BasePlugin):
         errors: list[dict[str, Any]] = []
 
         for resource in resources:
+            if self._is_whole_file_update(resource):
+                # A changed Deployment YAML without field operations or an
+                # image change is applied as a whole file by another step.
+                self.message.warning(
+                    f"Skipped Deployment/{resource.get('name')}: no field or "
+                    f"image changes to apply.",
+                )
+                continue
+
             processed += 1
 
             try:
+                resource = self._with_default_repository(
+                    resource,
+                    default_repository,
+                )
+
                 self._validate_context_resource(resource)
 
                 action = resource["action"].strip().upper()
@@ -261,6 +277,31 @@ class DeploymentPlugin(BasePlugin):
         raise DeploymentPluginException(
             f"Target Deployment '{name}' not found in '{target}'.",
         )
+
+    @staticmethod
+    def _is_whole_file_update(resource: Any) -> bool:
+        return (
+            isinstance(resource, dict)
+            and str(resource.get("action", "")).strip().upper() == "UPDATE"
+            and resource.get("operations") is None
+            and resource.get("container") is None
+            and resource.get("target_image") is None
+        )
+
+    @staticmethod
+    def _with_default_repository(
+        resource: Any,
+        repository: str | None,
+    ) -> Any:
+        if (
+            not isinstance(resource, dict)
+            or resource.get("repository")
+            or not repository
+            or str(resource.get("action", "")).strip().upper() != "UPDATE"
+        ):
+            return resource
+
+        return {**resource, "repository": repository}
 
     @staticmethod
     def _validate_context_resource(resource: Any) -> None:

@@ -1,0 +1,61 @@
+/*
+ * File viewer (components/files): a file opened over the page, with
+ * previews for images, media, PDF, HTML, text and ZIP-format archives.
+ */
+
+.entropy-app .file-viewer { position: fixed; inset: 0; z-index: 1050; display: grid; place-items: center; padding: 24px; background: var(--app-modal-backdrop); backdrop-filter: blur(3px); }
+.entropy-app .file-viewer-frame { display: flex; flex-direction: column; width: min(1200px, 100%); height: min(900px, 100%); overflow: hidden; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-modal-surface); backdrop-filter: var(--app-modal-blur); }
+.entropy-app .file-viewer-frame > header { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .file-viewer-title { display: grid; flex: 1; min-width: 0; }
+.entropy-app .file-viewer-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .file-viewer-title small, .entropy-app .file-preview-muted { color: var(--app-muted); font-size: .76rem; }
+.entropy-app .file-viewer-body { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+
+.entropy-app .file-preview-center { display: grid; flex: 1; place-items: center; min-height: 0; padding: 16px; overflow: auto; }
+.entropy-app .file-preview-center.is-media img, .entropy-app .file-preview-center.is-media video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.entropy-app .file-preview-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: #fff; }
+
+.entropy-app .file-preview-text { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.entropy-app .file-preview-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .file-preview-bar .is-active { color: var(--app-accent); }
+.entropy-app .file-preview-switch { display: inline-flex; padding: 2px; border: 1px solid var(--app-line); border-radius: 8px; background: var(--app-surface); }
+.entropy-app .file-preview-switch button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 0; border-radius: 6px; color: var(--app-muted); background: transparent; font: inherit; font-size: .8rem; cursor: pointer; }
+.entropy-app .file-preview-switch button.is-active { color: var(--app-text); background: var(--app-accent-soft); }
+.entropy-app .file-preview-check { display: inline-flex; align-items: center; gap: 6px; color: var(--app-muted); font-size: .8rem; cursor: pointer; }
+.entropy-app .file-preview-text pre { flex: 1; min-height: 0; margin: 0; padding: 14px 16px; overflow: auto; color: var(--app-text); background: var(--app-surface); font: .8rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.entropy-app .file-preview-text pre.is-wrapped { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.entropy-app .file-archive { display: grid; flex: 1; grid-template-columns: minmax(220px, 320px) minmax(0, 1fr); min-height: 0; }
+.entropy-app .file-archive-list { display: flex; flex-direction: column; gap: 6px; min-height: 0; padding: 10px; border-right: 1px solid var(--app-line); }
+.entropy-app .file-archive-search { display: flex; align-items: center; gap: 6px; padding: 6px 10px; color: var(--app-muted); border: 1px solid var(--app-line); border-radius: 8px; background: var(--app-surface); }
+.entropy-app .file-archive-search:focus-within { border-color: var(--app-accent); }
+.entropy-app .file-archive-search input { flex: 1; min-width: 0; color: var(--app-text); background: transparent; border: 0; outline: none; font: inherit; font-size: .85rem; }
+.entropy-app .file-archive-list ul { flex: 1; min-height: 0; margin: 0; padding: 0; overflow: auto; list-style: none; }
+.entropy-app .file-archive-list li button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; color: var(--app-text); background: transparent; border: 0; border-radius: 6px; font: inherit; text-align: left; cursor: pointer; }
+.entropy-app .file-archive-list li button:hover { background: var(--app-hover-bg); }
+.entropy-app .file-archive-list li button.is-active { background: var(--app-accent-soft); }
+.entropy-app .file-archive-list li button:disabled { opacity: .5; cursor: not-allowed; }
+.entropy-app .file-archive-list li span { display: grid; flex: 1; min-width: 0; }
+.entropy-app .file-archive-list li strong { overflow: hidden; font-size: .82rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .file-archive-list li small { display: inline-flex; align-items: center; gap: 3px; overflow: hidden; color: var(--app-muted); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .file-archive-list li em { color: var(--app-muted); font-size: .72rem; font-style: normal; white-space: nowrap; }
+.entropy-app .file-archive-view { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.entropy-app .file-archive-view > header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .file-archive-view > header strong { flex: 1; overflow: hidden; font-size: .85rem; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 760px) {
+    .entropy-app .file-viewer { padding: 0; }
+    .entropy-app .file-viewer-frame { border-radius: 0; }
+    .entropy-app .file-archive { grid-template-columns: 1fr; grid-template-rows: minmax(160px, 40%) minmax(0, 1fr); }
+    .entropy-app .file-archive-list { border-right: 0; border-bottom: 1px solid var(--app-line); }
+}
+
+/* Spreadsheet and CSV grid */
+.entropy-app .file-grid-wrap { flex: 1; min-height: 0; overflow: auto; background: var(--app-surface); }
+.entropy-app .file-grid { border-collapse: separate; border-spacing: 0; font: .8rem/1.4 system-ui, sans-serif; }
+.entropy-app .file-grid th, .entropy-app .file-grid td { max-width: 360px; padding: 4px 8px; overflow: hidden; border-right: 1px solid var(--app-line); border-bottom: 1px solid var(--app-line); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .file-grid thead th { position: sticky; top: 0; z-index: 1; color: var(--app-text); background: var(--app-surface); box-shadow: inset 0 -1px 0 var(--app-line); font-weight: 650; }
+.entropy-app .file-grid tbody th { position: sticky; left: 0; min-width: 44px; color: var(--app-muted); background: var(--app-surface); font-weight: 500; text-align: right; }
+.entropy-app .file-grid thead th:first-child { left: 0; z-index: 2; }
+.entropy-app .file-grid tbody tr:hover td { background: var(--app-hover-bg); }
+.entropy-app .file-preview-switch[role='tablist'] { max-width: 100%; overflow-x: auto; }

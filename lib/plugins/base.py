@@ -153,6 +153,21 @@ class BasePlugin(ABC):
             name,
         )
 
+    def git_repository_info(
+        self,
+        name: str,
+    ):
+        """
+        Details of a repository from Tools -> Git repositories (by name or id)
+        without checking it out: id, name, source_type, source_location (the
+        server folder it was created from, for 'local' repositories) and path
+        (Entropy's copy of it).
+        """
+
+        return self._context.git_repository_info(
+            name,
+        )
+
     def vault(
         self,
         reference: str,

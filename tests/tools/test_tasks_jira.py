@@ -281,3 +281,44 @@ def test_report_embeds_fields_and_attachments(store: TaskStore, tmp_path: Path) 
     assert "data:image/png;base64," in html and "line &lt;one&gt;" in html and "data:video/mp4;base64," in html
     assert "Overdue" in html and "Release 2.4" in html and "Not in a group" in html
     assert "window.print" not in html
+
+
+def test_severity_defaults_and_updates(store: TaskStore) -> None:
+    assert store.create(1, "Default", "", "", None, None, "admin")["severity"] == "medium"
+    task = store.create(1, "Outage", "", "", None, None, "admin", severity="critical")
+    assert task["severity"] == "critical"
+    assert store.update(task["id"], {"severity": "low"}, "admin")["severity"] == "low"
+
+
+def test_report_shows_description_images_in_place(store: TaskStore, tmp_path: Path) -> None:
+    from lib.tasks.report import _task
+
+    (tmp_path / "shot.png").write_bytes(b"\x89PNG")
+    task = store.create(1, "Broken page", "", "", None, None, "admin")
+    shot = store.add_attachment(
+        task["id"], "shot.png", "image/png", 4, "admin", storage_name="shot.png"
+    )
+    other = store.add_attachment(task["id"], "notes.bin", None, 1, "admin", storage_name="none.bin")
+    task = store.update(
+        task["id"],
+        {
+            "description": f"Open `/opt/app/logs`\n\n![Login error](attachment:{shot['id']})"
+            "\n\nThen retry.\n\n![gone](attachment:999)"
+        },
+        "admin",
+    )
+    html = _task(task, {}, {}, tmp_path, store.attachments(task["id"]))
+
+    assert "<code>/opt/app/logs</code>" in html
+    # The image sits between the paragraphs it was placed between ...
+    assert html.index("/opt/app/logs") < html.index("data:image/png") < html.index("Then retry.")
+    assert "Login error" in html and "[gone — removed]" in html
+    # ... and only the unreferenced file is listed at the end.
+    assert "Attachments (1)" in html and other["filename"] in html
+
+
+def test_rename_attachment(store: TaskStore) -> None:
+    task = store.create(1, "Task", "", "", None, None, "admin")
+    attachment = store.add_attachment(task["id"], "image.png", "image/png", 4, "admin")
+    store.rename_attachment(attachment["id"], "login-error.png")
+    assert store.get_attachment(attachment["id"])["filename"] == "login-error.png"  # type: ignore[index]

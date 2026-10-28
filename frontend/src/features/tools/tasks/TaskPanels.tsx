@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import {
     Bell,
     Check,
@@ -9,7 +9,9 @@ import {
     History,
     Link2,
     LoaderCircle,
+    Maximize2,
     MessageSquare,
+    Minimize2,
     Paperclip,
     Plus,
     Send,
@@ -19,13 +21,18 @@ import {
 } from 'lucide-react'
 
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
+import AppPortal from '../../../components/layout/AppPortal'
+import AttachmentViewer from './AttachmentViewer'
+import Description from './Description'
 import MentionInput, { MentionText } from './MentionInput'
 import TypeIcon from './TypeIcon'
 import { useStatusChange } from './statusChange'
 import {
     GROUP_KINDS,
+    SEVERITIES,
     STATUSES,
     formatSize,
+    previewKind,
     isOverdue,
     localDate,
     nextStatuses,
@@ -35,9 +42,11 @@ import {
     reportUrl,
     tasksApi,
     typeLabel,
+    type Attachment,
     type Group,
     type GroupKind,
     type ReportScope,
+    type Severity,
     type Status,
     type Task,
     type TaskData,
@@ -45,15 +54,28 @@ import {
 
 const errorText = (cause: unknown) => (cause instanceof Error ? cause.message : 'Something went wrong.')
 
-function Panel({ title, eyebrow, onClose, children, actions }: {
+const carriesFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files')
+
+// Browsers name pasted screenshots "image.png"; give them a readable, dated name.
+const pastedFile = (file: File, index: number) => {
+    if (!/^image\.\w+$/i.test(file.name)) return file
+    const stamp = new Date().toISOString().slice(0, 19).replace('T', '-').replace(/:/g, '')
+    const extension = file.name.split('.').pop()
+    return new File([file], `screenshot-${stamp}${index ? `-${index + 1}` : ''}.${extension}`, { type: file.type })
+}
+
+function Panel({ title, eyebrow, onClose, children, actions, popup, onDock }: {
     title: ReactNode
     eyebrow?: ReactNode
     onClose: () => void
     children: ReactNode
     actions?: ReactNode
+    // Shown over the page instead of beside the tasks; clicking outside docks it again.
+    popup?: boolean
+    onDock?: () => void
 }) {
-    return (
-        <aside className="task-panel" aria-label={typeof title === 'string' ? title : 'Task'}>
+    const panel = (
+        <aside className={`task-panel${popup ? ' is-popup' : ''}`} aria-label={typeof title === 'string' ? title : 'Task'} onClick={popup ? (event) => event.stopPropagation() : undefined}>
             <header className="task-panel-head">
                 <div>
                     {eyebrow && <span className="task-eyebrow">{eyebrow}</span>}
@@ -68,6 +90,14 @@ function Panel({ title, eyebrow, onClose, children, actions }: {
             </header>
             <div className="task-panel-body">{children}</div>
         </aside>
+    )
+    if (!popup) return panel
+    return (
+        <AppPortal>
+            <div className="task-popup" role="dialog" aria-modal="true" onClick={onDock}>
+                {panel}
+            </div>
+        </AppPortal>
     )
 }
 
@@ -147,6 +177,7 @@ type Draft = {
     title: string
     type: string
     status: Status
+    severity: Severity
     description: string
     remarks: string
     assignee: string
@@ -164,7 +195,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
 }) {
     const { notify } = useFeedback()
     const blank: Draft = {
-        title: '', type: 'issue', status: 'todo', description: '', remarks: '', assignee: '',
+        title: '', type: 'issue', status: 'todo', severity: 'medium', description: '', remarks: '', assignee: '',
         external_ref: '', reminder_at: '', due_date: '', group_ids: initialGroup ? [initialGroup] : [],
     }
     const [draft, setDraft] = useState<Draft>(blank)
@@ -187,7 +218,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
             })
             notify.success(`${created.key} created.`, { title: 'Task created' })
             const keep = another.current
-            if (keep) setDraft({ ...blank, type: draft.type, group_ids: draft.group_ids, assignee: draft.assignee })
+            if (keep) setDraft({ ...blank, type: draft.type, severity: draft.severity, group_ids: draft.group_ids, assignee: draft.assignee })
             onCreated(created, keep)
         } catch (cause) {
             notify.error(errorText(cause), { title: 'Unable to create the task' })
@@ -204,7 +235,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
                     Title
                     <input autoFocus maxLength={200} value={draft.title} onChange={(event) => set('title', event.target.value)} required />
                 </label>
-                <div className="task-form-row">
+                <div className="task-form-row is-three">
                     <label>
                         Type
                         <select value={draft.type} onChange={(event) => set('type', event.target.value)}>
@@ -219,6 +250,12 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
                                     {status.title}
                                 </option>
                             ))}
+                        </select>
+                    </label>
+                    <label>
+                        Severity
+                        <select value={draft.severity} onChange={(event) => set('severity', event.target.value as Severity)}>
+                            {SEVERITIES.map((severity) => <option key={severity.id} value={severity.id}>{severity.title}</option>)}
                         </select>
                     </label>
                 </div>
@@ -277,17 +314,22 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
 // Details
 // ----------------------------------------------------------------------
 
-export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
+export function DetailPanel({ data, task, onClose, onChanged, onDeleted, popup = false, onPopup }: {
     data: TaskData
     task: Task
     onClose: () => void
     onChanged: () => Promise<void>
     onDeleted: (task: Task) => void
+    popup?: boolean
+    onPopup?: (popup: boolean) => void
 }) {
     const { notify, modal } = useFeedback()
     const [comment, setComment] = useState('')
     const [busy, setBusy] = useState<string | null>(null)
     const [dragging, setDragging] = useState(false)
+    const dragDepth = useRef(0)
+    const [viewing, setViewing] = useState<number | null>(null)
+    const [renaming, setRenaming] = useState<number | null>(null)
     const fileInput = useRef<HTMLInputElement>(null)
     const manage = data.permissions['tasks.manage']
     const canComment = data.permissions['tasks.comment']
@@ -333,11 +375,99 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
     }
 
     const upload = async (files: File[]) => {
-        if (!files.length) return
-        if (await run('upload', () => tasksApi.attach(task.id, files), 'Unable to attach the files')) {
-            notify.success(`${files.length} file${files.length === 1 ? '' : 's'} attached to ${task.key}.`, { title: 'Attached' })
-        }
+        if (!files.length) return false
+        if (!(await run('upload', () => tasksApi.attach(task.id, files), 'Unable to attach the files'))) return false
+        notify.success(`${files.length} file${files.length === 1 ? '' : 's'} attached to ${task.key}.`, { title: 'Attached' })
+        return true
     }
+    // Uploads and resolves to the attachments created (for the description).
+    const attachReturning = async (files: File[]): Promise<Attachment[]> => {
+        const added: Attachment[] = []
+        const done = await run('upload', async () => {
+            const before = new Set(task.attachments.map((attachment) => attachment.id))
+            const updated = await tasksApi.attach(task.id, files.map(pastedFile))
+            added.push(...updated.attachments.filter((attachment) => !before.has(attachment.id)))
+        }, 'Unable to attach the files')
+        return done ? added : []
+    }
+
+    const rename = async (attachment: Attachment, name: string) => {
+        const filename = name.trim()
+        setRenaming(null)
+        if (!filename || filename === attachment.filename) return true
+        return run('rename', () => tasksApi.rename(task.id, attachment.id, filename), 'Unable to rename the attachment')
+    }
+
+    // The marked-up image is attached first, so a failed removal never loses it.
+    const replaceImage = async (original: Attachment, file: File): Promise<number | null> => {
+        const confirmed = await modal.confirm({
+            title: `Replace ${original.filename}?`,
+            message: 'The original image is removed and the marked-up image takes its place. This cannot be undone.',
+            confirmText: 'Replace',
+            cancelText: 'Cancel',
+            destructive: true,
+        })
+        if (!confirmed) return null
+        const added: { id: number | null } = { id: null }
+        const done = await run('upload', async () => {
+            const before = new Set(task.attachments.map((attachment) => attachment.id))
+            const updated = await tasksApi.attach(task.id, [file])
+            added.id = updated.attachments.find((attachment) => !before.has(attachment.id))?.id ?? null
+            try {
+                await tasksApi.detach(task.id, original.id)
+            } catch (cause) {
+                throw new Error(`The marked-up image was attached, but the original could not be removed: ${errorText(cause)}`, { cause })
+            }
+        }, 'Unable to replace the image')
+        if (done) notify.success(`${original.filename} replaced with the marked-up image.`, { title: 'Image replaced' })
+        return added.id
+    }
+    const canRemove = (attachment: Attachment) => manage || attachment.uploaded_by.toLowerCase() === data.username.toLowerCase()
+
+    const uploadRef = useRef(upload)
+    useEffect(() => {
+        uploadRef.current = upload
+    })
+
+    // Ctrl+V / Cmd+V anywhere while the task is open attaches pasted files
+    // (screenshots). Plain text pastes are left to the focused field.
+    useEffect(() => {
+        if (!canComment) return
+        const onPaste = (event: ClipboardEvent) => {
+            const files = Array.from(event.clipboardData?.files ?? [])
+            // The description editor places pasted files itself.
+            if (!files.length || event.defaultPrevented) return
+            event.preventDefault()
+            void uploadRef.current(files.map(pastedFile))
+        }
+        document.addEventListener('paste', onPaste)
+        return () => document.removeEventListener('paste', onPaste)
+    }, [canComment])
+
+    const dropHandlers = canComment ? {
+        onDragEnter: (event: DragEvent) => {
+            if (!carriesFiles(event)) return
+            dragDepth.current += 1
+            setDragging(true)
+        },
+        onDragOver: (event: DragEvent) => {
+            if (!carriesFiles(event)) return
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'copy'
+        },
+        onDragLeave: (event: DragEvent) => {
+            if (!carriesFiles(event)) return
+            dragDepth.current = Math.max(0, dragDepth.current - 1)
+            if (!dragDepth.current) setDragging(false)
+        },
+        onDrop: (event: DragEvent) => {
+            if (!carriesFiles(event)) return
+            event.preventDefault()
+            dragDepth.current = 0
+            setDragging(false)
+            void upload(Array.from(event.dataTransfer.files))
+        },
+    } : {}
 
     const sendComment = async () => {
         if (!comment.trim()) return
@@ -357,15 +487,24 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                 </>
             }
             onClose={onClose}
+            popup={popup}
+            onDock={() => onPopup?.(false)}
             actions={
-                manage && (
-                    <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm task-delete" onClick={() => void remove()} aria-label={`Delete ${task.key}`} title="Delete task">
-                        <Trash2 size={16} />
-                    </button>
-                )
+                <>
+                    {onPopup && (
+                        <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm" onClick={() => onPopup(!popup)} aria-label={popup ? 'Dock beside the tasks' : 'Open in a popup'} title={popup ? 'Dock beside the tasks' : 'Open in a popup'}>
+                            {popup ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                        </button>
+                    )}
+                    {manage && (
+                        <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm task-delete" onClick={() => void remove()} aria-label={`Delete ${task.key}`} title="Delete task">
+                            <Trash2 size={16} />
+                        </button>
+                    )}
+                </>
             }
         >
-            <div className="task-form">
+            <div className="task-form" {...dropHandlers}>
                 {manage && (
                     <label>
                         Title
@@ -375,7 +514,7 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                         }} />
                     </label>
                 )}
-                <div className="task-form-row">
+                <div className="task-form-row is-three">
                     <label>
                         Type
                         <select disabled={!manage} value={task.type} onChange={(event) => void save({ type: event.target.value })}>
@@ -390,6 +529,12 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                                     {statusTitle(status)}
                                 </option>
                             ))}
+                        </select>
+                    </label>
+                    <label>
+                        Severity
+                        <select disabled={!manage} value={task.severity ?? 'medium'} onChange={(event) => void save({ severity: event.target.value })}>
+                            {SEVERITIES.map((severity) => <option key={severity.id} value={severity.id}>{severity.title}</option>)}
                         </select>
                     </label>
                 </div>
@@ -429,14 +574,16 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                     <span>Created by <strong>{task.creator}</strong> {localDate(task.created_at)}</span>
                     <span>Updated {localDate(task.updated_at)}</span>
                 </div>
+                <Description
+                    task={task}
+                    members={data.members}
+                    editable={manage}
+                    onSave={(description) => save({ description })}
+                    onAttach={attachReturning}
+                    onOpen={(attachment) => setViewing(attachment.id)}
+                />
                 {manage ? (
                     <>
-                        <label>
-                            Description
-                            <textarea key={`${task.id}-description`} defaultValue={task.description} rows={4} onBlur={(event) => {
-                                if (event.target.value !== task.description) void save({ description: event.target.value })
-                            }} />
-                        </label>
                         <label>
                             Remarks
                             <textarea key={`${task.id}-remarks`} defaultValue={task.remarks} rows={2} onBlur={(event) => {
@@ -451,7 +598,6 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                     </>
                 ) : (
                     <>
-                        <p className="task-description"><MentionText text={task.description || 'No description.'} members={data.members} /></p>
                         {task.remarks && <p className="task-remarks">{task.remarks}</p>}
                         {task.reminder_at && <p className="task-detail-info"><Bell size={14} /> Reminder {localDate(task.reminder_at)}</p>}
                     </>
@@ -462,21 +608,7 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                     </button>
                 )}
 
-                <section
-                    className={`task-attachments${dragging ? ' is-dragging' : ''}`}
-                    onDragOver={(event: DragEvent) => {
-                        if (!canComment) return
-                        event.preventDefault()
-                        setDragging(true)
-                    }}
-                    onDragLeave={() => setDragging(false)}
-                    onDrop={(event: DragEvent) => {
-                        if (!canComment) return
-                        event.preventDefault()
-                        setDragging(false)
-                        void upload(Array.from(event.dataTransfer.files))
-                    }}
-                >
+                <section className={`task-attachments${dragging ? ' is-dragging' : ''}`}>
                     <h4>
                         <Paperclip size={16} /> Attachments <span>{task.attachments.length}</span>
                         {canComment && (
@@ -490,19 +622,52 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                         }} />
                     </h4>
                     {task.attachments.length === 0 ? (
-                        <p className="task-muted">{canComment ? 'Drop files here or attach them (up to 50 MiB each).' : 'No attachments.'}</p>
+                        <p className="task-muted">{canComment ? 'Drop files on this task, paste a screenshot (Ctrl+V / ⌘V) or attach them (up to 50 MiB each).' : 'No attachments.'}</p>
                     ) : (
                         <ul>
                             {task.attachments.map((attachment) => (
-                                <li key={attachment.id}>
+                                <li key={attachment.id} onContextMenu={(event) => {
+                                    if (!canRemove(attachment)) return
+                                    event.preventDefault()
+                                    setRenaming(attachment.id)
+                                }}>
                                     <FileUp size={15} aria-hidden="true" />
-                                    <span className="task-attachment-name">
-                                        <strong title={attachment.filename}>{attachment.filename}</strong>
-                                        <small>
-                                            {[formatSize(attachment.size_bytes), attachment.uploaded_by, localDate(attachment.created_at)].filter(Boolean).join(' · ')}
-                                            {attachment.url && !attachment.content_type ? ' · link to Jira' : ''}
-                                        </small>
-                                    </span>
+                                    {renaming === attachment.id ? (
+                                        <input
+                                            className="task-input task-attachment-rename"
+                                            defaultValue={attachment.filename}
+                                            maxLength={255}
+                                            autoFocus
+                                            aria-label={`Rename ${attachment.filename}`}
+                                            onFocus={(event) => {
+                                                const dot = attachment.filename.lastIndexOf('.')
+                                                event.currentTarget.setSelectionRange(0, dot > 0 ? dot : attachment.filename.length)
+                                            }}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter') event.currentTarget.blur()
+                                                if (event.key === 'Escape') {
+                                                    event.currentTarget.value = attachment.filename
+                                                    event.currentTarget.blur()
+                                                }
+                                            }}
+                                            onBlur={(event) => void rename(attachment, event.currentTarget.value)}
+                                        />
+                                    ) : (() => {
+                                        const details = (
+                                            <>
+                                                <strong title={attachment.filename}>{attachment.filename}</strong>
+                                                <small>
+                                                    {[formatSize(attachment.size_bytes), attachment.uploaded_by, localDate(attachment.created_at)].filter(Boolean).join(' · ')}
+                                                    {attachment.url && !attachment.content_type ? ' · link to Jira' : ''}
+                                                </small>
+                                            </>
+                                        )
+                                        return previewKind(attachment) ? (
+                                            <button type="button" className="task-attachment-name" onClick={() => setViewing(attachment.id)} title={`View ${attachment.filename}${canRemove(attachment) ? ' · right-click to rename' : ''}`}>{details}</button>
+                                        ) : (
+                                            <span className="task-attachment-name" title={canRemove(attachment) ? 'Right-click to rename' : undefined}>{details}</span>
+                                        )
+                                    })()}
                                     {attachment.url ? (
                                         <a className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm" href={attachment.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${attachment.filename}`} title="Open the original">
                                             <ExternalLink size={14} />
@@ -512,7 +677,7 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                                             <Download size={14} />
                                         </a>
                                     )}
-                                    {(manage || attachment.uploaded_by.toLowerCase() === data.username.toLowerCase()) && (
+                                    {canRemove(attachment) && (
                                         <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm" aria-label={`Remove ${attachment.filename}`} title="Remove" onClick={() => void run('detach', () => tasksApi.detach(task.id, attachment.id), 'Unable to remove the attachment')}>
                                             <X size={14} />
                                         </button>
@@ -520,6 +685,13 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted }: {
                                 </li>
                             ))}
                         </ul>
+                    )}
+                    {viewing !== null && (
+                        <AttachmentViewer taskId={task.id} attachments={task.attachments} initial={viewing} onClose={() => setViewing(null)}
+                            onAttach={canComment ? (file) => upload([file]) : undefined}
+                            onReplace={canComment ? replaceImage : undefined}
+                            canReplace={canRemove}
+                            onRename={rename} />
                     )}
                 </section>
 

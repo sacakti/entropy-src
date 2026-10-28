@@ -180,6 +180,8 @@ class ReleaseStructureResolver:
     ) -> Path | None:
         """
         Resolve a definition path relative to root.
+
+        'path' may list alternative layouts; the first one present wins.
         """
 
         value = definition.get(
@@ -189,22 +191,28 @@ class ReleaseStructureResolver:
         if value is None:
             return root
 
-        if (
-            not isinstance(
-                value,
-                str,
-            )
-            or not value.strip()
+        alternatives = value if isinstance(value, list) else [value]
+
+        if not alternatives or not all(
+            isinstance(item, str) and item.strip() for item in alternatives
         ):
 
             raise ContextBuilderPluginException(
-                "Structure component 'path' " "must be a non-empty string.",
+                "Structure component 'path' must be a non-empty string "
+                "or a list of non-empty strings.",
             )
 
-        return self._find_path(
-            root,
-            value,
-        )
+        for alternative in alternatives:
+
+            path = self._find_path(
+                root,
+                alternative,
+            )
+
+            if path is not None:
+                return path
+
+        return None
 
     def child_path(
         self,

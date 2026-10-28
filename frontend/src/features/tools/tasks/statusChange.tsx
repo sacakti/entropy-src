@@ -26,7 +26,7 @@ export function useStatusChange() {
             content: (
                 <label className="task-reopen">
                     <span>Why does “{task.title}” need more work? The reason is kept in the task's history and sent to its followers.</span>
-                    <textarea autoFocus rows={3} maxLength={2000} onChange={(event) => (reason = event.target.value)} />
+                    <textarea className="task-input" autoFocus rows={4} placeholder="What still needs to be done?" maxLength={2000} onChange={(event) => (reason = event.target.value)} />
                 </label>
             ),
         })

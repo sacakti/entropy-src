@@ -1,0 +1,38 @@
+{
+    "name": "audit",
+    "namespace": "oc",
+    "version": "1.2.0",
+    "description": "Detailed HTML audit of what changed in an OpenShift YAML repository (synchronized by oc.sync_yamls) since the previous audit.",
+    "author": "",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "arguments": [
+        {"name": "repository", "type": "path", "path": "directory", "required": false, "description": "Git working tree on the server with the YAML files, usually the yaml_repository of oc.sync_yamls. Not needed with git_repository.", "example": "/opt/entropy/yamls/SIT"},
+        {"name": "git_repository", "type": "string", "required": false, "prompt": false, "picker": "git_repository", "description": "A repository from Tools -> Git repositories (name or id), instead of 'repository'. One created from a server folder is audited in that folder and Entropy's copy updated with the audit commit; others are checked out into the run's workspace and the commit pushed back. When neither is given and exactly one repository is assigned to the plugin or workflow, that one is used.", "example": "SIT"},
+        {"name": "report_directory", "type": "path", "path": "directory", "required": false, "prompt": false, "description": "Where the HTML reports are kept. Default: '<repository>-audit' beside a folder repository, or the plugin's data folder (reports/<name>) for a Tools -> Git repositories repository. A directory inside the repository is added to its .gitignore.", "example": "/opt/entropy/yamls/SIT-audit"},
+        {"name": "retention_days", "type": "integer", "required": false, "default": 10, "minimum": 0, "prompt": false, "description": "Reports older than this many days are removed; 0 keeps all reports.", "example": 10},
+        {"name": "commit", "type": "boolean", "required": false, "default": true, "prompt": false, "description": "Commit the synchronized files after the audit, so the next audit reports only newer changes.", "example": true},
+        {"name": "push", "type": "boolean", "required": false, "prompt": false, "description": "Push the audit commit to 'origin'. Default: on for git_repository (its checkout is temporary), off for a folder.", "example": true},
+        {"name": "commit_message", "type": "string", "required": false, "default": "Entropy audit {date}: {summary}", "prompt": false, "description": "Commit message; {date} and {summary} are filled in.", "example": "Entropy audit {date}: {summary}"},
+        {"name": "ignore_fields", "type": "list", "required": false, "default": [], "prompt": false, "description": "More field paths to leave out of the report, added to the built-in ones (status, metadata.resourceVersion, ...).", "example": ["spec.replicas", "metadata.labels[\"app.kubernetes.io/version\"]"]},
+        {"name": "title", "type": "string", "required": false, "default": "OpenShift YAML audit", "prompt": false, "description": "Heading of the report.", "example": "SIT OpenShift audit"}
+    ],
+
+    "outputs": [
+        {"name": "report", "type": "string", "description": "Path of the HTML report written by this run (also a generated artifact)."},
+        {"name": "reports", "type": "list", "description": "All reports kept in the report directory after rotation."},
+        {"name": "removed_reports", "type": "list", "description": "Reports removed because they were older than retention_days."},
+        {"name": "summary", "type": "dictionary", "description": "Counts: modified, added, removed resources and field/key changes."},
+        {"name": "commit", "type": "string", "description": "Short id of the audit commit; empty when nothing changed or committing is off."},
+        {"name": "base_commit", "type": "string", "description": "Commit the files were compared with; empty on the first audit."},
+        {"name": "repository", "type": "string", "description": "Working tree that was audited (the run's checkout for git_repository)."},
+        {"name": "git_repository", "type": "string", "description": "The Tools -> Git repositories repository audited, if any."},
+        {"name": "pushed", "type": "boolean", "description": "Whether the audit commit was pushed to origin."}
+    ],
+
+    "tags": ["openshift", "audit", "yaml"],
+
+    "license": ""
+}

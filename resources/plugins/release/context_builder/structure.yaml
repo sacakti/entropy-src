@@ -6,6 +6,7 @@ structure:
     - docker
     - openshift
     - database
+    - scripts
 
   docker:
     path: App/services
@@ -26,7 +27,11 @@ structure:
               name: Dockerfile
 
   openshift:
-    path: App/openshift
+    # App/openshift in release packages; App (with App/yamls) in
+    # App-Published packages.
+    path:
+      - App/openshift
+      - App
     type: directory
 
     children:
@@ -58,3 +63,10 @@ structure:
         - execution_plan.yaml
         - execution_plan.yml
         - execution_plan.json
+
+  # Deployment scripts (image_transfer.sh, apply_yaml.sh). Listed so a
+  # release that only ships scripts is still recognised; the image
+  # transfer script is read through the image_transfer_script argument.
+  scripts:
+    path: scripts/deploy
+    type: directory

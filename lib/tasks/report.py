@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import base64
 import mimetypes
+import re
 from datetime import date, datetime, timezone
 from html import escape
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from lib.tasks.store import CLOSED, REOPENED
 
@@ -24,6 +25,9 @@ MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_VIDEO_BYTES = 25 * 1024 * 1024
 MAX_TEXT_BYTES = 64 * 1024
 TEXT_TYPES = (".txt", ".log", ".md", ".csv", ".json", ".yaml", ".yml", ".xml")
+# An attachment shown inside a description: ![caption](attachment:42).
+ATTACHMENT_REFERENCE = re.compile(r"!\[([^\]\n]*)\]\(attachment:(\d+)\)")
+INLINE_CODE = re.compile(r"`([^`\n]+)`")
 
 
 def _status(value: str) -> str:
@@ -48,6 +52,40 @@ def _paragraphs(text: str) -> str:
     return "".join(f"<p>{escape(part).replace(chr(10), '<br>')}</p>" for part in text.split("\n\n"))
 
 
+def _rich_paragraphs(text: str) -> str:
+    """Paragraphs with `paths or code` shown as code."""
+
+    text = text.strip()
+    if not text:
+        return ""
+    return "".join(
+        "<p>" + INLINE_CODE.sub(r"<code>\1</code>", escape(part)).replace(chr(10), "<br>") + "</p>"
+        for part in re.split(r"\n\s*\n", text)
+    )
+
+
+def _description(text: str, attachments: List[Dict[str, Any]], root: Path) -> Tuple[str, Set[int]]:
+    """The description with referenced attachments in place, and the ids it showed."""
+
+    by_id = {item["id"]: item for item in attachments}
+    parts: List[str] = []
+    shown: Set[int] = set()
+    position = 0
+    for match in ATTACHMENT_REFERENCE.finditer(text or ""):
+        parts.append(_rich_paragraphs(text[position:match.start()]))
+        attachment = by_id.get(int(match.group(2)))
+        if attachment is None:
+            caption = escape(match.group(1) or "attachment")
+            parts.append(f'<p class="muted">[{caption} — removed]</p>')
+        else:
+            shown.add(attachment["id"])
+            parts.append(_attachment(attachment, root, caption=match.group(1)))
+        position = match.end()
+    parts.append(_rich_paragraphs((text or "")[position:]))
+    html = "".join(parts)
+    return (html or '<p class="muted">—</p>'), shown
+
+
 def _kind(attachment: Dict[str, Any]) -> str:
     content_type = attachment.get("content_type") or mimetypes.guess_type(attachment["filename"])[0] or ""
     if content_type.startswith("image/"):
@@ -59,10 +97,13 @@ def _kind(attachment: Dict[str, Any]) -> str:
     return "file"
 
 
-def _attachment(attachment: Dict[str, Any], root: Path) -> str:
+def _attachment(attachment: Dict[str, Any], root: Path, caption: str = "") -> str:
     name = escape(attachment["filename"])
     size = attachment.get("size_bytes") or 0
     label = f'<div class="att-name">{name} <span class="muted">· {_size(size)}</span></div>'
+    if caption.strip() and caption.strip() != attachment["filename"]:
+        shown = escape(caption.strip())
+        label = f'<div class="att-name">{shown} <span class="muted">· {name}</span></div>'
     path = None
     if attachment.get("storage_name"):
         candidate = (root / attachment["storage_name"]).resolve()
@@ -107,6 +148,7 @@ def _task(task: Dict[str, Any], members: Dict[str, str], groups: Dict[int, str],
     fields = [
         ("Status", f'<span class="status s-{escape(task["status"])}">{escape(_status(task["status"]))}</span>'),
         ("Type", escape(task.get("type", "issue").replace("_", " ").title())),
+        ("Severity", escape((task.get("severity") or "medium").title())),
         ("Assignee", escape(members.get((assignee or "").lower(), assignee or "") or "Unassigned")),
         ("Due date", escape(task.get("due_date") or "—")
          + (' <span class="overdue">Overdue</span>' if _overdue(task) else "")),
@@ -117,11 +159,14 @@ def _task(task: Dict[str, Any], members: Dict[str, str], groups: Dict[int, str],
         ("Last updated", escape(_when(task.get("updated_at")))),
     ]
     grid = "".join(f"<div><dt>{label}</dt><dd>{value}</dd></div>" for label, value in fields)
+    # Attachments shown in the description are not repeated at the end.
+    description, shown = _description(task.get("description", ""), attachments, root)
+    attachments = [item for item in attachments if item["id"] not in shown]
     parts = [
         f'<article class="task" id="task-{task["id"]}">',
         f'<header><span class="key">{escape(task.get("key") or "")}</span><h3>{escape(task["title"])}</h3></header>',
         f"<dl class=\"fields\">{grid}</dl>",
-        "<h4>Description</h4>", _paragraphs(task.get("description", "")),
+        "<h4>Description</h4>", description,
     ]
     if (task.get("remarks") or "").strip():
         parts += ["<h4>Remarks</h4>", _paragraphs(task["remarks"])]
@@ -283,6 +328,9 @@ border-radius:6px;margin-top:6px}
 .att pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:320px;overflow:auto;
 background:#fff;border-radius:6px;padding:8px;margin:6px 0 0}
 .att.text{grid-column:1/-1}.att-name{font-size:13px;font-weight:600;word-break:break-all}
+.task>.att{margin:8px 0 12px;max-width:760px;break-inside:avoid}.task>.att img{max-height:560px}
+.task>p code{font:12px ui-monospace,Menlo,monospace;background:var(--soft);
+border:1px solid var(--line);border-radius:4px;padding:1px 5px;word-break:break-all}
 .print-only{display:none}
 @media print{body{background:#fff}main{padding:0;max-width:none}
 .cover,.summary,.toc,.group{border:none;padding:0 0 12px;margin:0 0 12px}

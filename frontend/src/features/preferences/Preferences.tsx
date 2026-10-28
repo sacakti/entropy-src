@@ -1191,7 +1191,7 @@ export default function Preferences({
                                     <input
                                         type="checkbox"
                                         role="switch"
-                                        title="Automatically advance to another video."
+                                        title="Automatically advance to another video, picked at random."
                                         checked={wallpaperSettings.floating_player_auto === true}
                                         disabled={!preferencesLoaded || uploadedVideoCount < 2}
                                         onChange={(event) =>

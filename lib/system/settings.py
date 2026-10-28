@@ -1,7 +1,11 @@
 """
 Entropy-wide settings made in the administration panel: e-mail (SMTP),
-sign-in with LDAP / Active Directory and OpenID Connect, and the address
-people use to reach Entropy (for links in e-mails).
+sign-in with LDAP / Active Directory and OpenID Connect, the address
+people use to reach Entropy (for links in e-mails), and the connections
+for a database migration target, a Redis cache and a message queue.
+
+The connection sections are stored and can be tested; Entropy itself still
+runs on SQLite and does not use the cache or the queue yet.
 
 Each section is one JSON value in the `settings` table. Secrets (passwords,
 client secrets) are encrypted with the vault's master key and never sent
@@ -74,13 +78,61 @@ SECTIONS: Dict[str, Dict[str, Any]] = {
         "group_mappings": [],
         "verify_tls": True,
     },
+    "database_target": {
+        "enabled": False,
+        # postgresql | oracle
+        "engine": "postgresql",
+        "host": "",
+        "port": 5432,
+        # The PostgreSQL database, or the Oracle service name.
+        "database": "",
+        "schema": "",
+        "username": "",
+        "password": "",
+        # PostgreSQL sslmode=require, or Oracle TCPS.
+        "ssl": False,
+    },
+    "cache": {
+        "enabled": False,
+        "host": "",
+        "port": 6379,
+        "database": 0,
+        # Redis 6 ACL user; empty for the default user.
+        "username": "",
+        "password": "",
+        "tls": False,
+        "verify_tls": True,
+        "key_prefix": "entropy:",
+        "default_ttl_seconds": 300,
+    },
+    "queue": {
+        "enabled": False,
+        # activemq (STOMP) | rabbitmq (AMQP 0-9-1) | mqtt | kafka
+        "broker": "activemq",
+        "host": "",
+        "port": 61613,
+        "tls": False,
+        "verify_tls": True,
+        "username": "",
+        "password": "",
+        # RabbitMQ virtual host, or the STOMP host header.
+        "virtual_host": "/",
+        "client_id": "entropy",
+        "topic_prefix": "entropy",
+    },
 }
 
 SECRETS = {
     "smtp": ("password",),
     "ldap": ("bind_password",),
     "oidc": ("client_secret",),
+    "database_target": ("password",),
+    "cache": ("password",),
+    "queue": ("password",),
 }
+
+ENGINES = ("postgresql", "oracle")
+BROKERS = ("activemq", "rabbitmq", "mqtt", "kafka")
 
 
 class SettingsError(ValueError):
@@ -204,6 +256,23 @@ class SystemSettings:
                 raise SettingsError("The issuer is an https:// URL.")
             if not values["client_id"]:
                 raise SettingsError("Give the client ID registered with the identity provider.")
+        if section in ("database_target", "cache", "queue") and values["enabled"]:
+            if not values["host"]:
+                raise SettingsError("Give the server's host name.")
+            if not 0 < int(values["port"]) < 65536:
+                raise SettingsError("The port must be between 1 and 65535.")
+        if section == "database_target" and values["enabled"]:
+            if values["engine"] not in ENGINES:
+                raise SettingsError("The database is PostgreSQL or Oracle.")
+            if not values["database"]:
+                raise SettingsError("Give the database name (Oracle: the service name).")
+        if section == "cache" and values["enabled"]:
+            if not 0 <= int(values["database"]) <= 15:
+                raise SettingsError("The Redis database number is between 0 and 15.")
+            if int(values["default_ttl_seconds"]) < 0:
+                raise SettingsError("The cache lifetime cannot be negative.")
+        if section == "queue" and values["enabled"] and values["broker"] not in BROKERS:
+            raise SettingsError("The broker is ActiveMQ, RabbitMQ, MQTT or Kafka.")
         if (
             section == "general"
             and values["public_url"]

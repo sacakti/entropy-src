@@ -247,6 +247,25 @@ class PluginContext:
         except RuntimeError as exc:
             raise PluginValueError(str(exc)) from exc
 
+    def git_repository_info(
+        self,
+        name: str,
+    ) -> dict[str, Any]:
+        """
+        A repository from Tools -> Git repositories (by name or id) that the
+        run's user may use, without checking it out: id, name, source_type
+        (managed, local or remote), source_location (the server folder of a
+        'local' repository, else None) and path (Entropy's copy).
+        """
+
+        from lib.git_repositories.store import repository_info
+        from lib.plugins.exceptions import PluginValueError
+
+        try:
+            return repository_info(self._runtime, name)
+        except RuntimeError as exc:
+            raise PluginValueError(str(exc)) from exc
+
     # ------------------------------------------------------------------
     # Vault
     # ------------------------------------------------------------------

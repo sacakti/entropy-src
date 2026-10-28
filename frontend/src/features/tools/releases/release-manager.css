@@ -151,3 +151,5 @@
 .entropy-app .release-env-edit input { flex: 1; min-width: 0; }
 .entropy-app .promotion-environments { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 10px; color: var(--app-muted); font-size: .84rem; }
 .entropy-app .promotion-environments input { width: 170px; }
+
+.entropy-app :is(.release-list, .promotion-list) > .list-pagination { margin-top: 10px; }

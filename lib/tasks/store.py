@@ -16,6 +16,9 @@ REOPENED = "reopened"
 # Offered in every project; imports and project settings may add more.
 DEFAULT_TYPES = ("issue", "bug", "task", "story", "improvement", "epic", "incident", "change")
 GROUP_KINDS = ("release", "sprint", "epic", "other")
+# Most severe first; existing tasks start at the default.
+SEVERITIES = ("critical", "high", "medium", "low")
+DEFAULT_SEVERITY = "medium"
 DEFAULT_PREFIX = "ENTASK"
 PREFIX = re.compile(r"^[A-Z][A-Z0-9]{1,9}$")
 TYPE_NAME = re.compile(r"^[a-z][a-z0-9_-]{0,29}$")
@@ -101,6 +104,7 @@ def ensure_task_extensions(connection: DatabaseConnection) -> None:
         ("due_date", "TEXT"),
         ("assigned_by", "TEXT"),
         ("assigned_at", "TEXT"),
+        ("severity", f"TEXT NOT NULL DEFAULT '{DEFAULT_SEVERITY}'"),
     ):
         if name not in columns:
             connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
@@ -261,17 +265,18 @@ class TaskStore:
                assignee: Optional[str], reminder_at: Optional[str], creator: str,
                *, type: str = "issue", external_ref: Optional[str] = None,
                status: str = "todo", group_ids: Iterable[int] = (),
-               created_at: Optional[str] = None, due_date: Optional[str] = None) -> Dict[str, Any]:
+               created_at: Optional[str] = None, due_date: Optional[str] = None,
+               severity: str = DEFAULT_SEVERITY) -> Dict[str, Any]:
         with self.connection.transaction():
             prefix, number = _reserve(self.connection, project_id)
             cursor = self.connection.execute(
                 "INSERT INTO tasks (project_id,title,description,remarks,assignee,reminder_at,creator,"
-                "type,external_ref,status,number,task_key,due_date,assigned_by,assigned_at,created_at,updated_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,"
+                "type,external_ref,status,number,task_key,due_date,severity,assigned_by,assigned_at,"
+                "created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"
                 "CASE WHEN ? IS NULL THEN NULL ELSE COALESCE(?, datetime('now')) END,"
                 "COALESCE(?, datetime('now')),COALESCE(?, datetime('now')))",
                 (project_id, title, description, remarks, assignee, reminder_at, creator,
-                 type, external_ref, status, number, task_key(prefix, number), due_date,
+                 type, external_ref, status, number, task_key(prefix, number), due_date, severity,
                  creator if assignee else None, assignee, created_at, created_at, created_at),
             )
             task_id = cursor.lastrowid
@@ -285,7 +290,7 @@ class TaskStore:
 
         allowed = {key: value for key, value in values.items() if key in {
             "title", "description", "remarks", "status", "assignee", "reminder_at", "type",
-            "external_ref", "due_date",
+            "external_ref", "due_date", "severity",
         }}
         if "reminder_at" in allowed:
             allowed["reminder_sent"] = 0
@@ -448,6 +453,12 @@ class TaskStore:
             )
             self.connection.execute("UPDATE tasks SET updated_at = datetime('now') WHERE id = ?", (task_id,))
         return self.get_attachment(cursor.lastrowid)  # type: ignore[arg-type,return-value]
+
+    def rename_attachment(self, attachment_id: int, filename: str) -> None:
+        with self.connection.transaction():
+            self.connection.execute(
+                "UPDATE task_attachments SET filename = ? WHERE id = ?", (filename, attachment_id)
+            )
 
     def delete_attachment(self, attachment_id: int) -> None:
         with self.connection.transaction():

@@ -1,7 +1,7 @@
 {
     "name": "deployment",
     "namespace": "oc",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "description": "Update OpenShift Deployment YAML resources.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
@@ -23,14 +23,24 @@
             "type": "path",
             "required": false,
             "description": "Directory of Deployment update definitions; required in folder mode.",
-            "path": "directory"
+            "path": "directory",
+            "prompt": false
         },
         {
             "name": "target",
             "type": "path",
             "required": false,
             "description": "Existing directory of Deployment YAML files to update; required in folder mode.",
-            "path": "directory"
+            "path": "directory",
+            "prompt": false
+        },
+        {
+            "name": "repository",
+            "type": "path",
+            "required": false,
+            "description": "Deployment YAML repository; used in deployments mode for UPDATE resources that do not carry their own 'repository'.",
+            "path": "directory",
+            "prompt": false
         },
         {
             "name": "deployments",

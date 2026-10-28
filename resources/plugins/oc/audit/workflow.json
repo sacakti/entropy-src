@@ -1,0 +1,35 @@
+{
+    "name": "SyncAndAuditYamls",
+    "version": "1.0.0",
+    "description": "Synchronize OpenShift resources, then audit what changed since the previous run. Schedule it every morning and evening.",
+
+    "variables": {
+        "namespace": "sit",
+        "yaml_repository": "/opt/entropy/yamls/SIT"
+    },
+
+    "steps": [
+        {
+            "name": "SyncYamls",
+            "plugin": "oc.sync_yamls",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "kubeconfig": "~/.kube/config",
+                "namespace": "${namespace}",
+                "yaml_repository": "${yaml_repository}"
+            }
+        },
+        {
+            "name": "AuditYamls",
+            "plugin": "oc.audit",
+            "enabled": true,
+            "on_failure": "abort",
+            "arguments": {
+                "repository": "${steps.SyncYamls.outputs.repository}",
+                "retention_days": 10,
+                "title": "SIT OpenShift audit"
+            }
+        }
+    ]
+}

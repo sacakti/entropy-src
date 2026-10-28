@@ -4,6 +4,7 @@ Release package analyser.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,10 @@ class ReleaseAnalyzer:
         ".yml",
         ".json",
     }
+
+    DOCKER_PUSH_PATTERN = re.compile(
+        r"^\s*docker\s+push\s+(?P<image>[^\s;#]+)",
+    )
 
     def __init__(
         self,
@@ -70,6 +75,7 @@ class ReleaseAnalyzer:
         yaml_repository: Path,
         image_tag: str,
         structure: Path,
+        image_transfer_script: str = "scripts/deploy/image_transfer.sh",
     ) -> dict[str, Any]:
 
         release = release.expanduser().resolve()
@@ -194,6 +200,20 @@ class ReleaseAnalyzer:
         self._merge_deployment_context(
             context["deployment"],
             deployment,
+        )
+
+        transfer = self._build_transfer_deployment_context(
+            images=self._analyse_image_transfer(
+                release_root / image_transfer_script,
+            ),
+            yaml_repository=yaml_repository,
+            index=resource_index,
+            existing_resources=context["deployment"]["resources"],
+        )
+
+        self._merge_deployment_context(
+            context["deployment"],
+            transfer,
         )
 
         return context
@@ -586,6 +606,157 @@ class ReleaseAnalyzer:
         )
 
         return result
+
+    # ------------------------------------------------------------------
+    # Image transfer
+    # ------------------------------------------------------------------
+
+    def _analyse_image_transfer(
+        self,
+        script: Path,
+    ) -> list[str]:
+        """
+        Images pushed by the release's image transfer script.
+
+        Only 'docker push <image>' lines are read; the script is never run.
+        """
+
+        if not self._filesystem.exists(script) or not self._filesystem.is_file(script):
+
+            self._log.debug(
+                f"No image transfer script at '{script}'.",
+            )
+
+            return []
+
+        images: list[str] = []
+
+        for line in self._filesystem.read_text(script).splitlines():
+
+            match = self.DOCKER_PUSH_PATTERN.match(
+                line,
+            )
+
+            if match is None:
+                continue
+
+            image = match.group("image")
+
+            if "$" in image:
+                self._log.warning(
+                    f"Skipped image transfer push with a shell variable: '{image}'.",
+                )
+                continue
+
+            if image not in images:
+                images.append(image)
+
+        return images
+
+    def _build_transfer_deployment_context(
+        self,
+        *,
+        images: list[str],
+        yaml_repository: Path,
+        index: dict[str, Any],
+        existing_resources: dict[str, list],
+    ) -> dict[str, Any]:
+        """
+        Correlate images pushed by the image transfer script with indexed
+        Deployments. The Deployment keeps its registry; only the tag changes.
+        """
+
+        result: dict[str, Any] = {
+            "required": False,
+            "resources": self._empty_resources(),
+            "operations": self._empty_operations(),
+        }
+
+        updated = {
+            (resource.get("name"), resource.get("container"))
+            for resource in existing_resources.get("deployments", [])
+            if isinstance(resource, dict) and resource.get("target_image")
+        }
+
+        for image in images:
+
+            repository = self._image_repository(
+                image,
+            )
+
+            if "@" in image or len(image) <= len(repository) + 1:
+                self._log.warning(
+                    f"Skipped image transfer image without a tag: '{image}'.",
+                )
+                continue
+
+            tag = image[len(repository) + 1 :]
+
+            match = self._resource_index.find_deployment(
+                index,
+                self._image_path(repository),
+            )
+
+            if match is None:
+
+                self._log.warning(
+                    f"No deployment found for transferred image " f"'{image}'.",
+                )
+
+                continue
+
+            if (match["deployment"], match["container"]) in updated:
+                continue
+
+            current_image = match["current_image"].strip()
+
+            result["resources"]["deployments"].append(
+                {
+                    "name": match["deployment"],
+                    "kind": "Deployment",
+                    "action": "UPDATE",
+                    "file": match["file"],
+                    "repository": str(yaml_repository),
+                    "container": match["container"],
+                    "current_image": current_image,
+                    "target_image": self._retag_image(
+                        current_image,
+                        tag,
+                    ),
+                    "image_transfer": True,
+                },
+            )
+
+            updated.add(
+                (match["deployment"], match["container"]),
+            )
+
+            self._add_operation(
+                result["operations"],
+                "apply",
+                str(yaml_repository / match["file"]),
+            )
+
+        result["required"] = bool(
+            result["resources"]["deployments"],
+        )
+
+        return result
+
+    @staticmethod
+    def _image_path(
+        repository: str,
+    ) -> str:
+        """
+        Return an image repository without its registry host.
+        """
+
+        first, _, rest = repository.partition("/")
+
+        if rest and ("." in first or ":" in first or first == "localhost"):
+            return rest
+
+        return repository
 
     def _find_context_deployment(
         self,

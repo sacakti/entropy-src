@@ -1,22 +1,31 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
     Archive,
+    CheckCircle2,
     Database,
+    DatabaseZap,
     Globe,
     KeyRound,
     LoaderCircle,
     Mail,
+    MessagesSquare,
+    Plug,
     Plus,
     Save,
     Send,
     ShieldCheck,
     Trash2,
     Users,
+    Zap,
 } from 'lucide-react'
 
 import {
     settingsApi,
     type AllSettings,
+    type Broker,
+    type ConnectionSection,
+    type ConnectionTestResult,
+    type DatabaseTargetSettings,
     type GroupMapping,
     type LdapSettings,
     type LdapTestResult,
@@ -32,7 +41,7 @@ import DatabasePanel from './DatabasePanel'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
 
-type Tab = 'general' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database'
+type Tab = 'general' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database' | 'migration' | 'cache' | 'queue'
 
 const TABS: { id: Tab; label: string; icon: typeof Mail; hint: string }[] = [
     { id: 'smtp', label: 'E-mail', icon: Mail, hint: 'SMTP server for alerts and messages' },
@@ -40,7 +49,18 @@ const TABS: { id: Tab; label: string; icon: typeof Mail; hint: string }[] = [
     { id: 'oidc', label: 'Single sign-on', icon: KeyRound, hint: 'OpenID Connect (Keycloak, Azure AD, Okta)' },
     { id: 'retention', label: 'Data retention', icon: Archive, hint: 'Archive and purge old runs' },
     { id: 'database', label: 'Database', icon: Database, hint: 'Backups, checks and recovery' },
+    { id: 'migration', label: 'Database migration', icon: DatabaseZap, hint: 'PostgreSQL or Oracle target' },
+    { id: 'cache', label: 'Cache', icon: Zap, hint: 'Redis server' },
+    { id: 'queue', label: 'Message queue', icon: MessagesSquare, hint: 'ActiveMQ, RabbitMQ, MQTT, Kafka' },
     { id: 'general', label: 'Address', icon: Globe, hint: 'Where people open Entropy' },
+]
+
+const ENGINE_PORTS: Record<DatabaseTargetSettings['engine'], number> = { postgresql: 5432, oracle: 1521 }
+const BROKERS: { id: Broker; label: string; port: number; tlsPort: number; hint: string }[] = [
+    { id: 'activemq', label: 'ActiveMQ (STOMP)', port: 61613, tlsPort: 61614, hint: 'STOMP connector, usually 61613 (61614 with TLS). OpenWire on 61616 is not used.' },
+    { id: 'rabbitmq', label: 'RabbitMQ (AMQP 0-9-1)', port: 5672, tlsPort: 5671, hint: 'AMQP on 5672 (5671 with TLS).' },
+    { id: 'mqtt', label: 'MQTT 3.1.1', port: 1883, tlsPort: 8883, hint: 'Mosquitto, HiveMQ, EMQX, or ActiveMQ/RabbitMQ with MQTT enabled: 1883 (8883 with TLS).' },
+    { id: 'kafka', label: 'Apache Kafka', port: 9092, tlsPort: 9093, hint: 'A bootstrap broker, usually 9092.' },
 ]
 
 function message(error: unknown, fallback: string): string {
@@ -175,6 +195,45 @@ function Mappings({
  * Administration -> Settings: e-mail, sign-in with LDAP / single sign-on,
  * data retention and the public address.
  */
+/** "Test connection" for a saved connection section, with what was verified. */
+function ConnectionTest({ section, label }: { section: ConnectionSection; label: string }) {
+    const { notify } = useFeedback()
+    const [busy, setBusy] = useState(false)
+    const [result, setResult] = useState<ConnectionTestResult | null>(null)
+    const test = async () => {
+        setBusy(true)
+        setResult(null)
+        try {
+            setResult(await settingsApi.testConnection(section))
+        } catch (cause) {
+            notify.error(message(cause, 'The connection test failed.'), { title: label })
+        } finally {
+            setBusy(false)
+        }
+    }
+    return (
+        <div className="settings-test">
+            <strong>Test the connection</strong>
+            <span>Uses the saved settings. Save first if you changed them.</span>
+            <div>
+                <button type="button" className="entropy-button entropy-button-secondary" onClick={() => void test()} disabled={busy}>
+                    {busy ? <LoaderCircle size={15} className="entropy-spin" /> : <Plug size={15} />}
+                    Test connection
+                </button>
+            </div>
+            {result && (
+                <div className="settings-connection-result" role="status">
+                    <CheckCircle2 size={16} aria-hidden="true" />
+                    <span>
+                        <strong>{result.summary}</strong>
+                        {result.details.map((detail) => <small key={detail}>{detail}</small>)}
+                    </span>
+                </div>
+            )}
+        </div>
+    )
+}
+
 export default function AdminSettings() {
     const { notify, modal } = useFeedback()
     const [settings, setSettings] = useState<AllSettings | null>(null)
@@ -363,6 +422,9 @@ export default function AdminSettings() {
                         {id === 'smtp' && smtp.enabled && <span className="settings-on">On</span>}
                         {id === 'ldap' && ldap.enabled && <span className="settings-on">On</span>}
                         {id === 'oidc' && oidc.enabled && <span className="settings-on">On</span>}
+                        {id === 'migration' && settings.database_target.enabled && <span className="settings-on">On</span>}
+                        {id === 'cache' && settings.cache.enabled && <span className="settings-on">On</span>}
+                        {id === 'queue' && settings.queue.enabled && <span className="settings-on">On</span>}
                     </button>
                 ))}
             </nav>
@@ -681,6 +743,186 @@ export default function AdminSettings() {
                     </>
                 )}
 
+                {tab === 'migration' && (
+                    <>
+                        <header className="settings-admin-head">
+                            <div>
+                                <h2>Database migration</h2>
+                                <p>
+                                    The PostgreSQL or Oracle database Entropy's data would move to. Entropy keeps running on
+                                    its SQLite database; saving these settings does not move or copy anything.
+                                </p>
+                            </div>
+                            {saveButton('database_target')}
+                        </header>
+                        <div className="settings-grid">
+                            <Toggle checked={settings.database_target.enabled} onChange={(enabled) => update('database_target', { enabled })}>
+                                Migration target configured
+                            </Toggle>
+                            <Field label="Database">
+                                <select
+                                    className="entropy-select"
+                                    value={settings.database_target.engine}
+                                    onChange={(event) => {
+                                        const engine = event.target.value as DatabaseTargetSettings['engine']
+                                        update('database_target', { engine, port: ENGINE_PORTS[engine] })
+                                    }}
+                                >
+                                    <option value="postgresql">PostgreSQL</option>
+                                    <option value="oracle">Oracle</option>
+                                </select>
+                            </Field>
+                            <Field label="Host">
+                                <input value={settings.database_target.host} onChange={(event) => update('database_target', { host: event.target.value })} placeholder="db.example.com" />
+                            </Field>
+                            <Field label="Port">
+                                <input type="number" min={1} max={65535} value={settings.database_target.port} onChange={(event) => update('database_target', { port: Number(event.target.value) })} />
+                            </Field>
+                            <Field label={settings.database_target.engine === 'oracle' ? 'Service name' : 'Database name'} hint={settings.database_target.engine === 'oracle' ? 'For example ORCLPDB1.' : 'For example entropy.'}>
+                                <input value={settings.database_target.database} onChange={(event) => update('database_target', { database: event.target.value })} />
+                            </Field>
+                            <Field label="Schema" hint="Optional. PostgreSQL defaults to public; Oracle to the user's schema.">
+                                <input value={settings.database_target.schema} onChange={(event) => update('database_target', { schema: event.target.value })} />
+                            </Field>
+                            <Field label="User name">
+                                <input value={settings.database_target.username} autoComplete="off" onChange={(event) => update('database_target', { username: event.target.value })} />
+                            </Field>
+                            <SecretField
+                                label="Password"
+                                isSet={settings.database_target.password_set && secrets['database_target.password'] !== ''}
+                                value={secretValue('database_target.password')}
+                                onChange={(value) => setSecrets((current) => ({ ...current, 'database_target.password': value }))}
+                                onClear={() => setSecrets((current) => ({ ...current, 'database_target.password': '' }))}
+                            />
+                            <Toggle checked={settings.database_target.ssl} onChange={(ssl) => update('database_target', { ssl })}>
+                                {settings.database_target.engine === 'oracle' ? 'Use TCPS (TLS)' : 'Require TLS (sslmode=require)'}
+                            </Toggle>
+                        </div>
+                        <ConnectionTest section="database_target" label="Database migration" />
+                    </>
+                )}
+                {tab === 'cache' && (
+                    <>
+                        <header className="settings-admin-head">
+                            <div>
+                                <h2>Cache</h2>
+                                <p>A Redis server for caching. Stored and testable; Entropy does not use a cache yet.</p>
+                            </div>
+                            {saveButton('cache')}
+                        </header>
+                        <div className="settings-grid">
+                            <Toggle checked={settings.cache.enabled} onChange={(enabled) => update('cache', { enabled })}>
+                                Redis cache configured
+                            </Toggle>
+                            <Field label="Host">
+                                <input value={settings.cache.host} onChange={(event) => update('cache', { host: event.target.value })} placeholder="redis.example.com" />
+                            </Field>
+                            <Field label="Port">
+                                <input type="number" min={1} max={65535} value={settings.cache.port} onChange={(event) => update('cache', { port: Number(event.target.value) })} />
+                            </Field>
+                            <Field label="Database number" hint="0 to 15.">
+                                <input type="number" min={0} max={15} value={settings.cache.database} onChange={(event) => update('cache', { database: Number(event.target.value) })} />
+                            </Field>
+                            <Field label="User name" hint="Redis 6 ACL user. Leave empty for the default user.">
+                                <input value={settings.cache.username} autoComplete="off" onChange={(event) => update('cache', { username: event.target.value })} />
+                            </Field>
+                            <SecretField
+                                label="Password"
+                                isSet={settings.cache.password_set && secrets['cache.password'] !== ''}
+                                value={secretValue('cache.password')}
+                                onChange={(value) => setSecrets((current) => ({ ...current, 'cache.password': value }))}
+                                onClear={() => setSecrets((current) => ({ ...current, 'cache.password': '' }))}
+                            />
+                            <Field label="Key prefix" hint="Keeps Entropy's keys apart on a shared server.">
+                                <input value={settings.cache.key_prefix} onChange={(event) => update('cache', { key_prefix: event.target.value })} />
+                            </Field>
+                            <Field label="Default lifetime (seconds)" hint="0 keeps entries until they are replaced.">
+                                <input type="number" min={0} value={settings.cache.default_ttl_seconds} onChange={(event) => update('cache', { default_ttl_seconds: Number(event.target.value) })} />
+                            </Field>
+                            <Toggle checked={settings.cache.tls} onChange={(tls) => update('cache', { tls })}>
+                                Use TLS
+                            </Toggle>
+                            {settings.cache.tls && (
+                                <Toggle checked={settings.cache.verify_tls} onChange={(verify_tls) => update('cache', { verify_tls })}>
+                                    Verify the server's TLS certificate
+                                </Toggle>
+                            )}
+                        </div>
+                        <ConnectionTest section="cache" label="Cache" />
+                    </>
+                )}
+                {tab === 'queue' && (
+                    <>
+                        <header className="settings-admin-head">
+                            <div>
+                                <h2>Message queue</h2>
+                                <p>A message broker for events and work. Stored and testable; Entropy does not publish to it yet.</p>
+                            </div>
+                            {saveButton('queue')}
+                        </header>
+                        <div className="settings-grid">
+                            <Toggle checked={settings.queue.enabled} onChange={(enabled) => update('queue', { enabled })}>
+                                Message queue configured
+                            </Toggle>
+                            <Field label="Broker" hint={BROKERS.find((broker) => broker.id === settings.queue.broker)?.hint}>
+                                <select
+                                    className="entropy-select"
+                                    value={settings.queue.broker}
+                                    onChange={(event) => {
+                                        const broker = BROKERS.find((item) => item.id === event.target.value) ?? BROKERS[0]
+                                        update('queue', { broker: broker.id, port: settings.queue.tls ? broker.tlsPort : broker.port })
+                                    }}
+                                >
+                                    {BROKERS.map((broker) => <option key={broker.id} value={broker.id}>{broker.label}</option>)}
+                                </select>
+                            </Field>
+                            <Field label="Host">
+                                <input value={settings.queue.host} onChange={(event) => update('queue', { host: event.target.value })} placeholder="broker.example.com" />
+                            </Field>
+                            <Field label="Port">
+                                <input type="number" min={1} max={65535} value={settings.queue.port} onChange={(event) => update('queue', { port: Number(event.target.value) })} />
+                            </Field>
+                            <Field label="User name" hint="Leave empty when the broker needs no sign-in.">
+                                <input value={settings.queue.username} autoComplete="off" onChange={(event) => update('queue', { username: event.target.value })} />
+                            </Field>
+                            <SecretField
+                                label="Password"
+                                isSet={settings.queue.password_set && secrets['queue.password'] !== ''}
+                                value={secretValue('queue.password')}
+                                onChange={(value) => setSecrets((current) => ({ ...current, 'queue.password': value }))}
+                                onClear={() => setSecrets((current) => ({ ...current, 'queue.password': '' }))}
+                            />
+                            {(settings.queue.broker === 'rabbitmq' || settings.queue.broker === 'activemq') && (
+                                <Field label={settings.queue.broker === 'rabbitmq' ? 'Virtual host' : 'STOMP host header'} hint={settings.queue.broker === 'rabbitmq' ? 'Usually /.' : 'Usually / or the broker name.'}>
+                                    <input value={settings.queue.virtual_host} onChange={(event) => update('queue', { virtual_host: event.target.value })} />
+                                </Field>
+                            )}
+                            <Field label="Client ID" hint="How Entropy names itself to the broker.">
+                                <input value={settings.queue.client_id} onChange={(event) => update('queue', { client_id: event.target.value })} />
+                            </Field>
+                            <Field label="Topic prefix" hint="Topics or queues would be named <prefix>.runs, <prefix>.releases and so on.">
+                                <input value={settings.queue.topic_prefix} onChange={(event) => update('queue', { topic_prefix: event.target.value })} />
+                            </Field>
+                            <Toggle
+                                checked={settings.queue.tls}
+                                onChange={(tls) => {
+                                    const broker = BROKERS.find((item) => item.id === settings.queue.broker)
+                                    // Move between the usual plain and TLS ports, unless a custom port is set.
+                                    const port = broker && settings.queue.port === (tls ? broker.port : broker.tlsPort) ? (tls ? broker.tlsPort : broker.port) : settings.queue.port
+                                    update('queue', { tls, port })
+                                }}
+                            >
+                                Use TLS
+                            </Toggle>
+                            {settings.queue.tls && (
+                                <Toggle checked={settings.queue.verify_tls} onChange={(verify_tls) => update('queue', { verify_tls })}>
+                                    Verify the broker's TLS certificate
+                                </Toggle>
+                            )}
+                        </div>
+                        <ConnectionTest section="queue" label="Message queue" />
+                    </>
+                )}
                 {tab === 'general' && (
                     <>
                         <header className="settings-admin-head">

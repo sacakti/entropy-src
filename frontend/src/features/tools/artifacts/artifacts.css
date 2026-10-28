@@ -65,3 +65,8 @@
     .entropy-app .artifact-main { flex-basis: calc(100% - 54px); }
     .entropy-app .artifact-actions { margin-left: 48px; }
 }
+
+.entropy-app .artifacts-list > .list-pagination { margin-top: 10px; }
+.entropy-app .artifact-open { display: block; max-width: 100%; padding: 0; overflow: hidden; color: inherit; background: none; border: 0; font: inherit; text-align: left; cursor: pointer; }
+.entropy-app .artifact-open strong { display: block; }
+.entropy-app .artifact-open:hover strong, .entropy-app .artifact-open:focus-visible strong { color: var(--app-accent); text-decoration: underline; }

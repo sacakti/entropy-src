@@ -206,6 +206,12 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
     }, [])
     const [collapsed, setCollapsed] = useState(false)
     const [floatingVideoId, setFloatingVideoId] = useState<number | null>(null)
+    // The floating player starts on a random video and moves on at random.
+    const [videoSeed] = useState(() => Math.random())
+    // Videos played so far, so Previous returns to what was actually shown.
+    const videoHistory = useRef<number[]>([])
+    // Videos not yet played this round: each plays once before any repeats.
+    const videoBag = useRef<number[]>([])
     const [memoriesAutoOpen, setMemoriesAutoOpen] = useState(false)
     const appearance = useAppearance()
     const accent = useMemo(
@@ -274,15 +280,36 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
     )
     const floatingVideo =
         videoBackgrounds.find((item) => item.id === floatingVideoId) ??
-        videoBackgrounds[0] ?? null
+        videoBackgrounds[Math.floor(videoSeed * videoBackgrounds.length)] ?? null
     const videoStep = useMemo(() => {
-        const index = videoBackgrounds.findIndex((item) => item.id === floatingVideo?.id)
-        if (videoBackgrounds.length < 2 || index < 0) return { position: null, step: undefined }
+        const current = floatingVideo?.id
+        const index = videoBackgrounds.findIndex((item) => item.id === current)
+        if (videoBackgrounds.length < 2 || current === undefined || index < 0) return { position: null, step: undefined }
+        const ids = new Set(videoBackgrounds.map((item) => item.id))
         return {
             position: `${index + 1} / ${videoBackgrounds.length}`,
             step: (direction: 1 | -1) => {
-                const next = videoBackgrounds[(index + direction + videoBackgrounds.length) % videoBackgrounds.length]
-                setFloatingVideoId(next.id)
+                if (direction === -1) {
+                    let previous = videoHistory.current.pop()
+                    while (previous !== undefined && !ids.has(previous)) previous = videoHistory.current.pop()
+                    if (previous !== undefined) {
+                        setFloatingVideoId(previous)
+                        return
+                    }
+                }
+                let bag = videoBag.current.filter((id) => ids.has(id) && id !== current)
+                if (!bag.length) {
+                    // A new round in random order (Fisher–Yates), never repeating the current video first.
+                    bag = [...ids].filter((id) => id !== current)
+                    for (let i = bag.length - 1; i > 0; i -= 1) {
+                        const j = Math.floor(Math.random() * (i + 1))
+                        ;[bag[i], bag[j]] = [bag[j], bag[i]]
+                    }
+                }
+                const next = bag.pop() as number
+                videoBag.current = bag
+                videoHistory.current = [...videoHistory.current.slice(-49), current]
+                setFloatingVideoId(next)
             },
         }
     }, [floatingVideo?.id, videoBackgrounds])

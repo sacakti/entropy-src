@@ -435,3 +435,9 @@
     color: var(--app-muted);
     font-size: 12.5px;
 }
+
+/* Connection test result (migration target, cache, queue) */
+.entropy-app .settings-connection-result { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--app-success, #2e9d5b) 40%, var(--app-line)); border-radius: 10px; background: color-mix(in srgb, var(--app-success, #2e9d5b) 10%, var(--app-surface)); }
+.entropy-app .settings-connection-result > svg { flex: none; margin-top: 2px; color: var(--app-success, #2e9d5b); }
+.entropy-app .settings-connection-result > span { display: grid; gap: 3px; }
+.entropy-app .settings-connection-result small { color: var(--app-muted); }

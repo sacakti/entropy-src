@@ -4,19 +4,33 @@ from __future__ import annotations
 
 import hashlib
 import json
+import mimetypes
 import os
 import tempfile
 import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from core.web.projects import current_project, require
 from core.web.routes.auth import _current_session, verify_csrf
+from lib.artifacts.archive import MAX_ENTRY_BYTES, ArchiveError, list_entries, read_entry
+from lib.artifacts.office import office_preview
 from lib.artifacts.store import ArtifactStore
 from lib.models.session import Session
 from lib.models.users import User
@@ -189,16 +203,85 @@ def register_server_path(payload: ServerPathCreate, request: Request,
     return _public(item, _root(request, project["id"]))
 
 
-@router.get("/{artifact_id}/download")
-def download_artifact(artifact_id: int, request: Request,
-                      record: SessionRecord = Depends(_current_session)) -> FileResponse:
-    _, _, user = record
+def _readable(request: Request, user: User, artifact_id: int) -> Tuple[Dict[str, Any], Path]:
     project = _project(request, user, "artifacts.read")
     item = _store(request).get(artifact_id)
     if item is None or item["project_id"] != project["id"]:
         raise HTTPException(status_code=404, detail="Artifact not found.")
-    target = _file_path(item, _root(request, project["id"]))
+    return item, _file_path(item, _root(request, project["id"]))
+
+
+@router.get("/{artifact_id}/download")
+def download_artifact(artifact_id: int, request: Request,
+                      record: SessionRecord = Depends(_current_session)) -> FileResponse:
+    _, _, user = record
+    item, target = _readable(request, user, artifact_id)
     return FileResponse(target, filename=item["name"], headers={"Cache-Control": "no-store"})
+
+
+@router.get("/{artifact_id}/entries")
+def archive_entries(artifact_id: int, request: Request,
+                    record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    """The files inside a ZIP-format artifact."""
+
+    _, _, user = record
+    _, target = _readable(request, user, artifact_id)
+    try:
+        return list_entries(target)
+    except ArchiveError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+@router.get("/{artifact_id}/preview")
+def artifact_preview(artifact_id: int, request: Request,
+                     record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    """A spreadsheet's rows or a Word document's text, for the viewer."""
+
+    _, _, user = record
+    item, target = _readable(request, user, artifact_id)
+    if target.stat().st_size > MAX_ENTRY_BYTES:
+        raise HTTPException(status_code=413,
+                            detail="The file is too large to preview; download it instead.")
+    try:
+        return office_preview(item["name"], target.read_bytes())
+    except ArchiveError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+@router.get("/{artifact_id}/entries/preview")
+def archive_entry_preview(artifact_id: int, request: Request,
+                          path: str = Query(min_length=1, max_length=4096),
+                          record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    """The preview of a spreadsheet or Word document inside a ZIP-format artifact."""
+
+    _, _, user = record
+    _, target = _readable(request, user, artifact_id)
+    try:
+        return office_preview(path, read_entry(target, path))
+    except ArchiveError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+@router.get("/{artifact_id}/entries/content")
+def archive_entry(artifact_id: int, request: Request,
+                  path: str = Query(min_length=1, max_length=4096),
+                  record: SessionRecord = Depends(_current_session)) -> Response:
+    """One file inside a ZIP-format artifact, for preview or download."""
+
+    _, _, user = record
+    _, target = _readable(request, user, artifact_id)
+    try:
+        data = read_entry(target, path)
+    except ArchiveError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    name = path.rstrip("/").rsplit("/", 1)[-1]
+    media_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    return Response(data, media_type=media_type, headers={
+        "Cache-Control": "no-store",
+        # Never rendered by the browser on its own: the viewer sandboxes HTML.
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}",
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 @router.post("/bulk-download", dependencies=[Depends(verify_csrf)])

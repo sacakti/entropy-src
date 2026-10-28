@@ -15,6 +15,7 @@ import { apiRequest } from '../../../services/api'
 import { currentProject } from '../../../services/project'
 
 export type Status = 'todo' | 'in_progress' | 'done' | 'reopened'
+export type Severity = 'critical' | 'high' | 'medium' | 'low'
 export type StatusChange = { from_status: Status | null; to_status: Status; reason: string; changed_by: string; changed_at: string }
 export type Comment = { id: number; author: string; body: string; created_at: string }
 export type Attachment = {
@@ -35,6 +36,7 @@ export type Task = {
     description: string
     remarks: string
     status: Status
+    severity: Severity
     assignee: string | null
     creator: string
     reminder_at: string | null
@@ -87,6 +89,16 @@ export const STATUSES: { id: Status; title: string }[] = [
     { id: 'done', title: 'Closed' },
     { id: 'reopened', title: 'Reopened' },
 ]
+
+// Most severe first, as the server lists them.
+export const SEVERITIES: { id: Severity; title: string }[] = [
+    { id: 'critical', title: 'Critical' },
+    { id: 'high', title: 'High' },
+    { id: 'medium', title: 'Medium' },
+    { id: 'low', title: 'Low' },
+]
+export const severityTitle = (severity: Severity | undefined) =>
+    SEVERITIES.find((item) => item.id === severity)?.title ?? 'Medium'
 
 /** Where a task may go next: a closed task is only reopened (with a reason). */
 export function nextStatuses(current: Status | null): Status[] {
@@ -178,6 +190,8 @@ export const tasksApi = {
         files.forEach((file) => form.append('files', file))
         return apiRequest<Task>(`/api/tasks/${id}/attachments`, { method: 'POST', body: form })
     },
+    rename: (id: number, attachmentId: number, filename: string) =>
+        apiRequest<Task>(`/api/tasks/${id}/attachments/${attachmentId}`, json('PATCH', { filename })),
     detach: (id: number, attachmentId: number) =>
         apiRequest<void>(`/api/tasks/${id}/attachments/${attachmentId}`, { method: 'DELETE' }),
     attachmentUrl: (id: number, attachmentId: number) => {
@@ -236,3 +250,24 @@ export function exportJiraCsv(data: TaskData): void {
     link.click()
     URL.revokeObjectURL(url)
 }
+
+// Attachments the task viewer can show; null means download only.
+export type PreviewKind = 'image' | 'pdf' | 'text'
+
+const IMAGE = /\.(png|jpe?g|gif|webp|bmp|svg)$/i
+const TEXT = /\.(txt|log|out|csv|json|ya?ml|xml|md|ini|conf|cfg|properties|sh|sql|py|env)$/i
+export function previewKind(attachment: Attachment): PreviewKind | null {
+    if (attachment.url) return null // a link to Jira; there is no file here
+    const name = attachment.filename
+    const type = attachment.content_type ?? ''
+    if (IMAGE.test(name) || type.startsWith('image/')) return 'image'
+    if (/\.pdf$/i.test(name) || type === 'application/pdf') return 'pdf'
+    if (TEXT.test(name) || type.startsWith('text/')) return 'text'
+    return null
+}
+
+// An attachment shown inside a description: ![caption](attachment:42).
+// The report places it at the same spot instead of listing it at the end.
+export const attachmentReferencePattern = () => /!\[([^\]\n]*)\]\(attachment:(\d+)\)/g
+export const attachmentReference = (attachment: Attachment) =>
+    `![${attachment.filename.replace(/[[\]\n]/g, '')}](attachment:${attachment.id})`

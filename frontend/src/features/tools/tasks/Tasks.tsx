@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
+import Pagination from '../../../components/layout/Pagination'
+import { usePagination } from '../../../components/layout/usePagination'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { CreatePanel, DetailPanel, GroupsPanel, ImportPanel, ReportPanel, SettingsPanel } from './TaskPanels'
 import { useStatusChange } from './statusChange'
@@ -30,6 +32,8 @@ import {
     exportJiraCsv,
     isOverdue,
     localDate,
+    SEVERITIES,
+    severityTitle,
     statusTitle,
     tasksApi,
     typeLabel,
@@ -62,9 +66,11 @@ export default function Tasks() {
     const { notify, modal } = useFeedback()
     const [data, setData] = useState<TaskData | null>(null)
     const [panel, setPanel] = useState<PanelState>(null)
+    const [popup, setPopup] = useState(false)
     const [view, setViewState] = useState<'board' | 'list'>(storedView)
     const [query, setQuery] = useState('')
     const [typeFilter, setTypeFilter] = useState('')
+    const [severityFilter, setSeverityFilter] = useState('')
     const [groupFilter, setGroupFilter] = useState<number | null>(null)
     const [assigneeFilter, setAssigneeFilter] = useState('')
     const [selection, setSelection] = useState<number[]>([])
@@ -112,6 +118,7 @@ export default function Tasks() {
         const needle = query.trim().toLowerCase()
         return data.items.filter((task) => {
             if (typeFilter && task.type !== typeFilter) return false
+            if (severityFilter && (task.severity ?? 'medium') !== severityFilter) return false
             if (groupFilter && !task.group_ids.includes(groupFilter)) return false
             if (assigneeFilter === '__me' && task.assignee?.toLowerCase() !== data.username.toLowerCase()) return false
             if (assigneeFilter === '__none' && task.assignee) return false
@@ -120,7 +127,9 @@ export default function Tasks() {
             return [task.key, task.title, task.external_ref ?? '', task.description, task.assignee ?? '']
                 .some((value) => value.toLowerCase().includes(needle))
         })
-    }, [data, query, typeFilter, groupFilter, assigneeFilter])
+    }, [data, query, typeFilter, severityFilter, groupFilter, assigneeFilter])
+    const paging = usePagination(visible, 'tasks')
+    const shown = paging.pageItems
 
     const move = async (task: Task, status: Status) => {
         const change = await checkStatus(task, status)
@@ -178,12 +187,13 @@ export default function Tasks() {
     }
 
     const permissions = data.permissions
-    const filtering = Boolean(query || typeFilter || groupFilter || assigneeFilter)
+    const filtering = Boolean(query || typeFilter || severityFilter || groupFilter || assigneeFilter)
     const activeGroup = groupFilter ? groupsById.get(groupFilter) : null
-    const allSelected = visible.length > 0 && visible.every((task) => selection.includes(task.id))
+    const allSelected = shown.length > 0 && shown.every((task) => selection.includes(task.id))
 
     const meta = (task: Task) => (
         <span className="task-card-meta">
+            <span className={`task-severity severity-${task.severity ?? 'medium'}`} title="Severity">{severityTitle(task.severity)}</span>
             {task.assignee && <span><UserRound size={13} /> {task.assignee}</span>}
             {task.comments.length > 0 && <span><MessageSquare size={13} /> {task.comments.length}</span>}
             {task.attachments.length > 0 && <span><Paperclip size={13} /> {task.attachments.length}</span>}
@@ -219,7 +229,7 @@ export default function Tasks() {
     }
 
     return (
-        <div className={`tasks-tool${panel ? ' has-panel' : ''}`}>
+        <div className={`tasks-tool${panel && !(panel.kind === 'task' && popup) ? ' has-panel' : ''}`}>
             <div className="tasks-toolbar">
                 <div className="tasks-actions">
                     <div className="tasks-view-switch" aria-label="Task view">
@@ -233,6 +243,10 @@ export default function Tasks() {
                     <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} aria-label="Filter by type">
                         <option value="">All types</option>
                         {data.settings.types.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}
+                    </select>
+                    <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)} aria-label="Filter by severity">
+                        <option value="">All severities</option>
+                        {SEVERITIES.map((severity) => <option key={severity.id} value={severity.id}>{severity.title}</option>)}
                     </select>
                     <select value={groupFilter ?? ''} onChange={(event) => setGroupFilter(event.target.value ? Number(event.target.value) : null)} aria-label="Filter by group">
                         <option value="">All groups</option>
@@ -278,19 +292,20 @@ export default function Tasks() {
                         <div className="tasks-empty">
                             <Search size={24} />
                             <strong>No task matches</strong>
-                            {filtering && <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => { setQuery(''); setTypeFilter(''); setGroupFilter(null); setAssigneeFilter('') }}>Clear filters</button>}
+                            {filtering && <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => { setQuery(''); setTypeFilter(''); setSeverityFilter(''); setGroupFilter(null); setAssigneeFilter('') }}>Clear filters</button>}
                         </div>
                     ) : view === 'board' ? (
                         <div className="tasks-board">
                             {STATUSES.map((column) => {
-                                const items = visible.filter((task) => task.status === column.id)
+                                const items = shown.filter((task) => task.status === column.id)
+                                const columnTotal = visible.filter((task) => task.status === column.id).length
                                 return (
                                     <section className="tasks-column" key={column.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
                                         event.preventDefault()
                                         const task = data.items.find((item) => item.id === Number(event.dataTransfer.getData('text/task-id')))
                                         if (task && permissions['tasks.manage']) void move(task, column.id)
                                     }}>
-                                        <header><strong>{column.title}</strong><span>{items.length}</span></header>
+                                        <header><strong>{column.title}</strong><span title={columnTotal > items.length ? `${items.length} on this page of ${columnTotal}` : undefined}>{columnTotal > items.length ? `${items.length}/${columnTotal}` : items.length}</span></header>
                                         <div className="tasks-column-body">
                                             {items.map((task) => (
                                                 <button key={task.id} className={`task-card${selected?.id === task.id ? ' selected' : ''}`} draggable={permissions['tasks.manage']} onDragStart={(event) => event.dataTransfer.setData('text/task-id', String(task.id))} onClick={() => setPanel({ kind: 'task', id: task.id })}>
@@ -328,10 +343,10 @@ export default function Tasks() {
                             )}
                             <div className="tasks-list" role="table" aria-label="Project tasks">
                                 <div className="tasks-list-row tasks-list-head" role="row">
-                                    <input type="checkbox" aria-label="Select all shown tasks" checked={allSelected} onChange={() => setSelection(allSelected ? [] : visible.map((task) => task.id))} />
+                                    <input type="checkbox" aria-label="Select all tasks on this page" checked={allSelected} onChange={() => setSelection((current) => allSelected ? current.filter((id) => !shown.some((task) => task.id === id)) : [...new Set([...current, ...shown.map((task) => task.id)])])} />
                                     <span>Key</span><span>Task</span><span>Status</span><span>Assignee</span><span>Groups</span><span>Updated</span>
                                 </div>
-                                {visible.map((task) => (
+                                {shown.map((task) => (
                                     <div className={`tasks-list-row${selected?.id === task.id ? ' selected' : ''}`} key={task.id} role="row">
                                         <input type="checkbox" aria-label={`Select ${task.key}`} checked={selection.includes(task.id)} onChange={() => setSelection((current) => current.includes(task.id) ? current.filter((id) => id !== task.id) : [...current, task.id])} />
                                         <button className="tasks-list-open" onClick={() => setPanel({ kind: 'task', id: task.id })}>{keyLabel(task)}</button>
@@ -348,6 +363,7 @@ export default function Tasks() {
                             </div>
                         </>
                     )}
+                    <Pagination state={paging} noun="tasks" />
                 </div>
 
                 {panel?.kind === 'create' && (
@@ -366,12 +382,18 @@ export default function Tasks() {
                         key={selected.id}
                         data={data}
                         task={selected}
-                        onClose={() => setPanel(null)}
+                        onClose={() => {
+                            setPanel(null)
+                            setPopup(false)
+                        }}
                         onChanged={refresh}
                         onDeleted={() => {
                             setPanel(null)
+                            setPopup(false)
                             void refresh()
                         }}
+                        popup={popup}
+                        onPopup={setPopup}
                     />
                 )}
                 {panel?.kind === 'groups' && (

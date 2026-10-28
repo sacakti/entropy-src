@@ -1,835 +1,685 @@
-# Image Transfer Plugin — Release Notes
+# image_transfer
+
+Pull release images from the source registry, push them to the target
+registry, and prepare the release's `apply_yaml.sh` for deployment.
+
+------------------------------------------------------------------------
 
 ## Overview
 
-The `custom.image_transfer` plugin prepares a release for deployment and transfers container images to the configured Docker registry.
+Some releases do not build images. Instead they ship a script,
+`scripts/deploy/image_transfer.sh`, that copies ready-made images from
+one registry (for example Azure) to another (for example Quay), and a
+script, `apply_yaml.sh`, that applies the release's YAML files.
 
-It is designed for release packages that contain deployment scripts such as:
+`custom.image_transfer` runs that release safely:
 
-```text
-scripts/deploy/image_transfer.sh
-scripts/deploy/apply_yaml.sh
-```
+1. Extracts the release ZIP beside the archive.
+2. Reads `docker login/pull/tag/push` commands from `image_transfer.sh`
+   and runs each one on its own (the script itself is never executed).
+3. Checks and, if needed, frees Docker storage first.
+4. Rewrites `apply_yaml.sh` so its `oc apply -f` paths point into the
+   extracted release, removes Git commands and login credentials, and
+   checks that the referenced YAML files exist. It does **not** run
+   `apply_yaml.sh`.
 
-The plugin handles the preparation and image-transfer workflow automatically.
+### Where it fits with `release.context_builder` and `oc.deployment`
 
-It can:
-
-* Extract a release ZIP archive
-* Remove a previously extracted release when explicitly requested
-* Locate deployment scripts inside the release
-* Parse Docker commands from `image_transfer.sh`
-* Validate Docker command ordering
-* Check available Docker storage
-* Remove matching old Docker images when storage is low
-* Optionally clean Docker builder cache
-* Execute Docker image operations
-* Remove Git commands from `apply_yaml.sh`
-* Remove positional credentials from Docker/OC login commands
-* Rewrite release paths in `oc apply -f` commands
-* Validate deployment YAML paths
-* Prepare `apply_yaml.sh` without executing it
-* Preserve the extracted release beside the original ZIP
-
-The original release ZIP is **never modified**.
-
----
-
-# Basic Usage
-
-The plugin is identified as:
+This plugin moves the **images**. It does not change any Deployment YAML.
+Moving Deployments to the transferred image tags is done by
+`oc.deployment`, using entries that `release.context_builder` builds
+from the **same** `image_transfer.sh`:
 
 ```text
-custom.image_transfer
+release ZIP (with scripts/deploy/image_transfer.sh)
+   │
+   ├─► release.context_builder   reads the docker push lines
+   │        └─ outputs.deployment.resources.deployments  (image entries)
+   │
+   ├─► custom.image_transfer     runs pull / tag / push
+   │
+   └─► oc.deployment             sets the pushed tags (and any
+                                 DeploymentUpdate field changes)
+                                 in the YAML repository
 ```
 
-A minimal workflow step is:
+### When to use
 
-```json
-{
-    "name": "Transfer Images",
-    "plugin": "custom.image_transfer",
-    "enabled": true,
-    "continue_on_error": false,
-    "arguments": {
-        "release": "/home/devops/releases/H001.zip"
-    }
-}
+- Releases whose images are built elsewhere and only need to be copied
+  between registries.
+- App-Published packages (`App-Published/App/yamls` +
+  `App-Published/scripts/deploy`).
+- Preparing `apply_yaml.sh` for a later deployment step, with or without
+  transferring images (`skip_docker`).
+
+------------------------------------------------------------------------
+
+## Requirements
+
+- Docker CLI on the host, with access to both registries. **Log in
+  beforehand** (for example `docker login` as the run user, or a
+  credential helper): credentials in the script are removed.
+- `df` on the host (storage check).
+- Enough free Docker storage (`min_free_storage_gb`, default 10 GB).
+- A release ZIP containing, in `release_scripts_directory`:
+  - `image_transfer.sh` (unless the script name is changed),
+  - `apply_yaml.sh`.
+
+  Both are required, even with `skip_docker`.
+
+------------------------------------------------------------------------
+
+## Arguments
+
+| Argument | Required | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `release` | Yes | `path` (file) | --- | Release ZIP; extracted beside the archive. |
+| `release_scripts_directory` | No | `string` | `scripts/deploy` | Scripts directory, relative to the extracted directory. |
+| `transfer_script` | No | `string` | `image_transfer.sh` | Image transfer script name. |
+| `apply_script` | No | `string` | `apply_yaml.sh` | OpenShift apply script name. |
+| `release_base_path` | No | `string` | `/home/devops` | Path prefix in `oc apply -f` lines that is replaced by the extracted path. |
+| `min_free_storage_gb` | No | `number` | `10` | Minimum free Docker storage in GB (greater than zero). |
+| `old_image_pattern` | No | `string` | `25.01.01.` | Regular expression for old local images that may be removed to free storage. |
+| `cleanup_builder_cache` | No | `boolean` | `false` | Run `docker builder prune -f` before transferring. |
+| `skip_docker` | No | `boolean` | `false` | Skip storage checks, cleanup and the transfer. |
+| `validate_yaml` | No | `boolean` | `true` | Check that the YAML paths in the prepared apply script exist. |
+| `force_remove_processed` | No | `boolean` | `false` | Remove an existing extracted directory before extracting. |
+
+### Argument Details
+
+#### `release`
+
+Path to a `.zip`. It is extracted to the same path without the
+extension (`/releases/H001.zip` → `/releases/H001/`). If that directory
+already exists, the step fails unless `force_remove_processed` is
+`true`.
+
+#### `release_scripts_directory`
+
+Directory of the scripts, **relative to the extracted directory**, not to
+a folder inside it. Set it to match the package:
+
+| Package | Value |
+| --- | --- |
+| `H001.zip` → `scripts/deploy/...` | `scripts/deploy` (default) |
+| `H010.zip` → `App-Published/scripts/deploy/...` | `App-Published/scripts/deploy` |
+
+#### `transfer_script` / `apply_script`
+
+File names inside `release_scripts_directory`. Both files must exist.
+
+#### `release_base_path`
+
+Every `oc apply -f <path>` in the apply script must start with this
+prefix. The prefix is replaced with the extracted release directory.
+A path outside the prefix is rejected.
+
+#### `min_free_storage_gb`
+
+Free space required on Docker's root filesystem before images are
+pulled. Must be greater than zero.
+
+#### `old_image_pattern`
+
+Regular expression matched against local `repository:tag` names. When
+storage is short, matching images are removed with `docker rmi`.
+
+#### `cleanup_builder_cache`
+
+When `true`, prunes the Docker builder cache and checks storage again.
+
+#### `skip_docker`
+
+When `true`, no Docker command runs. Extraction and `apply_yaml.sh`
+preparation still happen. Use it to prepare a release without moving
+images.
+
+#### `validate_yaml`
+
+When `true`, each rewritten `oc apply -f` path must be an existing
+`.yaml`/`.yml` file or a directory containing at least one.
+
+#### `force_remove_processed`
+
+When `true`, an existing extracted directory is deleted and the release
+is extracted again. Needed when `release.context_builder` has already
+extracted the same release in this run.
+
+------------------------------------------------------------------------
+
+## Input files
+
+### `image_transfer.sh`
+
+```bash
+#/bin/bash
+
+docker login azurerepo.io/sacakti -u $1 -p $2
+
+docker pull azurerepo.io/sacakti/app1/app-service:1.0.0
+docker pull azurerepo.io/sacakti/app2/app-service:1.2.0
+
+docker login quay.io/sacakti -u $1 -p $2
+
+docker tag azurerepo.io/sacakti/app1/app-service:1.0.0 quay.io/sacakti/app1/app-service:1.0.0
+docker tag azurerepo.io/sacakti/app2/app-service:1.2.0 quay.io/sacakti/app2/app-service:1.2.0
+
+docker push quay.io/sacakti/app1/app-service:1.0.0
+docker push quay.io/sacakti/app2/app-service:1.2.0
 ```
 
-The plugin provides sensible defaults for the remaining configuration.
+Rules:
 
----
+- Only `docker login`, `docker pull`, `docker tag` and `docker push`
+  lines are used. Other lines (variables, comments, `echo`) are ignored.
+- Lines continued with `\` are joined.
+- `login`, `pull`, `tag` and `push` must all be present, a `login` must
+  come before the first `pull`, and `tag` must come after `pull`.
+- Credentials are removed from `docker login`, which then runs as
+  `docker login <registry>`:
 
-# Release Package
+  | Script line | Runs as |
+  | --- | --- |
+  | `docker login quay.io/sacakti $user $password` | `docker login quay.io/sacakti` |
+  | `docker login quay.io/sacakti -u $1 -p $2` | `docker login quay.io/sacakti` |
+  | `docker login quay.io/sacakti --username=$1 --password=$2` | `docker login quay.io/sacakti` |
+  | `docker login -u $1 -p $2 quay.io/sacakti` | `docker login quay.io/sacakti` |
+  | `docker login quay.io/sacakti --password-stdin` | unchanged |
 
-The plugin expects a ZIP release containing deployment scripts.
+  The first positional argument is the registry; later positional
+  arguments are credentials. A login without a registry is rejected.
+- The `docker push` lines are also what `release.context_builder` uses to
+  set Deployment image tags.
 
-For example:
+### `apply_yaml.sh`
 
-```text
-H001.zip
-└── ...
-    └── scripts/
-        └── deploy/
-            ├── image_transfer.sh
-            └── apply_yaml.sh
+```bash
+user=$1
+password=$2
+oc login -u $user -p $password https://api.cluster:6443
+git pull
+oc apply -f /home/devops/scripts/app-1/test-deployment/deployment-service1.yaml
+oc apply -f /home/devops/scripts/app-1/test-deployment/svc-service1.yaml
 ```
 
-The default deployment-script directory is:
+becomes, for a release extracted to `/releases/H001`:
 
-```text
-scripts/deploy
+```bash
+oc login https://api.cluster:6443
+oc apply -f /releases/H001/scripts/app-1/test-deployment/deployment-service1.yaml
+oc apply -f /releases/H001/scripts/app-1/test-deployment/svc-service1.yaml
 ```
 
-The default script names are:
+- Standalone `git` commands are removed.
+- Lines that only assign a positional parameter (`user=$1`) are removed.
+- Credentials are removed from `oc login`: the options `-u`,
+  `--username`, `-p`, `--password`, `--token` with their values, their
+  `--option=value` forms, and any unresolved shell variable (`$1`,
+  `$user`, `${TOKEN}`). The server and other options are kept:
 
-```text
-image_transfer.sh
-apply_yaml.sh
-```
+  | Script line | Prepared line |
+  | --- | --- |
+  | `oc login $1 $2` | `oc login` |
+  | `oc login -u $1 -p $2 https://api.cluster:6443` | `oc login https://api.cluster:6443` |
+  | `oc login --token $TOKEN https://api.cluster:6443` | `oc login https://api.cluster:6443` |
+  | `oc login https://api.cluster:6443 --insecure-skip-tls-verify` | unchanged |
+- `/home/devops` (`release_base_path`) is replaced with the extracted
+  directory.
+- The file is rewritten in place inside the extracted release and is
+  **not executed**.
 
----
+### Package layouts
 
-# Extracted Release
-
-The supplied release ZIP is extracted beside the archive.
-
-For example:
-
-```text
-/home/devops/releases/H001.zip
-```
-
-becomes:
-
-```text
-/home/devops/releases/
-├── H001.zip
-└── H001/
-```
-
-The original ZIP remains untouched.
-
-The extracted release directory is retained after the plugin completes because the prepared deployment files are intended to be consumed later in the workflow.
-
----
-
-# Removing an Existing Extracted Release
-
-By default, the plugin refuses to overwrite an existing extracted release directory.
-
-For example, if:
+Standard:
 
 ```text
 H001/
+└── scripts/
+    ├── deploy/
+    │   ├── image_transfer.sh
+    │   └── apply_yaml.sh
+    └── app-1/test-deployment/*.yaml
 ```
 
-already exists, the plugin fails rather than silently replacing it.
+App-Published (set `release_scripts_directory` to
+`App-Published/scripts/deploy`):
 
-To explicitly remove the existing extracted release before extraction:
+```text
+H010/
+└── App-Published/
+    ├── App/yamls/deployment.yaml      ← DeploymentUpdate, used by context_builder / oc.deployment
+    └── scripts/deploy/
+        ├── image_transfer.sh
+        └── apply_yaml.sh
+```
+
+------------------------------------------------------------------------
+
+## Workflow Configuration
+
+### Basic Configuration
 
 ```json
 {
-    "release": "/home/devops/releases/H001.zip",
-    "force_remove_processed": true
-}
-```
-
-This is useful when the same release needs to be processed again.
-
----
-
-# Deployment Script Configuration
-
-The location and names of the deployment scripts can be customized.
-
-```json
-{
-    "release": "/home/devops/releases/H001.zip",
-    "release_scripts_directory": "scripts/deploy",
-    "transfer_script": "image_transfer.sh",
-    "apply_script": "apply_yaml.sh"
-}
-```
-
-Defaults:
-
-| Argument                    | Default             |
-| --------------------------- | ------------------- |
-| `release_scripts_directory` | `scripts/deploy`    |
-| `transfer_script`           | `image_transfer.sh` |
-| `apply_script`              | `apply_yaml.sh`     |
-
-Both scripts must exist in the extracted release.
-
----
-
-# Docker Image Transfer
-
-The plugin reads supported Docker commands from `image_transfer.sh`.
-
-Supported operations are:
-
-```text
-docker login
-docker pull
-docker tag
-docker push
-```
-
-The plugin does **not** execute the complete `image_transfer.sh` as a shell script.
-
-Instead, it:
-
-1. Reads the script.
-2. Extracts supported Docker commands.
-3. Validates them.
-4. Executes each Docker command individually.
-
-This provides more controlled execution and reporting.
-
----
-
-# Docker Command Ordering
-
-The transfer script must contain the required operations:
-
-```text
-login
-pull
-tag
-push
-```
-
-The plugin validates the broad ordering:
-
-```text
-Docker login
-      ↓
-Docker pull
-      ↓
-Docker tag
-      ↓
-Docker push
-```
-
-Multiple commands of each type are supported.
-
-For example:
-
-```bash
-docker login registry.example.com
-docker pull source/app:1.0
-docker tag source/app:1.0 registry.example.com/app:1.0
-docker push registry.example.com/app:1.0
-```
-
-The plugin rejects scripts where the required operations are missing or appear in an invalid order.
-
----
-
-# Docker Login Credentials
-
-The plugin removes positional credentials from Docker login commands.
-
-For example:
-
-```bash
-docker login registry.example.com $1 $2
-```
-
-is transformed into:
-
-```bash
-docker login registry.example.com
-```
-
-This prevents credentials passed as positional shell parameters from being executed by the plugin.
-
-Authentication is therefore expected to be handled by the Docker environment or its configured authentication mechanism.
-
----
-
-# Docker Storage Validation
-
-Before transferring images, the plugin checks the storage available to Docker.
-
-The configured minimum is:
-
-```json
-{
-    "min_free_storage_gb": 10
-}
-```
-
-The default is:
-
-```text
-10 GB
-```
-
-The plugin checks Docker's root filesystem and compares available storage with the configured minimum.
-
-If insufficient storage is available, the plugin can attempt the configured cleanup process before continuing.
-
----
-
-# Automatic Old Image Cleanup
-
-When Docker storage falls below the configured threshold, the plugin searches for old Docker images matching:
-
-```json
-{
-    "old_image_pattern": "25.01.01."
-}
-```
-
-The pattern is interpreted as a regular expression.
-
-For example:
-
-```text
-25.01.01.
-```
-
-can be used to identify older image tags following that naming convention.
-
-Matching images are removed using:
-
-```text
-docker rmi
-```
-
-If no matching images are found, the plugin reports that no cleanup was performed.
-
----
-
-# Docker Builder Cache Cleanup
-
-Docker builder cache cleanup is optional.
-
-Enable it with:
-
-```json
-{
-    "cleanup_builder_cache": true
-}
-```
-
-The plugin executes:
-
-```text
-docker builder prune -f
-```
-
-After cleanup, Docker storage is checked again before image transfer continues.
-
-The default is:
-
-```text
-false
-```
-
----
-
-# Skipping Docker Transfer
-
-Docker operations can be skipped entirely:
-
-```json
-{
-    "skip_docker": true
-}
-```
-
-When enabled:
-
-* Docker prerequisite checks are skipped.
-* Old-image cleanup is skipped.
-* Builder-cache cleanup is skipped.
-* Docker image-transfer commands are not executed.
-
-The release extraction and `apply_yaml.sh` preparation still take place.
-
-This is useful when testing or preparing a release without actually transferring images.
-
----
-
-# Preparing `apply_yaml.sh`
-
-The plugin prepares the deployment YAML script but **does not execute it**.
-
-This distinction is important.
-
-The plugin modifies the extracted `apply_yaml.sh` so that it can reference the actual extracted release location.
-
-For example, if the original script contains:
-
-```bash
-oc apply -f /home/devops/scripts/app-1/deployment.yaml
-```
-
-and the release was extracted to:
-
-```text
-/home/devops/releases/H001
-```
-
-the configured release base path:
-
-```text
-/home/devops
-```
-
-is replaced with the extracted release path.
-
-The resulting command becomes equivalent to:
-
-```bash
-oc apply -f /home/devops/releases/H001/scripts/app-1/deployment.yaml
-```
-
----
-
-# Release Base Path
-
-The default release base path is:
-
-```text
-/home/devops
-```
-
-It can be changed:
-
-```json
-{
-    "release_base_path": "/opt/releases"
-}
-```
-
-The plugin expects `oc apply -f` paths in `apply_yaml.sh` to begin with this configured base path.
-
-For example:
-
-```text
-/home/devops/scripts/app/deployment.yaml
-```
-
-with:
-
-```json
-{
-    "release_base_path": "/home/devops"
-}
-```
-
-is valid.
-
-A path outside the configured release base path is rejected.
-
-This prevents unexpected filesystem paths from being silently rewritten.
-
----
-
-# Git Commands
-
-Standalone Git commands are removed from `apply_yaml.sh`.
-
-For example:
-
-```bash
-git checkout something
-git pull
-```
-
-are removed from the prepared script.
-
-The plugin validates that no standalone Git command remains in the resulting script.
-
----
-
-# OpenShift Login
-
-Positional credentials are also removed from `oc login`.
-
-For example:
-
-```bash
-oc login -u $1 -p $2
-```
-
-is converted to:
-
-```bash
-oc login
-```
-
-The plugin does not execute `apply_yaml.sh`, so the prepared script can subsequently be handled by another workflow step or deployment mechanism.
-
----
-
-# YAML Validation
-
-YAML path validation is enabled by default:
-
-```json
-{
-    "validate_yaml": true
-}
-```
-
-The plugin validates the **rewritten** paths, not the original paths.
-
-An `oc apply -f` target may point to:
-
-### A YAML file
-
-```text
-deployment.yaml
-```
-
-Supported extensions:
-
-```text
-.yaml
-.yml
-```
-
-### A directory
-
-A directory is valid when it contains at least one YAML file.
-
-For example:
-
-```text
-deployments/
-├── deployment.yaml
-├── service.yaml
-└── configmap.yml
-```
-
-If a referenced YAML path does not exist, the plugin fails.
-
----
-
-# Disable YAML Validation
-
-YAML validation can be disabled:
-
-```json
-{
-    "validate_yaml": false
-}
-```
-
-The script is still rewritten, but the resulting YAML paths are not checked.
-
----
-
-# Complete Configuration
-
-A complete configuration can look like:
-
-```json
-{
-    "name": "Image Transfer",
+    "name": "TransferImages",
     "plugin": "custom.image_transfer",
     "enabled": true,
-    "continue_on_error": false,
-    "tags": [
-        "image_transfer"
-    ],
+    "on_failure": "abort",
     "arguments": {
-        "release": "/home/devops/releases/H001.zip",
-
-        "release_scripts_directory": "scripts/deploy",
-        "transfer_script": "image_transfer.sh",
-        "apply_script": "apply_yaml.sh",
-
-        "release_base_path": "/home/devops",
-
-        "force_remove_processed": true,
-
-        "skip_docker": false,
-        "cleanup_builder_cache": false,
-
-        "validate_yaml": true,
-
-        "min_free_storage_gb": 10,
-        "old_image_pattern": "25.01.01."
+        "release": "${release}"
     }
 }
 ```
 
----
+------------------------------------------------------------------------
 
-# Testing / Preparation Mode
+## Complete Workflow Example
 
-A useful configuration for testing release preparation without transferring images is:
-
-```json
-{
-    "arguments": {
-        "release": "/home/devops/releases/H001.zip",
-        "release_scripts_directory": "scripts/deploy",
-        "transfer_script": "image_transfer.sh",
-        "apply_script": "apply_yaml.sh",
-        "release_base_path": "/home/devops",
-        "force_remove_processed": true,
-        "skip_docker": true,
-        "cleanup_builder_cache": false,
-        "validate_yaml": true
-    }
-}
-```
-
-This allows you to verify:
-
-* Release extraction
-* Script discovery
-* `image_transfer.sh` parsing
-* `apply_yaml.sh` transformation
-* Git command removal
-* Login credential removal
-* YAML path rewriting
-* YAML path validation
-
-without performing Docker image transfer.
-
----
-
-# Workflow Outputs
-
-The plugin publishes several outputs.
-
-## Configuration
-
-```text
-configuration
-```
-
-Contains the resolved plugin configuration.
-
-## Docker status
-
-```text
-docker_skipped
-```
-
-Indicates whether Docker operations were skipped.
-
-## Image transfer
-
-```text
-image_transfer
-```
-
-Indicates whether Docker image transfer was performed.
-
-## Cleanup
-
-```text
-cleanup_performed
-```
-
-Indicates whether old Docker images were removed.
-
-## YAML preparation
-
-```text
-yaml_script_prepared
-```
-
-Indicates that `apply_yaml.sh` was successfully prepared.
-
-## YAML validation
-
-```text
-yaml_validation_enabled
-```
-
-Indicates whether YAML path validation was enabled.
-
-## YAML paths
-
-```text
-yaml_paths
-```
-
-Contains the deployment YAML paths discovered in the prepared script.
-
-## Release path
-
-```text
-release_path
-```
-
-Contains the path of the extracted release directory.
-
----
-
-# Workflow Artifacts
-
-The plugin publishes two workflow artifacts.
-
-### Release
-
-```text
-release
-```
-
-Points to the extracted release directory.
-
-### Prepared deployment script
-
-```text
-apply_yaml_script
-```
-
-Points to the prepared `apply_yaml.sh`.
-
-These artifacts can be consumed by subsequent workflow steps.
-
----
-
-# Complete Example
+App-Published release: transfer the images, then move Deployments to the
+pushed tags and apply the `DeploymentUpdate` field changes.
 
 ```json
 {
-    "name": "ImageTransferPlugin Workflow",
+    "name": "PublishedRelease",
     "version": "1.0.0",
-    "description": "Prepare release and transfer container images.",
-    "variables": {},
+    "description": "Transfer images and update Deployments for an App-Published release.",
+    "variables": {
+        "release": "/opt/releases/H010.zip",
+        "docker_repository": "/opt/entropy/docker",
+        "yaml_repository": "/opt/entropy/yamls/SIT",
+        "image_tag": "1.1.10"
+    },
     "steps": [
         {
-            "name": "Execute ImageTransferPlugin",
-            "plugin": "custom.image_transfer",
-            "enabled": true,
-            "continue_on_error": false,
-            "tags": [
-                "image_transfer"
-            ],
+            "name": "BuildReleaseContext",
+            "plugin": "release.context_builder",
+            "on_failure": "abort",
             "arguments": {
-                "release": "/home/devops/releases/H001.zip",
-
-                "release_scripts_directory": "scripts/deploy",
-                "transfer_script": "image_transfer.sh",
-                "apply_script": "apply_yaml.sh",
-
-                "release_base_path": "/home/devops",
-
-                "force_remove_processed": true,
-
-                "skip_docker": false,
-                "cleanup_builder_cache": false,
-
-                "validate_yaml": true,
-
-                "min_free_storage_gb": 10,
-                "old_image_pattern": "25.01.01."
+                "release": "${release}",
+                "docker_repository": "${docker_repository}",
+                "yaml_repository": "${yaml_repository}",
+                "image_tag": "${image_tag}"
+            }
+        },
+        {
+            "name": "TransferImages",
+            "plugin": "custom.image_transfer",
+            "on_failure": "abort",
+            "arguments": {
+                "release": "${release}",
+                "release_scripts_directory": "App-Published/scripts/deploy",
+                "force_remove_processed": true
+            }
+        },
+        {
+            "name": "DeploymentYAMLUpdate",
+            "plugin": "oc.deployment",
+            "on_failure": "abort",
+            "arguments": {
+                "mode": "deployments",
+                "repository": "${yaml_repository}",
+                "deployments": "${steps.BuildReleaseContext.outputs.deployment.resources.deployments}"
             }
         }
     ]
 }
 ```
 
----
+### Step order
 
-# Argument Reference
+Both `release.context_builder` and this plugin extract the ZIP to the
+same directory:
 
-| Argument                    | Required | Default             | Description                                   |
-| --------------------------- | -------: | ------------------- | --------------------------------------------- |
-| `release`                   |      Yes | —                   | Release ZIP archive                           |
-| `release_scripts_directory` |       No | `scripts/deploy`    | Directory containing deployment scripts       |
-| `transfer_script`           |       No | `image_transfer.sh` | Image transfer script                         |
-| `apply_script`              |       No | `apply_yaml.sh`     | OpenShift deployment script                   |
-| `release_base_path`         |       No | `/home/devops`      | Base path rewritten in `oc apply -f` commands |
-| `force_remove_processed`    |       No | `false`             | Remove existing extracted release             |
-| `skip_docker`               |       No | `false`             | Skip Docker checks and image transfer         |
-| `cleanup_builder_cache`     |       No | `false`             | Run Docker builder cache cleanup              |
-| `validate_yaml`             |       No | `true`              | Validate resulting YAML paths                 |
-| `min_free_storage_gb`       |       No | `10`                | Minimum required Docker storage               |
-| `old_image_pattern`         |       No | `25.01.01.`         | Regex used to identify old Docker images      |
+- `release.context_builder` always deletes and re-extracts it.
+- This plugin fails if it exists, unless `force_remove_processed` is
+  `true`.
 
----
+So run `release.context_builder` **first** and this plugin second, with
+`force_remove_processed: true`. In the opposite order the context
+builder would delete the `apply_yaml.sh` this plugin prepared.
 
-# Processing Flow
+------------------------------------------------------------------------
 
-The plugin follows this sequence:
+## Workflow Variables
+
+```json
+{
+    "variables": {
+        "release": "/opt/releases/H010.zip"
+    }
+}
+```
+
+```json
+{
+    "arguments": {
+        "release": "${release}",
+        "release_scripts_directory": "App-Published/scripts/deploy"
+    }
+}
+```
+
+------------------------------------------------------------------------
+
+## Vault Variables
+
+Not used. Registry access comes from the host's Docker login;
+credentials in the scripts are stripped, never filled in.
+
+------------------------------------------------------------------------
+
+## Execution
 
 ```text
 Release ZIP
-     │
-     ▼
-Validate release
-     │
-     ▼
-Extract beside ZIP
-     │
-     ▼
-Locate deployment scripts
-     │
-     ├───────────────┐
-     ▼               ▼
-image_transfer.sh   apply_yaml.sh
-     │               │
-     ▼               │
-Extract Docker      │
-commands             │
-     │               │
-     ▼               │
-Validate ordering    │
-     │               │
-     ▼               │
-Check Docker storage │
-     │               │
-     ▼               │
-Cleanup old images   │
-     │               │
-     ▼               │
-Cleanup builder      │
-cache                │
-     │               │
-     ▼               │
-Execute Docker       │
-commands             │
-                     │
-                     ▼
-              Remove Git commands
-                     │
-                     ▼
-              Remove login credentials
-                     │
-                     ▼
-              Rewrite oc apply paths
-                     │
-                     ▼
-              Validate YAML paths
-                     │
-                     ▼
-              Prepared apply_yaml.sh
+  → validate (.zip, exists)
+  → extract beside the ZIP
+  → locate image_transfer.sh and apply_yaml.sh
+  → read and validate Docker commands
+  → (unless skip_docker)
+        check storage → remove old images if short → check storage
+        → prune builder cache (optional) → check storage
+        → run each Docker command
+  → prepare apply_yaml.sh (remove git/credentials, rewrite paths)
+  → validate YAML paths (optional)
+  → publish outputs and artifacts
 ```
 
----
+Each Docker command runs as its own activity. Docker's own output goes to
+the workflow log, not the UI. The first failing command stops the step.
 
-## Important Notes
+------------------------------------------------------------------------
+
+## Outputs
+
+| Output | Type | Description |
+| --- | --- | --- |
+| `configuration` | `dictionary` | Resolved arguments. |
+| `force_remove_processed` | `boolean` | Whether an existing extraction could be removed. |
+| `docker_storage` | `dictionary` | `docker_root`, `free_bytes`, `free_gb`, `minimum_required_gb`. |
+| `cleanup_performed` | `boolean` | Whether old images were removed. |
+| `docker_skipped` | `boolean` | Whether Docker work was skipped. |
+| `image_transfer` | `boolean` | Whether images were transferred. |
+| `yaml_script_prepared` | `boolean` | Whether `apply_yaml.sh` was prepared. |
+| `yaml_validation_enabled` | `boolean` | Whether YAML paths were checked. |
+| `yaml_paths` | `list` | YAML paths referenced by the prepared script. |
+| `release_path` | `string` | Extracted release directory. |
+
+### Example
+
+```json
+{
+    "docker_skipped": false,
+    "image_transfer": true,
+    "cleanup_performed": false,
+    "docker_storage": {
+        "docker_root": "/var/lib/docker",
+        "free_bytes": 53687091200,
+        "free_gb": 50.0,
+        "minimum_required_gb": 10
+    },
+    "yaml_script_prepared": true,
+    "yaml_validation_enabled": true,
+    "yaml_paths": [
+        "/releases/H001/scripts/app-1/test-deployment/deployment-service1.yaml"
+    ],
+    "release_path": "/releases/H001"
+}
+```
+
+------------------------------------------------------------------------
+
+## Artifacts
+
+| Artifact | Path |
+| --- | --- |
+| `release` | Extracted release directory. |
+| `apply_yaml_script` | Prepared `apply_yaml.sh`. |
+
+------------------------------------------------------------------------
+
+## Examples
+
+### Example 1 --- Standard release
+
+```json
+{
+    "plugin": "custom.image_transfer",
+    "arguments": {
+        "release": "/opt/releases/H001.zip"
+    }
+}
+```
+
+### Example 2 --- App-Published release
+
+```json
+{
+    "plugin": "custom.image_transfer",
+    "arguments": {
+        "release": "/opt/releases/H010.zip",
+        "release_scripts_directory": "App-Published/scripts/deploy",
+        "force_remove_processed": true
+    }
+}
+```
+
+### Example 3 --- Prepare only (no Docker)
+
+```json
+{
+    "plugin": "custom.image_transfer",
+    "arguments": {
+        "release": "/opt/releases/H001.zip",
+        "skip_docker": true,
+        "force_remove_processed": true
+    }
+}
+```
+
+### Example 4 --- Low disk host
+
+```json
+{
+    "plugin": "custom.image_transfer",
+    "arguments": {
+        "release": "/opt/releases/H001.zip",
+        "min_free_storage_gb": 20,
+        "old_image_pattern": "^quay\\.io/sacakti/.*:1\\.0\\.",
+        "cleanup_builder_cache": true
+    }
+}
+```
+
+------------------------------------------------------------------------
+
+## Validation
+
+- `release` exists, is a file and ends in `.zip`.
+- The extraction directory does not exist, or `force_remove_processed`
+  is `true`.
+- Both scripts exist in `release_scripts_directory`.
+- `image_transfer.sh` has `login`, `pull`, `tag` and `push`, in a valid
+  order.
+- `min_free_storage_gb` is greater than zero; `old_image_pattern` is a
+  valid regular expression.
+- Every `oc apply -f` path starts with `release_base_path`.
+- With `validate_yaml`, every rewritten path exists.
+
+### Validation Errors
+
+| Message | Meaning |
+| --- | --- |
+| `Release archive not found: ...` | Wrong `release`. |
+| `Release path must be a ZIP archive: ...` | Not a `.zip`. |
+| `Release extraction directory already exists: ...` | Set `force_remove_processed: true` (always when `release.context_builder` ran first). |
+| `Required release script not found: .../scripts/deploy/image_transfer.sh` | Wrong `release_scripts_directory` (App-Published needs `App-Published/scripts/deploy`). |
+| `No supported Docker commands were found in ...` | The transfer script has no `docker login/pull/tag/push` lines. |
+| `... is missing required Docker operation(s): ...` | One of login/pull/tag/push is missing. |
+| `image_transfer.sh must contain a Docker login before Docker pull.` | Move a `docker login` above the first pull. |
+| `Docker tag must occur after Docker pull.` | Reorder the script. |
+| `Argument 'min_free_storage_gb' must be greater than zero.` | Invalid storage minimum. |
+
+------------------------------------------------------------------------
+
+## Error Handling
+
+The step stops at the first error. Images already pushed before a failure
+stay pushed; re-running is safe because pull, tag and push are
+idempotent. The extracted directory is left in place for inspection.
+
+------------------------------------------------------------------------
+
+## Security
+
+- `image_transfer.sh` and `apply_yaml.sh` are never executed as scripts.
+- Docker commands run without a shell, so shell syntax in the script is
+  not interpreted.
+- Credentials are stripped from `docker login` and `oc login` lines;
+  registry and cluster access rely on the host's existing login.
+
+------------------------------------------------------------------------
+
+## Filesystem
+
+| Path | Access |
+| --- | --- |
+| `<release>.zip` | read |
+| `<release>/` | created (deleted first with `force_remove_processed`) |
+| `<release>/<scripts>/image_transfer.sh` | read |
+| `<release>/<scripts>/apply_yaml.sh` | rewritten |
+
+------------------------------------------------------------------------
+
+## External Commands
+
+```text
+docker system df
+docker info --format ...
+df ...
+docker images --format ...
+docker rmi <image>              (only when storage is short)
+docker builder prune -f         (only with cleanup_builder_cache)
+docker login <registry>
+docker pull <image>
+docker tag <source> <target>
+docker push <image>
+```
+
+------------------------------------------------------------------------
+
+## External Services
+
+The source and target container registries named in `image_transfer.sh`.
+
+------------------------------------------------------------------------
+
+## Side Effects
+
+- Images are pulled into, and possibly removed from, the local Docker
+  storage.
+- Images are pushed to the target registry.
+- The release is extracted beside the ZIP and `apply_yaml.sh` is
+  rewritten there.
+
+------------------------------------------------------------------------
+
+## Performance
+
+Dominated by image size and registry bandwidth. Commands run one at a
+time.
+
+------------------------------------------------------------------------
+
+## Limitations
+
+- Credentials cannot be supplied through the plugin; log in on the host.
+- Commands built with variables, loops or `$(...)` in the transfer
+  script are passed to Docker literally.
+- Deployment YAMLs are not updated by this plugin; use
+  `release.context_builder` + `oc.deployment`.
+
+------------------------------------------------------------------------
+
+## Troubleshooting
+
+### Problem
+
+`Required release script not found` for an App-Published package.
+
+### Cause
+
+The scripts are under `App-Published/scripts/deploy`, not
+`scripts/deploy`.
+
+### Solution
+
+Set `"release_scripts_directory": "App-Published/scripts/deploy"`.
+
+### Problem
+
+`Release extraction directory already exists`.
+
+### Cause
+
+An earlier run, or `release.context_builder` in this run, already
+extracted the release.
+
+### Solution
+
+Set `"force_remove_processed": true`.
+
+### Problem
+
+`docker push` fails with an authentication error.
+
+### Cause
+
+The host is not logged in to the target registry (credentials from the
+script are removed on purpose).
+
+### Solution
+
+Log in on the host as the user that runs Entropy, then re-run.
+
+### Problem
+
+Images were transferred but Deployments still use the old tag.
+
+### Cause
+
+This plugin does not edit YAML.
+
+### Solution
+
+Add `release.context_builder` before and `oc.deployment` after this step
+(see [Complete Workflow Example](#complete-workflow-example)).
+
+------------------------------------------------------------------------
+
+## Notes
 
 1. The original release ZIP is never modified.
-2. The extracted release directory remains beside the ZIP.
-3. `image_transfer.sh` itself is not executed as a shell script.
-4. Only supported Docker commands are extracted from `image_transfer.sh`.
-5. Docker operations must contain login, pull, tag, and push in the expected order.
-6. Docker login positional credentials `$1` and `$2` are removed.
-7. `apply_yaml.sh` is prepared but **never executed** by this plugin.
-8. Git commands are removed from the prepared deployment script.
-9. `oc login` positional credentials `$1` and `$2` are removed.
-10. `oc apply -f` paths are rewritten relative to the extracted release.
-11. YAML validation occurs after path rewriting.
-12. Docker storage is checked before image transfer unless `skip_docker` is enabled.
-13. Old Docker images are removed only when storage is below the configured threshold.
-14. Builder cache cleanup is optional.
-15. The plugin is intended to prepare and transfer release artifacts; execution of the prepared OpenShift deployment script is outside this plugin's responsibility.
+2. The extracted release stays beside the ZIP.
+3. The prepared `apply_yaml.sh` is meant for a later deployment step.
 
-```
-```
+------------------------------------------------------------------------
+
+## Changelog
+
+### 1.0.4
+
+- `docker login`: positional credentials after the registry
+  (`docker login <registry> $user $password`) are now removed; they were
+  passed to Docker as literal text before.
+- `oc login`: credential options (`-u`, `-p`, `--username`, `--password`,
+  `--token`) are removed with their values, and so is any unresolved
+  shell variable; before, only `$1` and `$2` were removed, leaving
+  `oc login -u -p <server>`.
+- Invalid shell syntax (for example an unclosed quote) in
+  `image_transfer.sh` or `apply_yaml.sh` is now reported as
+  `Invalid shell syntax in ...` instead of an unhandled error; a
+  non-numeric `df` result is reported as
+  `Invalid available-space value in df output`.
+- Manual rewritten: input formats, App-Published packages, and how this
+  plugin works with `release.context_builder` and `oc.deployment`.

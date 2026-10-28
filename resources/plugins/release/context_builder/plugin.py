@@ -139,6 +139,11 @@ class ContextBuilderPlugin(
             yaml_repository=yaml_repository,
             image_tag=image_tag,
             structure=structure,
+            image_transfer_script=self.arguments.string(
+                "image_transfer_script",
+                default="scripts/deploy/image_transfer.sh",
+            )
+            or "scripts/deploy/image_transfer.sh",
         )
 
         context["workspace"] = str(self.workspace)

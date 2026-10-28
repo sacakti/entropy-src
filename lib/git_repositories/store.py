@@ -201,6 +201,25 @@ def find_repository(
     return rows[0]
 
 
+def repository_info(context: Any, reference: str) -> Dict[str, Any]:
+    """
+    A repository from Tools -> Git repositories that the run may use, without
+    checking it out: its name, how it was created and Entropy's copy (`path`).
+    `source_location` is the server folder for repositories created from one
+    (source_type 'local'); remote URLs are not passed on.
+    """
+    project_id, user_id = _run_identity(context)
+    repo = find_repository(context.database.connection, project_id, user_id, reference)
+    source_type = repo.get("source_type") or "managed"
+    return {
+        "id": repo["id"],
+        "name": repo["name"],
+        "source_type": source_type,
+        "source_location": repo.get("source_location") if source_type == "local" else None,
+        "path": repo["bare_path"],
+    }
+
+
 def checkout_repository(context: Any, reference: str) -> Path:
     """Check out a repository from Tools -> Git repositories (by name or id) for this run."""
     project_id, user_id = _run_identity(context)

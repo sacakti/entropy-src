@@ -158,7 +158,7 @@ export default function VideoMiniPlayer({
     background: BackgroundImage
     /** "2 / 5" among the video wallpapers, when there are others to switch to. */
     position?: string | null
-    /** Switch the wallpaper to the previous (-1) or next (1) video. */
+    /** Go back to the previously played video (-1), or on to a random one (1). */
     onStep?: (direction: 1 | -1) => void
     /** Move to another video automatically every 30 seconds. */
     autoAdvance?: boolean
@@ -664,8 +664,8 @@ export default function VideoMiniPlayer({
                             <button
                                 type="button"
                                 className="video-mini-button"
-                                aria-label="Previous wallpaper"
-                                title="Previous wallpaper"
+                                aria-label="Previously played video"
+                                title="Previously played video"
                                 onClick={() => onStep(-1)}
                             >
                                 <SkipBack size={15} aria-hidden="true" />
@@ -674,8 +674,8 @@ export default function VideoMiniPlayer({
                             <button
                                 type="button"
                                 className="video-mini-button"
-                                aria-label="Next wallpaper"
-                                title="Next wallpaper"
+                                aria-label="Random next video"
+                                title="Random next video"
                                 onClick={() => onStep(1)}
                             >
                                 <SkipForward size={15} aria-hidden="true" />
