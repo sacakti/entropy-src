@@ -22,7 +22,16 @@ from typing import Any, Callable, Dict, List, Optional
 from . import client_version
 from .api import ApiError, Client, path
 from .config import Config, ConfigError, context_name, normalize_server
-from .output import emit_json, table, when
+from .contract import (
+    CONFIG_KEYS,
+    OUTPUT_ENV,
+    OUTPUT_MODES,
+    PROJECT_ENV,
+    OutputModeError,
+    resolve_output,
+    resource,
+)
+from .output import Column, render, table, when
 
 TERMINAL = ("completed", "failed", "cancelled")
 STATE_EXIT = {"completed": 0, "failed": 1, "cancelled": 130}
@@ -37,11 +46,43 @@ class CommandError(Exception):
 # ----------------------------------------------------------------------
 
 
+def _project(args: argparse.Namespace, context: Dict[str, Any]) -> Optional[str]:
+    """--project, else $ENT_PROJECT, else the context's saved project."""
+
+    return (
+        getattr(args, "project", None)
+        or os.environ.get(PROJECT_ENV, "").strip()
+        or context.get("project")
+        or None
+    )
+
+
 def _client(args: argparse.Namespace) -> Client:
     context = Config.load().current(getattr(args, "context", None))
     if not context.get("token"):
         raise CommandError(f"Not logged in to {context['server']}. Run: ent login")
-    return Client.for_context(context)
+    return Client.for_context(context, _project(args, context))
+
+
+def _mode(args: argparse.Namespace) -> str:
+    """-o, else $ENT_OUTPUT, else `ent config set output`, else detailed."""
+
+    return resolve_output(getattr(args, "output", None), Config.load().preference("output"))
+
+
+def _emit(
+    args: argparse.Namespace,
+    items: List[Any],
+    columns: List[Column],
+    *,
+    title: str,
+    kind: str,
+    **options: Any,
+) -> int:
+    text = render(_mode(args), items, columns, title=title, kind=kind, **options)
+    if text:
+        print(text)
+    return 0
 
 
 def _values(pairs: Optional[List[str]], what: str) -> Dict[str, Any]:
@@ -191,9 +232,8 @@ def cmd_logout(args: argparse.Namespace) -> int:
 
 def cmd_whoami(args: argparse.Namespace) -> int:
     me = _client(args).get("/auth/me")
-    if args.output == "json":
-        emit_json(me)
-        return 0
+    if _mode(args) in ("json", "yaml"):
+        return _emit(args, [], [], title="", kind="user", data=me)
     user = me["user"]
     print(user["username"] + (f" ({user['full_name']})" if user.get("full_name") else ""))
     if args.verbose:
@@ -206,7 +246,7 @@ def cmd_whoami(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     config = Config.load()
     context = config.current(getattr(args, "context", None))
-    client = Client.for_context(context)
+    client = Client.for_context(context, _project(args, context))
     server_version = client.get("/version").get("version", "?")
     print(f"Context:  {context['name']}")
     print(f"Server:   {context['server']} (Entropy {server_version})")
@@ -221,6 +261,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         return 1
     print(f"User:     {me['user']['username']}")
     print(f"Session:  until {when(me.get('expires_at'))}")
+    print(f"Project:  {client.project or '(server default)'}")
     return 0
 
 
@@ -267,26 +308,163 @@ def cmd_context(args: argparse.Namespace) -> int:
 
 
 # ----------------------------------------------------------------------
+# Project and preferences
+# ----------------------------------------------------------------------
+
+
+def cmd_project(args: argparse.Namespace) -> int:
+    config = Config.load()
+    context = config.current(getattr(args, "context", None))
+    stored = config.contexts[context["name"]]
+    action = args.action
+
+    if action in ("set", "use"):
+        if not args.key:
+            raise CommandError("Give the project key: ent project set KEY")
+        result = _client(args).get("/projects")
+        keys = {item["key"]: item for item in result["items"]}
+        if args.key not in keys:
+            raise CommandError(f"No project '{args.key}' that you can see. See: ent project list")
+        stored["project"] = args.key
+        config.save()
+        print(f"Now using project '{args.key}' ({keys[args.key]['name']}) on {context['server']}.")
+        return 0
+    if action in ("remove", "unset"):
+        stored.pop("project", None)
+        config.save()
+        print("Project selection cleared; the server's default project is used.")
+        return 0
+
+    result = _client(args).get("/projects")
+    current = result.get("current")
+    if action == "current":
+        project = next((p for p in result["items"] if p["key"] == current), None)
+        if _mode(args) in ("json", "yaml", "name"):
+            return _emit(
+                args,
+                [project] if project else [],
+                [("key", lambda p: p["key"], False)],
+                title="Project",
+                kind="project",
+                data=project,
+            )
+        print(f"{current} — {project['name']}" if project else str(current or "-"))
+        return 0
+    return _emit(
+        args,
+        result["items"],
+        [
+            ("current", lambda p: "*" if p["key"] == current else "", False),
+            ("key", lambda p: p["key"], False),
+            ("name", lambda p: p["name"], False),
+            ("roles", lambda p: ", ".join(p.get("my_roles") or []), True),
+            ("description", lambda p: p.get("description"), True),
+        ],
+        title="Projects",
+        kind="project",
+        name=lambda p: p["key"],
+    )
+
+
+def cmd_config(args: argparse.Namespace) -> int:
+    config = Config.load()
+    if args.action in ("view", "get"):
+        keys = [args.key] if args.key else sorted(CONFIG_KEYS)
+        for key in keys:
+            if key not in CONFIG_KEYS:
+                raise CommandError(f"Unknown setting '{key}'. Settings: {', '.join(CONFIG_KEYS)}.")
+        saved = config.preference("output")
+        effective = resolve_output(None, saved)
+        source = OUTPUT_ENV if os.environ.get(OUTPUT_ENV) else "saved" if saved else "default"
+        print(f"output: {effective} ({source})")
+        return 0
+    if not args.key or args.key not in CONFIG_KEYS:
+        raise CommandError(f"Give a setting: {', '.join(CONFIG_KEYS)}.")
+    if args.action == "unset":
+        config.preferences.pop(args.key, None)
+        config.save()
+        print(f"Forgot {args.key}; using {resolve_output(None, None)}.")
+        return 0
+    if not args.value:
+        raise CommandError(
+            f"Give a value: ent config set {args.key} {{{','.join(CONFIG_KEYS[args.key])}}}"
+        )
+    try:
+        value = resolve_output(args.value)
+    except OutputModeError as error:
+        raise CommandError(str(error)) from None
+    config.preferences[args.key] = value
+    config.save()
+    print(f"{args.key} set to {value}.")
+    return 0
+
+
+# ----------------------------------------------------------------------
 # Workflows
 # ----------------------------------------------------------------------
 
 
 def cmd_workflow_list(args: argparse.Namespace) -> int:
     items = _client(args).get("/workflows")["items"]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("name", "version", "updated", "description"),
-        ((w["name"], w["version"], when(w.get("updated_at")), w.get("description")) for w in items),
+    return _emit(
+        args,
+        items,
+        [
+            ("name", lambda w: w["name"], False),
+            ("version", lambda w: w["version"], False),
+            ("updated", lambda w: when(w.get("updated_at")), False),
+            ("created", lambda w: when(w.get("created_at")), True),
+            ("description", lambda w: w.get("description"), False),
+        ],
+        title="Workflows",
+        kind="workflow",
     )
-    return 0
 
 
 def cmd_workflow_get(args: argparse.Namespace) -> int:
-    detail = _client(args).get(path("workflows", args.name), format=args.output)
-    print(detail["definition"].rstrip("\n"))
-    return 0
+    mode = _mode(args)
+    client = _client(args)
+    if mode in ("yaml", "json"):
+        detail = client.get(path("workflows", args.name), format=mode)
+        print(detail["definition"].rstrip("\n"))
+        return 0
+    detail = client.get(path("workflows", args.name), format="json")
+    if mode != "detailed":
+        return _emit(
+            args,
+            [detail],
+            [
+                ("name", lambda w: w["name"], False),
+                ("version", lambda w: w["version"], False),
+                ("steps", lambda w: w["step_count"], False),
+                ("description", lambda w: w.get("description"), True),
+            ],
+            title="Workflow",
+            kind="workflow",
+        )
+    definition = json.loads(detail["definition"])
+    print(f"Workflow:     {detail['name']}")
+    print(f"Version:      {detail['version']}")
+    print(f"Description:  {detail.get('description') or '-'}")
+    variables = definition.get("variables") or {}
+    if variables:
+        print("Variables:")
+        for key, value in variables.items():
+            print(f"  {key}: {json.dumps(value, default=str)}")
+    print()
+    return _emit(
+        args,
+        definition.get("steps") or [],
+        [
+            ("name", lambda s: s.get("name"), False),
+            ("plugin", lambda s: s.get("plugin"), False),
+            ("enabled", lambda s: "yes" if s.get("enabled", True) else "no", False),
+            ("tags", lambda s: ", ".join(s.get("tags") or []), False),
+            ("on failure", lambda s: s.get("on_failure"), False),
+        ],
+        title="Steps",
+        kind="step",
+    )
 
 
 def cmd_workflow_validate(args: argparse.Namespace) -> int:
@@ -346,18 +524,23 @@ def cmd_workflow_run(args: argparse.Namespace) -> int:
 
 def cmd_workflow_history(args: argparse.Namespace) -> int:
     history = _client(args).get(path("workflows", args.name, "history"))
-    if args.output == "json":
-        emit_json(history)
-        return 0
-    print(f"Current version: {history['current_version']}")
-    table(
-        ("id", "version", "kept", "by", "reason"),
-        (
-            (i["id"], i["version"], when(i["created_at"]), i.get("created_by"), i["reason"])
-            for i in history["items"]
-        ),
+    if _mode(args) == "detailed":
+        print(f"Current version: {history['current_version']}")
+    return _emit(
+        args,
+        history["items"],
+        [
+            ("id", lambda i: i["id"], False),
+            ("version", lambda i: i["version"], False),
+            ("kept", lambda i: when(i["created_at"]), False),
+            ("by", lambda i: i.get("created_by"), False),
+            ("reason", lambda i: i["reason"], False),
+        ],
+        title=f"History of {args.name}",
+        kind="version",
+        name=lambda i: i["id"],
+        data=history,
     )
-    return 0
 
 
 def cmd_workflow_restore(args: argparse.Namespace) -> int:
@@ -372,37 +555,55 @@ def cmd_workflow_restore(args: argparse.Namespace) -> int:
 # ----------------------------------------------------------------------
 
 
+def _nodes(run: Dict[str, Any]) -> str:
+    return ",".join((run.get("options") or {}).get("nodes") or [run["node"]])
+
+
 def cmd_job_list(args: argparse.Namespace) -> int:
     result = _client(args).get(
         "/runs", tab=args.state, search=args.workflow or "", limit=args.limit
     )
-    if args.output == "json":
-        emit_json(result["items"])
-        return 0
-    table(
-        ("id", "target", "state", "node", "by", "started", "trigger"),
-        (
-            (
-                run["id"],
-                run["target"],
-                run["state"],
-                ",".join((run.get("options") or {}).get("nodes") or [run["node"]]),
-                run.get("username"),
-                when(run.get("started_at") or run.get("created_at")),
-                run.get("trigger"),
-            )
-            for run in result["items"]
-        ),
+    return _emit(
+        args,
+        result["items"],
+        [
+            ("id", lambda r: r["id"], False),
+            ("target", lambda r: r["target"], False),
+            ("state", lambda r: r["state"], False),
+            ("node", _nodes, False),
+            ("by", lambda r: r.get("username"), True),
+            ("started", lambda r: when(r.get("started_at") or r.get("created_at")), False),
+            ("finished", lambda r: when(r.get("finished_at")), True),
+            ("trigger", lambda r: r.get("trigger"), True),
+        ],
+        title="Runs",
+        kind="job",
+        name=lambda r: r["id"],
     )
-    return 0
 
 
 def cmd_job_get(args: argparse.Namespace) -> int:
     detail = _client(args).get(path("runs", args.id))
-    if args.output == "json":
-        emit_json(detail)
-        return 0
     run = detail["run"]
+    mode = _mode(args)
+    if mode != "detailed":
+        return _emit(
+            args,
+            [run],
+            [
+                ("id", lambda r: r["id"], False),
+                ("target", lambda r: r["target"], False),
+                ("state", lambda r: r["state"], False),
+                ("node", _nodes, False),
+                ("by", lambda r: r.get("username"), True),
+                ("started", lambda r: when(r.get("started_at")), False),
+                ("finished", lambda r: when(r.get("finished_at")), True),
+            ],
+            title="Run",
+            kind="job",
+            name=lambda r: r["id"],
+            data=detail,
+        )
     print(f"Run #{run['id']}  {run['target']}  {run['state']}")
     print(
         f"  Node:     {run['node']}    Trigger: {run.get('trigger')}    By: {run.get('username')}"
@@ -414,24 +615,33 @@ def cmd_job_get(args: argparse.Namespace) -> int:
     if options.get("skipped"):
         print(f"  Skipped:  {', '.join(options['skipped'])}")
     status = {step["name"]: step for step in detail.get("steps", [])}
-    rows = []
-    for step in detail.get("plan", []):
-        if not step.get("selected", step.get("enabled", True)):
-            continue
-        seen = status.get(step["name"], {})
-        rows.append(
+    steps = [
+        step for step in detail.get("plan", []) if step.get("selected", step.get("enabled", True))
+    ]
+    if not steps:
+        return 0
+    print()
+    return _emit(
+        args,
+        steps,
+        [
+            ("step", lambda s: s["name"], False),
+            ("plugin", lambda s: s.get("plugin"), False),
+            ("node", lambda s: s.get("node") or run["node"], False),
+            ("status", lambda s: status.get(s["name"], {}).get("status", "pending"), False),
             (
-                step["name"],
-                step.get("plugin"),
-                step.get("node") or run["node"],
-                seen.get("status", "pending"),
-                f"{seen['duration_ms'] / 1000:.1f}s" if seen.get("duration_ms") else "",
-            )
-        )
-    if rows:
-        print()
-        table(("step", "plugin", "node", "status", "duration"), rows)
-    return 0
+                "duration",
+                lambda s: (
+                    f"{status[s['name']]['duration_ms'] / 1000:.1f}s"
+                    if status.get(s["name"], {}).get("duration_ms")
+                    else ""
+                ),
+                False,
+            ),
+        ],
+        title="Steps",
+        kind="step",
+    )
 
 
 def cmd_job_logs(args: argparse.Namespace) -> int:
@@ -480,21 +690,22 @@ def cmd_plugin_list(args: argparse.Namespace) -> int:
         if page >= result["pagination"]["total_pages"]:
             break
         page += 1
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("name", "version", "status"),
-        (
+    return _emit(
+        args,
+        items,
+        [
+            ("name", lambda p: p["qualified_name"], False),
+            ("version", lambda p: p["version"], False),
             (
-                p["qualified_name"],
-                p["version"],
-                "draft" if p.get("draft") else "enabled" if p["enabled"] else "disabled",
-            )
-            for p in items
-        ),
+                "status",
+                lambda p: "draft" if p.get("draft") else "enabled" if p["enabled"] else "disabled",
+                False,
+            ),
+            ("description", lambda p: p.get("description"), True),
+        ],
+        title="Plugins",
+        kind="plugin",
     )
-    return 0
 
 
 def cmd_plugin_run(args: argparse.Namespace) -> int:
@@ -512,152 +723,154 @@ def cmd_plugin_run(args: argparse.Namespace) -> int:
 
 def cmd_node_list(args: argparse.Namespace) -> int:
     items = _client(args).get("/nodes")["items"]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("name", "kind", "host", "status", "running", "last seen"),
-        (
+    return _emit(
+        args,
+        items,
+        [
+            ("name", lambda n: n["name"], False),
+            ("kind", lambda n: n["kind"], False),
+            ("host", lambda n: n.get("host"), False),
             (
-                n["name"],
-                n["kind"],
-                n.get("host"),
-                ("ready" if n.get("agent_up") else "unreachable") if n["enabled"] else "disabled",
-                n.get("running_jobs", 0),
-                when(n.get("last_seen_at")) if n["kind"] != "local" else "-",
-            )
-            for n in items
-        ),
+                "status",
+                lambda n: (
+                    ("ready" if n.get("agent_up") else "unreachable")
+                    if n["enabled"]
+                    else "disabled"
+                ),
+                False,
+            ),
+            ("running", lambda n: n.get("running_jobs", 0), False),
+            (
+                "last seen",
+                lambda n: when(n.get("last_seen_at")) if n["kind"] != "local" else "-",
+                True,
+            ),
+        ],
+        title="Nodes",
+        kind="node",
     )
-    return 0
 
 
 def cmd_schedule_list(args: argparse.Namespace) -> int:
     items = _client(args).get("/schedules")["items"]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("id", "name", "target", "cron", "node", "enabled"),
-        (
-            (s["id"], s["name"], f"{s['kind']}:{s['target']}", s["cron"], s["node"], s["enabled"])
-            for s in items
-        ),
+    return _emit(
+        args,
+        items,
+        [
+            ("id", lambda s: s["id"], False),
+            ("name", lambda s: s["name"], False),
+            ("target", lambda s: f"{s['kind']}:{s['target']}", False),
+            ("cron", lambda s: s["cron"], False),
+            ("node", lambda s: s["node"], True),
+            ("enabled", lambda s: s["enabled"], False),
+        ],
+        title="Schedules",
+        kind="schedule",
+        name=lambda s: s["name"],
     )
-    return 0
 
 
 def cmd_user_list(args: argparse.Namespace) -> int:
     items = _client(args).get("/admin/users")["items"]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("username", "name", "email", "active", "roles", "groups"),
-        (
-            (
-                u["username"],
-                u.get("full_name"),
-                u.get("email"),
-                "yes" if u.get("is_active") else "no",
-                ", ".join(u.get("roles") or []),
-                ", ".join(u.get("groups") or []),
-            )
-            for u in items
-        ),
+    return _emit(
+        args,
+        items,
+        [
+            ("username", lambda u: u["username"], False),
+            ("name", lambda u: u.get("full_name"), False),
+            ("email", lambda u: u.get("email"), True),
+            ("active", lambda u: "yes" if u.get("is_active") else "no", False),
+            ("roles", lambda u: ", ".join(u.get("roles") or []), True),
+            ("groups", lambda u: ", ".join(u.get("groups") or []), True),
+        ],
+        title="Users",
+        kind="user",
     )
-    return 0
 
 
 def cmd_group_list(args: argparse.Namespace) -> int:
     items = _client(args).get("/admin/groups")["items"]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("name", "description", "members", "roles"),
-        (
-            (
-                g["name"],
-                g.get("description"),
-                len(g.get("members") or g.get("users") or []),
-                ", ".join(g.get("roles") or []),
-            )
-            for g in items
-        ),
+    return _emit(
+        args,
+        items,
+        [
+            ("name", lambda g: g["name"], False),
+            ("description", lambda g: g.get("description"), True),
+            ("members", lambda g: len(g.get("members") or g.get("users") or []), False),
+            ("roles", lambda g: ", ".join(g.get("roles") or []), False),
+        ],
+        title="Groups",
+        kind="group",
     )
-    return 0
 
 
 def cmd_role_list(args: argparse.Namespace) -> int:
     items = _client(args).get("/admin/roles")["items"]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("name", "built-in", "permissions", "description"),
-        (
-            (
-                r["name"],
-                "yes" if r.get("is_builtin") else "no",
-                len(r.get("permissions") or []),
-                r.get("description"),
-            )
-            for r in items
-        ),
+    return _emit(
+        args,
+        items,
+        [
+            ("name", lambda r: r["name"], False),
+            ("built-in", lambda r: "yes" if r.get("is_builtin") else "no", False),
+            ("permissions", lambda r: len(r.get("permissions") or []), False),
+            ("description", lambda r: r.get("description"), True),
+        ],
+        title="Roles",
+        kind="role",
     )
-    return 0
 
 
 def cmd_vault_namespaces(args: argparse.Namespace) -> int:
     items = _client(args).get("/vault/namespaces")["items"]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("namespace", "visibility", "your access", "created"),
-        (
-            (n["name"], n.get("visibility"), n.get("access") or "read", when(n.get("created_at")))
-            for n in items
-        ),
+    return _emit(
+        args,
+        items,
+        [
+            ("namespace", lambda n: n["name"], False),
+            ("visibility", lambda n: n.get("visibility"), False),
+            ("your access", lambda n: n.get("access") or "read", False),
+            ("created", lambda n: when(n.get("created_at")), True),
+        ],
+        title="Vault namespaces",
+        kind="namespace",
     )
-    return 0
 
 
 def cmd_vault_list(args: argparse.Namespace) -> int:
     """Keys of a namespace; values are never shown here."""
 
     items = _client(args).get(path("vault", "namespaces", args.namespace, "entries"))["items"]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("key", "type", "sensitive", "updated"),
-        (
-            (
-                e["key"],
-                e.get("type"),
-                "yes" if e.get("sensitive") else "no",
-                when(e.get("updated_at")),
-            )
-            for e in items
-        ),
+    return _emit(
+        args,
+        items,
+        [
+            ("key", lambda e: e["key"], False),
+            ("type", lambda e: e.get("type"), False),
+            ("sensitive", lambda e: "yes" if e.get("sensitive") else "no", False),
+            ("updated", lambda e: when(e.get("updated_at")), True),
+        ],
+        title=f"Vault keys in {args.namespace}",
+        kind="key",
     )
-    return 0
 
 
 def cmd_notification_list(args: argparse.Namespace) -> int:
     items = _client(args).get("/notifications", limit=args.limit)["items"]
     if args.unread:
         items = [n for n in items if not n.get("read")]
-    if args.output == "json":
-        emit_json(items)
-        return 0
-    table(
-        ("when", "level", "title", "message"),
-        ((when(n.get("created_at")), n["level"], n["title"], n.get("message")) for n in items),
+    return _emit(
+        args,
+        items,
+        [
+            ("when", lambda n: when(n.get("created_at")), False),
+            ("level", lambda n: n["level"], False),
+            ("title", lambda n: n["title"], False),
+            ("message", lambda n: n.get("message"), True),
+        ],
+        title="Notifications",
+        kind="notification",
+        name=lambda n: n.get("id"),
     )
-    return 0
 
 
 # ----------------------------------------------------------------------
@@ -665,8 +878,32 @@ def cmd_notification_list(args: argparse.Namespace) -> int:
 # ----------------------------------------------------------------------
 
 
-def _output(parser: argparse.ArgumentParser, choices=("table", "json"), default="table") -> None:
-    parser.add_argument("-o", "--output", choices=choices, default=default, help="Output format.")
+def _output(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "-o",
+        "--output",
+        choices=OUTPUT_MODES,
+        help=f"Output mode (default: ${OUTPUT_ENV}, then `ent config set output`, then detailed).",
+    )
+
+
+def _resource(commands: Any, name: str) -> Any:
+    """A resource's parser and its verbs, named as in the contract."""
+
+    item = resource(name)
+    assert item is not None, name
+    parser = commands.add_parser(item.name, aliases=list(item.aliases), help=item.help)
+    return parser.add_subparsers(dest=f"{item.name}_command", metavar="ACTION")
+
+
+def _verb(actions: Any, resource_name: str, name: str) -> argparse.ArgumentParser:
+    item = resource(resource_name)
+    verb = item.verb(name) if item else None
+    assert verb is not None and verb.remote, f"{resource_name} {name}"
+    parser: argparse.ArgumentParser = actions.add_parser(
+        verb.name, aliases=list(verb.aliases), help=verb.help
+    )
+    return parser
 
 
 def _login_options(parser: argparse.ArgumentParser) -> None:
@@ -686,12 +923,30 @@ def _login_options(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(func=cmd_login)
 
 
+def _run_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--node", default="local", help="Node to run on (default local).")
+    parser.add_argument(
+        "--var",
+        "-a",
+        "--arguments",
+        dest="var",
+        action="append",
+        metavar="KEY=VALUE",
+        help="Input variable.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ent",
         description="Entropy command line for remote servers. Start with: ent login <server-url>",
     )
     parser.add_argument("--context", help="Use this saved server instead of the current one.")
+    parser.add_argument(
+        "-p",
+        "--project",
+        help=f"Work in this project for one command (also ${PROJECT_ENV}).",
+    )
     parser.add_argument("--version", action="store_true", help="Show client and server versions.")
     commands = parser.add_subparsers(dest="command", metavar="COMMAND")
 
@@ -703,7 +958,9 @@ def build_parser() -> argparse.ArgumentParser:
     whoami.add_argument("-v", "--verbose", action="store_true", help="Also list permissions.")
     _output(whoami)
     whoami.set_defaults(func=cmd_whoami)
-    commands.add_parser("status", help="Server, user and session.").set_defaults(func=cmd_status)
+    commands.add_parser("status", help="Server, user, project and session.").set_defaults(
+        func=cmd_status
+    )
     commands.add_parser("version", help="Client and server versions.").set_defaults(
         func=cmd_version
     )
@@ -725,30 +982,50 @@ def build_parser() -> argparse.ArgumentParser:
     context.add_argument("name", nargs="?")
     context.set_defaults(func=cmd_context)
 
+    # Project and preferences
+    actions = _resource(commands, "project")
+    for name in ("list", "current", "set", "remove"):
+        item = _verb(actions, "project", name)
+        if name == "set":
+            item.add_argument("key", help="Project key.")
+        else:
+            item.set_defaults(key=None)
+        if name in ("list", "current"):
+            _output(item)
+        item.set_defaults(func=cmd_project, action=name)
+
+    actions = _resource(commands, "config")
+    for name in ("view", "set", "unset"):
+        item = _verb(actions, "config", name)
+        item.add_argument("key", nargs="?" if name == "view" else None, help="Setting: output.")
+        if name == "set":
+            item.add_argument("value", help=f"One of: {', '.join(OUTPUT_MODES)}.")
+        else:
+            item.set_defaults(value=None)
+        item.set_defaults(func=cmd_config, action=name)
+
     # Workflows
-    workflow = commands.add_parser("workflow", aliases=["workflows", "wf"], help="Workflows.")
-    wf = workflow.add_subparsers(dest="workflow_command", metavar="ACTION")
-    item = wf.add_parser("list", aliases=["ls"], help="List workflows.")
+    wf = _resource(commands, "workflow")
+    item = _verb(wf, "workflow", "list")
     _output(item)
     item.set_defaults(func=cmd_workflow_list)
-    item = wf.add_parser("get", help="Print a workflow definition.")
+    item = _verb(wf, "workflow", "get")
     item.add_argument("name")
-    _output(item, ("yaml", "json"), "yaml")
+    _output(item)
     item.set_defaults(func=cmd_workflow_get)
-    item = wf.add_parser("validate", help="Check a definition file without saving it.")
-    item.add_argument("-f", "--file", required=True)
+    item = _verb(wf, "workflow", "validate")
+    item.add_argument("-f", "--file", "--from-file", dest="file", required=True)
     item.set_defaults(func=cmd_workflow_validate)
-    item = wf.add_parser("apply", help="Create or update a workflow from a file.")
-    item.add_argument("-f", "--file", required=True)
+    item = _verb(wf, "workflow", "apply")
+    item.add_argument("-f", "--file", "--from-file", dest="file", required=True)
     item.set_defaults(func=cmd_workflow_apply)
-    item = wf.add_parser("delete", aliases=["rm"], help="Delete a workflow.")
+    item = _verb(wf, "workflow", "delete")
     item.add_argument("name")
     item.add_argument("-y", "--yes", action="store_true")
     item.set_defaults(func=cmd_workflow_delete)
-    item = wf.add_parser("run", aliases=["start"], help="Run a workflow.")
+    item = _verb(wf, "workflow", "run")
     item.add_argument("name")
-    item.add_argument("--node", default="local", help="Node to run on (default local).")
-    item.add_argument("--var", action="append", metavar="KEY=VALUE", help="Input variable.")
+    _run_options(item)
     item.add_argument("--tag", action="append", help="Only steps with this tag (repeatable).")
     item.add_argument("--step", action="append", help="Only these steps (repeatable).")
     item.add_argument(
@@ -756,20 +1033,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     item.add_argument("-F", "--follow", action="store_true", help="Stream output until it ends.")
     item.set_defaults(func=cmd_workflow_run)
-    item = wf.add_parser("history", help="Kept earlier versions.")
+    item = _verb(wf, "workflow", "history")
     item.add_argument("name")
     _output(item)
     item.set_defaults(func=cmd_workflow_history)
-    item = wf.add_parser("restore", help="Restore a kept version.")
+    item = _verb(wf, "workflow", "restore")
     item.add_argument("name")
     item.add_argument("id", type=int)
     item.add_argument("-y", "--yes", action="store_true")
     item.set_defaults(func=cmd_workflow_restore)
 
     # Jobs
-    job = commands.add_parser("job", aliases=["jobs", "run", "runs"], help="Runs (jobs).")
-    jb = job.add_subparsers(dest="job_command", metavar="ACTION")
-    item = jb.add_parser("list", aliases=["ls"], help="List runs.")
+    jb = _resource(commands, "job")
+    item = _verb(jb, "job", "list")
     item.add_argument(
         "--state", choices=("active", "completed", "failed", "cancelled", "all"), default="all"
     )
@@ -777,76 +1053,58 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--limit", type=int, default=20)
     _output(item)
     item.set_defaults(func=cmd_job_list)
-    item = jb.add_parser("get", aliases=["show"], help="A run and its steps.")
+    item = _verb(jb, "job", "get")
     item.add_argument("id", type=int)
     _output(item)
     item.set_defaults(func=cmd_job_get)
-    item = jb.add_parser("logs", aliases=["log"], help="Console output (or --events).")
+    item = _verb(jb, "job", "logs")
     item.add_argument("id", type=int)
     item.add_argument("-f", "--follow", action="store_true", help="Keep printing until it ends.")
     item.add_argument(
         "--events", action="store_true", help="Step events instead of console output."
     )
     item.set_defaults(func=cmd_job_logs)
-    item = jb.add_parser("stop", help="Stop a run.")
+    item = _verb(jb, "job", "stop")
     item.add_argument("id", type=int)
     item.set_defaults(func=cmd_job_stop)
-    item = jb.add_parser("wait", help="Wait for a run; exit 0 if it completed.")
+    item = _verb(jb, "job", "wait")
     item.add_argument("id", type=int)
     item.set_defaults(func=cmd_job_wait)
 
     # Plugins, nodes, schedules
-    plugin = commands.add_parser("plugin", aliases=["plugins", "pl"], help="Plugins.")
-    pl = plugin.add_subparsers(dest="plugin_command", metavar="ACTION")
-    item = pl.add_parser("list", aliases=["ls"], help="List plugins.")
+    pl = _resource(commands, "plugin")
+    item = _verb(pl, "plugin", "list")
     _output(item)
     item.set_defaults(func=cmd_plugin_list)
-    item = pl.add_parser("run", help="Run a plugin once.")
+    item = _verb(pl, "plugin", "run")
     item.add_argument("name")
     item.add_argument("--node", default="local")
     item.add_argument("--arg", action="append", metavar="KEY=VALUE")
     item.add_argument("-F", "--follow", action="store_true")
     item.set_defaults(func=cmd_plugin_run)
 
-    node = commands.add_parser("node", aliases=["nodes"], help="Execution nodes.")
-    nd = node.add_subparsers(dest="node_command", metavar="ACTION")
-    item = nd.add_parser("list", aliases=["ls"], help="List nodes.")
-    _output(item)
-    item.set_defaults(func=cmd_node_list)
-
-    schedule = commands.add_parser("schedule", aliases=["schedules"], help="Schedules.")
-    sc = schedule.add_subparsers(dest="schedule_command", metavar="ACTION")
-    item = sc.add_parser("list", aliases=["ls"], help="List schedules.")
-    _output(item)
-    item.set_defaults(func=cmd_schedule_list)
-
-    # Administration and the vault (read only here; manage them in the web UI)
-    for noun, aliases, handler, label in (
-        ("user", ["users"], cmd_user_list, "Users."),
-        ("group", ["groups"], cmd_group_list, "Groups."),
-        ("role", ["roles"], cmd_role_list, "Roles."),
+    # Read only here; manage them in the web UI (or the ent on the server).
+    for noun, handler in (
+        ("node", cmd_node_list),
+        ("schedule", cmd_schedule_list),
+        ("user", cmd_user_list),
+        ("group", cmd_group_list),
+        ("role", cmd_role_list),
     ):
-        group = commands.add_parser(noun, aliases=aliases, help=label)
-        actions = group.add_subparsers(dest=f"{noun}_command", metavar="ACTION")
-        item = actions.add_parser("list", aliases=["ls"], help=f"List {noun}s.")
+        item = _verb(_resource(commands, noun), noun, "list")
         _output(item)
         item.set_defaults(func=handler)
 
-    vault = commands.add_parser("vault", help="Vault namespaces and keys (never values).")
-    va = vault.add_subparsers(dest="vault_command", metavar="ACTION")
-    item = va.add_parser("namespaces", aliases=["ns"], help="Namespaces you can see.")
+    va = _resource(commands, "vault")
+    item = _verb(va, "vault", "namespaces")
     _output(item)
     item.set_defaults(func=cmd_vault_namespaces)
-    item = va.add_parser("list", aliases=["ls"], help="Keys in a namespace.")
+    item = _verb(va, "vault", "list")
     item.add_argument("namespace")
     _output(item)
     item.set_defaults(func=cmd_vault_list)
 
-    notification = commands.add_parser(
-        "notification", aliases=["notifications"], help="Your notifications."
-    )
-    nt = notification.add_subparsers(dest="notification_command", metavar="ACTION")
-    item = nt.add_parser("list", aliases=["ls"], help="Recent notifications.")
+    item = _verb(_resource(commands, "notification"), "notification", "list")
     item.add_argument("--unread", action="store_true", help="Only unread ones.")
     item.add_argument("--limit", type=int, default=20)
     _output(item)
@@ -870,7 +1128,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         return int(handler(args) or 0)
-    except (CommandError, ConfigError, ApiError) as error:
+    except (CommandError, ConfigError, ApiError, OutputModeError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

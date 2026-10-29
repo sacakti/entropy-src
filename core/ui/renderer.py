@@ -26,6 +26,19 @@ class Renderer(ABC):
         Display text.
         """
 
+    def text(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display text exactly as given: no markup, highlighting or wrapping
+        (machine-readable and column output).
+        """
+
+        self.print(
+            message,
+        )
+
     @abstractmethod
     def rule(
         self,

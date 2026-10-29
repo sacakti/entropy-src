@@ -8,7 +8,7 @@ from pathlib import Path
 
 PACKAGE = "ent_cli"
 SOURCE = Path(__file__).resolve().parent
-MODULES = ("__init__.py", "api.py", "commands.py", "config.py", "output.py")
+MODULES = ("__init__.py", "api.py", "commands.py", "config.py", "contract.py", "output.py")
 
 ROOT_MAIN = """import sys
 

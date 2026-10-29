@@ -2,40 +2,47 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Eraser, LoaderCircle, SquareTerminal, X } from 'lucide-react'
 
-import { getShellInfo, runShellCommand } from '../../api/shell.api'
+import { getShellInfo, runShellCommand, type ShellResource, type ShellResult } from '../../api/shell.api'
+import { currentProject, PROJECT_CHANGED_EVENT, setCurrentProject } from '../../services/project'
 import { openRun } from '../runs/navigation'
 import '../../styles/web-shell.css'
 
 const HISTORY_KEY = 'entropy.shell.history'
 const HISTORY_LIMIT = 100
+// The shell's `config set output` preference (the ent client keeps it in its config file).
+const OUTPUT_KEY = 'entropy.shell.output'
 
-// Actions offered after a command's first word.
-const ACTIONS: Record<string, string[]> = {
-    workflow: ['list', 'get', 'run', 'history', 'restore', 'delete'],
-    job: ['list', 'get', 'logs', 'stop'],
-    plugin: ['list', 'run'],
-    node: ['list'],
-    schedule: ['list'],
-    user: ['list'],
-    group: ['list'],
-    role: ['list'],
-    vault: ['namespaces', 'list'],
-    notification: ['list'],
+function loadOutput(): string | null {
+    try {
+        return window.localStorage.getItem(OUTPUT_KEY)
+    } catch {
+        return null
+    }
 }
-const ALIASES: Record<string, string> = {
-    wf: 'workflow',
-    workflows: 'workflow',
-    jobs: 'job',
-    run: 'job',
-    runs: 'job',
-    plugins: 'plugin',
-    pl: 'plugin',
-    nodes: 'node',
-    schedules: 'schedule',
-    users: 'user',
-    groups: 'group',
-    roles: 'role',
-    notifications: 'notification',
+
+function saveOutput(mode: string | null): void {
+    try {
+        if (mode) window.localStorage.setItem(OUTPUT_KEY, mode)
+        else window.localStorage.removeItem(OUTPUT_KEY)
+    } catch {
+        // Storage may be refused (private windows); the choice lasts this visit.
+    }
+}
+
+/** Apply what a command changed: the page's project and the output preference. */
+function applyEffects(result: ShellResult, outputRef: { current: string | null }): void {
+    const effects = result.effects
+    if (!effects) return
+    if ('project' in effects) setCurrentProject(effects.project ?? null)
+    if ('output' in effects) {
+        outputRef.current = effects.output ?? null
+        saveOutput(outputRef.current)
+    }
+}
+
+/** The resource a first word names (its name or an alias), from the command contract. */
+function findResource(resources: Record<string, ShellResource>, word: string): ShellResource | undefined {
+    return Object.entries(resources).find(([name, item]) => name === word || item.aliases.includes(word))?.[1]
 }
 
 interface Entry {
@@ -86,7 +93,10 @@ export default function ShellPanel({ username, onClose }: { username: string; on
     const [input, setInput] = useState('')
     const [busy, setBusy] = useState(false)
     const [vocabulary, setVocabulary] = useState<string[]>([])
+    const [resources, setResources] = useState<Record<string, ShellResource>>({})
+    const [project, setProject] = useState<string | null>(currentProject())
     const [hint, setHint] = useState<string | null>(null)
+    const outputModeRef = useRef<string | null>(loadOutput())
     const historyRef = useRef<string[]>(loadHistory())
     const cursorRef = useRef<number | null>(null)
     const nextId = useRef(1)
@@ -95,9 +105,19 @@ export default function ShellPanel({ username, onClose }: { username: string; on
 
     useEffect(() => {
         getShellInfo()
-            .then((info) => setVocabulary(info.vocabulary))
+            .then((info) => {
+                setVocabulary(info.vocabulary)
+                setResources(info.resources ?? {})
+            })
             .catch(() => setVocabulary([]))
         inputRef.current?.focus()
+    }, [])
+
+    // The prompt shows the project commands work in, like oc shows its project.
+    useEffect(() => {
+        const update = () => setProject(currentProject())
+        window.addEventListener(PROJECT_CHANGED_EVENT, update)
+        return () => window.removeEventListener(PROJECT_CHANGED_EVENT, update)
     }, [])
 
     useEffect(() => {
@@ -126,11 +146,17 @@ export default function ShellPanel({ username, onClose }: { username: string; on
             return
         }
 
+        if (command === 'exit' || command === 'quit') {
+            onClose()
+            return
+        }
+
         const id = nextId.current++
         setEntries((current) => [...current, { id, command, stdout: '', stderr: '', exitCode: null }])
         setBusy(true)
         try {
-            const result = await runShellCommand(command)
+            const result = await runShellCommand(command, outputModeRef.current)
+            applyEffects(result, outputModeRef)
             setEntries((current) =>
                 current.map((entry) =>
                     entry.id === id
@@ -168,8 +194,8 @@ export default function ShellPanel({ username, onClose }: { username: string; on
             return
         }
         if (words.length === 2) {
-            const group = ALIASES[words[0]] ?? words[0]
-            const matches = (ACTIONS[group] ?? []).filter((action) => action.startsWith(words[1]))
+            const verbs = Object.keys(findResource(resources, words[0])?.verbs ?? {})
+            const matches = verbs.filter((action) => action.startsWith(words[1]))
             if (matches.length === 1) setInput(`${words[0]} ${matches[0]} `)
             else if (matches.length > 1) setHint(matches.join('  '))
         }
@@ -211,7 +237,7 @@ export default function ShellPanel({ username, onClose }: { username: string; on
         }
     }
 
-    const prompt = `${username}@entropy $`
+    const prompt = project ? `${username}@entropy:${project} $` : `${username}@entropy $`
 
     return createPortal(
         <section className="entropy-shell" role="dialog" aria-label="Shell">
@@ -235,7 +261,7 @@ export default function ShellPanel({ username, onClose }: { username: string; on
                         type="button"
                         className="entropy-shell-icon"
                         onClick={onClose}
-                        title="Close (Esc)"
+                        title="Close (Esc or exit)"
                         aria-label="Close shell"
                     >
                         <X size={16} />
@@ -247,7 +273,8 @@ export default function ShellPanel({ username, onClose }: { username: string; on
                 {entries.length === 0 && (
                     <p className="entropy-shell-welcome">
                         Type <code>help</code> for the commands, e.g. <code>workflow list</code>,{' '}
-                        <code>job list --state failed</code>, <code>users list</code>.
+                        <code>project set &lt;key&gt;</code>, <code>job list -o table</code>. The same commands
+                        work in <code>ent</code> on your computer or the server.
                     </p>
                 )}
                 {entries.map((entry) => {

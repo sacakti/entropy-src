@@ -10,6 +10,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from . import client_version
+from .contract import PROJECT_HEADER
 
 
 class ApiError(Exception):
@@ -35,9 +36,12 @@ class Client:
         verify_tls: bool = True,
         ca_file: Optional[str] = None,
         timeout: float = 60.0,
+        project: Optional[str] = None,
     ) -> None:
         self.server = server.rstrip("/")
         self.token = token
+        # Sent with every request: the server works in this project.
+        self.project = project
         self.timeout = timeout
         if self.server.startswith("https://"):
             if not verify_tls:
@@ -48,12 +52,13 @@ class Client:
             self.context = None
 
     @classmethod
-    def for_context(cls, context: Dict[str, Any]) -> Client:
+    def for_context(cls, context: Dict[str, Any], project: Optional[str] = None) -> Client:
         return cls(
             context["server"],
             context.get("token"),
             verify_tls=context.get("verify_tls", True),
             ca_file=context.get("ca_file"),
+            project=project or context.get("project"),
         )
 
     def request(
@@ -77,6 +82,8 @@ class Client:
             headers["Content-Type"] = "application/json"
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
+        if self.project:
+            headers[PROJECT_HEADER] = self.project
 
         request = Request(url, data=data, headers=headers, method=method)
         try:

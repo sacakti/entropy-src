@@ -43,6 +43,16 @@ class RichRenderer(Renderer):
             message,
         )
 
+    def text(
+        self,
+        message: str,
+    ) -> None:
+
+        self._console.out(
+            message,
+            highlight=False,
+        )
+
     def rule(
         self,
         title: str = "",

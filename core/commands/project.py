@@ -5,46 +5,60 @@ from __future__ import annotations
 from argparse import ArgumentParser, Namespace
 
 from core.commands.base import BaseCommand, CommandMetadata
+from core.commands.output_mode import add_output_argument, emit
 from core.commands.project_context import ProjectContext
+from lib.remote_cli.contract import canonical_verb, resource
 
 
 class ProjectCommand(BaseCommand):
-    metadata = CommandMetadata(name="project", description="Select the current project.")
+    metadata = CommandMetadata(
+        name="project",
+        description="Select the current project.",
+        aliases=("projects", "proj"),
+    )
 
     def configure(self, parser: ArgumentParser) -> None:
+        item = resource("project")
+        assert item is not None
         actions = parser.add_subparsers(dest="action", required=True)
-        actions.add_parser("current", help="Show the current project.")
-        actions.add_parser("list", help="List projects available to you.")
-        set_parser = actions.add_parser("set", help="Set the current project.")
-        set_parser.add_argument("project", help="Project key.")
-        actions.add_parser("remove", help="Clear the selection and use the default project.")
+        verbs = {
+            verb.name: actions.add_parser(verb.name, aliases=list(verb.aliases), help=verb.help)
+            for verb in item.verbs
+        }
+        verbs["set"].add_argument("project", help="Project key.")
+        add_output_argument(verbs["list"])
 
     def execute(self, args: Namespace) -> None:
         session = self._require_authentication()
         projects = ProjectContext(self.context)
-        if args.action == "set":
+        action = canonical_verb("project", args.action)
+        if action == "set":
             project = projects.set(session, args.project)
-            self.context.ui.success(f"Current project set to '{project['key']}' ({project['name']}).")
-        elif args.action == "remove":
+            self.context.ui.success(
+                f"Current project set to '{project['key']}' ({project['name']})."
+            )
+        elif action == "remove":
             projects.remove(session)
             current = projects.current(session)
             self.context.ui.success(f"Project selection cleared. Using '{current['key']}'.")
-        elif args.action == "current":
+        elif action == "current":
             project = projects.current(session)
             self.context.ui.info(f"{project['key']} — {project['name']}")
         else:
             accessible = projects.accessible_ids(session)
             available = projects.projects.list(accessible)
             current_id = projects.current(session)["id"]
-            self.context.ui.table(
+            emit(
+                self.context,
+                args,
                 title="Available Projects",
-                columns=["Key", "Name", "Current"],
-                rows=[
-                    [
-                        project["key"],
-                        project["name"],
-                        "Yes" if project["id"] == current_id else "",
-                    ]
-                    for project in available
+                columns=[
+                    ("current", lambda p: "*" if p["id"] == current_id else "", False),
+                    ("key", lambda p: p["key"], False),
+                    ("name", lambda p: p["name"], False),
+                    ("description", lambda p: p.get("description"), True),
                 ],
+                items=available,
+                kind="project",
+                name=lambda p: p["key"],
             )

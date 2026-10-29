@@ -15,11 +15,17 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
+from core.commands.output_mode import (
+    add_output_argument,
+    emit,
+    output_mode,
+)
 from core.commands.project_context import ProjectContext
 from lib.authorization.exceptions import AuthorizationRequiredError
-from lib.authorization.projects import DEFAULT_PROJECT, Projects
-from lib.runs.store import RunStore
 from lib.models.workflow import WorkflowExecutionOptions
+from lib.remote_cli.contract import canonical_verb
+from lib.remote_cli.output import when
+from lib.runs.store import RunStore
 from lib.workflow.assignments import WorkflowAssignments
 from lib.workflow.exceptions import (
     WorkflowArgumentError,
@@ -109,8 +115,12 @@ class WorkflowCommand(
         #
 
         remove = subparsers.add_parser(
-            "remove",
-            help="Remove a registered workflow.",
+            "delete",
+            aliases=[
+                "remove",
+                "rm",
+            ],
+            help="Delete a registered workflow.",
         )
 
         remove.add_argument(
@@ -118,13 +128,51 @@ class WorkflowCommand(
             help="Registered workflow name.",
         )
 
+        remove.add_argument(
+            "-y",
+            "--yes",
+            action="store_true",
+            help="Accepted for the ent client's syntax; nothing is asked here.",
+        )
+
+        #
+        # apply / validate (the ent client's file verbs)
+        #
+
+        for verb, text in (
+            ("apply", "Create or update a workflow from a file."),
+            ("validate", "Check a definition file without saving it."),
+        ):
+
+            item = subparsers.add_parser(
+                verb,
+                help=text,
+            )
+
+            item.add_argument(
+                "-f",
+                "--file",
+                "--from-file",
+                dest="file",
+                type=Path,
+                required=True,
+                help="Workflow definition file (.json, .yaml, .yml).",
+            )
+
         #
         # list
         #
 
-        subparsers.add_parser(
+        listing = subparsers.add_parser(
             "list",
+            aliases=[
+                "ls",
+            ],
             help="List registered workflows.",
+        )
+
+        add_output_argument(
+            listing,
         )
 
         #
@@ -132,8 +180,12 @@ class WorkflowCommand(
         #
 
         show = subparsers.add_parser(
-            "show",
-            help="Show a registered workflow.",
+            "get",
+            aliases=[
+                "show",
+                "describe",
+            ],
+            help="Show a registered workflow (-o yaml|json for its definition).",
         )
 
         show.add_argument(
@@ -153,6 +205,10 @@ class WorkflowCommand(
             "--yaml",
             action="store_true",
             help="Display the workflow as YAML.",
+        )
+
+        add_output_argument(
+            output,
         )
 
         #
@@ -245,6 +301,8 @@ class WorkflowCommand(
         run.add_argument(
             "-a",
             "--arguments",
+            "--var",
+            dest="arguments",
             action="append",
             default=[],
             metavar="KEY=VALUE",
@@ -337,6 +395,8 @@ class WorkflowCommand(
         start.add_argument(
             "-a",
             "--arguments",
+            "--var",
+            dest="arguments",
             action="append",
             default=[],
             metavar="KEY=VALUE",
@@ -447,9 +507,11 @@ class WorkflowCommand(
 
         {
             "add": self._add,
-            "remove": self._remove,
+            "apply": self._apply,
+            "validate": self._validate,
+            "delete": self._remove,
             "list": self._list,
-            "show": self._show,
+            "get": self._show,
             "edit": self._edit,
             "replace": self._replace,
             "run": self._run,
@@ -457,7 +519,7 @@ class WorkflowCommand(
             "jobs": self._jobs,
             "follow": self._follow,
             "stop": self._stop,
-        }[args.action](
+        }[canonical_verb("workflow", args.action)](
             args,
         )
 
@@ -518,10 +580,10 @@ class WorkflowCommand(
             (f"Previewing {source}." if options.dry_run else f"Executing {source}."),
         )
 
-        self._ensure_workflow_project(workflow_name, project["id"])
         job_id = self._workflows.run(
             name=workflow_name,
             options=options,
+            project_id=project["id"],
         )
         self._record_cli_run(job_id, workflow_name, project["id"])
 
@@ -586,9 +648,9 @@ class WorkflowCommand(
             job = self._workflows.start(
                 name=workflow_name,
                 options=options,
+                project_id=project["id"],
             )
             target = workflow_name
-            self._ensure_workflow_project(workflow_name, project["id"])
 
         self._record_cli_run(job.require_id(), target, project["id"])
 
@@ -760,15 +822,69 @@ class WorkflowCommand(
 
         workflow = self._workflows.add(
             args.file,
-        )
-
-        assert self._context.database_manager is not None
-        Projects(self._context.database_manager.connection).set_workflow_project(
-            workflow.name, project["id"]
+            project_id=project["id"],
         )
 
         self._context.ui.success(
             f"Workflow '{workflow.name}' added successfully.",
+        )
+
+    def _apply(
+        self,
+        args: Namespace,
+    ) -> None:
+        """
+        Create or update a workflow from a file (the ent client's apply).
+        """
+
+        session = self._session.require()
+        project = ProjectContext(self._context).current(session)
+        self._require("workflows.write", project["id"])
+
+        name = self._workflows.load(args.file).name
+
+        if self._workflows.exists(name, project_id=project["id"]):
+
+            workflow = self._workflows.replace(
+                name,
+                args.file,
+                project_id=project["id"],
+            )
+
+            self._context.ui.success(
+                f"Workflow '{workflow.name}' updated (version {workflow.version}).",
+            )
+
+            return
+
+        workflow = self._workflows.add(
+            args.file,
+            project_id=project["id"],
+        )
+
+        self._context.ui.success(
+            f"Workflow '{workflow.name}' created (version {workflow.version}).",
+        )
+
+    def _validate(
+        self,
+        args: Namespace,
+    ) -> None:
+        """
+        Check a workflow definition file without saving it.
+        """
+
+        self._project_id(
+            "workflows.read",
+        )
+
+        workflow = self._workflows.load(
+            args.file,
+        )
+
+        self._context.ui.success(
+            f"Valid: {workflow.name} {workflow.version} with {workflow.step_count} "
+            f"step{'' if workflow.step_count == 1 else 's'}.",
         )
 
     def _remove(
@@ -779,12 +895,13 @@ class WorkflowCommand(
         Remove a registered workflow.
         """
 
-        self._require(
+        project_id = self._project_id(
             "workflows.delete",
         )
 
         self._workflows.remove(
             args.name,
+            project_id=project_id,
         )
 
         self._context.ui.success(
@@ -799,38 +916,36 @@ class WorkflowCommand(
         List registered workflows.
         """
 
-        self._require(
+        project_id = self._project_id(
             "workflows.read",
         )
 
-        workflows = self._workflows.list()
+        workflows = self._workflows.list(
+            project_id=project_id,
+        )
 
-        if not workflows:
-
-            self._context.ui.info(
-                "No workflows registered.",
-            )
-
-            return
-
-        self._context.ui.table(
+        emit(
+            self._context,
+            args,
             title="Registered Workflows",
             columns=[
-                "Name",
-                "Version",
-                "Description",
-                "Created",
-                "Updated",
+                ("name", lambda w: w.name, False),
+                ("version", lambda w: w.version, False),
+                ("description", lambda w: w.description or "", False),
+                ("created", lambda w: when(w.created_at.isoformat()), True),
+                ("updated", lambda w: when(w.updated_at.isoformat()), False),
             ],
-            rows=[
-                [
-                    workflow.name,
-                    workflow.version,
-                    workflow.description or "",
-                    workflow.created_at.isoformat(),
-                    workflow.updated_at.isoformat(),
-                ]
-                for workflow in workflows
+            items=workflows,
+            kind="workflow",
+            data=[
+                {
+                    "name": w.name,
+                    "version": w.version,
+                    "description": w.description,
+                    "created_at": w.created_at.isoformat(),
+                    "updated_at": w.updated_at.isoformat(),
+                }
+                for w in workflows
             ],
         )
 
@@ -842,32 +957,42 @@ class WorkflowCommand(
         Show a registered workflow.
         """
 
-        self._require(
+        project_id = self._project_id(
             "workflows.read",
         )
 
         workflow = self._workflows.get(
             args.name,
+            project_id=project_id,
         )
 
-        if args.json:
+        mode = "json" if args.json else "yaml" if args.yaml else output_mode(self._context, args)
 
-            self._context.ui.print(
+        if mode in ("json", "yaml"):
+
+            self._context.ui.text(
                 self._workflows.serialize(
                     workflow,
-                    "json",
-                ),
+                    mode,
+                ).rstrip("\n"),
             )
 
             return
 
-        if args.yaml:
+        if mode != "detailed":
 
-            self._context.ui.print(
-                self._workflows.serialize(
-                    workflow,
-                    "yaml",
-                ),
+            emit(
+                self._context,
+                args,
+                title="Workflow",
+                columns=[
+                    ("name", lambda w: w.name, False),
+                    ("version", lambda w: w.version, False),
+                    ("steps", lambda w: w.step_count, False),
+                    ("description", lambda w: w.description or "", True),
+                ],
+                items=[workflow],
+                kind="workflow",
             )
 
             return
@@ -943,13 +1068,14 @@ class WorkflowCommand(
         Replace a registered workflow from a file.
         """
 
-        self._require(
+        project_id = self._project_id(
             "workflows.write",
         )
 
         workflow = self._workflows.replace(
             args.name,
             args.from_file,
+            project_id=project_id,
         )
 
         self._context.ui.success(
@@ -964,12 +1090,13 @@ class WorkflowCommand(
         Edit a registered workflow.
         """
 
-        self._require(
+        project_id = self._project_id(
             "workflows.write",
         )
 
         result = self._workflows.edit(
             args.name,
+            project_id=project_id,
         )
 
         if result.changed:
@@ -1023,11 +1150,7 @@ class WorkflowCommand(
             tags=tags,
             from_step=args.from_step,
             to_step=args.to_step,
-            skip_steps=tuple(
-                step.strip()
-                for step in args.skip_steps
-                if step.strip()
-            ),
+            skip_steps=tuple(step.strip() for step in args.skip_steps if step.strip()),
             dry_run=args.dry_run,
             variables=variables,
             step_overrides=step_overrides,
@@ -1051,11 +1174,7 @@ class WorkflowCommand(
             tags=tags,
             from_step=args.from_step,
             to_step=args.to_step,
-            skip_steps=tuple(
-                step.strip()
-                for step in args.skip_steps
-                if step.strip()
-            ),
+            skip_steps=tuple(step.strip() for step in args.skip_steps if step.strip()),
             dry_run=False,
             variables=variables,
             step_overrides=step_overrides,
@@ -1127,14 +1246,16 @@ class WorkflowCommand(
         elif not self._authorization.has_permission(session.user_id, permission, project_id):
             raise AuthorizationRequiredError(permission)
 
-    def _ensure_workflow_project(self, name: str, selected_project_id: int) -> None:
-        """Move legacy CLI registrations from Default to the selected project."""
-        assert self._context.database_manager is not None
-        projects = Projects(self._context.database_manager.connection)
-        owner_id = projects.workflow_project(name)
-        default = projects.get(DEFAULT_PROJECT)
-        if default is not None and owner_id == default["id"] and owner_id != selected_project_id:
-            projects.set_workflow_project(name, selected_project_id)
+    def _project_id(self, permission: str) -> int:
+        """
+        The selected project, after checking `permission` in it. Registered
+        workflows are project scoped, so names are looked up there.
+        """
+
+        session = self._session.require()
+        project = ProjectContext(self._context).current(session)
+        self._require(permission, project["id"])
+        return int(project["id"])
 
     def _record_cli_run(self, job_id: int, target: str, project_id: int) -> None:
         assert self._context.database_manager is not None

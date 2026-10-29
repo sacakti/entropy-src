@@ -103,6 +103,17 @@ class Config:
         if make_current:
             self.data["current"] = name
 
+    # -- preferences (`ent config set KEY VALUE`) ----------------------
+
+    @property
+    def preferences(self) -> Dict[str, Any]:
+        preferences: Dict[str, Any] = self.data.setdefault("preferences", {})
+        return preferences
+
+    def preference(self, key: str) -> Optional[str]:
+        value = self.preferences.get(key)
+        return str(value) if value else None
+
     def find_server(self, server: str) -> Optional[str]:
         for name, context in self.contexts.items():
             if context.get("server") == server:

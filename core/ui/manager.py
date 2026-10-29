@@ -42,6 +42,18 @@ class UIManager:
             **kwargs,
         )
 
+    def text(
+        self,
+        message: str,
+    ) -> None:
+        """
+        Display text exactly as given (no markup or wrapping).
+        """
+
+        self._renderer.text(
+            message,
+        )
+
     def rule(
         self,
         title: str = "",
