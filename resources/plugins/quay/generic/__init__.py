@@ -1,0 +1,1 @@
+"""Quay generic plugin package."""

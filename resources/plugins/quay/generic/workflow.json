@@ -1,0 +1,85 @@
+{
+    "name": "quay-clean",
+    "version": "1.0.0",
+    "description": "Example workflow for quay.generic: list the tags per service, then clean (dry run): keep 6 per service, purge PR tags, keep 12 releases.",
+    "variables": {},
+    "steps": [
+        {
+            "name": "QuayListTags",
+            "plugin": "quay.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "quay",
+                "clean"
+            ],
+            "arguments": {
+                "operation": "list",
+                "url": "https://quay.example.com",
+                "token": "${entv:quay/cleanup_token}",
+                "namespace": "payments",
+                "keep": 6,
+                "rules": [
+                    {
+                        "name": "pull requests",
+                        "tags": "pr-*",
+                        "keep": 0,
+                        "min_age_days": 3
+                    },
+                    {
+                        "name": "releases",
+                        "tags": "re:^v\\d+\\.\\d+\\.\\d+$",
+                        "keep": 12
+                    },
+                    {
+                        "name": "hotfixes",
+                        "tags": "hotfix-*"
+                    }
+                ],
+                "protect": [
+                    "latest",
+                    "stable"
+                ]
+            }
+        },
+        {
+            "name": "QuayCleanup",
+            "plugin": "quay.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "quay",
+                "clean"
+            ],
+            "arguments": {
+                "operation": "clean",
+                "url": "https://quay.example.com",
+                "token": "${entv:quay/cleanup_token}",
+                "namespace": "payments",
+                "keep": 6,
+                "rules": [
+                    {
+                        "name": "pull requests",
+                        "tags": "pr-*",
+                        "keep": 0,
+                        "min_age_days": 3
+                    },
+                    {
+                        "name": "releases",
+                        "tags": "re:^v\\d+\\.\\d+\\.\\d+$",
+                        "keep": 12
+                    },
+                    {
+                        "name": "hotfixes",
+                        "tags": "hotfix-*"
+                    }
+                ],
+                "protect": [
+                    "latest",
+                    "stable"
+                ],
+                "dry_run": true
+            }
+        }
+    ]
+}

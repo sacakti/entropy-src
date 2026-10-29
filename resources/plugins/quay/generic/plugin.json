@@ -1,0 +1,202 @@
+{
+    "name": "generic",
+    "namespace": "quay",
+    "version": "1.1.0",
+    "display_name": "Quay Tags",
+    "description": "Clean images from a Quay registry (keep the newest tags of each repository, 6 by default, or custom rules for selected tags), or list the tags per repository; writes an HTML report.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+    "dependencies": [],
+    "arguments": [
+        {
+            "name": "operation",
+            "type": "string",
+            "required": false,
+            "default": "clean",
+            "choices": [
+                "clean",
+                "list"
+            ],
+            "description": "clean: delete tags beyond the retention policy (see dry_run). list: list every tag per repository, with what the policy would do; never deletes."
+        },
+        {
+            "name": "url",
+            "type": "string",
+            "required": true,
+            "description": "Quay server URL.",
+            "example": "https://quay.example.com"
+        },
+        {
+            "name": "token",
+            "type": "string",
+            "required": true,
+            "secret": true,
+            "description": "OAuth application or robot account token with admin rights on the repositories.",
+            "example": "${entv:quay/cleanup_token}"
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "required": true,
+            "description": "Organization (or user) whose repositories are cleaned.",
+            "example": "payments"
+        },
+        {
+            "name": "repositories",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Repositories (services) to clean, as names or patterns (glob, or re:REGEX); all of the namespace's when empty.",
+            "example": [
+                "orders-api",
+                "billing-*"
+            ]
+        },
+        {
+            "name": "keep",
+            "type": "integer",
+            "required": false,
+            "default": 6,
+            "minimum": 1,
+            "description": "Newest tags kept per repository by the default rule."
+        },
+        {
+            "name": "rules",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Custom rules for selected tags, first match wins: {tags, keep, repositories, min_age_days, name}. Each rule keeps its own newest 'keep' tags (0 deletes them all); without 'keep' matching tags are never deleted.",
+            "example": [
+                {
+                    "name": "pull requests",
+                    "tags": "pr-*",
+                    "keep": 0
+                },
+                {
+                    "name": "releases",
+                    "tags": "re:^v\\d+\\.\\d+\\.\\d+$",
+                    "keep": 12
+                },
+                {
+                    "name": "hotfixes",
+                    "tags": "hotfix-*"
+                }
+            ]
+        },
+        {
+            "name": "protect",
+            "type": "list",
+            "required": false,
+            "default": [
+                "latest"
+            ],
+            "description": "Tags never deleted, as names or patterns."
+        },
+        {
+            "name": "min_age_days",
+            "type": "integer",
+            "required": false,
+            "default": 0,
+            "minimum": 0,
+            "description": "Tags younger than this many days are never deleted (a rule's own min_age_days overrides it)."
+        },
+        {
+            "name": "dry_run",
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Report what would be deleted without deleting; set false to delete."
+        },
+        {
+            "name": "report",
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Write an HTML report of every tag and its action; it is added to Artifacts (Generated)."
+        },
+        {
+            "name": "report_directory",
+            "type": "path",
+            "path": "directory",
+            "required": false,
+            "description": "Where reports are kept. Default: the plugin's data folder, reports/<namespace>.",
+            "example": "/opt/entropy/reports/quay"
+        },
+        {
+            "name": "insecure_skip_tls_verify",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Do not verify the Quay server's TLS certificate."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "operation",
+            "type": "string",
+            "description": "Operation that ran (clean or list)."
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "description": "Namespace that was cleaned."
+        },
+        {
+            "name": "repositories",
+            "type": "list",
+            "description": "Repositories that were examined."
+        },
+        {
+            "name": "dry_run",
+            "type": "boolean",
+            "description": "Whether this was a dry run."
+        },
+        {
+            "name": "tags",
+            "type": "dictionary",
+            "description": "Per repository, its tag names newest first."
+        },
+        {
+            "name": "tags_scanned",
+            "type": "integer",
+            "description": "Tags examined."
+        },
+        {
+            "name": "tags_kept",
+            "type": "integer",
+            "description": "Tags kept."
+        },
+        {
+            "name": "deleted",
+            "type": "list",
+            "description": "repository:tag deleted (or that would be, in a dry run)."
+        },
+        {
+            "name": "deleted_count",
+            "type": "integer",
+            "description": "Number of tags deleted (or that would be)."
+        },
+        {
+            "name": "errors",
+            "type": "list",
+            "description": "Tags that could not be deleted, with the reason."
+        },
+        {
+            "name": "plan",
+            "type": "dictionary",
+            "description": "Per repository, every tag with its action (keep/delete), reason and rule."
+        },
+        {
+            "name": "report",
+            "type": "string",
+            "description": "Path of the HTML report (empty when report is false)."
+        }
+    ],
+    "tags": [
+        "quay",
+        "registry",
+        "images",
+        "cleanup",
+        "report"
+    ]
+}
