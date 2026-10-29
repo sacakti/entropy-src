@@ -126,11 +126,9 @@ def save_draft(
     """Save a definition as it is, with its problems listed."""
 
     _, _, user = record
-    project_id = (
-        projects(request).workflow_project(payload.workflow)
-        if payload.workflow
-        else current_project(request, user)["id"]
-    )
+    # Workflow names are unique per project: a draft of `workflow` is of
+    # the current project's workflow of that name.
+    project_id = current_project(request, user)["id"]
     if payload.id is not None:
         project_id = _draft_for(request, user, payload.id, "workflows.write")["project_id"] or (
             project_id
@@ -142,7 +140,7 @@ def save_draft(
     if payload.workflow:
         # Only drafts of workflows that exist; a new workflow has none.
         try:
-            _manager(request).get(payload.workflow)
+            _manager(request).get(payload.workflow, project_id=project_id)
         except Exception:  # noqa: BLE001 - not found or unreadable
             raise HTTPException(
                 status_code=404, detail=f"Workflow '{payload.workflow}' not found."

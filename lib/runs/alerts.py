@@ -134,6 +134,14 @@ class RunAlerts:
                 "DELETE FROM run_alerts WHERE kind = ? AND target = ?", (kind, str(target))
             )
 
+    def workflow_rule(self, outcome: Dict[str, Any]) -> Dict[str, Any]:
+        """The alert of a run's workflow (names are unique per project)."""
+
+        from lib.authorization.projects import default_project_id, workflow_key
+
+        project_id = outcome.get("project_id") or default_project_id(self.connection)
+        return self.get("workflow", workflow_key(project_id, outcome["target"]))
+
     def recipients(self, outcome: Dict[str, Any]) -> List[str]:
         """Addresses to write to about a finished run."""
 
@@ -143,7 +151,7 @@ class RunAlerts:
         found: List[str] = []
         rules = []
         if outcome.get("kind") == "workflow":
-            rules.append(self.get("workflow", outcome["target"]))
+            rules.append(self.workflow_rule(outcome))
         if outcome.get("schedule_id"):
             rules.append(self.get("schedule", outcome["schedule_id"]))
         for rule in rules:
@@ -252,7 +260,7 @@ def send_alerts(context: Any, outcomes: List[Dict[str, Any]]) -> None:
         # Schedule content overrides workflow content for scheduled runs.
         rules = [alerts.get("schedule", outcome["schedule_id"])] if outcome.get("schedule_id") else []
         if outcome.get("kind") == "workflow":
-            rules.append(alerts.get("workflow", outcome["target"]))
+            rules.append(alerts.workflow_rule(outcome))
         rule = next((item for item in rules if item.get("subject_template") or item.get("body_template")), {})
         messages.append((to, compose(outcome, public_url, project["name"] if project else None, log,
                                      rule.get("subject_template", ""), rule.get("body_template", ""))))

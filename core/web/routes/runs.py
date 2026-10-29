@@ -121,7 +121,7 @@ def _planned_steps(request: Request, run: Dict[str, Any]) -> List[Dict[str, Any]
 
     manager = request.app.state.entropy_context.workflow_manager
     try:
-        workflow = manager.get(run["workflow"])
+        workflow = manager.get(run["workflow"], project_id=run.get("project_id"))
     except Exception:  # noqa: BLE001 - the workflow may have been removed
         return []
 
@@ -413,7 +413,8 @@ def run_workflow(
     """Validate and start a registered workflow as the current user."""
 
     _, _, current = record
-    project_id = projects(request).workflow_project(name)
+    # Workflow names are unique per project: this is the current project's.
+    project_id = current_project(request, current)["id"]
     _require_permission(request, current, "workflows.execute", project_id)
 
     try:
@@ -445,7 +446,8 @@ def plan_workflow_run(
     """Which steps a run with these options would run, where, in which segments."""
 
     _, _, current = record
-    project_id = projects(request).workflow_project(name)
+    # Workflow names are unique per project: this is the current project's.
+    project_id = current_project(request, current)["id"]
     _require_permission(request, current, "workflows.execute", project_id)
 
     try:
@@ -465,6 +467,7 @@ def plan_workflow_run(
         else:
             _, plan = _service(request).plan(
                 name,
+                project_id=project_id,
                 node=payload.node,
                 steps=payload.steps,
                 tags=payload.tags,

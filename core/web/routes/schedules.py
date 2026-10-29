@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from core.web.projects import current_project, projects
+from core.web.projects import current_project
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
 from lib.models.session import Session
@@ -83,17 +83,14 @@ def _check_target(
     context = request.app.state.entropy_context
     if data.get("kind") == "workflow":
         _require_permission(request, user, "workflows.execute", project_id)
+        # Names are unique per project: the workflow must be this project's.
         try:
-            context.workflow_manager.get(data.get("target"))
+            context.workflow_manager.get(data.get("target"), project_id=project_id)
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(
-                status_code=422, detail=f"Workflow '{data.get('target')}' is not registered."
-            ) from exc
-        if projects(request).workflow_project(str(data.get("target"))) != project_id:
-            raise HTTPException(
                 status_code=422,
-                detail=f"Workflow '{data.get('target')}' belongs to another project.",
-            )
+                detail=f"Workflow '{data.get('target')}' is not registered in this project.",
+            ) from exc
     elif data.get("kind") == "plugin":
         _require_permission(request, user, "plugins.execute", project_id)
         if not context.plugin_manager.exists(str(data.get("target"))):

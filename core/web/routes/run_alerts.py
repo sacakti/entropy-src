@@ -9,8 +9,9 @@ from typing import Any, Dict, List, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from core.web.projects import projects, require
+from core.web.projects import current_project, require
 from core.web.routes.auth import _current_session, verify_csrf
+from lib.authorization.projects import workflow_key
 from lib.models.session import Session
 from lib.models.users import User
 from lib.runs.alerts import RunAlerts
@@ -40,12 +41,15 @@ def _mail_ready(request: Request) -> bool:
     return bool(settings_for(request.app.state.entropy_context).get("smtp")["enabled"])
 
 
-def _workflow_project(request: Request, name: str) -> int:
+def _workflow_project(request: Request, user: User, name: str) -> int:
+    """The current project, which must have this workflow (names are per project)."""
+
+    project_id = int(current_project(request, user)["id"])
     try:
-        request.app.state.entropy_context.workflow_manager.get(name)
+        request.app.state.entropy_context.workflow_manager.get(name, project_id=project_id)
     except Exception:  # noqa: BLE001 - unknown workflow
         raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found.") from None
-    return projects(request).workflow_project(name)
+    return project_id
 
 
 def _schedule_project(request: Request, schedule_id: int) -> int:
@@ -64,9 +68,13 @@ def get_workflow_alerts(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    require(request, user, "workflows.read", _workflow_project(request, name))
+    project_id = _workflow_project(request, user, name)
+    require(request, user, "workflows.read", project_id)
     response.headers["Cache-Control"] = "no-store"
-    return {**_alerts(request).get("workflow", name), "mail_ready": _mail_ready(request)}
+    return {
+        **_alerts(request).get("workflow", workflow_key(project_id, name)),
+        "mail_ready": _mail_ready(request),
+    }
 
 
 @router.put("/api/workflows/{name}/alerts", dependencies=[Depends(verify_csrf)])
@@ -77,8 +85,11 @@ def set_workflow_alerts(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     _, _, user = record
-    require(request, user, "workflows.write", _workflow_project(request, name))
-    saved = _alerts(request).set("workflow", name, user=user.username, **payload.model_dump())
+    project_id = _workflow_project(request, user, name)
+    require(request, user, "workflows.write", project_id)
+    saved = _alerts(request).set(
+        "workflow", workflow_key(project_id, name), user=user.username, **payload.model_dump()
+    )
     return {**saved, "mail_ready": _mail_ready(request)}
 
 

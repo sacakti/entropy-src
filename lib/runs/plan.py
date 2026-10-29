@@ -115,6 +115,8 @@ def build_plan(
     """
     Select steps (all enabled ones, narrowed by `steps` and `tags`), assign
     nodes, and check that every selected step's inputs will exist.
+
+    A step disabled in the workflow runs only when `steps` names it.
     """
 
     names = [step.name for step in workflow.steps]
@@ -129,7 +131,7 @@ def build_plan(
     entries: List[Dict[str, Any]] = []
     for step in workflow.steps:
         step_tags = list(step.tags or [])
-        if not step.enabled:
+        if not step.enabled and (wanted is None or step.name not in wanted):
             selected, reason = False, "disabled"
         elif tag_filter and not set(step_tags) & set(tag_filter):
             selected, reason = False, "tag filter"

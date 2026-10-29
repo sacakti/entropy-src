@@ -9,7 +9,7 @@ cannot run. Saving the workflow successfully removes its draft.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from lib.database.connection import DatabaseConnection
 
@@ -94,10 +94,25 @@ class WorkflowDrafts:
         row = self.connection.fetchone("SELECT * FROM workflow_drafts WHERE id = ?", (draft_id,))
         return self._row(row, full=True) if row else None
 
-    def for_workflow(self, workflow: str) -> Optional[Dict[str, Any]]:
+    def _project_clause(self, project_id: Optional[int]) -> Tuple[str, Tuple[Any, ...]]:
+        """Drafts of one project (drafts from before projects are the Default project's)."""
+
+        from lib.authorization.projects import default_project_id
+
+        default_id = default_project_id(self.connection)
+        wanted = default_id if project_id is None else project_id
+        return "IFNULL(project_id, ?) = ?", (default_id, wanted)
+
+    def for_workflow(
+        self, workflow: str, project_id: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
+        """The draft of a project's workflow (names are unique per project)."""
+
+        clause, values = self._project_clause(project_id)
         row = self.connection.fetchone(
-            "SELECT * FROM workflow_drafts WHERE workflow = ? ORDER BY updated_at DESC LIMIT 1",
-            (workflow,),
+            f"SELECT * FROM workflow_drafts WHERE workflow = ? AND {clause}"
+            " ORDER BY updated_at DESC LIMIT 1",
+            (workflow, *values),
         )
         return self._row(row) if row else None
 
@@ -118,7 +133,7 @@ class WorkflowDrafts:
         now = _now()
         # One draft per existing workflow: editing it again replaces it.
         if draft_id is None and workflow:
-            existing = self.for_workflow(workflow)
+            existing = self.for_workflow(workflow, project_id)
             draft_id = existing["id"] if existing else None
         with self.connection.transaction():
             if draft_id is not None and self.get(draft_id) is not None:
@@ -168,6 +183,10 @@ class WorkflowDrafts:
             )
         return cursor.rowcount > 0
 
-    def delete_for_workflow(self, workflow: str) -> None:
+    def delete_for_workflow(self, workflow: str, project_id: Optional[int] = None) -> None:
+        clause, values = self._project_clause(project_id)
         with self.connection.transaction():
-            self.connection.execute("DELETE FROM workflow_drafts WHERE workflow = ?", (workflow,))
+            self.connection.execute(
+                f"DELETE FROM workflow_drafts WHERE workflow = ? AND {clause}",
+                (workflow, *values),
+            )

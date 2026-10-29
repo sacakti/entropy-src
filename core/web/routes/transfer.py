@@ -183,8 +183,8 @@ async def restore(
     service_auth = authorization(request)
 
     def can_write_workflow(name: str) -> bool:
-        owner = projects(request).workflow_project(name)
-        return bool(service_auth.has_permission(user.id, "workflows.write", owner))
+        # A conflicting name is this project's own workflow (names are per project).
+        return bool(service_auth.has_permission(user.id, "workflows.write", project["id"]))
 
     install = None
     if plugins and service_auth.has_permission(user.id, "plugins.write"):

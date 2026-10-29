@@ -89,6 +89,19 @@
 .entropy-app .git-browser-file-table td { color: var(--app-muted); white-space: nowrap; }
 .entropy-app .git-browser-file-table td:first-child { min-width: 220px; max-width: 460px; }
 .entropy-app .git-browser-file-table td:first-child button { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 0; overflow: hidden; color: var(--app-text); background: transparent; border: 0; font: inherit; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.entropy-app .git-browser-breadcrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; font-size: .84rem; }
+.entropy-app .git-browser-breadcrumbs > span { display: inline-flex; align-items: center; gap: 4px; color: var(--app-muted); }
+.entropy-app .git-browser-breadcrumbs button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px; color: var(--app-accent); background: transparent; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
+.entropy-app .git-browser-breadcrumbs button:hover:not(:disabled) { background: var(--app-accent-soft); }
+.entropy-app .git-browser-breadcrumbs button:disabled { color: var(--app-text); font-weight: 600; cursor: default; }
+.entropy-app .git-browser-filter { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 4px 9px; color: var(--app-muted); border: 1px solid var(--app-line); border-radius: 8px; }
+.entropy-app .git-browser-filter input { width: 180px; color: var(--app-text); background: transparent; border: 0; outline: 0; font: inherit; }
+.entropy-app .git-browser-file-table tbody tr { cursor: pointer; }
+.entropy-app .git-browser-file-table tr.git-browser-entry-dir td:first-child button { color: var(--app-accent); font-weight: 600; }
+.entropy-app .git-browser-file-table tr.git-browser-entry-submodule { cursor: default; }
+.entropy-app .git-browser-file-table tr.git-browser-entry-submodule td:first-child button { color: var(--app-muted); cursor: default; }
+.entropy-app .git-browser-more-cell { text-align: center; }
+.entropy-app .git-browser-history-note { color: var(--app-muted); }
 .entropy-app .git-browser-empty-cell { height: 130px; color: var(--app-muted); text-align: center; }
 .entropy-app .git-browser-history { display: grid; gap: 4px; padding: 12px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; }
 .entropy-app .git-browser-history h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 5px; font-size: .9rem; }

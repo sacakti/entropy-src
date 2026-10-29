@@ -120,12 +120,13 @@ def used_by(workflows: Any, qualified_name: str, limit: int = 50) -> List[Dict[s
 
     found: List[Dict[str, Any]] = []
     try:
-        names = [item.name for item in workflows.list()]
+        # Every project's: names are only unique within a project.
+        entries = [(item.name, item.project_id) for item in workflows.list_all()]
     except Exception:  # noqa: BLE001 - help still works without this list
         return found
-    for name in names:
+    for name, project_id in entries:
         try:
-            workflow = workflows.get(name)
+            workflow = workflows.get(name, project_id=project_id)
         except Exception:  # noqa: BLE001 - skip unreadable workflows
             continue
         steps = [step.name for step in workflow.steps if step.plugin == qualified_name]

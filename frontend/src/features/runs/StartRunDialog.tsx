@@ -87,14 +87,17 @@ export default function StartRunDialog({
                 setRerunConfig(saved)
                 if (saved) {
                     setNode(saved.node)
-                    const enabled = ((JSON.parse(definition) as { steps?: Array<{ name?: string; enabled?: boolean }> }).steps ?? [])
-                        .filter((step) => step.enabled !== false && typeof step.name === 'string')
-                        .map((step) => step.name as string)
+                    const declared = ((JSON.parse(definition) as { steps?: Array<{ name?: string; enabled?: boolean }> }).steps ?? [])
+                        .filter((step) => typeof step.name === 'string')
+                    const enabled = declared.filter((step) => step.enabled !== false).map((step) => step.name as string)
+                    const disabled = declared.filter((step) => step.enabled === false).map((step) => step.name as string)
                     setAdvanced({
                         tags: saved.tags ?? [],
                         excluded: saved.steps === null
                             ? []
                             : enabled.filter((name) => !saved.steps?.includes(name)),
+                        // Disabled steps the earlier run chose to run.
+                        included: saved.steps === null ? [] : disabled.filter((name) => saved.steps?.includes(name)),
                         stepNodes: saved.step_nodes ?? {},
                     })
                 }

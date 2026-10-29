@@ -72,28 +72,44 @@ class ProjectTransfer:
 
     # -- helpers --------------------------------------------------------
 
-    def _workflow_exists(self, name: str) -> bool:
-        try:
-            self.workflows.get(name)
-        except Exception:  # noqa: BLE001 - WorkflowNotFoundError
-            return False
-        return True
+    def _workflow_exists(self, name: str, project_id: int) -> bool:
+        """Whether the project has a workflow of this name (names are per project)."""
+
+        return bool(self.workflows.exists(name, project_id=project_id))
 
     def _schedule_name_taken(self, name: str) -> bool:
         return (
             self.connection.fetchone("SELECT 1 FROM schedules WHERE name = ?", (name,)) is not None
         )
 
-    def _definition(self, name: str) -> Dict[str, Any]:
-        return json.loads(self.workflows.serialize(self.workflows.get(name), "json"))
+    def _definition(self, name: str, project_id: int) -> Dict[str, Any]:
+        return json.loads(
+            self.workflows.serialize(self.workflows.get(name, project_id=project_id), "json")
+        )
 
     def _add_definition(self, definition: Dict[str, Any], project_id: int) -> str:
         with tempfile.TemporaryDirectory(prefix="entropy-transfer-") as directory:
             path = Path(directory) / "definition.json"
             path.write_text(json.dumps(definition, indent=2), encoding="utf-8")
-            workflow = self.workflows.add(path)
-        self.projects.set_workflow_project(workflow.name, project_id)
+            workflow = self.workflows.add(path, project_id=project_id)
         return workflow.name
+
+    def _move_workflow(self, name: str, source_id: int, target_id: int) -> None:
+        """Move a workflow, with its alerts and kept versions (keyed by project)."""
+
+        from lib.authorization.projects import workflow_key
+
+        self.workflows.move(name, source_project_id=source_id, target_project_id=target_id)
+        old, new = workflow_key(source_id, name), workflow_key(target_id, name)
+        with self.connection.transaction():
+            for table, column in (("run_alerts", "target"), ("definition_history", "name")):
+                if self.connection.fetchone(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+                ):
+                    self.connection.execute(
+                        f"UPDATE {table} SET {column} = ? WHERE kind = 'workflow' AND {column} = ?",
+                        (new, old),
+                    )
 
     def _set_schedule_project(self, schedule_id: int, project_id: int) -> None:
         with self.connection.transaction():
@@ -136,15 +152,23 @@ class ProjectTransfer:
         renamed: Dict[str, str] = {}
 
         for name in dict.fromkeys(workflows):
-            if self.projects.workflow_project(name) != source_id or not self._workflow_exists(name):
+            if not self._workflow_exists(name, source_id):
                 result["errors"].append(f"Workflow '{name}' is not in the source project.")
                 continue
             if mode == "move":
-                self.projects.set_workflow_project(name, target_id)
+                if self._workflow_exists(name, target_id):
+                    result["errors"].append(
+                        f"Workflow '{name}': the target project already has one of that name."
+                    )
+                    continue
+                self._move_workflow(name, source_id, target_id)
                 result["workflows"].append({"name": name, "as": name})
             else:
-                definition = self._definition(name)
-                new_name = unique(name, self._workflow_exists)
+                definition = self._definition(name, source_id)
+                # Only names in the target project are taken.
+                new_name = unique(
+                    name, lambda candidate: self._workflow_exists(candidate, target_id)
+                )
                 definition["name"] = new_name
                 try:
                     created = self._add_definition(definition, target_id)
@@ -195,26 +219,14 @@ class ProjectTransfer:
     ) -> bytes:
         """The project's (or the chosen) workflows and more, as one zip."""
 
-        owned = sorted(
-            name
-            for name, project_id in self.projects.workflow_projects().items()
-            if project_id == project["id"]
-        )
-        default_id = self.projects.get("default")["id"] if self.projects.get("default") else None
-        if project["id"] == default_id:
-            # Workflows without a project row belong to Default.
-            known = set(self.projects.workflow_projects())
-            owned = sorted(
-                set(owned)
-                | {entry.name for entry in self.workflows.list() if entry.name not in known}
-            )
+        owned = sorted(entry.name for entry in self.workflows.list(project_id=project["id"]))
         names = [name for name in (workflows if workflows is not None else owned) if name in owned]
 
         buffer = io.BytesIO()
         plugins_used: List[str] = []
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
             for name in names:
-                workflow = self.workflows.get(name)
+                workflow = self.workflows.get(name, project_id=project["id"])
                 archive.writestr(
                     f"workflows/{name}.json", self.workflows.serialize(workflow, "json")
                 )
@@ -362,16 +374,18 @@ class ProjectTransfer:
                 result["errors"].append(f"{member} is not a workflow definition.")
                 continue
             try:
-                if self._workflow_exists(name):
+                # Only this project's names conflict.
+                if self._workflow_exists(name, project_id):
                     if conflict == "skip":
                         result["skipped"].append(name)
                         continue
                     if conflict == "overwrite" and can_write_workflow(name):
-                        self._replace(name, definition, user)
-                        self.projects.set_workflow_project(name, project_id)
+                        self._replace(name, definition, user, project_id)
                         result["workflows"].append({"name": name, "as": name, "replaced": True})
                         continue
-                    definition["name"] = unique(name, self._workflow_exists)
+                    definition["name"] = unique(
+                        name, lambda candidate: self._workflow_exists(candidate, project_id)
+                    )
                 created = self._add_definition(definition, project_id)
                 renamed[name] = created
                 result["workflows"].append({"name": name, "as": created, "replaced": False})
@@ -406,17 +420,18 @@ class ProjectTransfer:
                     result["errors"].append(f"Schedule '{schedule.get('name')}': {exc}")
         return result
 
-    def _replace(self, name: str, definition: Dict[str, Any], user: Any) -> None:
+    def _replace(self, name: str, definition: Dict[str, Any], user: Any, project_id: int) -> None:
+        from lib.authorization.projects import workflow_key
         from lib.history import DefinitionHistory
 
-        previous = self.workflows.get(name)
+        previous = self.workflows.get(name, project_id=project_id)
         with tempfile.TemporaryDirectory(prefix="entropy-transfer-") as directory:
             path = Path(directory) / "definition.json"
             path.write_text(json.dumps(definition, indent=2), encoding="utf-8")
-            self.workflows.replace(name, path)
+            self.workflows.replace(name, path, project_id=project_id)
         # The replaced version stays in the workflow's History.
         DefinitionHistory(self.connection, "workflow").record(
-            name,
+            workflow_key(project_id, name),
             previous.version,
             self.workflows.serialize(previous, "json"),
             user=user.username,

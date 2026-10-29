@@ -181,12 +181,13 @@ def _release(request: Request, user: User, release_id: int, permission: str) -> 
 
 def _workflow(request: Request, name: str, project_id: int) -> None:
     context = request.app.state.entropy_context
+    # Names are unique per project: the workflow must be this project's.
     try:
-        context.workflow_manager.get(name)
+        context.workflow_manager.get(name, project_id=project_id)
     except Exception:
-        raise HTTPException(status_code=404, detail=f"Workflow '{name}' is not registered.") from None
-    if projects(request).workflow_project(name) != project_id:
-        raise HTTPException(status_code=422, detail="The selected workflow belongs to a different project.")
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{name}' is not registered in this project."
+        ) from None
 
 
 def _sync_run(request: Request, item: Dict[str, Any]) -> Dict[str, Any]:
@@ -240,9 +241,10 @@ def list_releases(request: Request, response: Response, include_archived: bool =
     promotions = _sync_promotions(request, project["id"], include_archived)
     items = [_sync_run(request, item) for item in store.list(project["id"], include_archived)]
     workflows = []
-    for entry in request.app.state.entropy_context.workflow_manager.list():
-        if projects(request).workflow_project(entry.name) == project["id"]:
-            workflows.append({"name": entry.name, "version": entry.version, "description": entry.description or ""})
+    for entry in request.app.state.entropy_context.workflow_manager.list(project_id=project["id"]):
+        workflows.append(
+            {"name": entry.name, "version": entry.version, "description": entry.description or ""}
+        )
     response.headers["Cache-Control"] = "no-store"
     assert user.id is not None
     return {

@@ -208,6 +208,8 @@ def ensure_projects_schema(connection: DatabaseConnection) -> None:
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members (user_id)"
         )
+        # Legacy: which project owned each workflow before names were project
+        # scoped. Migration 025 moved it into workflow_registry.project_id.
         connection.execute("""
             CREATE TABLE IF NOT EXISTS workflow_projects
             (
@@ -255,6 +257,15 @@ def add_project_columns(connection: DatabaseConnection) -> None:
     _add_column(connection, "workflow_drafts", "project_id", "INTEGER")
     # 'shared': every project may run on the node; 'assigned': see node_projects.
     _add_column(connection, "nodes", "scope", "TEXT NOT NULL DEFAULT 'shared'")
+
+
+def workflow_key(project_id: int, name: str) -> str:
+    """
+    A workflow's key in tables shared by every project (run alerts, kept
+    definition versions): names are only unique within a project.
+    """
+
+    return f"{int(project_id)}/{name}"
 
 
 def default_project_id(connection: DatabaseConnection) -> int:
@@ -530,15 +541,13 @@ class Projects:
 
     def usage(self, project_id: int) -> Dict[str, int]:
         default_id = default_project_id(self.connection)
-        workflows = self.connection.fetchone(
-            "SELECT COUNT(*) AS n FROM workflow_projects WHERE project_id = ?", (project_id,)
-        )["n"]
-        if project_id == default_id and _table_exists(self.connection, "workflow_registry"):
-            # Workflows registered without a project (before projects, or by the CLI).
-            workflows += self.connection.fetchone(
-                "SELECT COUNT(*) AS n FROM workflow_registry WHERE name NOT IN"
-                " (SELECT workflow FROM workflow_projects)"
+        workflows = (
+            self.connection.fetchone(
+                "SELECT COUNT(*) AS n FROM workflow_registry WHERE project_id = ?", (project_id,)
             )["n"]
+            if _table_exists(self.connection, "workflow_registry")
+            else 0
+        )
         schedules = (
             self.connection.fetchone(
                 "SELECT COUNT(*) AS n FROM schedules WHERE IFNULL(project_id, ?) = ?",
@@ -658,32 +667,6 @@ class Projects:
         return [dict(row) for row in rows]
 
     # -- resources ------------------------------------------------------
-
-    def workflow_project(self, workflow: str) -> int:
-        row = self.connection.fetchone(
-            "SELECT project_id FROM workflow_projects WHERE workflow = ?", (workflow,)
-        )
-        return int(row["project_id"]) if row else default_project_id(self.connection)
-
-    def set_workflow_project(self, workflow: str, project_id: int) -> None:
-        with self.connection.transaction():
-            self.connection.execute(
-                "INSERT INTO workflow_projects (workflow, project_id) VALUES (?, ?)"
-                " ON CONFLICT (workflow) DO UPDATE SET project_id = excluded.project_id",
-                (workflow, project_id),
-            )
-
-    def forget_workflow(self, workflow: str) -> None:
-        with self.connection.transaction():
-            self.connection.execute("DELETE FROM workflow_projects WHERE workflow = ?", (workflow,))
-
-    def workflow_projects(self) -> Dict[str, int]:
-        return {
-            row["workflow"]: int(row["project_id"])
-            for row in self.connection.fetchall(
-                "SELECT workflow, project_id FROM workflow_projects"
-            )
-        }
 
     def node_access(self, node: str) -> Dict[str, Any]:
         row = self.connection.fetchone("SELECT scope FROM nodes WHERE name = ?", (node,))

@@ -3,11 +3,14 @@ import { AlertCircle, ArrowRight, ChevronRight, CheckCircle2, LoaderCircle, Tag 
 
 import { runsApi, type EntropyNode, type PlannedStep, type RunOptions } from '../../api/runs.api'
 import { errorMessage } from './format'
-import { runOptionsFor, segmentsLabel, type AdvancedState, type PlanCheck } from './runOptions'
+import { isStepChosen, runOptionsFor, segmentsLabel, type AdvancedState, type PlanCheck } from './runOptions'
+
+function passesTags(step: PlannedStep, state: AdvancedState): boolean {
+    return state.tags.length === 0 || (step.tags ?? []).some((tag) => state.tags.includes(tag))
+}
 
 function willRun(step: PlannedStep, state: AdvancedState): boolean {
-    if (!step.enabled || state.excluded.includes(step.name)) return false
-    return state.tags.length === 0 || (step.tags ?? []).some((tag) => state.tags.includes(tag))
+    return isStepChosen(step, state) && passesTags(step, state)
 }
 
 /**
@@ -41,7 +44,7 @@ export default function RunAdvancedOptions({
     const optionsKey = JSON.stringify(options)
     // A rerun with a saved step subset needs the full step list first so the
     // excluded names can be translated back into an explicit selected list.
-    const loadingStepsForSelection = steps.length === 0 && value.excluded.length > 0
+    const loadingStepsForSelection = steps.length === 0 && (value.excluded.length > 0 || value.included.length > 0)
 
     // Ask the server for the plan whenever the choices change.
     useEffect(() => {
@@ -86,13 +89,16 @@ export default function RunAdvancedOptions({
             tags: value.tags.includes(tag) ? value.tags.filter((item) => item !== tag) : [...value.tags, tag],
         })
 
-    const toggleStep = (name: string) =>
-        onChange({
-            ...value,
-            excluded: value.excluded.includes(name)
-                ? value.excluded.filter((item) => item !== name)
-                : [...value.excluded, name],
-        })
+    const toggle = (list: string[], name: string) =>
+        list.includes(name) ? list.filter((item) => item !== name) : [...list, name]
+
+    // Enabled steps are unticked into `excluded`; disabled ones ticked into `included`.
+    const toggleStep = (step: PlannedStep) =>
+        onChange(
+            step.enabled
+                ? { ...value, excluded: toggle(value.excluded, step.name) }
+                : { ...value, included: toggle(value.included, step.name) },
+        )
 
     const setStepNode = (name: string, stepNode: string) =>
         onChange({ ...value, stepNodes: { ...value.stepNodes, [name]: stepNode } })
@@ -151,11 +157,13 @@ export default function RunAdvancedOptions({
                     <ol className="run-advanced-steps">
                         {steps.map((step, index) => {
                             const runs = willRun(step, value)
-                            const filtered = step.enabled && value.tags.length > 0 && !(step.tags ?? []).some((tag) => value.tags.includes(tag))
-                            const note = !step.enabled
-                                ? 'Disabled in the workflow'
-                                : filtered
-                                  ? 'Filtered out by tag'
+                            const filtered = !passesTags(step, value)
+                            const note = filtered
+                                ? 'Filtered out by tag'
+                                : !step.enabled
+                                  ? runs
+                                      ? 'Disabled in the workflow · runs this time'
+                                      : 'Disabled in the workflow · tick to run it this time'
                                   : null
                             return (
                                 <li key={step.name} className={runs ? '' : 'is-off'}>
@@ -163,8 +171,8 @@ export default function RunAdvancedOptions({
                                         <input
                                             type="checkbox"
                                             checked={runs}
-                                            disabled={!step.enabled || filtered}
-                                            onChange={() => toggleStep(step.name)}
+                                            disabled={filtered}
+                                            onChange={() => toggleStep(step)}
                                         />
                                         <span className="run-advanced-index">{index + 1}</span>
                                         <span className="run-advanced-name">

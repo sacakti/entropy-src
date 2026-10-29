@@ -42,6 +42,27 @@ def test_default_plan_runs_enabled_steps_on_one_node() -> None:
     assert plan.steps[2]["skip_reason"] == "disabled"
 
 
+def test_a_disabled_step_runs_when_selected_by_name() -> None:
+    plan = build_plan(_workflow(), steps=["build", "docs"])
+
+    assert plan.selected == ["build", "docs"]
+    assert plan.steps[2]["enabled"] is False
+    assert plan.steps[2]["skip_reason"] is None
+    # Not the workflow as saved, so it runs as a trimmed definition ...
+    assert not plan.trivial
+    # ... in which the chosen step is enabled.
+    trimmed = segment_workflow(_workflow(), plan.segments[0]["steps"])
+    assert [(step.name, step.enabled) for step in trimmed.steps] == [
+        ("build", True),
+        ("docs", True),
+    ]
+
+
+def test_a_disabled_step_stays_off_without_an_explicit_selection() -> None:
+    assert "docs" not in build_plan(_workflow(), tags=["ci", "deploy"]).selected
+    assert "docs" not in build_plan(_workflow(), step_nodes={"build": "edge"}).selected
+
+
 def test_references_are_found_in_nested_arguments() -> None:
     step = _workflow().steps[3]
     assert step_references(step.arguments) == [("build", "path"), ("test", "report.url")]

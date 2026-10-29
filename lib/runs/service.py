@@ -207,6 +207,8 @@ class RunService:
                 options=WorkflowExecutionOptions(variables=dict(variables or {})),
                 session=session,
                 environment=self._worker_environment(session.token, debug=debug),
+                # A registered workflow is the run's project's (names are per project).
+                project_id=self._project_id if name is not None else None,
             )
         except Exception:
             sessions.revoke(session.token)
@@ -263,6 +265,7 @@ class RunService:
         self,
         name: str,
         *,
+        project_id: Optional[int] = None,
         node: str = "local",
         steps: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
@@ -271,7 +274,7 @@ class RunService:
         """The workflow and the plan a run with these options would follow."""
 
         try:
-            workflow = self._context.workflow_manager.get(name)
+            workflow = self._context.workflow_manager.get(name, project_id=project_id)
         except Exception as exc:
             raise RunError(str(exc) or f"Workflow '{name}' does not exist.", 404) from exc
 
@@ -306,7 +309,14 @@ class RunService:
         self._project_id = project_id
         self._mode = mode
         if workflow_definition is None:
-            workflow, plan = self.plan(name, node=node, steps=steps, tags=tags, step_nodes=step_nodes)
+            workflow, plan = self.plan(
+                name,
+                project_id=project_id,
+                node=node,
+                steps=steps,
+                tags=tags,
+                step_nodes=step_nodes,
+            )
         else:
             try:
                 workflow = self._context.workflow_manager.deserialize(workflow_definition)

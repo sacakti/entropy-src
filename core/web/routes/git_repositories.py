@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from core.web.projects import current_project, projects, require
+from core.web.projects import current_project, require
 from core.web.routes.auth import _current_session, verify_csrf
 from lib.git_repositories.store import GitRepositoryStore, ensure_git_repositories_schema
 from lib.models.session import Session
@@ -277,28 +277,84 @@ def browser_commits(repository_id: int, request: Request, branch: str = Query(..
     return {"commits": commits}
 
 
+_HISTORY_COMMIT_LIMIT = 2000
+_ENTRY_TYPES = {"040000": "dir", "160000": "submodule", "120000": "symlink"}
+
+
+def _directory_history(git_dir: str, branch: str, directory: str) -> Tuple[Dict[str, List[str]], Dict[str, List[str]], bool]:
+    """Return latest and earliest (date, author) per direct child of *directory* in one git log pass."""
+    prefix = f"{directory}/" if directory else ""
+    try:
+        completed = subprocess.run(
+            ["git", "-c", "core.quotePath=false", "--git-dir", git_dir, "log", "-n", str(_HISTORY_COMMIT_LIMIT),
+             "--no-renames", "--name-only", "--format=%x01%aI%x02%an", branch, "--", directory or "."],
+            capture_output=True, timeout=20, check=False,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_PAGER": "cat"},
+        )
+    except subprocess.TimeoutExpired:
+        return {}, {}, True
+    if completed.returncode:
+        return {}, {}, True
+    latest: Dict[str, List[str]] = {}
+    earliest: Dict[str, List[str]] = {}
+    commits = 0
+    current = ["", ""]
+    for line in completed.stdout.decode("utf-8", errors="replace").splitlines():
+        if line.startswith("\x01"):
+            commits += 1
+            current = line[1:].split("\x02", 1) + [""]
+            continue
+        if not line or not line.startswith(prefix):
+            continue
+        child = line[len(prefix):].split("/", 1)[0]
+        latest.setdefault(child, current[:2])
+        earliest[child] = current[:2]
+    return latest, earliest, commits >= _HISTORY_COMMIT_LIMIT
+
+
+def _directory_entries(git_dir: str, branch: str, directory: str) -> Dict[str, Any]:
+    """List the direct children of one folder of *branch* with their latest commit details."""
+    listed = subprocess.run(
+        ["git", "--git-dir", git_dir, "ls-tree", "-z", "--long", f"{branch}:{directory}"],
+        capture_output=True, timeout=20, check=False,
+    )
+    if listed.returncode:
+        raise HTTPException(status_code=404, detail="Folder not found in this branch.")
+    if len(listed.stdout) > 4 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="This folder has too many entries to display in the browser.")
+    latest, earliest, history_limited = _directory_history(git_dir, branch, directory)
+    entries = []
+    for record in listed.stdout.split(b"\0"):
+        if b"\t" not in record:
+            continue
+        meta, raw_name = record.split(b"\t", 1)
+        mode, _, _, size = meta.decode().split(None, 3)
+        name = raw_name.decode("utf-8", errors="replace")
+        modified = latest.get(name, ["", ""])
+        # Without the full history the earliest commit seen is not the creating commit.
+        created = ["", ""] if history_limited else earliest.get(name, ["", ""])
+        entries.append({
+            "name": name, "path": f"{directory}/{name}" if directory else name,
+            "type": _ENTRY_TYPES.get(mode, "file"), "size": int(size) if size.strip().isdigit() else None,
+            "created_at": created[0], "created_by": created[1],
+            "modified_at": modified[0], "modified_by": modified[1],
+        })
+    entries.sort(key=lambda item: (item["type"] != "dir", item["name"].casefold()))
+    return {"path": directory, "entries": entries, "history_limited": history_limited}
+
+
 @router.get("/{repository_id}/browser/files")
 def browser_files(repository_id: int, request: Request, branch: str = Query(..., min_length=1, max_length=255),
+                  path: str = Query("", max_length=2048),
                   record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
     _, _, user = record
     project = current_project(request, user)
     repository = _readable_repo(request, user, repository_id, project["id"])
     branch = _branch_name(repository, branch)
+    directory = _safe_file_path(path.strip("/")) if path.strip("/") else ""
     if not _branch_has_commit(repository, branch):
-        return {"files": []}
-    output = _git_output(["--git-dir", repository["bare_path"], "ls-tree", "-r", "--name-only", "-z", branch], max_bytes=2 * 1024 * 1024)
-    files = [item.decode("utf-8", errors="replace") for item in output.split(b"\0") if item]
-    if len(files) > 1000:
-        raise HTTPException(status_code=413, detail="This branch has more than 1,000 files. Narrow the repository or use Git locally to inspect it.")
-    file_rows = []
-    for path in files:
-        history = _git_output(["--git-dir", repository["bare_path"], "log", "-n", "1000", "--follow", "--format=%aI%x00%an", branch, "--", path], max_bytes=128 * 1024)
-        entries = [line.split("\x00", 1) for line in history.decode("utf-8", errors="replace").splitlines() if "\x00" in line]
-        latest = entries[0] if entries else ["", ""]
-        created = entries[-1] if entries else ["", ""]
-        size_raw = _git_output(["--git-dir", repository["bare_path"], "cat-file", "-s", f"{branch}:{path}"], max_bytes=1024).decode().strip()
-        file_rows.append({"path": path, "created_at": created[0], "created_by": created[1], "modified_at": latest[0], "modified_by": latest[1], "size": int(size_raw or 0)})
-    return {"files": file_rows}
+        return {"path": directory, "entries": [], "history_limited": False}
+    return _directory_entries(repository["bare_path"], f"refs/heads/{branch}", directory)
 
 
 @router.get("/{repository_id}/browser/file")
@@ -442,12 +498,9 @@ def list_targets(request: Request, record: SessionRecord = Depends(_current_sess
     project = current_project(request, user)
     _require_workflow_write(request, user, project["id"])
     context = request.app.state.entropy_context
-    workflow_projects = projects(request).workflow_projects()
-    default_id = projects(request).get("default")["id"]
     workflows = [
         {"key": item.name, "name": item.name}
-        for item in context.workflow_manager.list()
-        if workflow_projects.get(item.name, default_id) == project["id"]
+        for item in context.workflow_manager.list(project_id=project["id"])
     ]
     plugins = [
         {"key": item.qualified_name, "name": item.qualified_name}
@@ -602,8 +655,7 @@ def update_assignments(repository_id: int, payload: AssignmentUpdate, request: R
         raise HTTPException(status_code=403, detail="You cannot change this repository's assignments.")
     context = request.app.state.entropy_context
     workflow_names = {
-        workflow.name for workflow in context.workflow_manager.list()
-        if projects(request).workflow_project(workflow.name) == project["id"]
+        workflow.name for workflow in context.workflow_manager.list(project_id=project["id"])
     }
     plugin_names = {plugin.qualified_name for plugin in context.plugin_manager.list() if plugin.enabled}
     assignments = []

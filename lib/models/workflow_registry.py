@@ -16,6 +16,8 @@ class WorkflowRegistryEntry:
 
     id: int
 
+    project_id: int
+
     name: str
 
     version: str

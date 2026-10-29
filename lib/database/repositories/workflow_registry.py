@@ -14,6 +14,8 @@ from lib.models.workflow_registry import WorkflowRegistryEntry
 class WorkflowRegistryRepository(Repository):
     """
     Persistence repository for registered workflows.
+
+    Workflows are project scoped: every lookup is by (project_id, name).
     """
 
     def __init__(
@@ -43,6 +45,7 @@ class WorkflowRegistryRepository(Repository):
     def create(
         self,
         *,
+        project_id: int,
         name: str,
         version: str,
         description: str | None,
@@ -59,6 +62,7 @@ class WorkflowRegistryRepository(Repository):
                 """
                 INSERT INTO workflow_registry
                 (
+                    project_id,
                     name,
                     version,
                     description,
@@ -66,9 +70,10 @@ class WorkflowRegistryRepository(Repository):
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    project_id,
                     name,
                     version,
                     description,
@@ -78,11 +83,8 @@ class WorkflowRegistryRepository(Repository):
                 ),
             )
 
-            # result = self.get_by_name(
-            #     name,
-            # )
-
         result = self.get_by_name(
+            project_id,
             name,
         )
 
@@ -100,16 +102,18 @@ class WorkflowRegistryRepository(Repository):
 
     def get_by_name(
         self,
+        project_id: int,
         name: str,
     ) -> WorkflowRegistryEntry | None:
         """
-        Return a registered workflow by name.
+        Return a project's registered workflow by name.
         """
         with self.transaction():
             cursor = self.execute(
                 """
                 SELECT
                     id,
+                    project_id,
                     name,
                     version,
                     description,
@@ -117,9 +121,9 @@ class WorkflowRegistryRepository(Repository):
                     created_at,
                     updated_at
                 FROM workflow_registry
-                WHERE name = ?
+                WHERE project_id = ? AND name = ?
                 """,
-                (name,),
+                (project_id, name),
             )
 
         row = cursor.fetchone()
@@ -137,10 +141,11 @@ class WorkflowRegistryRepository(Repository):
 
     def exists(
         self,
+        project_id: int,
         name: str,
     ) -> bool:
         """
-        Return whether a workflow exists.
+        Return whether a project has a workflow with this name.
         """
 
         with self.transaction():
@@ -148,10 +153,10 @@ class WorkflowRegistryRepository(Repository):
                 """
                 SELECT 1
                 FROM workflow_registry
-                WHERE name = ?
+                WHERE project_id = ? AND name = ?
                 LIMIT 1
                 """,
-                (name,),
+                (project_id, name),
             )
 
         return cursor.fetchone() is not None
@@ -162,16 +167,21 @@ class WorkflowRegistryRepository(Repository):
 
     def list(
         self,
+        project_id: int | None = None,
     ) -> list[WorkflowRegistryEntry]:
         """
-        Return registered workflows.
+        Return a project's registered workflows (every project's when
+        project_id is None).
         """
+
+        where = "" if project_id is None else "WHERE project_id = ?"
 
         with self.transaction():
             cursor = self.execute(
-                """
+                f"""
                 SELECT
                     id,
+                    project_id,
                     name,
                     version,
                     description,
@@ -179,8 +189,10 @@ class WorkflowRegistryRepository(Repository):
                     created_at,
                     updated_at
                 FROM workflow_registry
-                ORDER BY name
+                {where}
+                ORDER BY name, project_id
                 """,
+                () if project_id is None else (project_id,),
             )
 
         return [
@@ -197,6 +209,7 @@ class WorkflowRegistryRepository(Repository):
     def update(
         self,
         *,
+        project_id: int,
         name: str,
         version: str,
         description: str | None,
@@ -216,13 +229,14 @@ class WorkflowRegistryRepository(Repository):
                     description = ?,
                     definition = ?,
                     updated_at = ?
-                WHERE name = ?
+                WHERE project_id = ? AND name = ?
                 """,
                 (
                     version,
                     description,
                     definition,
                     updated_at,
+                    project_id,
                     name,
                 ),
             )
@@ -234,6 +248,7 @@ class WorkflowRegistryRepository(Repository):
             )
 
         result = self.get_by_name(
+            project_id,
             name,
         )
 
@@ -251,6 +266,7 @@ class WorkflowRegistryRepository(Repository):
 
     def delete(
         self,
+        project_id: int,
         name: str,
     ) -> None:
         """
@@ -261,9 +277,39 @@ class WorkflowRegistryRepository(Repository):
             cursor = self.execute(
                 """
                 DELETE FROM workflow_registry
-                WHERE name = ?
+                WHERE project_id = ? AND name = ?
                 """,
-                (name,),
+                (project_id, name),
+            )
+
+        if cursor.rowcount == 0:
+
+            raise KeyError(
+                f"Workflow '{name}' does not exist.",
+            )
+
+    # ------------------------------------------------------------------
+    # Move
+    # ------------------------------------------------------------------
+
+    def move(
+        self,
+        name: str,
+        source_project_id: int,
+        target_project_id: int,
+    ) -> None:
+        """
+        Move a workflow to another project (which must not have one of that name).
+        """
+
+        with self.transaction():
+            cursor = self.execute(
+                """
+                UPDATE workflow_registry
+                SET project_id = ?
+                WHERE project_id = ? AND name = ?
+                """,
+                (target_project_id, source_project_id, name),
             )
 
         if cursor.rowcount == 0:
@@ -287,6 +333,9 @@ class WorkflowRegistryRepository(Repository):
         return WorkflowRegistryEntry(
             id=int(
                 row["id"],
+            ),
+            project_id=int(
+                row["project_id"],
             ),
             name=row["name"],
             version=row["version"],

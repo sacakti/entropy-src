@@ -30,6 +30,10 @@ from .validator import WorkflowValidator
 class WorkflowManager:
     """
     Coordinates workflow lifecycle.
+
+    Registered workflows are project scoped: the same name may exist in
+    several projects. Methods take the project; without one they use the
+    project of the run this process executes, else the Default project.
     """
 
     def __init__(
@@ -158,6 +162,7 @@ class WorkflowManager:
         execution=None,
         job_id: int | None = None,
         options: WorkflowExecutionOptions | None = None,
+        project_id: int | None = None,
     ) -> int | None:
         """
         Execute a registered workflow or workflow file.
@@ -175,6 +180,7 @@ class WorkflowManager:
 
             workflow = self.get(
                 name,
+                project_id=project_id,
             )
 
         else:
@@ -206,6 +212,7 @@ class WorkflowManager:
         options: WorkflowExecutionOptions | None = None,
         session: Session | None = None,
         environment: dict[str, str] | None = None,
+        project_id: int | None = None,
     ) -> WorkflowJob:
         """
         Start a registered workflow or workflow file
@@ -230,12 +237,18 @@ class WorkflowManager:
 
         if name is not None:
 
+            project_id = self._project(
+                project_id,
+            )
+
             workflow = self.get(
                 name,
+                project_id=project_id,
             )
 
             workflow_file = self._materialize(
                 workflow,
+                project_id,
             )
 
         else:
@@ -442,10 +455,16 @@ class WorkflowManager:
     def add(
         self,
         file: Path,
+        *,
+        project_id: int | None = None,
     ) -> Workflow:
         """
-        Load, validate and register a workflow definition.
+        Load, validate and register a workflow definition in a project.
         """
+
+        project_id = self._project(
+            project_id,
+        )
 
         file = self.resolve(
             file,
@@ -456,6 +475,7 @@ class WorkflowManager:
         )
 
         if self._registry.exists(
+            project_id,
             workflow.name,
         ):
 
@@ -470,6 +490,7 @@ class WorkflowManager:
         now = self._timestamp()
 
         self._registry.create(
+            project_id=project_id,
             name=workflow.name,
             version=workflow.version,
             description=workflow.description,
@@ -483,12 +504,19 @@ class WorkflowManager:
     def remove(
         self,
         name: str,
+        *,
+        project_id: int | None = None,
     ) -> None:
         """
         Remove a registered workflow.
         """
 
+        project_id = self._project(
+            project_id,
+        )
+
         if not self._registry.exists(
+            project_id,
             name,
         ):
 
@@ -497,6 +525,7 @@ class WorkflowManager:
             )
 
         self._registry.delete(
+            project_id,
             name,
         )
 
@@ -504,10 +533,16 @@ class WorkflowManager:
         self,
         name: str,
         file: Path,
+        *,
+        project_id: int | None = None,
     ) -> Workflow:
         """
         Replace an existing registered workflow.
         """
+
+        project_id = self._project(
+            project_id,
+        )
 
         file = self.resolve(
             file,
@@ -525,6 +560,7 @@ class WorkflowManager:
             )
 
         if not self._registry.exists(
+            project_id,
             name,
         ):
 
@@ -535,6 +571,7 @@ class WorkflowManager:
         )
 
         self._registry.update(
+            project_id=project_id,
             name=name,
             version=workflow.version,
             description=workflow.description,
@@ -547,12 +584,17 @@ class WorkflowManager:
     def get(
         self,
         name: str,
+        *,
+        project_id: int | None = None,
     ) -> Workflow:
         """
-        Return a registered workflow.
+        Return a project's registered workflow.
         """
 
         entry = self._registry.get_by_name(
+            self._project(
+                project_id,
+            ),
             name,
         )
 
@@ -572,25 +614,99 @@ class WorkflowManager:
 
         return workflow
 
+    def exists(
+        self,
+        name: str,
+        *,
+        project_id: int | None = None,
+    ) -> bool:
+        """
+        Return whether a project has a workflow with this name.
+        """
+
+        return self._registry.exists(
+            self._project(
+                project_id,
+            ),
+            name,
+        )
+
     def list(
+        self,
+        *,
+        project_id: int | None = None,
+    ):
+        """
+        Return a project's registered workflow definitions.
+        """
+
+        return self._registry.list(
+            self._project(
+                project_id,
+            ),
+        )
+
+    def list_all(
         self,
     ):
         """
-        Return registered workflow definitions.
+        Return every project's registered workflow definitions.
         """
 
         return self._registry.list()
 
+    def move(
+        self,
+        name: str,
+        *,
+        source_project_id: int,
+        target_project_id: int,
+    ) -> None:
+        """
+        Move a registered workflow to another project.
+        """
+
+        if not self._registry.exists(
+            source_project_id,
+            name,
+        ):
+
+            raise WorkflowNotFoundError(
+                name,
+            )
+
+        if self._registry.exists(
+            target_project_id,
+            name,
+        ):
+
+            raise WorkflowAlreadyExistsError(
+                name,
+            )
+
+        self._registry.move(
+            name,
+            source_project_id,
+            target_project_id,
+        )
+
     def edit(
         self,
         name: str,
+        *,
+        project_id: int | None = None,
     ) -> WorkflowEditResult:
         """
         Edit a registered workflow interactively.
         """
 
+        project_id = self._project(
+            project_id,
+        )
+
         workflow = self.get(
             name,
+            project_id=project_id,
         )
 
         original = self._serialize(
@@ -646,6 +762,7 @@ class WorkflowManager:
         #
 
         self._registry.update(
+            project_id=project_id,
             name=name,
             version=updated.version,
             description=updated.description,
@@ -662,6 +779,27 @@ class WorkflowManager:
         )
 
     # Helpers
+    def _project(
+        self,
+        project_id: int | None,
+    ) -> int:
+        """
+        The project to use: the one given, else the project of the run
+        this process executes, else the Default project.
+        """
+
+        if project_id is not None:
+            return int(project_id)
+
+        from lib.authorization.projects import default_project_id
+        from lib.vault.projects import run_project
+
+        assert self._context.database_manager is not None
+
+        return run_project() or default_project_id(
+            self._context.database_manager.connection,
+        )
+
     def _timestamp(
         self,
     ) -> str:
@@ -676,6 +814,7 @@ class WorkflowManager:
     def _materialize(
         self,
         workflow: Workflow,
+        project_id: int,
     ) -> Path:
         """
         Materialize a registered workflow definition for
@@ -687,7 +826,8 @@ class WorkflowManager:
         assert self._context.paths is not None
         assert self._context.workflow_codecs is not None
 
-        directory = self._context.paths.workspace.workflows
+        # Per project: the same name may be registered in several projects.
+        directory = self._context.paths.workspace.workflows / "projects" / str(project_id)
 
         directory.mkdir(
             parents=True,

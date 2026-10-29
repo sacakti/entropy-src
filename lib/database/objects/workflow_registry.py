@@ -21,7 +21,10 @@ class WorkflowRegistryTable(DatabaseObject):
             (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                name            TEXT NOT NULL UNIQUE,
+                -- Workflows are project scoped: a name is unique per project.
+                project_id      INTEGER NOT NULL,
+
+                name            TEXT NOT NULL,
 
                 version         TEXT NOT NULL,
 
@@ -31,7 +34,9 @@ class WorkflowRegistryTable(DatabaseObject):
 
                 created_at      TEXT NOT NULL,
 
-                updated_at      TEXT NOT NULL
+                updated_at      TEXT NOT NULL,
+
+                UNIQUE (project_id, name)
             )
             """
         )
