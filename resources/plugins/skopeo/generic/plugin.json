@@ -1,0 +1,233 @@
+{
+    "name": "generic",
+    "namespace": "skopeo",
+    "version": "1.1.0",
+    "display_name": "Image Tags and Checksums",
+    "description": "Full image (registry, repository, tag) and checksum (digest) of OpenShift workloads, from the running pods or skopeo inspect; select workloads by name, tag or container patterns.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+    "dependencies": [],
+    "required_plugins": [
+        {
+            "name": "oc.generic",
+            "version": ">=1.0.4"
+        }
+    ],
+    "arguments": [
+        {
+            "name": "mode",
+            "type": "string",
+            "required": false,
+            "default": "auto",
+            "choices": [
+                "auto",
+                "pod",
+                "skopeo"
+            ],
+            "description": "pod: from the running pods (the digest actually running). skopeo: skopeo inspect of each workload's image. auto: pods, and skopeo for workloads with no running pod."
+        },
+        {
+            "name": "environment",
+            "type": "string",
+            "required": false,
+            "description": "OpenShift environment whose oc.generic login session is used (log in with oc.generic first). Not needed when only 'images' are inspected.",
+            "example": "SIT"
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "required": false,
+            "description": "OpenShift project to read; the session's current project when empty.",
+            "example": "finance-sit"
+        },
+        {
+            "name": "deployments",
+            "type": "any",
+            "required": false,
+            "description": "Workload name pattern(s): glob, or re:REGEX. Only matching workloads are read.",
+            "example": [
+                "app-finance-*"
+            ]
+        },
+        {
+            "name": "tags",
+            "type": "any",
+            "required": false,
+            "description": "Image tag pattern(s); only images whose tag matches are returned.",
+            "example": [
+                "*-1.2.0*"
+            ]
+        },
+        {
+            "name": "containers",
+            "type": "any",
+            "required": false,
+            "description": "Container name pattern(s); only matching containers are returned.",
+            "example": [
+                "app",
+                "re:^api-"
+            ]
+        },
+        {
+            "name": "rules",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Selection rules, any of which may match: objects with deployments, tags and containers patterns that must all match. The deployments/tags/containers arguments form one more rule.",
+            "example": [
+                {
+                    "deployments": "app-finance-*",
+                    "tags": "*-1.2.0*"
+                },
+                {
+                    "deployments": [
+                        "app-hr-api",
+                        "app-hr-ui"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "exclude",
+            "type": "any",
+            "required": false,
+            "description": "Workload name pattern(s) never read.",
+            "example": [
+                "*-canary"
+            ]
+        },
+        {
+            "name": "kinds",
+            "type": "list",
+            "required": false,
+            "default": [
+                "deployment",
+                "deploymentconfig"
+            ],
+            "description": "Workload kinds read: deployment, deploymentconfig, statefulset, daemonset."
+        },
+        {
+            "name": "include_init_containers",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Also report init containers."
+        },
+        {
+            "name": "images",
+            "type": "list",
+            "required": false,
+            "default": [],
+            "description": "Image references to inspect with skopeo directly (no OpenShift needed); the tags patterns apply.",
+            "example": [
+                "quay.example.com/finance/app-finance-api:1.2.0"
+            ]
+        },
+        {
+            "name": "credentials",
+            "type": "dictionary",
+            "required": false,
+            "secret": true,
+            "description": "Registry login for skopeo: username and password (or token). Written to a temporary owner-only auth file, never to a command line.",
+            "example": "${entv:quay/robot}"
+        },
+        {
+            "name": "authfile",
+            "type": "path",
+            "path": "file",
+            "required": false,
+            "description": "Existing registry auth file for skopeo (instead of credentials).",
+            "example": "/run/containers/0/auth.json"
+        },
+        {
+            "name": "tls_verify",
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Verify registry TLS certificates in skopeo."
+        },
+        {
+            "name": "timeout",
+            "type": "integer",
+            "required": false,
+            "default": 120,
+            "minimum": 1,
+            "description": "Seconds allowed for each skopeo inspect."
+        },
+        {
+            "name": "generate",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Write <namespace>-<YYYYMMDD-HHMMSS>.txt with one image:checksum line per image (registry/repository:tag:sha256:...); it is added to Artifacts (Generated)."
+        },
+        {
+            "name": "output_directory",
+            "type": "path",
+            "path": "directory",
+            "required": false,
+            "description": "Where the generated file is written. Default: the plugin's data folder, generated/.",
+            "example": "/opt/entropy/images"
+        },
+        {
+            "name": "fail_on_error",
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Fail the step when an image cannot be inspected."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "mode",
+            "type": "string",
+            "description": "Mode used."
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "description": "Project read (empty for the session's current one)."
+        },
+        {
+            "name": "images",
+            "type": "list",
+            "description": "One entry per container image: namespace, kind, deployment, container, image (registry/repository:tag), registry, repository, tag, digest, reference (registry/repository@digest), source (pod or skopeo), pods."
+        },
+        {
+            "name": "count",
+            "type": "integer",
+            "description": "Number of images resolved."
+        },
+        {
+            "name": "deployments",
+            "type": "list",
+            "description": "Workloads with selected containers (resolved, or listed in missing/errors)."
+        },
+        {
+            "name": "digests",
+            "type": "dictionary",
+            "description": "deployment -> container -> {image, digest}; a list when running pods differ (during a rollout)."
+        },
+        {
+            "name": "missing",
+            "type": "list",
+            "description": "deployment/container with no running pod (mode pod)."
+        },
+        {
+            "name": "errors",
+            "type": "list",
+            "description": "Images skopeo could not inspect, with the reason."
+        },
+        {
+            "name": "file",
+            "type": "string",
+            "description": "Path of the generated image:checksum file (empty unless generate is true)."
+        }
+    ],
+    "tags": [
+        "skopeo",
+        "openshift",
+        "images",
+        "digest"
+    ]
+}

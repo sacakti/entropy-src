@@ -1,0 +1,1 @@
+"""Skopeo generic plugin package."""

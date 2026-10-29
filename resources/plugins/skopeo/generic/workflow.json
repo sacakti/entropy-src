@@ -1,0 +1,54 @@
+{
+    "name": "image-checksums",
+    "version": "1.0.0",
+    "description": "Example workflow for skopeo.generic: log in with oc.generic, then read the image tags and checksums of the app-finance deployments.",
+    "variables": {},
+    "steps": [
+        {
+            "name": "Login",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "oc"
+            ],
+            "arguments": {
+                "operation": "login",
+                "environment": "SIT",
+                "api_url": "https://api.sit.example.com:6443",
+                "username": "${entv:sit/oc_user}",
+                "password": "${entv:sit/oc_password}"
+            }
+        },
+        {
+            "name": "ImageChecksums",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "images"
+            ],
+            "arguments": {
+                "mode": "auto",
+                "environment": "SIT",
+                "namespace": "finance-sit",
+                "rules": [
+                    {
+                        "deployments": "app-finance-*",
+                        "tags": "*-1.2.0*"
+                    },
+                    {
+                        "deployments": [
+                            "app-hr-api"
+                        ]
+                    }
+                ],
+                "exclude": [
+                    "*-canary"
+                ],
+                "credentials": "${entv:quay/robot}",
+                "generate": true
+            }
+        }
+    ]
+}
