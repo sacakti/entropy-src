@@ -19,6 +19,15 @@ Every plugin declares them in plugin.json:
         {"name": "files_transferred", "type": "integer", "description": "..."}
     ]
 
+Choices can come from a JSON file in the plugin folder instead, so they
+follow the file when it changes:
+
+        {"name": "country", "type": "string",
+         "choices_from": {"file": "mapping.json", "key": "countries"}}
+
+"key" is a dot path into the file; an object there gives its keys, a list
+its items. read_manifest() turns it into "choices" each time it is read.
+
 Types: string, boolean, integer, number, path, list, dictionary, any.
 Required arguments have no default. Paths say whether they are a "file",
 a "directory" or "any" (the web UI offers a file browser).
@@ -202,6 +211,8 @@ ARGUMENT_KEYS = {
     "description",
     "secret",
     "choices",
+    # {"file": ..., "key": ...}: choices read from a JSON file in the plugin.
+    "choices_from",
     "minimum",
     "maximum",
     "path",
@@ -302,6 +313,17 @@ def normalize(data: Any) -> dict[str, Any]:
             problems.append(f"{where}: a required argument has no default")
         if not _type_ok(kind, entry["default"]):
             problems.append(f"{where}: the default is not a {kind}")
+        if "choices_from" in item:
+            source = item["choices_from"]
+            if (
+                not isinstance(source, dict)
+                or set(source) - {"file", "key"}
+                or not isinstance(source.get("file"), str)
+                or not isinstance(source.get("key", ""), str)
+            ):
+                problems.append(f"{where}: 'choices_from' is an object with 'file' and 'key'")
+            else:
+                entry["choices_from"] = source
         if "choices" in item:
             choices = item["choices"]
             if not isinstance(choices, list) or not choices:
@@ -372,7 +394,47 @@ def read_manifest(directory: Path) -> dict[str, Any]:
         data = json.loads((directory / "plugin.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    arguments = data.get("arguments")
+    if isinstance(arguments, list):
+        for item in arguments:
+            if isinstance(item, dict) and isinstance(item.get("choices_from"), dict):
+                choices = _choices_from(directory, item["choices_from"])
+                if choices:
+                    item["choices"] = choices
+    return data
+
+
+def _choices_from(directory: Path, source: dict[str, Any]) -> list[Any]:
+    """
+    Choices read from a JSON file in the plugin folder: the keys of the
+    object, or the items of the list, at the dot path "key". Empty when the
+    file or key is missing; the plugin then reports the bad value itself.
+    """
+
+    file = source.get("file")
+    key = source.get("key") or ""
+    if not isinstance(file, str) or not isinstance(key, str):
+        return []
+    root = directory.resolve()
+    path = (root / file).resolve()
+    # Only files inside the plugin folder.
+    if root not in path.parents:
+        return []
+    try:
+        value: Any = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    for part in filter(None, key.split(".")):
+        if not isinstance(value, dict):
+            return []
+        value = value.get(part)
+    if isinstance(value, dict):
+        return list(value)
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, (str, int, float))]
+    return []
 
 
 def inferred(directory: Path) -> dict[str, Any]:

@@ -1,0 +1,34 @@
+{
+    "name": "TrdMigPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Migrate TRD data for one product.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "TRD Migration",
+            "plugin": "custom.trd_mig",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "sqlplus",
+                "oracle"
+            ],
+            "arguments": {
+                "connection": {
+                    "IP": "localhost",
+                    "PORT": 1521,
+                    "SID": "orcl"
+                },
+                "credentials": {
+                    "username": "trd",
+                    "password": "1234"
+                },
+                "country": "IN",
+                "product": "app1",
+                "truncate": true
+            }
+        }
+    ]
+}

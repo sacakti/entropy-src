@@ -1,0 +1,5 @@
+# This plugin currently has no Python dependencies.
+#
+# Runtime dependencies must also be declared in plugin.json.
+#
+# This file is intended for development environments only.

@@ -1,0 +1,39 @@
+{
+    "name": "load_data",
+    "namespace": "custom",
+    "version": "1.1.0",
+    "description": "Run load procedure SQL files in order, waiting for each to complete and stopping when its status table has rows that are not successful.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "required_plugins": [
+        {
+            "name": "sqlplus.generic",
+            "version": ">=1.0.5",
+            "imports": [
+                "executor.SqlPlusExecutor",
+                "model.SqlPlusExecution"
+            ]
+        }
+    ],
+
+    "arguments": [
+        {"name": "connection", "type": "dictionary", "required": true, "description": "Oracle connection with IP, PORT (1-65535) and SID.", "example": {"IP": "localhost", "PORT": 1521, "SID": "orcl"}},
+        {"name": "credentials", "type": "dictionary", "required": true, "secret": true, "description": "Schema credentials: an object (or a JSON string of one) with username and password.", "example": "${entv:sit/load_schema}"},
+        {"name": "procedures", "type": "list", "required": false, "default": ["procedure1.sql", "procedure2.sql"], "description": "Procedure SQL files run in order, from the plugin's sqls folder; each a file name or an object with 'sql' and its own 'status_check'.", "example": ["procedure1.sql", {"sql": "procedure2.sql", "status_check": {"table": "LOAD_STATUS_2"}}]},
+        {"name": "status_check", "type": "dictionary", "required": false, "description": "Default check after each procedure: table, column (default STATUS) and success_value (default SUCCESS); rows whose column is NULL or differs from success_value stop the run.", "example": {"table": "LOAD_STATUS", "column": "STATUS", "success_value": "SUCCESS"}},
+        {"name": "sqlhome", "type": "path", "path": "directory", "required": false, "description": "Oracle home whose bin/sqlplus is used; sqlplus is taken from PATH when omitted.", "example": "/opt/oracle/product/19c/dbhome_1"}
+    ],
+
+    "outputs": [
+        {"name": "procedures", "type": "integer", "description": "Number of procedures configured."},
+        {"name": "completed", "type": "integer", "description": "Number of procedures that ran and passed their status check."},
+        {"name": "results", "type": "list", "description": "Per-procedure results: sql (file), table and not_successful (row count)."}
+    ],
+
+    "tags": ["oracle", "sqlplus", "load"],
+
+    "license": ""
+}

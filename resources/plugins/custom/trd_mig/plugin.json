@@ -1,0 +1,48 @@
+{
+    "name": "trd_mig",
+    "namespace": "custom",
+    "version": "1.2.1",
+    "description": "Migrate TRD data for a product: optional truncate (profile or own tables), empty-table check, the country's SQL file, and a final row count.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "required_plugins": [
+        {
+            "name": "sqlplus.generic",
+            "version": ">=1.0.5",
+            "imports": [
+                "executor.SqlPlusExecutor",
+                "model.SqlPlusExecution"
+            ]
+        }
+    ],
+
+    "arguments": [
+        {"name": "connection", "type": "dictionary", "required": true, "description": "Oracle connection with IP, PORT (1-65535) and SID.", "example": {"IP": "localhost", "PORT": 1521, "SID": "orcl"}},
+        {"name": "credentials", "type": "dictionary", "required": true, "secret": true, "description": "Schema credentials: an object (or a JSON string of one) with username and password.", "example": "${entv:sit/trd_schema}"},
+        {"name": "country", "type": "string", "required": true, "description": "Country key from the mapping's 'countries'; selects the SQL file run (from the sqls folder) and the database link substituted for {dblink} (case-insensitive).", "example": "IN", "choices_from": {"file": "mapping.json", "key": "countries"}},
+        {"name": "product", "type": "string", "required": true, "description": "Product key from the mapping's 'products' (for example app1, app2, app3); selects the count table and, when the country maps one file per product, the SQL file (case-insensitive).", "example": "app1", "choices_from": {"file": "mapping.json", "key": "products"}},
+        {"name": "truncate", "type": "boolean", "required": false, "default": false, "description": "Truncate tables before the insert; the truncate step is skipped when false."},
+        {"name": "truncate_profile", "type": "string", "required": false, "default": "default", "description": "Name of the mapping 'truncate_profiles' entry whose tables are truncated when truncate is true.", "example": "default"},
+        {"name": "truncate_tables", "type": "list", "required": false, "description": "Own list of tables to truncate; overrides truncate_profile.", "example": ["TRD_STAGE", "TRD_STAGE_DETAIL"]},
+        {"name": "mapping", "type": "path", "path": "file", "required": false, "description": "Mapping JSON with 'truncate_profiles', 'countries' (dblink and sql file, or sql file per product) and 'products' (count_table); SQL files are read from the sqls folder next to it. Defaults to the plugin's mapping.json."},
+        {"name": "sqlhome", "type": "path", "path": "directory", "required": false, "description": "Oracle home whose bin/sqlplus is used; sqlplus is taken from PATH when omitted.", "example": "/opt/oracle/product/19c/dbhome_1"}
+    ],
+
+    "outputs": [
+        {"name": "country", "type": "string", "description": "Country used."},
+        {"name": "product", "type": "string", "description": "Product migrated."},
+        {"name": "count_table", "type": "string", "description": "Table whose rows were counted."},
+        {"name": "sql_file", "type": "string", "description": "SQL file run, relative to the sqls folder."},
+        {"name": "truncated", "type": "list", "description": "Tables truncated (empty when truncate was skipped)."},
+        {"name": "count_before", "type": "integer", "description": "Row count of count_table before the insert."},
+        {"name": "count_after", "type": "integer", "description": "Row count of count_table after the insert."},
+        {"name": "counts", "type": "dictionary", "description": "Row count after the insert, keyed by product."}
+    ],
+
+    "tags": ["oracle", "sqlplus", "migration"],
+
+    "license": ""
+}

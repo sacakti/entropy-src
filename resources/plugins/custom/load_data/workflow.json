@@ -1,0 +1,40 @@
+{
+    "name": "LoadDataPlugin Workflow",
+    "version": "1.0.0",
+    "description": "Run the load procedures with status checks.",
+
+    "variables": {},
+
+    "steps": [
+        {
+            "name": "Load Data",
+            "plugin": "custom.load_data",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "sqlplus",
+                "oracle"
+            ],
+            "arguments": {
+                "connection": {
+                    "IP": "localhost",
+                    "PORT": 1521,
+                    "SID": "orcl"
+                },
+                "credentials": {
+                    "username": "load",
+                    "password": "1234"
+                },
+                "procedures": [
+                    "procedure1.sql",
+                    "procedure2.sql"
+                ],
+                "status_check": {
+                    "table": "LOAD_STATUS",
+                    "column": "STATUS",
+                    "success_value": "SUCCESS"
+                }
+            }
+        }
+    ]
+}

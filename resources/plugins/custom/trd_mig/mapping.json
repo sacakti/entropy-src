@@ -1,0 +1,37 @@
+{
+    "truncate_profiles": {
+        "default": [
+            "TRD_STAGE",
+            "TRD_STAGE_DETAIL"
+        ]
+    },
+    "countries": {
+        "IN": {
+            "dblink": "TRD_IN_LINK",
+            "sql": {
+                "app1": "IN/app1.sql",
+                "app2": "IN/app2.sql",
+                "app3": "IN/app3.sql"
+            }
+        },
+        "SG": {
+            "dblink": "TRD_SG_LINK",
+            "sql": {
+                "app1": "SG/app1.sql",
+                "app2": "SG/app2.sql",
+                "app3": "SG/app3.sql"
+            }
+        }
+    },
+    "products": {
+        "app1": {
+            "count_table": "APP1_TRD"
+        },
+        "app2": {
+            "count_table": "APP2_TRD"
+        },
+        "app3": {
+            "count_table": "APP3_TRD"
+        }
+    }
+}

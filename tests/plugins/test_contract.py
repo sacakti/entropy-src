@@ -220,3 +220,76 @@ def test_every_bundled_plugin_keeps_its_contract(folder: Path) -> None:
         for step in steps:
             if step.get("plugin", "").endswith(f"{folder.parent.name}.{folder.name}"):
                 contract.check_arguments(declared, step.get("arguments") or {})
+
+
+def _choices_plugin(tmp_path: Path, choices_from: dict) -> Path:
+    (tmp_path / "plugin.json").write_text(
+        json.dumps(
+            {
+                "arguments": [
+                    {"name": "country", "type": "string", "choices_from": choices_from},
+                ],
+                "outputs": [],
+            },
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "mapping.json").write_text(
+        json.dumps({"countries": {"IN": {}, "SG": {}}, "nested": {"list": ["a", "b"]}}),
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def test_choices_from_reads_keys_of_a_file_in_the_plugin(tmp_path) -> None:
+    folder = _choices_plugin(tmp_path, {"file": "mapping.json", "key": "countries"})
+    declared = contract.declared(contract.read_manifest(folder))
+
+    assert declared["arguments"][0]["choices"] == ["IN", "SG"]
+    assert contract.check_arguments(declared, {"country": "in"})["country"] == "IN"
+    with pytest.raises(ContractError):
+        contract.check_arguments(declared, {"country": "UK"})
+
+    # A new entry in the file is offered on the next read.
+    (folder / "mapping.json").write_text(
+        json.dumps({"countries": {"IN": {}, "SG": {}, "UK": {}}}),
+        encoding="utf-8",
+    )
+    declared = contract.declared(contract.read_manifest(folder))
+    assert contract.check_arguments(declared, {"country": "UK"})["country"] == "UK"
+
+
+def test_choices_from_reads_list_items_at_a_dot_path(tmp_path) -> None:
+    folder = _choices_plugin(tmp_path, {"file": "mapping.json", "key": "nested.list"})
+
+    assert contract.declared(contract.read_manifest(folder))["arguments"][0]["choices"] == [
+        "a",
+        "b",
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {"file": "missing.json", "key": "countries"},
+        {"file": "mapping.json", "key": "nothing.here"},
+        {"file": "../outside.json", "key": "countries"},
+    ],
+)
+def test_choices_from_without_a_value_leaves_the_argument_free(tmp_path, source) -> None:
+    (tmp_path.parent / "outside.json").write_text('{"countries": {"X": 1}}', encoding="utf-8")
+    folder = _choices_plugin(tmp_path, source)
+    declared = contract.declared(contract.read_manifest(folder))
+
+    assert "choices" not in declared["arguments"][0]
+    assert contract.check_arguments(declared, {"country": "anything"})["country"] == "anything"
+
+
+def test_choices_from_must_be_well_formed() -> None:
+    with pytest.raises(ContractError, match="choices_from"):
+        contract.normalize(
+            {
+                "arguments": [{"name": "country", "choices_from": "mapping.json"}],
+                "outputs": [],
+            },
+        )

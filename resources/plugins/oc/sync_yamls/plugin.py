@@ -50,6 +50,8 @@ class SyncYamlsPlugin(BasePlugin):
 
     STRUCTURE_FILENAME = "openshift.yaml"
 
+    _files_written = False
+
     def execute(self) -> PluginResult:
         """
         Execute YAML synchronization.
@@ -69,7 +71,7 @@ class SyncYamlsPlugin(BasePlugin):
 
             return self._result(
                 success=False,
-                changed=bool(self.artifacts),
+                changed=self._files_written or bool(self.artifacts),
                 errors=[str(exc)],
             )
 
@@ -650,8 +652,11 @@ class SyncYamlsPlugin(BasePlugin):
                     resource=resource,
                 )
 
+                # Synchronized YAMLs are repository content, not
+                # generated artifacts; only the resource index is
+                # registered.
                 files.append(relative)
-                self.artifacts[relative] = path
+                self._files_written = True
 
                 self.message.success(
                     Path(relative).name,

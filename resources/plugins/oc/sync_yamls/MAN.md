@@ -480,11 +480,10 @@ The plugin executes synchronization in the following major stages.
 14. Remove configured ignored data keys from ConfigMaps and Secrets.
 15. Write each normalized resource as an individual YAML file.
 16. Add the resource to the resource index.
-17. Register the generated YAML file as a workflow artifact.
-18. Create `.entropy/resource_index.json`.
-19. Add the index to workflow artifacts.
-20. Publish synchronization outputs.
-21. Return a successful plugin result.
+17. Create `.entropy/resource_index.json`.
+18. Add the index to workflow artifacts.
+19. Publish synchronization outputs.
+20. Return a successful plugin result.
 
 ### Resource Processing Order
 
@@ -552,7 +551,6 @@ Each valid resource is:
 3. Normalized.
 4. Written to the corresponding repository directory.
 5. Added to the resource index.
-6. Added to the workflow artifact collection.
 
 ------------------------------------------------------------------------
 
@@ -763,28 +761,24 @@ need to locate resources or inspect Deployment container images.
 
 ## Artifacts
 
-Each successfully written resource YAML file is registered as a
-workflow artifact using its repository-relative path.
+Synchronized resource YAML files are repository content and are not
+registered as workflow artifacts. They are listed in the `resources`
+output instead.
 
-The resource index is also registered as an artifact.
+Only the resource index is registered as an artifact.
 
 Example artifact metadata:
 
 ```json
 {
     "artifacts": {
-        "deployments/app-1.yaml":
-            "/opt/entropy/yamls/SIT/deployments/app-1.yaml",
-        "configmaps/app-config.yaml":
-            "/opt/entropy/yamls/SIT/configmaps/app-config.yaml",
         ".entropy/resource_index.json":
             "/opt/entropy/yamls/SIT/.entropy/resource_index.json"
     }
 }
 ```
 
-Artifacts are created when the corresponding files are successfully
-written.
+The artifact is created when the index is successfully written.
 
 ------------------------------------------------------------------------
 
@@ -1280,7 +1274,7 @@ The plugin can:
 - Write Service YAML files.
 - Write Route YAML files.
 - Create `.entropy/resource_index.json`.
-- Register generated files as workflow artifacts.
+- Register the resource index as a workflow artifact.
 - Contact the OpenShift API through `oc`.
 
 The plugin does not:
@@ -1654,6 +1648,11 @@ them.
 ------------------------------------------------------------------------
 
 ## Changelog
+
+### 1.0.4
+
+- Synchronized resource YAML files are no longer registered as workflow
+  artifacts; only `.entropy/resource_index.json` is.
 
 ### 1.0.0
 
