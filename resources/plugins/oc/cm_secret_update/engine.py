@@ -4,6 +4,7 @@ ConfigMap/Secret update engine.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Callable
 
 from .adapter import ConfigMapSecretTarget
@@ -36,7 +37,7 @@ class ConfigMapSecretUpdateEngine:
         existing -> delete value
         missing  -> leave unchanged
 
-    Structured properties/YAML operations follow the same
+    Structured properties/YAML/JSON operations follow the same
     override semantics.
     """
 
@@ -237,7 +238,10 @@ class ConfigMapSecretUpdateEngine:
                 operation,
             )
 
-        if operation.format == "yaml":
+        if operation.format in {
+            "yaml",
+            "json",
+        }:
 
             return self._delete_yaml(
                 target,
@@ -262,7 +266,10 @@ class ConfigMapSecretUpdateEngine:
 
             return operation.value
 
-        if operation.format == "yaml":
+        if operation.format in {
+            "yaml",
+            "json",
+        }:
 
             return self._yaml_update(
                 existing,
@@ -391,9 +398,10 @@ class ConfigMapSecretUpdateEngine:
         operation: UpdateOperation,
     ) -> Any:
 
-        current = self._load_yaml(
+        current = self._load_structured(
             existing,
             operation.key,
+            operation.format,
         )
 
         if not isinstance(
@@ -402,7 +410,8 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"YAML operation for key " f"'{operation.key}' requires object entries.",
+                f"{self._label(operation.format)} operation for key "
+                f"'{operation.key}' requires object entries.",
             )
 
         self._merge(
@@ -410,8 +419,10 @@ class ConfigMapSecretUpdateEngine:
             operation.entries,
         )
 
-        return self._dump_yaml(
+        return self._dump_structured(
             current,
+            operation.format,
+            existing,
         )
 
     def _delete_yaml(
@@ -438,9 +449,14 @@ class ConfigMapSecretUpdateEngine:
             key,
         )
 
-        current = self._load_yaml(
+        current = self._load_structured(
             existing,
             key,
+            operation.format,
+        )
+
+        label = self._label(
+            operation.format,
         )
 
         if not isinstance(
@@ -449,7 +465,7 @@ class ConfigMapSecretUpdateEngine:
         ):
 
             raise DeploymentUpdateTargetError(
-                f"YAML delete operation for key " f"'{key}' requires a list of paths.",
+                f"{label} delete operation for key " f"'{key}' requires a list of paths.",
             )
 
         changes: list[dict[str, Any]] = []
@@ -462,7 +478,7 @@ class ConfigMapSecretUpdateEngine:
             ):
 
                 raise DeploymentUpdateTargetError(
-                    f"YAML delete path for key " f"'{key}' must be a string.",
+                    f"{label} delete path for key " f"'{key}' must be a string.",
                 )
 
             status = self._delete_yaml_path(
@@ -479,8 +495,10 @@ class ConfigMapSecretUpdateEngine:
 
         target.set(
             key,
-            self._dump_yaml(
+            self._dump_structured(
                 current,
+                operation.format,
+                existing,
             ),
         )
 
@@ -492,6 +510,97 @@ class ConfigMapSecretUpdateEngine:
                 "entries": changes,
             },
         ]
+
+    @staticmethod
+    def _label(
+        operation_format: str | None,
+    ) -> str:
+
+        return "JSON" if operation_format == "json" else "YAML"
+
+    def _load_structured(
+        self,
+        existing: Any,
+        key: str,
+        operation_format: str | None,
+    ) -> dict[str, Any]:
+
+        if operation_format != "json":
+
+            return self._load_yaml(
+                existing,
+                key,
+            )
+
+        if existing is None:
+
+            return {}
+
+        if not isinstance(
+            existing,
+            str,
+        ):
+
+            raise DeploymentUpdateTargetError(
+                f"Embedded JSON value for key " f"'{key}' must be a string.",
+            )
+
+        if not existing.strip():
+
+            return {}
+
+        try:
+
+            current = json.loads(
+                existing,
+            )
+
+        except ValueError as error:
+
+            raise DeploymentUpdateTargetError(
+                f"Embedded JSON value for key " f"'{key}' is not valid JSON: {error}",
+            ) from error
+
+        if not isinstance(
+            current,
+            dict,
+        ):
+
+            raise DeploymentUpdateTargetError(
+                f"Embedded JSON value for key " f"'{key}' must contain an object.",
+            )
+
+        return current
+
+    def _dump_structured(
+        self,
+        value: dict[str, Any],
+        operation_format: str | None,
+        existing: Any,
+    ) -> str:
+
+        if operation_format != "json":
+
+            return self._dump_yaml(
+                value,
+            )
+
+        content = json.dumps(
+            value,
+            indent=2,
+            ensure_ascii=False,
+        )
+
+        if isinstance(
+            existing,
+            str,
+        ) and existing.endswith(
+            "\n",
+        ):
+
+            content += "\n"
+
+        return content
 
     def _load_yaml(
         self,

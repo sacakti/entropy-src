@@ -98,13 +98,28 @@ class PropertiesUpdater:
                 },
             )
 
+        newline = self._newline(
+            lines,
+        )
+
         for key, value in entries.items():
 
             if key in updated:
                 continue
 
+            # The last existing line may lack a line break; without one the
+            # appended property would be glued onto it.
+            if result and not result[-1].endswith(
+                (
+                    "\n",
+                    "\r",
+                ),
+            ):
+
+                result[-1] += newline
+
             result.append(
-                f"{key}={value}\n",
+                f"{key}={value}{newline}",
             )
 
             changes.append(
@@ -209,6 +224,31 @@ class PropertiesUpdater:
             "".join(result),
             changes,
         )
+
+    # ------------------------------------------------------------------
+    # Newline
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _newline(
+        lines: list[str],
+    ) -> str:
+
+        for line in lines:
+
+            if line.endswith(
+                "\r\n",
+            ):
+
+                return "\r\n"
+
+            if line.endswith(
+                "\n",
+            ):
+
+                return "\n"
+
+        return "\n"
 
     # ------------------------------------------------------------------
     # Separator

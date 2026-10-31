@@ -461,7 +461,7 @@ def test_unsupported_format_rejected() -> None:
             {
                 "action": "update",
                 "key": "application.properties",
-                "format": "json",
+                "format": "toml",
                 "entries": {},
             },
         ],

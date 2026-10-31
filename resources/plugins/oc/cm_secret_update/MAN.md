@@ -1011,6 +1011,23 @@ operations:
 The plugin parses the existing embedded YAML value and recursively
 merges the supplied values.
 
+Embedded JSON values use `format: json` with the same `entries`
+object. The existing JSON object is merged recursively and written
+back with two-space indentation:
+
+```yaml
+operations:
+  - action: update
+    key: application.json
+    format: json
+    entries:
+      server:
+        port: 8080
+```
+
+`format: json` also works with `action: delete`, using dotted paths
+in `entries` the same way as YAML.
+
 ---
 
 ### Example 9 --- Delete a Key

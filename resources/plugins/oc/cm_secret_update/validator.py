@@ -46,6 +46,7 @@ class ConfigMapSecretUpdateValidator:
     FORMATS = {
         "properties",
         "yaml",
+        "json",
     }
 
     NATIVE_KINDS = {
@@ -374,7 +375,7 @@ class ConfigMapSecretUpdateValidator:
                 raise UpdateDefinitionError(
                     f"Unsupported format '{operation_format}' "
                     f"for key '{key}'. "
-                    "Supported values: properties, yaml.",
+                    "Supported values: properties, yaml, json.",
                 )
 
         if action == "delete":
