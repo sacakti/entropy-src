@@ -1,0 +1,29 @@
+{
+    "name": "cm_secret",
+    "namespace": "consolidate",
+    "version": "1.0.0",
+    "description": "Consolidate the ConfigMap and Secret changes of several release packages into one set of YAMLs for oc.cm_secret_update.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "arguments": [
+        {"name": "release_directory", "type": "path", "path": "directory", "required": false, "description": "Folder of release packages (ZIPs or extracted folders), applied in natural name order (H9 before H10). Give this or 'releases'.", "example": "/opt/releases/2026-R4"},
+        {"name": "releases", "type": "list", "required": false, "description": "Release packages (ZIPs or extracted folders), applied in exactly this order. Give this or 'release_directory'.", "example": ["/opt/releases/H010.zip", "/opt/releases/H011.zip"]},
+        {"name": "output_directory", "type": "path", "path": "directory", "required": false, "description": "Where the consolidated YAMLs and consolidation-report.json are written; defaults to <workspace>/consolidated/cm_secret.", "example": "/opt/entropy/consolidated/cm_secret"},
+        {"name": "overwrite", "type": "boolean", "required": false, "default": false, "description": "Empty a non-empty output_directory first (otherwise such a folder is refused, so stale YAMLs are never applied)."}
+    ],
+
+    "outputs": [
+        {"name": "output_directory", "type": "string", "description": "Folder with one consolidated YAML per ConfigMap/Secret; give it to oc.cm_secret_update as 'source' (folder mode)."},
+        {"name": "report", "type": "string", "description": "Path of consolidation-report.json: releases, targets, and the release that last changed each key."},
+        {"name": "releases", "type": "list", "description": "Release names in the order they were applied."},
+        {"name": "targets", "type": "list", "description": "One entry per ConfigMap/Secret: kind, name, file, releases and keys."},
+        {"name": "changed", "type": "boolean", "description": "True when at least one release changes a ConfigMap or Secret."}
+    ],
+
+    "tags": ["consolidate", "release", "configmap", "secret"],
+
+    "license": ""
+}
