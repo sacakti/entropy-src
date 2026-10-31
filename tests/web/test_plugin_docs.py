@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+from typing import Optional
+
+import pytest
+
 from core.web.plugin_studio.docs import render_markdown, usage_step
 
 
@@ -42,3 +48,40 @@ def test_usage_step_prefers_the_plugins_example() -> None:
     example = {"name": "Hello", "plugin": "builtin.hello", "arguments": {}}
 
     assert usage_step("builtin.hello", {"arguments": []}, example) is example
+
+
+# ----------------------------------------------------------------------
+# Plugin list dependencies
+# ----------------------------------------------------------------------
+
+
+def test_list_dependencies_read_from_manifest(tmp_path: Path) -> None:
+    from core.web.routes.plugins import _manifest_dependencies
+
+    (tmp_path / "plugin.json").write_text(
+        json.dumps(
+            {
+                "dependencies": [{"name": "paramiko", "version": "3.0"}, "requests", {}],
+                "required_plugins": [{"name": "oc.sync_yamls"}],
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    assert _manifest_dependencies(tmp_path) == {
+        "extensions": [{"name": "paramiko", "version": "3.0"}, {"name": "requests"}],
+        "plugins": [{"name": "oc.sync_yamls"}],
+    }
+
+
+@pytest.mark.parametrize("content", [None, "not json", "[]"])
+def test_list_dependencies_tolerate_missing_or_bad_manifest(
+    tmp_path: Path, content: Optional[str]
+) -> None:
+    from core.web.routes.plugins import _manifest_dependencies
+
+    if content is not None:
+        (tmp_path / "plugin.json").write_text(content, encoding="utf-8")
+
+    assert _manifest_dependencies(tmp_path) == {"extensions": [], "plugins": []}
+    assert _manifest_dependencies(None) == {"extensions": [], "plugins": []}

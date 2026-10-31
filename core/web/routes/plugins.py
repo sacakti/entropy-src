@@ -2,6 +2,7 @@
 Installed plugin inventory and browser plugin development API.
 """
 
+import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -96,6 +97,40 @@ def _serialize_plugin(plugin: Any) -> dict[str, Any]:
     }
 
 
+def _manifest_dependencies(path: Any) -> dict[str, list[dict[str, str]]]:
+    """
+    The libraries ("dependencies") and plugins ("required_plugins") a
+    plugin's plugin.json declares. An unreadable manifest has none.
+    """
+
+    try:
+        manifest = json.loads((Path(path) / "plugin.json").read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError):
+        manifest = {}
+
+    if not isinstance(manifest, dict):
+        manifest = {}
+
+    def entries(value: Any) -> list[dict[str, str]]:
+        found: list[dict[str, str]] = []
+
+        for item in value if isinstance(value, list) else []:
+            if isinstance(item, str) and item.strip():
+                found.append({"name": item.strip()})
+            elif isinstance(item, dict) and isinstance(item.get("name"), str):
+                entry = {"name": item["name"]}
+                if item.get("version"):
+                    entry["version"] = str(item["version"])
+                found.append(entry)
+
+        return found
+
+    return {
+        "extensions": entries(manifest.get("dependencies")),
+        "plugins": entries(manifest.get("required_plugins")),
+    }
+
+
 @router.get("")
 def list_plugins(
     request: Request,
@@ -152,7 +187,12 @@ def list_plugins(
             detail="Unable to retrieve installed plugins.",
         ) from exc
 
-    items = [_serialize_plugin(plugin) for plugin in [*plugins, *_studio(request).drafts()]]
+    sources = [*plugins, *_studio(request).drafts()]
+    items = [_serialize_plugin(plugin) for plugin in sources]
+    paths = {
+        (item["qualified_name"], item["draft"]): getattr(plugin, "path", None)
+        for item, plugin in zip(items, sources)
+    }
 
     summary = {
         "total": len(items),
@@ -203,6 +243,12 @@ def list_plugins(
     start = (page - 1) * page_size
 
     paged_items = items[start : start + page_size]
+
+    # Read manifests for the returned page only.
+    for item in paged_items:
+        item["depends_on"] = _manifest_dependencies(
+            paths.get((item["qualified_name"], item["draft"])),
+        )
 
     return JSONResponse(
         content={

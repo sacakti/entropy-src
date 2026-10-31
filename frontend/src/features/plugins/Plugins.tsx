@@ -1,6 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import {
     Activity,
+    Boxes,
+    Puzzle,
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
@@ -26,6 +28,7 @@ import {
 import {
     listPlugins,
     pluginsApi,
+    type PluginDependencies,
     type PluginItem,
     type PluginListParams,
 } from '../../api/plugins.api'
@@ -66,6 +69,38 @@ function formatDate(value: string | null): string {
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(date)
+}
+
+const DEPENDENCY_CHIP_LIMIT = 3
+
+/** Plugins it requires, then the Python libraries it needs, from plugin.json. */
+function DependencyChips({ dependencies }: { dependencies?: PluginDependencies }) {
+    const items = [
+        ...(dependencies?.plugins ?? []).map((item) => ({ ...item, kind: 'plugin' as const })),
+        ...(dependencies?.extensions ?? []).map((item) => ({ ...item, kind: 'library' as const })),
+    ]
+
+    if (items.length === 0) return <span className="list-cell-text plugins-deps-none">None</span>
+
+    const label = (item: (typeof items)[number]) => `${item.name}${item.version ? ` ${item.version}` : ''}`
+    const describe = (item: (typeof items)[number]) => `${item.kind === 'plugin' ? 'Plugin' : 'Python library'}: ${label(item)}`
+    const hidden = items.slice(DEPENDENCY_CHIP_LIMIT)
+
+    return (
+        <span className="plugins-deps">
+            {items.slice(0, DEPENDENCY_CHIP_LIMIT).map((item) => (
+                <span key={`${item.kind}:${item.name}`} className={`list-chip plugins-dep-${item.kind}`} title={describe(item)}>
+                    {item.kind === 'plugin' ? <Puzzle size={11} aria-hidden="true" /> : <Boxes size={11} aria-hidden="true" />}
+                    {label(item)}
+                </span>
+            ))}
+            {hidden.length > 0 && (
+                <span className="list-chip" title={hidden.map(describe).join('\n')}>
+                    +{hidden.length}
+                </span>
+            )}
+        </span>
+    )
 }
 
 function StatusBadge({ enabled, draft = false }: { enabled: boolean; draft?: boolean }) {
@@ -209,6 +244,10 @@ function PluginRow({
 
             <td>
                 <span className="list-version">{plugin.version}</span>
+            </td>
+
+            <td>
+                <DependencyChips dependencies={plugin.depends_on} />
             </td>
 
             <td>
@@ -975,6 +1014,7 @@ export default function Plugins() {
                                         onSort={handleSort}
                                     />
                                 </th>
+                                <th scope="col" title="Plugins it requires (puzzle icon) and Python libraries it needs (boxes icon), from plugin.json">Dependencies</th>
                                 <th scope="col">
                                     <SortButton
                                         label="Status"
@@ -1004,7 +1044,7 @@ export default function Plugins() {
                         <tbody>
                             {loading && plugins.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7}>
+                                    <td colSpan={8}>
                                         <EntropyLoader label="Loading plugins…" />
                                     </td>
                                 </tr>
@@ -1033,7 +1073,7 @@ export default function Plugins() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={7}>
+                                    <td colSpan={8}>
                                         <EmptyState
                                             title={
                                                 error

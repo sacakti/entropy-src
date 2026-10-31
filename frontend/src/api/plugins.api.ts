@@ -10,6 +10,20 @@ export interface PluginItem {
     installed_at: string | null
     /** Saved but not installed; workflows cannot use it until installed. */
     draft?: boolean
+    /** From plugin.json; sent by the list endpoint only. */
+    depends_on?: PluginDependencies
+}
+
+export interface PluginDependency {
+    name: string
+    version?: string
+}
+
+export interface PluginDependencies {
+    /** Python libraries ("dependencies"). */
+    extensions: PluginDependency[]
+    /** Other plugins ("required_plugins"). */
+    plugins: PluginDependency[]
 }
 
 export interface PluginListResponse {

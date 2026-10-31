@@ -756,6 +756,32 @@ operation menu {
     white-space: nowrap;
 }
 
+/* Plugin list: required plugins and Python libraries. */
+.entropy-app .plugins-deps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: 260px;
+}
+
+.entropy-app .plugins-deps .list-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    overflow: hidden;
+    font-weight: 500;
+    text-overflow: ellipsis;
+}
+
+.entropy-app .plugins-dep-plugin {
+    color: var(--app-accent);
+}
+
+.entropy-app .plugins-deps-none {
+    color: var(--app-muted);
+}
+
 .entropy-app .list-chip-warning {
     color: var(--app-warning);
     border-color: var(--app-warning-border);
