@@ -120,6 +120,19 @@ default matches both layouts, because for an App-Published package the
 release root is the `App-Published` directory itself. When the file is
 missing, image-transfer analysis is skipped without an error.
 
+The script is read, never run. Every `docker push <image>` and
+`docker image push <image>` command is used, including quoted images,
+push options (`--quiet`, `--platform <value>`), a leading `sudo`, and
+commands after `&&`, `||` or `;`. Pushes whose image contains a shell
+variable (`$TAG`) are skipped with a warning.
+
+A pushed image is matched to a Deployment by its repository path without
+the registry host (`quay.io/team/app` matches `mirror:5000/team/app`).
+When no path matches, it falls back to the image name alone
+(`app`) **only if exactly one** Deployment container uses that name,
+and logs a warning naming the Deployment. The Deployment keeps its own
+registry and path; only the tag changes.
+
 ------------------------------------------------------------------------
 
 ## Release layouts

@@ -4,7 +4,7 @@ Release package analyser.
 
 from __future__ import annotations
 
-import re
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -30,9 +30,18 @@ class ReleaseAnalyzer:
         ".json",
     }
 
-    DOCKER_PUSH_PATTERN = re.compile(
-        r"^\s*docker\s+push\s+(?P<image>[^\s;#]+)",
-    )
+    SHELL_SEPARATORS = {
+        "&&",
+        "||",
+        ";",
+        "|",
+        "&",
+    }
+
+    # docker push options that take a separate value argument.
+    DOCKER_PUSH_VALUE_OPTIONS = {
+        "--platform",
+    }
 
     def __init__(
         self,
@@ -618,7 +627,9 @@ class ReleaseAnalyzer:
         """
         Images pushed by the release's image transfer script.
 
-        Only 'docker push <image>' lines are read; the script is never run.
+        Only 'docker push <image>' / 'docker image push <image>' commands are
+        read (also after 'sudo' or a shell separator such as '&&'); the
+        script is never run.
         """
 
         if not self._filesystem.exists(script) or not self._filesystem.is_file(script):
@@ -633,25 +644,118 @@ class ReleaseAnalyzer:
 
         for line in self._filesystem.read_text(script).splitlines():
 
-            match = self.DOCKER_PUSH_PATTERN.match(
+            for image in self._pushed_images(
                 line,
+            ):
+
+                if "$" in image:
+                    self._log.warning(
+                        f"Skipped image transfer push with a shell variable: '{image}'.",
+                    )
+                    continue
+
+                if image not in images:
+                    images.append(image)
+
+        return images
+
+    def _pushed_images(
+        self,
+        line: str,
+    ) -> list[str]:
+        """
+        Return the images pushed by Docker commands on one shell line.
+        """
+
+        if "push" not in line:
+            return []
+
+        lexer = shlex.shlex(
+            line,
+            posix=True,
+            punctuation_chars=True,
+        )
+        lexer.whitespace_split = True
+
+        try:
+
+            tokens = list(
+                lexer,
             )
 
-            if match is None:
-                continue
+        except ValueError as exc:
 
-            image = match.group("image")
+            self._log.warning(
+                f"Skipped unparseable image transfer line '{line.strip()}': {exc}",
+            )
 
-            if "$" in image:
-                self._log.warning(
-                    f"Skipped image transfer push with a shell variable: '{image}'.",
-                )
-                continue
+            return []
 
-            if image not in images:
+        commands: list[list[str]] = [[]]
+
+        for token in tokens:
+
+            if token in self.SHELL_SEPARATORS:
+                commands.append([])
+            else:
+                commands[-1].append(token)
+
+        images: list[str] = []
+
+        for command in commands:
+
+            image = self._docker_push_image(
+                command,
+            )
+
+            if image is not None:
                 images.append(image)
 
         return images
+
+    @classmethod
+    def _docker_push_image(
+        cls,
+        command: list[str],
+    ) -> str | None:
+        """
+        Return the image argument of a 'docker [image] push' command.
+        """
+
+        if command[:1] == ["sudo"]:
+
+            command = command[1:]
+
+            while command and command[0].startswith("-"):
+                command = command[1:]
+
+        if command[:2] == ["docker", "push"]:
+            arguments = command[2:]
+
+        elif command[:3] == ["docker", "image", "push"]:
+            arguments = command[3:]
+
+        else:
+            return None
+
+        skip_value = False
+
+        for argument in arguments:
+
+            if skip_value:
+                skip_value = False
+                continue
+
+            if argument in cls.DOCKER_PUSH_VALUE_OPTIONS:
+                skip_value = True
+                continue
+
+            if argument.startswith("-"):
+                continue
+
+            return argument
+
+        return None
 
     def _build_transfer_deployment_context(
         self,
@@ -699,10 +803,13 @@ class ReleaseAnalyzer:
 
             if match is None:
 
-                self._log.warning(
-                    f"No deployment found for transferred image " f"'{image}'.",
+                match = self._find_transfer_deployment_by_name(
+                    index,
+                    image,
+                    repository,
                 )
 
+            if match is None:
                 continue
 
             if (match["deployment"], match["container"]) in updated:
@@ -742,6 +849,56 @@ class ReleaseAnalyzer:
         )
 
         return result
+
+    def _find_transfer_deployment_by_name(
+        self,
+        index: dict[str, Any],
+        image: str,
+        repository: str,
+    ) -> dict[str, Any] | None:
+        """
+        Fallback for a pushed image whose registry/namespace path differs
+        from the Deployment's image (for example the Deployment pulls from
+        the internal OpenShift registry). Matches on the final image name
+        only when exactly one Deployment container uses that name.
+        """
+
+        name = repository.rsplit("/", 1)[-1]
+
+        matches = self._resource_index.find_deployments_by_name(
+            index,
+            name,
+        )
+
+        if len(matches) == 1:
+
+            self._log.warning(
+                f"Transferred image '{image}' matched Deployment "
+                f"'{matches[0]['deployment']}' by image name '{name}' only; "
+                f"its current image is '{matches[0]['current_image']}'.",
+            )
+
+            return matches[0]
+
+        if matches:
+
+            candidates = ", ".join(
+                sorted(str(match["deployment"]) for match in matches),
+            )
+
+            self._log.warning(
+                f"Transferred image '{image}' did not match any Deployment by "
+                f"path, and image name '{name}' is used by several "
+                f"Deployments ({candidates}); none was updated.",
+            )
+
+            return None
+
+        self._log.warning(
+            f"No deployment found for transferred image " f"'{image}'.",
+        )
+
+        return None
 
     @staticmethod
     def _image_path(

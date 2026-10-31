@@ -8,6 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import Mock
 
+import pytest
+
 from lib.executor import LinuxExecutor
 from resources.plugins.release.context_builder.analyzer import ReleaseAnalyzer
 
@@ -132,3 +134,105 @@ def test_field_update_resource_does_not_block_image_update(tmp_path):
     )
 
     assert sorted(item["name"] for item in result["resources"]["deployments"]) == ["app1", "app2"]
+
+
+# ----------------------------------------------------------------------
+# Push command forms
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "docker push quay.io/sacakti/app1/app-service:1.0.0",
+        'docker push "quay.io/sacakti/app1/app-service:1.0.0"',
+        "docker push 'quay.io/sacakti/app1/app-service:1.0.0'",
+        "docker push quay.io/sacakti/app1/app-service:1.0.0\r",
+        "docker push --quiet quay.io/sacakti/app1/app-service:1.0.0",
+        "docker push --platform linux/amd64 quay.io/sacakti/app1/app-service:1.0.0",
+        "docker image push quay.io/sacakti/app1/app-service:1.0.0",
+        "sudo docker push quay.io/sacakti/app1/app-service:1.0.0",
+        "  docker tag a b && docker push quay.io/sacakti/app1/app-service:1.0.0",
+        "docker push quay.io/sacakti/app1/app-service:1.0.0 || exit 1",
+        "docker push quay.io/sacakti/app1/app-service:1.0.0  # release image",
+    ],
+)
+def test_push_command_forms_are_detected(tmp_path, line):
+    script = tmp_path / "image_transfer.sh"
+    script.write_text(f"{line}\n")
+
+    assert _analyzer()._analyse_image_transfer(script) == [
+        "quay.io/sacakti/app1/app-service:1.0.0",
+    ]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "docker pull quay.io/sacakti/app1/app-service:1.0.0",
+        "echo docker push quay.io/sacakti/app1/app-service:1.0.0",
+        "   # docker push quay.io/sacakti/app1/app-service:1.0.0",
+        "docker push 'quay.io/sacakti/app1/app-service:1.0.0",
+    ],
+)
+def test_non_push_lines_are_ignored(tmp_path, line):
+    script = tmp_path / "image_transfer.sh"
+    script.write_text(f"{line}\n")
+
+    assert _analyzer()._analyse_image_transfer(script) == []
+
+
+# ----------------------------------------------------------------------
+# Deployment matching across registries
+# ----------------------------------------------------------------------
+
+
+def _single_deployment_index(image: str) -> dict:
+    return {
+        "deployments": {
+            "deployments/app1.yaml": {
+                "deployment": "app1",
+                "containers": {"app": {"image": image}},
+            },
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "current_image",
+    [
+        "image-registry.openshift-image-registry.svc:5000/prod-ns/app-service:0.9.0",
+        "app-service:0.9.0",
+        "registry.local/other/app-service@sha256:abc",
+    ],
+)
+def test_unique_image_name_matches_deployment_in_other_registry(current_image):
+    analyzer = _analyzer()
+
+    result = analyzer._build_transfer_deployment_context(
+        images=["quay.io/sacakti/app1/app-service:1.0.0"],
+        yaml_repository=Path("/yamls/SIT"),
+        index=_single_deployment_index(current_image),
+        existing_resources=analyzer._empty_resources(),
+    )
+
+    [resource] = result["resources"]["deployments"]
+
+    assert resource["name"] == "app1"
+    # The Deployment keeps its own registry and path; only the tag changes.
+    assert resource["target_image"] == f"{current_image.split('@')[0].rsplit(':', 1)[0]}:1.0.0"
+    assert result["operations"]["apply"] == ["/yamls/SIT/deployments/app1.yaml"]
+
+
+def test_ambiguous_image_name_is_not_matched():
+    analyzer = _analyzer()
+
+    result = analyzer._build_transfer_deployment_context(
+        images=["other.io/team/app-service:3.0.0"],
+        yaml_repository=Path("/yamls/SIT"),
+        index=INDEX,
+        existing_resources=analyzer._empty_resources(),
+    )
+
+    assert result["resources"]["deployments"] == []
+    assert result["required"] is False
