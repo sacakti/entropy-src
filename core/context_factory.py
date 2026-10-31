@@ -43,7 +43,6 @@ from lib.database.repositories.roles import RoleRepository
 from lib.database.repositories.user_groups import UserGroupRepository
 from lib.database.repositories.user_roles import UserRoleRepository
 from lib.database.repositories.users import UserRepository
-from lib.database.repositories.vault_namespace_access import VaultNamespaceAccessRepository
 from lib.database.repositories.vault_namespaces import VaultNamespaceRepository
 from lib.executor import LinuxExecutor
 from lib.extensions.manager import ExtensionManager
@@ -391,10 +390,6 @@ class ContextFactory:
             connection,
         )
 
-        self._context.vault_namespace_access_repository = VaultNamespaceAccessRepository(
-            connection,
-        )
-
         self._context.role_manager = RoleManager(
             roles=self._context.role_repository,
             permissions=self._context.permission_repository,
@@ -411,8 +406,6 @@ class ContextFactory:
 
         self._context.vault_namespace_manager = VaultNamespaceManager(
             namespaces=self._context.vault_namespace_repository,
-            access=self._context.vault_namespace_access_repository,
-            users=self._context.user_repository,
         )
 
         self._context.user_manager = UserManager(
@@ -452,6 +445,7 @@ class ContextFactory:
             serializer=vault_serializer,
             key_provider=vault_key_provider,
             namespace_manager=self._context.vault_namespace_manager,
+            authorization=self._context.authorization,
         )
 
     # ------------------------------------------------------------------

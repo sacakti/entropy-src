@@ -7,7 +7,7 @@ A role is a set of permissions with a scope:
   custom) are given to users and groups and apply everywhere;
 - project roles (Viewer, Operator, Developer, Maintainer, or custom) are
   given to users and groups *in a project* and apply to that project's
-  workflows, schedules, drafts and runs.
+  workflows, schedules, drafts, runs and Vault namespaces.
 
 Nodes are global resources: shared with every project, or assigned to some.
 
@@ -53,17 +53,38 @@ PROJECT_PERMISSIONS = frozenset(
         "releases.promote",
         "artifacts.read",
         "artifacts.write",
+        "vault.namespace.read",
+        "vault.read",
+        "vault.add",
+        "vault.modify",
+        "vault.delete",
+        "vault.namespace.create",
+        "vault.namespace.modify",
+        "vault.namespace.delete",
+        "vault.all",
     }
 )
 
-_VIEWER = ("workflows.read", "schedules.list", "plugins.read", "tasks.read", "releases.read", "artifacts.read")
+# Vault: Viewers and Operators see namespaces and entry names only (their runs
+# still use the project's secrets); Developers reveal and edit values;
+# Maintainers also delete entries and manage namespaces.
+_VIEWER = (
+    "workflows.read", "schedules.list", "plugins.read", "tasks.read", "releases.read",
+    "artifacts.read", "vault.namespace.read",
+)
 _OPERATOR = _VIEWER + (
     "workflows.execute", "plugins.execute", "tasks.create", "tasks.manage",
     "tasks.comment", "tasks.follow", "releases.read", "releases.create",
     "releases.manage", "releases.promote", "artifacts.write",
 )
-_DEVELOPER = _OPERATOR + ("workflows.write", "schedules.manage", "tasks.create", "tasks.comment", "tasks.follow")
-_MAINTAINER = _DEVELOPER + ("workflows.delete", "schedules.delete", "projects.members", "tasks.manage")
+_DEVELOPER = _OPERATOR + (
+    "workflows.write", "schedules.manage", "tasks.create", "tasks.comment", "tasks.follow",
+    "vault.read", "vault.add", "vault.modify",
+)
+_MAINTAINER = _DEVELOPER + (
+    "workflows.delete", "schedules.delete", "projects.members", "tasks.manage",
+    "vault.delete", "vault.namespace.create", "vault.namespace.modify", "vault.namespace.delete",
+)
 
 # name -> (title, scope, description, permissions); None means every permission.
 BUILTIN_ROLES: Dict[str, tuple] = {
@@ -108,34 +129,23 @@ BUILTIN_ROLES: Dict[str, tuple] = {
         "Create, install, change and remove plugins and the libraries they need.",
         ("plugins.all", "extensions.list", "extensions.install", "extensions.download"),
     ),
-    "vault-user": (
-        "Vault user",
-        "global",
-        "Use the vault: own namespaces and those shared with you.",
-        (
-            "vault.read",
-            "vault.add",
-            "vault.modify",
-            "vault.delete",
-            "vault.namespace.create",
-            "vault.namespace.read",
-            "vault.namespace.modify",
-            "vault.namespace.delete",
-            "vault.namespace.users",
-        ),
+    "viewer": (
+        "Viewer",
+        "project",
+        "See the project's workflows, schedules, runs and Vault entry names.",
+        _VIEWER,
     ),
-    "viewer": ("Viewer", "project", "See the project's workflows, schedules and runs.", _VIEWER),
     "operator": ("Operator", "project", "Viewer, and run workflows and plugins.", _OPERATOR),
     "developer": (
         "Developer",
         "project",
-        "Operator, and create and change workflows and schedules.",
+        "Operator, and create and change workflows and schedules; reveal and edit Vault values.",
         _DEVELOPER,
     ),
     "maintainer": (
         "Maintainer",
         "project",
-        "Developer, and delete them and manage the project's members.",
+        "Developer, and delete them, manage Vault namespaces and the project's members.",
         _MAINTAINER,
     ),
 }

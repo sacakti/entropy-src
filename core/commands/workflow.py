@@ -37,6 +37,16 @@ if TYPE_CHECKING:
     from core.context import EntropyContext
 
 
+def _use_project(project_id: int) -> None:
+    """In-process `ent` runs work in this project (its Vault, plugin data)."""
+
+    import os
+
+    from lib.vault.projects import PROJECT_ENV
+
+    os.environ[PROJECT_ENV] = str(project_id)
+
+
 class WorkflowCommand(
     BaseCommand,
 ):
@@ -539,6 +549,9 @@ class WorkflowCommand(
         project = ProjectContext(self._context).current(session)
         self._require("workflows.execute", project["id"])
 
+        # This in-process run reads the current project's Vault only.
+        _use_project(project["id"])
+
         workflow_name, workflow_file = self._workflow_source(
             args,
         )
@@ -638,6 +651,7 @@ class WorkflowCommand(
             job = self._workflows.start(
                 file=workflow_file,
                 options=options,
+                project_id=project["id"],
             )
             target = workflow_file.stem
 

@@ -9,8 +9,9 @@ File layout (JSON):
      "kdf": {"name": "scrypt", "salt": b64, "n": 32768, "r": 8, "p": 1},
      "cipher": "AES-256-GCM", "nonce": b64, "data": b64}
 
-`data` decrypts to {"namespaces": [{"name", "visibility",
-"entries": [{"key", "type", "sensitive", "value"}]}], ...}.
+`data` decrypts to {"namespaces": [{"name",
+"entries": [{"key", "type", "sensitive", "value"}]}], ...}. (Files from
+before project scoped Vault also carry a namespace "visibility"; ignored.)
 """
 
 from __future__ import annotations
@@ -125,11 +126,9 @@ def collect(vault_manager: Any, namespaces: List[Any], exported_by: str) -> Dict
                     "value": vault_manager.get(namespace.id, entry.key),
                 }
             )
-        visibility = getattr(namespace, "visibility", None)
         items.append(
             {
                 "name": namespace.name,
-                "visibility": getattr(visibility, "value", visibility) or "private",
                 "entries": entries,
             }
         )
@@ -145,22 +144,21 @@ def restore(
     namespace_manager: Any,
     payload: Dict[str, Any],
     *,
+    project_id: int,
     owner_user_id: int,
     can_create: bool,
     can_write: Any,
     overwrite: bool,
     only: List[str] = (),
-    in_scope: Any = None,
-    on_create: Any = None,
 ) -> Dict[str, Any]:
     """
-    Put the payload's entries into namespaces of the same name: missing
-    namespaces are created (owned by the importer) when allowed; existing
-    keys are kept unless `overwrite`. `can_write(namespace)` decides whether
-    the importer may write to an existing namespace.
+    Put the payload's entries into the project's namespaces of the same name:
+    missing namespaces are created in the project when allowed; existing keys
+    are kept unless `overwrite`. `can_write(namespace)` decides whether the
+    importer may write to an existing namespace. Older exports may carry a
+    namespace "visibility"; it is ignored.
     """
 
-    from lib.models.authorization import VaultVisibility
     from lib.models.vault import VaultValueType
     from lib.vault.exceptions import VaultNamespaceNotFoundError
 
@@ -179,7 +177,7 @@ def restore(
             "error": None,
         }
         try:
-            namespace = namespace_manager.get(name)
+            namespace = namespace_manager.get(name, project_id)
         except VaultNamespaceNotFoundError:
             namespace = None
         if namespace is None:
@@ -187,21 +185,10 @@ def restore(
                 report["error"] = "Namespace does not exist and you may not create namespaces."
                 summary["namespaces"].append(report)
                 continue
-            try:
-                visibility = VaultVisibility(item.get("visibility") or "private")
-            except ValueError:
-                visibility = VaultVisibility.PRIVATE
             namespace = namespace_manager.create(
-                name=name, owner_user_id=owner_user_id, visibility=visibility
+                name=name, project_id=project_id, owner_user_id=owner_user_id
             )
-            if on_create is not None:
-                on_create(namespace)
             report["created"] = True
-        elif in_scope is not None and not in_scope(namespace):
-            # Namespace names are unique across projects.
-            report["error"] = "A namespace with this name belongs to another project."
-            summary["namespaces"].append(report)
-            continue
         elif not can_write(namespace):
             report["error"] = "You may not write to this namespace."
             summary["namespaces"].append(report)

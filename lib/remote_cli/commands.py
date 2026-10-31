@@ -827,8 +827,6 @@ def cmd_vault_namespaces(args: argparse.Namespace) -> int:
         items,
         [
             ("namespace", lambda n: n["name"], False),
-            ("visibility", lambda n: n.get("visibility"), False),
-            ("your access", lambda n: n.get("access") or "read", False),
             ("created", lambda n: when(n.get("created_at")), True),
         ],
         title="Vault namespaces",

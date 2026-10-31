@@ -14,7 +14,7 @@ from core.commands.base import (
     BaseCommand,
     CommandMetadata,
 )
-from lib.models.authorization import VaultAccess, VaultVisibility
+from lib.authorization.exceptions import AuthorizationRequiredError
 from lib.vault import (
     VaultValueType,
 )
@@ -258,12 +258,6 @@ class VaultCommand(BaseCommand):
             help="Namespace name.",
         )
 
-        create_namespace.add_argument(
-            "--shared",
-            action="store_true",
-            help="Create a shared namespace.",
-        )
-
         #
         # namespace list
         #
@@ -307,20 +301,6 @@ class VaultCommand(BaseCommand):
             help="New namespace name.",
         )
 
-        visibility = modify_namespace.add_mutually_exclusive_group()
-
-        visibility.add_argument(
-            "--shared",
-            action="store_true",
-            help="Make the namespace shared.",
-        )
-
-        visibility.add_argument(
-            "--private",
-            action="store_true",
-            help="Make the namespace private.",
-        )
-
         #
         # namespace delete
         #
@@ -333,55 +313,6 @@ class VaultCommand(BaseCommand):
         delete_namespace.add_argument(
             "name",
             help="Namespace name.",
-        )
-
-        #
-        # namespace users
-        #
-
-        users_namespace = namespace_subparsers.add_parser(
-            "users",
-            help="Manage namespace users.",
-        )
-
-        users_namespace.add_argument(
-            "name",
-            help="Namespace name.",
-        )
-
-        user_subparsers = users_namespace.add_subparsers(
-            dest="user_action",
-        )
-
-        grant_user = user_subparsers.add_parser(
-            "grant",
-            help="Grant namespace access to a user.",
-        )
-
-        grant_user.add_argument(
-            "username",
-            help="Username.",
-        )
-
-        grant_user.add_argument(
-            "--access",
-            choices=[
-                "read",
-                "write",
-                "admin",
-            ],
-            required=True,
-            help="Access level.",
-        )
-
-        revoke_user = user_subparsers.add_parser(
-            "revoke",
-            help="Revoke namespace access from a user.",
-        )
-
-        revoke_user.add_argument(
-            "username",
-            help="Username.",
         )
 
     # ------------------------------------------------------------------
@@ -408,7 +339,7 @@ class VaultCommand(BaseCommand):
             return
 
         permissions = {
-            "list": "vault.read",
+            "list": "vault.namespace.read",
             "add": "vault.add",
             "inspect": "vault.read",
             "update": "vault.modify",
@@ -425,7 +356,7 @@ class VaultCommand(BaseCommand):
                 f"Unsupported Vault action: {args.action}",
             )
 
-        self._require_permission(
+        self._require_vault(
             permission,
         )
 
@@ -1456,7 +1387,6 @@ class VaultCommand(BaseCommand):
             "read": self._namespace_read,
             "modify": self._namespace_modify,
             "delete": self._namespace_delete,
-            "users": self._namespace_users,
         }
 
         action = actions.get(
@@ -1478,19 +1408,14 @@ class VaultCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        session = self._session.require()
-
-        self._authorization.require(
-            session,
+        session, project = self._require_vault(
             "vault.namespace.create",
         )
 
-        visibility = VaultVisibility.SHARED if args.shared else VaultVisibility.PRIVATE
-
         namespace = self._namespaces.create(
             name=args.name,
+            project_id=project["id"],
             owner_user_id=session.user_id,
-            visibility=visibility,
         )
 
         self._ui.success(
@@ -1502,14 +1427,13 @@ class VaultCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        session = self._session.require()
-
-        self._authorization.require(
-            session,
+        _, project = self._require_vault(
             "vault.namespace.read",
         )
 
-        namespaces = self._namespaces.list()
+        namespaces = self._namespaces.list(
+            project["id"],
+        )
 
         if not namespaces:
 
@@ -1520,17 +1444,15 @@ class VaultCommand(BaseCommand):
             return
 
         self._ui.table(
-            title="Vault Namespaces",
+            title=f"Vault Namespaces : {project['key']}",
             columns=[
                 "Name",
-                "Visibility",
-                "Owner",
+                "Created by",
             ],
             rows=[
                 [
                     namespace.name,
-                    namespace.visibility.value,
-                    str(namespace.owner_user_id),
+                    str(namespace.owner_user_id or ""),
                 ]
                 for namespace in namespaces
             ],
@@ -1541,15 +1463,13 @@ class VaultCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        session = self._session.require()
-
-        self._authorization.require(
-            session,
+        _, project = self._require_vault(
             "vault.namespace.read",
         )
 
         namespace = self._namespaces.get(
             args.name,
+            project["id"],
         )
 
         self._ui.table(
@@ -1564,12 +1484,12 @@ class VaultCommand(BaseCommand):
                     namespace.name,
                 ],
                 [
-                    "Visibility",
-                    namespace.visibility.value,
+                    "Project",
+                    project["key"],
                 ],
                 [
-                    "Owner",
-                    str(namespace.owner_user_id),
+                    "Created by",
+                    str(namespace.owner_user_id or ""),
                 ],
             ],
         )
@@ -1579,31 +1499,18 @@ class VaultCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        session = self._session.require()
-
-        self._authorization.require(
-            session,
+        _, project = self._require_vault(
             "vault.namespace.modify",
         )
 
         namespace = self._namespaces.get(
             args.name,
+            project["id"],
         )
-
-        visibility = None
-
-        if args.shared:
-
-            visibility = VaultVisibility.SHARED
-
-        elif args.private:
-
-            visibility = VaultVisibility.PRIVATE
 
         namespace = self._namespaces.modify(
             namespace,
             name=args.new_name,
-            visibility=visibility,
         )
 
         self._ui.success(
@@ -1615,15 +1522,13 @@ class VaultCommand(BaseCommand):
         args: Namespace,
     ) -> None:
 
-        session = self._session.require()
-
-        self._authorization.require(
-            session,
+        _, project = self._require_vault(
             "vault.namespace.delete",
         )
 
         namespace = self._namespaces.get(
             args.name,
+            project["id"],
         )
 
         self._ui.rule(
@@ -1642,12 +1547,12 @@ class VaultCommand(BaseCommand):
                     namespace.name,
                 ],
                 [
-                    "Visibility",
-                    namespace.visibility.value,
+                    "Project",
+                    project["key"],
                 ],
                 [
-                    "Owner",
-                    str(namespace.owner_user_id),
+                    "Created by",
+                    str(namespace.owner_user_id or ""),
                 ],
             ],
         )
@@ -1669,91 +1574,6 @@ class VaultCommand(BaseCommand):
 
         self._ui.success(
             f"Vault namespace '{namespace.name}' " "deleted successfully.",
-        )
-
-    def _namespace_users(
-        self,
-        args: Namespace,
-    ) -> None:
-
-        session = self._session.require()
-
-        self._authorization.require(
-            session,
-            "vault.namespace.users",
-        )
-
-        namespace = self._namespaces.get(
-            args.name,
-        )
-
-        if args.user_action == "grant":
-
-            self._namespaces.grant_access(
-                namespace=namespace,
-                username=args.username,
-                access=VaultAccess(
-                    args.access,
-                ),
-            )
-
-            self._ui.success(
-                f"User '{args.username}' granted "
-                f"{args.access} access to "
-                f"namespace '{namespace.name}'.",
-            )
-
-            return
-
-        if args.user_action == "revoke":
-
-            self._namespaces.revoke_access(
-                namespace=namespace,
-                username=args.username,
-            )
-
-            self._ui.success(
-                f"User '{args.username}' revoked from " f"namespace '{namespace.name}'.",
-            )
-
-            return
-
-        users = self._namespaces.users(
-            namespace,
-        )
-
-        if not users:
-
-            self._ui.info(
-                f"No users have explicit access to " f"namespace '{namespace.name}'.",
-            )
-
-            return
-
-        assignments = self._namespaces.access_assignments(
-            namespace,
-        )
-
-        access_by_user = {assignment.user_id: assignment.access.value for assignment in assignments}
-
-        self._ui.table(
-            title=f"Namespace Users : {namespace.name}",
-            columns=[
-                "Username",
-                "Full Name",
-                "Access",
-            ],
-            rows=[
-                [
-                    user.username,
-                    user.full_name or "",
-                    access_by_user.get(
-                        user.id,
-                        "",
-                    ),
-                ]
-                for user in users
-            ],
         )
 
     # ------------------------------------------------------------------
@@ -2207,16 +2027,55 @@ class VaultCommand(BaseCommand):
     # Helpers
     # ------------------------------------------------------------------
 
+    def _project(
+        self,
+    ) -> tuple[Any, dict[str, Any]]:
+        """
+        The session and the CLI's current project (`ent project set`).
+        """
+
+        from core.commands.project_context import ProjectContext
+
+        session = self._session.require()
+
+        return session, ProjectContext(self.context).current(session)
+
+    def _require_vault(
+        self,
+        permission: str,
+    ) -> tuple[Any, dict[str, Any]]:
+        """
+        Require a Vault permission in the current project; Vault namespaces
+        belong to a project and access comes from its project roles.
+        """
+
+        session, project = self._project()
+
+        if self._authorization is None or not self._authorization.has_permission(
+            session.user_id,
+            permission,
+            project["id"],
+        ):
+
+            raise AuthorizationRequiredError(
+                f"{permission} in project '{project['key']}'",
+            )
+
+        return session, project
+
     def _namespace_id(
         self,
         name: str,
     ) -> int:
         """
-        Resolve a Vault namespace name to its database identifier.
+        Resolve a namespace of the current project to its database identifier.
         """
+
+        _, project = self._project()
 
         namespace = self._namespaces.get(
             name,
+            project["id"],
         )
 
         if namespace.id is None:

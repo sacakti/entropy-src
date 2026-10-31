@@ -23,25 +23,6 @@ class PermissionType(str, Enum):
     FULL = "full"
 
 
-class VaultVisibility(str, Enum):
-    """
-    Vault namespace visibility.
-    """
-
-    PRIVATE = "private"
-    SHARED = "shared"
-
-
-class VaultAccess(str, Enum):
-    """
-    Access granted to a Vault namespace.
-    """
-
-    READ = "read"
-    WRITE = "write"
-    ADMIN = "admin"
-
-
 @dataclass
 class Group:
     """
@@ -210,9 +191,11 @@ class VaultNamespace:
 
     name: str = ""
 
-    owner_user_id: Optional[int] = None
+    # Namespaces belong to a project; access comes from its project roles.
+    project_id: int = 0
 
-    visibility: VaultVisibility = VaultVisibility.PRIVATE
+    # Who created it (informational).
+    owner_user_id: Optional[int] = None
 
     created_at: Optional[datetime] = None
 
@@ -221,20 +204,3 @@ class VaultNamespace:
     @property
     def is_new(self) -> bool:
         return self.id is None
-
-
-@dataclass
-class VaultNamespaceAccess:
-    """
-    Grants a user access to a Vault namespace.
-    """
-
-    id: Optional[int] = None
-
-    namespace_id: int = 0
-
-    user_id: int = 0
-
-    access: VaultAccess = VaultAccess.READ
-
-    created_at: Optional[datetime] = None

@@ -120,7 +120,6 @@ export const CLI_GROUPS: CliGroup[] = [
             { command: 'ent vault add -n <namespace> <key> <value>', description: 'Add a vault entry.' },
             { command: 'ent vault inspect -n <namespace> <key> --reveal', description: 'Inspect a vault entry.' },
             { command: 'ent vault namespace list', description: 'List vault namespaces.' },
-            { command: 'ent vault namespace users', description: 'Manage namespace users.' },
         ],
     },
     {

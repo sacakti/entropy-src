@@ -4,19 +4,10 @@ Vault namespace management.
 
 from __future__ import annotations
 
-from lib.database.repositories.users import UserRepository
-from lib.database.repositories.vault_namespace_access import (
-    VaultNamespaceAccessRepository,
-)
 from lib.database.repositories.vault_namespaces import (
     VaultNamespaceRepository,
 )
-from lib.models.authorization import (
-    VaultAccess,
-    VaultNamespace,
-    VaultNamespaceAccess,
-)
-from lib.models.users import User
+from lib.models.authorization import VaultNamespace
 from lib.vault.exceptions import (
     VaultError,
     VaultNamespaceExistsError,
@@ -26,24 +17,18 @@ from lib.vault.exceptions import (
 
 class VaultNamespaceManager:
     """
-    Manages Vault namespaces and namespace access.
+    Manages a project's Vault namespaces.
 
-    Authorization decisions are handled by the command/service layer.
-    This manager handles namespace business rules.
+    Namespace names are unique within a project. Who may use a namespace is
+    decided by project roles (see lib.vault.access), not here.
     """
 
     def __init__(
         self,
         namespaces: VaultNamespaceRepository,
-        access: VaultNamespaceAccessRepository,
-        users: UserRepository,
     ) -> None:
 
         self._namespaces = namespaces
-
-        self._access = access
-
-        self._users = users
 
     # ------------------------------------------------------------------
     # Create
@@ -52,11 +37,11 @@ class VaultNamespaceManager:
     def create(
         self,
         name: str,
-        owner_user_id: int,
-        visibility,
+        project_id: int,
+        owner_user_id: int | None = None,
     ) -> VaultNamespace:
         """
-        Create a Vault namespace.
+        Create a Vault namespace in a project.
         """
 
         name = name.strip()
@@ -67,14 +52,15 @@ class VaultNamespaceManager:
 
         if self._namespaces.exists(
             name,
+            project_id,
         ):
 
             raise VaultNamespaceExistsError(name)
 
         namespace = VaultNamespace(
             name=name,
+            project_id=project_id,
             owner_user_id=owner_user_id,
-            visibility=visibility,
         )
 
         return self._namespaces.create(
@@ -88,13 +74,27 @@ class VaultNamespaceManager:
     def get(
         self,
         name: str,
+        project_id: int,
     ) -> VaultNamespace:
         """
-        Return a namespace by name.
+        Return a project's namespace by name.
         """
 
         return self._namespaces.get_by_name(
             name,
+            project_id,
+        )
+
+    def get_by_id(
+        self,
+        namespace_id: int,
+    ) -> VaultNamespace:
+        """
+        Return a namespace by identifier.
+        """
+
+        return self._namespaces.get(
+            namespace_id,
         )
 
     # ------------------------------------------------------------------
@@ -103,12 +103,15 @@ class VaultNamespaceManager:
 
     def list(
         self,
+        project_id: int | None = None,
     ) -> list[VaultNamespace]:
         """
-        Return all namespaces.
+        Return a project's namespaces (all namespaces without a project).
         """
 
-        return self._namespaces.list()
+        return self._namespaces.list(
+            project_id,
+        )
 
     # ------------------------------------------------------------------
     # Modify
@@ -118,10 +121,9 @@ class VaultNamespaceManager:
         self,
         namespace: VaultNamespace,
         name: str | None = None,
-        visibility=None,
     ) -> VaultNamespace:
         """
-        Modify a namespace.
+        Rename a namespace within its project.
         """
 
         if name is not None:
@@ -134,15 +136,14 @@ class VaultNamespaceManager:
                     "Vault namespace name cannot be empty.",
                 )
 
-            if name != namespace.name and self._namespaces.exists(name):
+            if name != namespace.name and self._namespaces.exists(
+                name,
+                namespace.project_id,
+            ):
 
                 raise VaultNamespaceExistsError(name)
 
             namespace.name = name
-
-        if visibility is not None:
-
-            namespace.visibility = visibility
 
         self._namespaces.update(
             namespace,
@@ -163,150 +164,11 @@ class VaultNamespaceManager:
         namespace: VaultNamespace,
     ) -> None:
         """
-        Delete a Vault namespace.
+        Delete a Vault namespace and its entries.
         """
 
         assert namespace.id is not None
 
         self._namespaces.delete(
             namespace.id,
-        )
-
-    # ------------------------------------------------------------------
-    # Access
-    # ------------------------------------------------------------------
-
-    def grant_access(
-        self,
-        namespace: VaultNamespace,
-        username: str,
-        access: VaultAccess,
-    ) -> None:
-        """
-        Grant or update a user's namespace access.
-        """
-
-        assert namespace.id is not None
-
-        user = self._users.get_by_username(
-            username,
-        )
-
-        assert user.id is not None
-
-        if self._access.exists(
-            namespace.id,
-            user.id,
-        ):
-
-            self._access.update_access(
-                namespace.id,
-                user.id,
-                access,
-            )
-
-            return
-
-        self._access.create(
-            VaultNamespaceAccess(
-                namespace_id=namespace.id,
-                user_id=user.id,
-                access=access,
-            ),
-        )
-
-    def revoke_access(
-        self,
-        namespace: VaultNamespace,
-        username: str,
-    ) -> None:
-        """
-        Revoke a user's namespace access.
-        """
-
-        assert namespace.id is not None
-
-        user = self._users.get_by_username(
-            username,
-        )
-
-        assert user.id is not None
-
-        self._access.delete_by_user(
-            namespace.id,
-            user.id,
-        )
-
-    def access(
-        self,
-        namespace: VaultNamespace,
-        user: User,
-    ) -> VaultAccess | None:
-        """
-        Return a user's access level for a namespace.
-        """
-
-        assert namespace.id is not None
-        assert user.id is not None
-
-        return self._access.get_access(
-            namespace.id,
-            user.id,
-        )
-
-    def users(
-        self,
-        namespace: VaultNamespace,
-    ) -> list[User]:
-        """
-        Return users with explicit access to a namespace.
-        """
-
-        assert namespace.id is not None
-
-        assignments = self._access.list_by_namespace(
-            namespace.id,
-        )
-
-        return [
-            self._users.get(
-                assignment.user_id,
-            )
-            for assignment in assignments
-        ]
-
-    def access_assignments(
-        self,
-        namespace: VaultNamespace,
-    ) -> list[VaultNamespaceAccess]:
-        """
-        Return all access assignments for a namespace.
-        """
-
-        assert namespace.id is not None
-
-        return self._access.list_by_namespace(
-            namespace.id,
-        )
-
-    def access_by_user_id(
-        self,
-        namespace: VaultNamespace,
-        user_id: int,
-    ) -> VaultAccess | None:
-        """
-        Return a user's effective access level for a namespace.
-
-        Namespace owners implicitly have administrator access.
-        """
-
-        assert namespace.id is not None
-
-        if namespace.owner_user_id == user_id:
-
-            return VaultAccess.ADMIN
-
-        return self._access.get_access(
-            namespace.id,
-            user_id,
         )

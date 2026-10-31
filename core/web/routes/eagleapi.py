@@ -33,7 +33,6 @@ from pydantic import BaseModel, Field
 
 from core.web.projects import authorization, current_project, projects, require
 from core.web.routes.auth import _current_session, verify_csrf
-from lib.models.authorization import VaultAccess, VaultVisibility
 from lib.models.session import Session
 from lib.models.users import User
 from lib.models.vault import VaultValueType
@@ -161,79 +160,57 @@ def _vault(request: Request) -> Tuple[Any, Any]:
 def _namespace(request: Request, project: Dict[str, Any]) -> Optional[Any]:
     """The project's EagleAPI namespace, or None while it does not exist."""
 
-    from lib.vault.projects import namespace_project
-
     _, namespace_manager = _vault(request)
     try:
-        namespace = namespace_manager.get(namespace_name(project["key"]))
+        return namespace_manager.get(namespace_name(project["key"]), project["id"])
     except VaultNamespaceNotFoundError:
         return None
-    connection = _context(request).database_manager.connection
-    if namespace_project(connection, namespace.id) != project["id"]:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"The vault namespace '{namespace.name}' belongs to another project; "
-                "rename it there to use EagleAPI environments here."
-            ),
-        )
-    return namespace
 
 
 def _ensure_namespace(request: Request, user: User, project: Dict[str, Any]) -> Any:
-    """The project's EagleAPI namespace, created (private, owned by the user) if missing."""
-
-    from lib.vault.projects import set_namespace_project
+    """The project's EagleAPI namespace, created in the project if missing."""
 
     namespace = _namespace(request, project)
     if namespace is not None:
         return namespace
+    # Creating it is part of storing the first value, which needs vault.add.
+    _require_vault(request, user, "vault.add", project["id"])
     _, namespace_manager = _vault(request)
     try:
-        namespace = namespace_manager.create(
+        return namespace_manager.create(
             name=namespace_name(project["key"]),
+            project_id=project["id"],
             owner_user_id=user.id,
-            visibility=VaultVisibility.PRIVATE,
         )
     except VaultError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
-    connection = _context(request).database_manager.connection
-    set_namespace_project(connection, namespace.id, project["id"])
-    return namespace
 
 
-def _access(request: Request, namespace: Any, user: User, needed: VaultAccess, perm: str) -> None:
-    from core.web.routes.vault import _require_namespace_access
+def _require_vault(request: Request, user: User, permission: str, project_id: int) -> None:
+    from core.web.routes.vault import _require
 
-    _, namespace_manager = _vault(request)
-    _require_namespace_access(request, namespace_manager, namespace, user, needed, perm)
+    _require(request, user, permission, project_id)
+
+
+def _access(request: Request, namespace: Any, user: User, permission: str) -> None:
+    _require_vault(request, user, permission, namespace.project_id)
 
 
 def _fetcher(request: Request, user: User, project_id: int):
-    """Reads a vault value for this user: current project only, with read access."""
-
-    from core.web.routes.vault import _require_namespace_access
-    from lib.vault.projects import namespace_project
+    """Reads a vault value for this user: current project only, with vault.read there."""
 
     vault_manager, namespace_manager = _vault(request)
-    connection = _context(request).database_manager.connection
 
     def fetch(namespace: str, key: str) -> VaultValue:
         reference = f"${{entv:{namespace}/{key}}}"
         try:
-            record = namespace_manager.get(namespace)
+            record = namespace_manager.get(namespace, project_id)
         except VaultError:
             raise EagleReferenceError(
-                f"{reference}: the namespace '{namespace}' does not exist."
-            ) from None
-        if record.id is None or namespace_project(connection, record.id) != project_id:
-            raise EagleReferenceError(
                 f"{reference}: the namespace '{namespace}' is not in this project."
-            )
+            ) from None
         try:
-            _require_namespace_access(
-                request, namespace_manager, record, user, VaultAccess.READ, "vault.read"
-            )
+            _access(request, record, user, "vault.read")
         except HTTPException as exc:
             raise EagleReferenceError(f"{reference}: {exc.detail}") from None
         try:
@@ -636,12 +613,19 @@ def get_environment(
     if namespace is None:
         return payload
 
-    vault_manager, namespace_manager = _vault(request)
-    access = namespace_manager.access_by_user_id(namespace, user.id)
+    from core.web.routes.vault import _can
+
+    vault_manager, _ = _vault(request)
     payload["exists"] = True
-    payload["access"] = access.value if access is not None else None
+    # From the caller's project role: "write" may store values, "read" may only view.
+    payload["access"] = (
+        "write"
+        if _can(request, user, "vault.add", namespace.project_id)
+        or _can(request, user, "vault.modify", namespace.project_id)
+        else "read" if _can(request, user, "vault.read", namespace.project_id) else None
+    )
     try:
-        _access(request, namespace, user, VaultAccess.READ, "vault.read")
+        _access(request, namespace, user, "vault.read")
     except HTTPException as exc:
         payload["message"] = str(exc.detail)
         return payload
@@ -655,7 +639,7 @@ def _writable_namespace(request: Request, user: User, project: Dict[str, Any], k
     namespace = _ensure_namespace(request, user, project)
     vault_manager, _ = _vault(request)
     exists = vault_manager.exists(namespace.id, key)
-    _access(request, namespace, user, VaultAccess.WRITE, "vault.modify" if exists else "vault.add")
+    _access(request, namespace, user, "vault.modify" if exists else "vault.add")
     return namespace
 
 
@@ -734,7 +718,7 @@ def delete_entry(
     namespace = _namespace(request, project)
     if namespace is None:
         raise HTTPException(status_code=404, detail="The project has no EagleAPI values yet.")
-    _access(request, namespace, user, VaultAccess.WRITE, "vault.delete")
+    _access(request, namespace, user, "vault.delete")
     vault_manager, _ = _vault(request)
     try:
         vault_manager.delete(namespace.id, key)

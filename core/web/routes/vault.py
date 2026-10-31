@@ -1,5 +1,9 @@
 """
 Vault namespace and secret management API.
+
+Vault namespaces belong to a project. Every request works in the current
+project (the UI's project switcher, `X-Entropy-Project`), and access comes
+only from the caller's roles in that project (see lib.vault.access).
 """
 
 from __future__ import annotations
@@ -12,7 +16,6 @@ from fastapi import (
     File,
     Form,
     HTTPException,
-    Query,
     Request,
     Response,
     UploadFile,
@@ -20,9 +23,6 @@ from fastapi import (
 from pydantic import BaseModel, Field
 
 from core.web.routes.auth import _current_session, verify_csrf
-from core.web.routes.workflows import _require_permission
-from lib.database.repositories.notifications import notify_user
-from lib.models.authorization import VaultAccess, VaultVisibility
 from lib.models.session import Session
 from lib.models.users import User
 from lib.models.vault import VaultValueType
@@ -49,7 +49,6 @@ SessionRecord = tuple[Session, str, User]
 
 class NamespaceCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    visibility: VaultVisibility = VaultVisibility.PRIVATE
 
 
 class NamespaceUpdateRequest(BaseModel):
@@ -58,7 +57,6 @@ class NamespaceUpdateRequest(BaseModel):
         min_length=1,
         max_length=100,
     )
-    visibility: Optional[VaultVisibility] = None
 
 
 class EntryCreateRequest(BaseModel):
@@ -72,11 +70,6 @@ class EntryUpdateRequest(BaseModel):
     value: Any
     type: VaultValueType = VaultValueType.STRING
     sensitive: bool = True
-
-
-class AccessGrantRequest(BaseModel):
-    username: str = Field(min_length=1, max_length=255)
-    access: VaultAccess
 
 
 # ---------------------------------------------------------------------
@@ -154,25 +147,14 @@ def _raise_http_error(exc: Exception) -> None:
 
 def _namespace_payload(
     namespace: Any,
-    access: Optional[VaultAccess] = None,
 ) -> dict[str, Any]:
     return {
         "id": namespace.id,
-        # The caller's effective access; null for shared read-only access.
-        "access": access.value if access is not None else None,
         "name": namespace.name,
+        "project_id": namespace.project_id,
         "owner_user_id": namespace.owner_user_id,
-        "visibility": namespace.visibility.value,
-        "created_at": (
-            namespace.created_at.isoformat()
-            if namespace.created_at
-            else None
-        ),
-        "updated_at": (
-            namespace.updated_at.isoformat()
-            if namespace.updated_at
-            else None
-        ),
+        "created_at": (namespace.created_at.isoformat() if namespace.created_at else None),
+        "updated_at": (namespace.updated_at.isoformat() if namespace.updated_at else None),
     }
 
 
@@ -183,16 +165,8 @@ def _entry_metadata(entry: Any) -> dict[str, Any]:
         "key": entry.key,
         "type": entry.type.value,
         "sensitive": entry.sensitive,
-        "created_at": (
-            entry.created_at.isoformat()
-            if entry.created_at
-            else None
-        ),
-        "updated_at": (
-            entry.updated_at.isoformat()
-            if entry.updated_at
-            else None
-        ),
+        "created_at": (entry.created_at.isoformat() if entry.created_at else None),
+        "updated_at": (entry.updated_at.isoformat() if entry.updated_at else None),
     }
 
 
@@ -206,114 +180,45 @@ def _entry_payload(vault_manager: Any, namespace_id: int, entry: Any) -> dict[st
     return payload
 
 
-def _users_by_id(request: Request) -> dict[int, User]:
-    """Every user keyed by id, for labelling assignments."""
-    user_manager = getattr(request.app.state.entropy_context, "user_manager", None)
-
-    if user_manager is None:
-        return {}
-
-    return {
-        account.id: account
-        for account in user_manager.list()
-        if account.id is not None
-    }
-
-
-def _users_by_name(request: Request) -> dict[str, User]:
-    return {account.username: account for account in _users_by_id(request).values()}
-
-
-def _access_payload(
-    assignment: Any,
-    users: Optional[dict[int, User]] = None,
-) -> dict[str, Any]:
-    account = (users or {}).get(assignment.user_id)
-
-    return {
-        "id": assignment.id,
-        "namespace_id": assignment.namespace_id,
-        "user_id": assignment.user_id,
-        "username": account.username if account else None,
-        "full_name": account.full_name if account else None,
-        "access": assignment.access.value,
-        "created_at": (
-            assignment.created_at.isoformat()
-            if assignment.created_at
-            else None
-        ),
-    }
-
-
 # ---------------------------------------------------------------------
-# Namespace authorization
+# Project roles
 # ---------------------------------------------------------------------
 
 
-_ACCESS_LEVEL = {
-    VaultAccess.READ: 1,
-    VaultAccess.WRITE: 2,
-    VaultAccess.ADMIN: 3,
+# The caller's Vault abilities in a project, as the UI names them.
+_PERMISSIONS = {
+    "namespace_read": "vault.namespace.read",
+    "reveal": "vault.read",
+    "add": "vault.add",
+    "modify": "vault.modify",
+    "delete": "vault.delete",
+    "namespace_create": "vault.namespace.create",
+    "namespace_modify": "vault.namespace.modify",
+    "namespace_delete": "vault.namespace.delete",
 }
 
 
-def _has_permission(request: Request, user: User, permission: str) -> bool:
-    authorization = request.app.state.entropy_context.authorization
+def _can(request: Request, user: User, permission: str, project_id: int) -> bool:
+    from lib.vault.access import can
 
-    return bool(
-        authorization is not None
-        and user.id is not None
-        and authorization.has_permission(user.id, permission)
-    )
+    return can(request.app.state.entropy_context.authorization, user.id, permission, project_id)
 
 
-def _require_namespace_access(
-    request: Request,
-    namespace_manager: Any,
-    namespace: Any,
-    user: User,
-    required: VaultAccess,
-    permission: str,
-) -> None:
-    """
-    Enforce access to a specific namespace.
+def _require(request: Request, user: User, permission: str, project_id: int) -> None:
+    """403 unless the user holds the Vault permission in the project."""
 
-    Access granted on the namespace itself (or ownership) is sufficient:
-    a namespace administrator who grants a user READ or WRITE has decided
-    that user may work with it. Without a grant, shared namespaces are
-    readable by users holding the role permission for the operation.
-    """
-    if namespace.id is None:
+    if not _can(request, user, permission, project_id):
         raise HTTPException(
-            status_code=404,
-            detail="Vault namespace not found.",
+            status_code=403,
+            detail=f"Permission denied: this needs {permission} in this project.",
         )
 
-    access = namespace_manager.access_by_user_id(
-        namespace,
-        user.id,
-    )
 
-    if access is not None and _ACCESS_LEVEL[access] >= _ACCESS_LEVEL[required]:
-        return
-
-    if (
-        access is None
-        and namespace.visibility == VaultVisibility.SHARED
-        and required == VaultAccess.READ
-        and _has_permission(request, user, permission)
-    ):
-        return
-
-    if access is None:
-        detail = f"You have no access to the '{namespace.name}' namespace."
-    else:
-        detail = (
-            f"This needs {required.value} access to the '{namespace.name}' "
-            f"namespace; you have {access.value} access."
-        )
-
-    raise HTTPException(status_code=403, detail=detail)
+def _permissions(request: Request, user: User, project_id: int) -> dict[str, bool]:
+    return {
+        name: _can(request, user, permission, project_id)
+        for name, permission in _PERMISSIONS.items()
+    }
 
 
 def _project_id(request: Request) -> int:
@@ -325,20 +230,6 @@ def _project_id(request: Request) -> int:
     return current_project(request, record[2])["id"]
 
 
-def _connection(request: Request) -> Any:
-    return request.app.state.entropy_context.database_manager.connection
-
-
-def _in_project(request: Request, namespace: Any, project_id: Optional[int] = None) -> bool:
-    from lib.vault.projects import namespace_project
-
-    wanted = project_id if project_id is not None else _project_id(request)
-    return (
-        namespace.id is not None
-        and namespace_project(_connection(request), namespace.id) == wanted
-    )
-
-
 def _get_namespace(
     request: Request,
     namespace_manager: Any,
@@ -347,15 +238,12 @@ def _get_namespace(
 ) -> Any:
     """A namespace of the current (or given) project; others are 'not found' here."""
     try:
-        namespace = namespace_manager.get(namespace_name)
+        return namespace_manager.get(
+            namespace_name,
+            project_id if project_id is not None else _project_id(request),
+        )
     except VaultError as exc:
         _raise_http_error(exc)
-    if not _in_project(request, namespace, project_id):
-        raise HTTPException(
-            status_code=404,
-            detail="Vault namespace not found in this project.",
-        )
-    return namespace
 
 
 # ---------------------------------------------------------------------
@@ -369,50 +257,24 @@ def list_namespaces(
     response: Response,
     record: SessionRecord = Depends(_current_session),
 ) -> dict[str, Any]:
-    """List namespaces visible to the authenticated user."""
+    """The current project's namespaces, and what the caller may do there."""
     _, _, user = record
-    # Namespaces granted to the user are always listed; shared ones need
-    # the role permission.
-    can_browse_shared = _has_permission(request, user, "vault.namespace.read")
 
     _, namespace_manager = _vault_components(request)
 
-    from lib.vault.projects import namespaces_in
-
-    in_project = namespaces_in(_connection(request), _project_id(request))
+    project_id = _project_id(request)
+    permissions = _permissions(request, user, project_id)
 
     try:
-        namespaces = [
-            namespace
-            for namespace in namespace_manager.list()
-            if namespace.id in in_project
-        ]
-        visible = []
-
-        for namespace in namespaces:
-            access = namespace_manager.access_by_user_id(
-                namespace,
-                user.id,
-            )
-
-            if access is not None:
-                visible.append((namespace, access))
-            elif (
-                namespace.visibility == VaultVisibility.SHARED
-                and can_browse_shared
-            ):
-                visible.append((namespace, None))
-
+        namespaces = namespace_manager.list(project_id) if permissions["namespace_read"] else []
     except VaultError as exc:
         _raise_http_error(exc)
 
     response.headers["Cache-Control"] = "no-store"
 
     return {
-        "items": [
-            _namespace_payload(namespace, access)
-            for namespace, access in visible
-        ]
+        "items": [_namespace_payload(namespace) for namespace in namespaces],
+        "permissions": permissions,
     }
 
 
@@ -423,22 +285,19 @@ def create_namespace(
     response: Response,
     record: SessionRecord = Depends(_current_session),
 ) -> dict[str, Any]:
-    """Create a namespace owned by the authenticated user."""
+    """Create a namespace in the current project."""
     _, _, user = record
-    _require_permission(request, user, "vault.namespace.create")
+    project_id = _project_id(request)
+    _require(request, user, "vault.namespace.create", project_id)
 
     _, namespace_manager = _vault_components(request)
 
     try:
         namespace = namespace_manager.create(
             name=payload.name.strip(),
+            project_id=project_id,
             owner_user_id=user.id,
-            visibility=payload.visibility,
         )
-        from lib.vault.projects import set_namespace_project
-
-        # Created in the project the user is working in.
-        set_namespace_project(_connection(request), namespace.id, _project_id(request))
     except VaultError as exc:
         _raise_http_error(exc)
 
@@ -455,7 +314,7 @@ def update_namespace(
     response: Response,
     record: SessionRecord = Depends(_current_session),
 ) -> dict[str, Any]:
-    """Rename a namespace or update its visibility."""
+    """Rename a namespace within its project."""
     _, _, user = record
 
     _, namespace_manager = _vault_components(request)
@@ -467,19 +326,11 @@ def update_namespace(
             namespace_name,
         )
 
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.ADMIN,
-            "vault.namespace.modify",
-        )
+        _require(request, user, "vault.namespace.modify", namespace.project_id)
 
         namespace = namespace_manager.modify(
             namespace,
             name=payload.name,
-            visibility=payload.visibility,
         )
     except VaultError as exc:
         _raise_http_error(exc)
@@ -510,14 +361,7 @@ def delete_namespace(
             namespace_name,
         )
 
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.ADMIN,
-            "vault.namespace.delete",
-        )
+        _require(request, user, "vault.namespace.delete", namespace.project_id)
 
         namespace_manager.delete(namespace)
     except VaultError as exc:
@@ -553,14 +397,7 @@ def list_entries(
             namespace_name,
         )
 
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.READ,
-            "vault.read",
-        )
+        _require(request, user, "vault.namespace.read", namespace.project_id)
 
         if namespace.id is None:
             raise HTTPException(
@@ -575,12 +412,7 @@ def list_entries(
 
     response.headers["Cache-Control"] = "no-store"
 
-    return {
-        "items": [
-            _entry_payload(vault_manager, namespace.id, entry)
-            for entry in entries
-        ]
-    }
+    return {"items": [_entry_payload(vault_manager, namespace.id, entry) for entry in entries]}
 
 
 @router.post(
@@ -606,14 +438,7 @@ def create_entry(
             namespace_name,
         )
 
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.WRITE,
-            "vault.add",
-        )
+        _require(request, user, "vault.add", namespace.project_id)
 
         if namespace.id is None:
             raise HTTPException(
@@ -660,14 +485,7 @@ def update_entry(
             namespace_name,
         )
 
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.WRITE,
-            "vault.modify",
-        )
+        _require(request, user, "vault.modify", namespace.project_id)
 
         if namespace.id is None:
             raise HTTPException(
@@ -713,14 +531,7 @@ def reveal_entry(
             namespace_name,
         )
 
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.READ,
-            "vault.read",
-        )
+        _require(request, user, "vault.read", namespace.project_id)
 
         if namespace.id is None:
             raise HTTPException(
@@ -779,14 +590,7 @@ def delete_entry(
             namespace_name,
         )
 
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.WRITE,
-            "vault.delete",
-        )
+        _require(request, user, "vault.delete", namespace.project_id)
 
         if namespace.id is None:
             raise HTTPException(
@@ -798,224 +602,6 @@ def delete_entry(
             namespace_id=namespace.id,
             key=key,
         )
-
-    except VaultError as exc:
-        _raise_http_error(exc)
-
-    return Response(
-        status_code=204,
-        headers={"Cache-Control": "no-store"},
-    )
-
-
-# ---------------------------------------------------------------------
-# Namespace access grants
-# ---------------------------------------------------------------------
-
-
-@router.get("/namespaces/{namespace_name}/access")
-def list_namespace_access(
-    namespace_name: str,
-    request: Request,
-    response: Response,
-    record: SessionRecord = Depends(_current_session),
-) -> dict[str, Any]:
-    """List explicit access assignments."""
-    _, _, user = record
-
-    _, namespace_manager = _vault_components(request)
-
-    try:
-        namespace = _get_namespace(
-            request,
-            namespace_manager,
-            namespace_name,
-        )
-
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.ADMIN,
-            "vault.namespace.users",
-        )
-
-        assignments = namespace_manager.access_assignments(
-            namespace,
-        )
-
-    except VaultError as exc:
-        _raise_http_error(exc)
-
-    response.headers["Cache-Control"] = "no-store"
-
-    users = _users_by_id(request)
-
-    return {
-        "items": [
-            _access_payload(assignment, users)
-            for assignment in assignments
-        ]
-    }
-
-
-@router.get("/users")
-def suggest_users(
-    request: Request,
-    response: Response,
-    q: str = Query(default="", max_length=100),
-    record: SessionRecord = Depends(_current_session),
-) -> dict[str, Any]:
-    """Active users matching a username, name or id, for access grants."""
-    _, _, user = record
-
-    # Namespace administrators may grant access without the role permission.
-    if not _has_permission(request, user, "vault.namespace.users"):
-        _, namespace_manager = _vault_components(request)
-
-        if not any(
-            namespace_manager.access_by_user_id(namespace, user.id) == VaultAccess.ADMIN
-            for namespace in namespace_manager.list()
-        ):
-            raise HTTPException(status_code=403, detail="Permission denied.")
-
-    search = q.strip().casefold()
-    matches = []
-
-    for account in sorted(
-        _users_by_id(request).values(),
-        key=lambda item: item.username.casefold(),
-    ):
-        if not account.is_active:
-            continue
-
-        if search and not (
-            search in account.username.casefold()
-            or search in (account.full_name or "").casefold()
-            or search == str(account.id)
-        ):
-            continue
-
-        matches.append(
-            {
-                "id": account.id,
-                "username": account.username,
-                "full_name": account.full_name,
-            }
-        )
-
-        if len(matches) == 8:
-            break
-
-    response.headers["Cache-Control"] = "no-store"
-
-    return {"items": matches}
-
-
-@router.post(
-    "/namespaces/{namespace_name}/access",
-    status_code=204,
-)
-def grant_namespace_access(
-    namespace_name: str,
-    payload: AccessGrantRequest,
-    request: Request,
-    record: SessionRecord = Depends(_current_session),
-) -> Response:
-    """Grant a user READ, WRITE, or ADMIN access."""
-    _, _, user = record
-
-    _, namespace_manager = _vault_components(request)
-
-    try:
-        namespace = _get_namespace(
-            request,
-            namespace_manager,
-            namespace_name,
-        )
-
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.ADMIN,
-            "vault.namespace.users",
-        )
-
-        namespace_manager.grant_access(
-            namespace,
-            payload.username.strip(),
-            payload.access,
-        )
-
-        if payload.username.strip() != user.username:
-            target = _users_by_name(request).get(payload.username.strip())
-            notify_user(
-                request.app.state.entropy_context,
-                target.id if target else None,
-                f"Vault access: {namespace.name}",
-                f"{user.username} gave you {payload.access.value} access to the '{namespace.name}' namespace.",
-                "info",
-                "vault",
-            )
-
-    except VaultError as exc:
-        _raise_http_error(exc)
-
-    return Response(
-        status_code=204,
-        headers={"Cache-Control": "no-store"},
-    )
-
-
-@router.delete(
-    "/namespaces/{namespace_name}/access/{username}",
-    status_code=204,
-)
-def revoke_namespace_access(
-    namespace_name: str,
-    username: str,
-    request: Request,
-    record: SessionRecord = Depends(_current_session),
-) -> Response:
-    """Revoke an explicit user access assignment."""
-    _, _, user = record
-
-    _, namespace_manager = _vault_components(request)
-
-    try:
-        namespace = _get_namespace(
-            request,
-            namespace_manager,
-            namespace_name,
-        )
-
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.ADMIN,
-            "vault.namespace.users",
-        )
-
-        namespace_manager.revoke_access(
-            namespace,
-            username,
-        )
-
-        if username != user.username:
-            target = _users_by_name(request).get(username)
-            notify_user(
-                request.app.state.entropy_context,
-                target.id if target else None,
-                f"Vault access removed: {namespace.name}",
-                f"{user.username} removed your access to the '{namespace.name}' namespace.",
-                "warning",
-                "vault",
-            )
 
     except VaultError as exc:
         _raise_http_error(exc)
@@ -1046,39 +632,16 @@ def _readable_namespaces(
     for name in dict.fromkeys(names):
         try:
             namespace = _get_namespace(request, namespace_manager, name, project_id)
-            _require_namespace_access(
-                request, namespace_manager, namespace, user, VaultAccess.READ, "vault.read"
-            )
+            _require(request, user, "vault.read", namespace.project_id)
         except VaultError as exc:
             _raise_http_error(exc)
         found.append(namespace)
     return found
 
 
-def _project_scope(request: Request, project_id: Optional[int] = None) -> dict[str, Any]:
-    """Restore into `project_id` (default: the current project) only."""
-
-    from lib.vault.projects import namespace_project, set_namespace_project
-
-    target = project_id if project_id is not None else _project_id(request)
-    connection = _connection(request)
-    return {
-        "in_scope": lambda namespace: namespace_project(connection, namespace.id) == target,
-        "on_create": lambda namespace: set_namespace_project(connection, namespace.id, target),
-    }
-
-
 def _may_write(request: Request, user: User):
-    _, namespace_manager = _vault_components(request)
-
     def check(namespace: Any) -> bool:
-        try:
-            _require_namespace_access(
-                request, namespace_manager, namespace, user, VaultAccess.WRITE, "vault.add"
-            )
-        except HTTPException:
-            return False
-        return True
+        return _can(request, user, "vault.add", namespace.project_id)
 
     return check
 
@@ -1129,14 +692,16 @@ async def import_vault(
     _: None = Depends(verify_csrf),
 ) -> dict[str, Any]:
     """
-    Restore an export: missing namespaces are created (yours), existing keys
-    are kept unless `overwrite`. `namespaces` (comma separated) limits it.
+    Restore an export into the current project: missing namespaces are
+    created there, existing keys are kept unless `overwrite`. `namespaces`
+    (comma separated) limits it.
     """
 
     from lib.vault.portable import MAX_FILE, PortableVaultError, restore, unseal
 
     _, _, user = record
     vault_manager, namespace_manager = _vault_components(request)
+    project_id = _project_id(request)
     raw = await file.read(MAX_FILE + 1)
     try:
         payload = unseal(raw, passphrase)
@@ -1147,12 +712,12 @@ async def import_vault(
             vault_manager,
             namespace_manager,
             payload,
+            project_id=project_id,
             owner_user_id=user.id,
-            can_create=_has_permission(request, user, "vault.namespace.create"),
+            can_create=_can(request, user, "vault.namespace.create", project_id),
             can_write=_may_write(request, user),
             overwrite=overwrite,
             only=[name.strip() for name in namespaces.split(",") if name.strip()],
-            **_project_scope(request),
         )
     except VaultError as exc:
         _raise_http_error(exc)
@@ -1197,14 +762,7 @@ async def upload_file(
         exists = vault_manager.exists(namespace.id, key)
         if exists and not replace:
             raise VaultEntryExistsError(f"Vault entry '{key}' already exists.")
-        _require_namespace_access(
-            request,
-            namespace_manager,
-            namespace,
-            user,
-            VaultAccess.WRITE,
-            "vault.modify" if exists else "vault.add",
-        )
+        _require(request, user, "vault.modify" if exists else "vault.add", namespace.project_id)
         store = vault_manager.update if exists else vault_manager.add
         entry = store(
             namespace_id=namespace.id,
@@ -1235,9 +793,7 @@ def download_file(
     vault_manager, namespace_manager = _vault_components(request)
     try:
         namespace = _get_namespace(request, namespace_manager, namespace_name)
-        _require_namespace_access(
-            request, namespace_manager, namespace, user, VaultAccess.READ, "vault.read"
-        )
+        _require(request, user, "vault.read", namespace.project_id)
         entry = vault_manager.get_entry(namespace.id, key)
         if entry.type is not VaultValueType.FILE:
             raise HTTPException(status_code=422, detail=f"'{key}' is not a file.")

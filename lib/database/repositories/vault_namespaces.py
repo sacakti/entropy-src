@@ -9,7 +9,7 @@ from datetime import datetime
 from lib.database.connection import DatabaseConnection
 from lib.database.exceptions import DatabaseException
 from lib.database.repository import Repository
-from lib.models.authorization import VaultNamespace, VaultVisibility
+from lib.models.authorization import VaultNamespace
 from lib.vault.exceptions import (
     VaultNamespaceExistsError,
     VaultNamespaceNotFoundError,
@@ -44,6 +44,7 @@ class VaultNamespaceRepository(Repository):
 
         if self.exists(
             namespace.name,
+            namespace.project_id,
         ):
 
             raise VaultNamespaceExistsError(
@@ -56,9 +57,9 @@ class VaultNamespaceRepository(Repository):
                 """
                 INSERT INTO vault_namespaces
                 (
+                    project_id,
                     name,
                     owner_user_id,
-                    visibility,
                     created_at,
                     updated_at
                 )
@@ -72,9 +73,9 @@ class VaultNamespaceRepository(Repository):
                 )
                 """,
                 (
+                    namespace.project_id,
                     namespace.name,
                     namespace.owner_user_id,
-                    namespace.visibility.value,
                 ),
             )
 
@@ -124,18 +125,20 @@ class VaultNamespaceRepository(Repository):
     def get_by_name(
         self,
         name: str,
+        project_id: int,
     ) -> VaultNamespace:
         """
-        Return a namespace by name.
+        Return a project's namespace by name.
         """
 
         row = self.connection.fetchone(
             """
             SELECT *
             FROM vault_namespaces
-            WHERE name = ?
+            WHERE project_id = ?
+              AND name = ?
             """,
-            (name,),
+            (project_id, name),
         )
 
         if row is None:
@@ -155,6 +158,7 @@ class VaultNamespaceRepository(Repository):
     def exists(
         self,
         name: str,
+        project_id: int,
     ) -> bool:
         """
         Return True when a namespace exists.
@@ -165,10 +169,11 @@ class VaultNamespaceRepository(Repository):
                 """
                 SELECT 1
                 FROM vault_namespaces
-                WHERE name = ?
+                WHERE project_id = ?
+                  AND name = ?
                 LIMIT 1
                 """,
-                (name,),
+                (project_id, name),
             )
             is not None
         )
@@ -179,18 +184,33 @@ class VaultNamespaceRepository(Repository):
 
     def list(
         self,
+        project_id: int | None = None,
     ) -> list[VaultNamespace]:
         """
-        Return all Vault namespaces.
+        Return Vault namespaces: one project's, or all of them.
         """
 
-        rows = self.connection.fetchall(
-            """
-            SELECT *
-            FROM vault_namespaces
-            ORDER BY name
-            """
-        )
+        if project_id is None:
+
+            rows = self.connection.fetchall(
+                """
+                SELECT *
+                FROM vault_namespaces
+                ORDER BY name
+                """
+            )
+
+        else:
+
+            rows = self.connection.fetchall(
+                """
+                SELECT *
+                FROM vault_namespaces
+                WHERE project_id = ?
+                ORDER BY name
+                """,
+                (project_id,),
+            )
 
         return [
             self._from_row(
@@ -224,13 +244,11 @@ class VaultNamespaceRepository(Repository):
                 UPDATE vault_namespaces
                 SET
                     name = ?,
-                    visibility = ?,
                     updated_at = datetime('now')
                 WHERE id = ?
                 """,
                 (
                     namespace.name,
-                    namespace.visibility.value,
                     namespace.id,
                 ),
             )
@@ -273,10 +291,8 @@ class VaultNamespaceRepository(Repository):
         return VaultNamespace(
             id=row["id"],
             name=row["name"],
+            project_id=int(row["project_id"]),
             owner_user_id=row["owner_user_id"],
-            visibility=VaultVisibility(
-                row["visibility"],
-            ),
             created_at=(
                 datetime.fromisoformat(
                     row["created_at"],

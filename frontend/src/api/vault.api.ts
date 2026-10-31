@@ -1,8 +1,6 @@
 import { apiRequest, PROJECT_HEADER } from "../services/api"
 import { currentProject } from "../services/project"
 
-export type VaultVisibility = "private" | "shared"
-
 export type VaultValueType =
     | "string"
     | "number"
@@ -13,17 +11,26 @@ export type VaultValueType =
     // A file (certificate, keystore, key ...); uploaded and downloaded, not typed.
     | "file"
 
-export type VaultAccess = "read" | "write" | "admin"
-
+/** A namespace belongs to one project; access comes from the caller's project role. */
 export interface VaultNamespace {
     id: number
     name: string
-    /** The caller's access; null when a shared namespace is only readable. */
-    access?: VaultAccess | null
-    owner_user_id: number
-    visibility: VaultVisibility
+    project_id: number
+    owner_user_id: number | null
     created_at: string | null
     updated_at: string | null
+}
+
+/** The caller's Vault permissions in the current project (same for every namespace). */
+export interface VaultPermissions {
+    namespace_read: boolean
+    reveal: boolean
+    add: boolean
+    modify: boolean
+    delete: boolean
+    namespace_create: boolean
+    namespace_modify: boolean
+    namespace_delete: boolean
 }
 
 export interface VaultFileInfo {
@@ -47,31 +54,12 @@ export interface VaultEntryWithValue extends VaultEntry {
     value: unknown
 }
 
-export interface VaultAccessAssignment {
-    id: number
-    namespace_id: number
-    user_id: number
-    /** Absent on servers older than the user-suggestion API. */
-    username?: string | null
-    full_name?: string | null
-    access: VaultAccess
-    created_at: string | null
-}
-
-export interface VaultUserSuggestion {
-    id: number
-    username: string
-    full_name: string | null
-}
-
 interface CreateNamespaceRequest {
     name: string
-    visibility: VaultVisibility
 }
 
 interface UpdateNamespaceRequest {
-    name?: string
-    visibility?: VaultVisibility
+    name: string
 }
 
 interface CreateEntryRequest {
@@ -87,24 +75,17 @@ interface UpdateEntryRequest {
     sensitive: boolean
 }
 
-interface GrantAccessRequest {
-    username: string
-    access: VaultAccess
-}
-
 /**
  * API response wrappers returned by the backend.
  */
 export interface VaultNamespacesResponse {
+    /** Empty when the caller cannot read Vault namespaces in this project. */
     items: VaultNamespace[]
+    permissions: VaultPermissions
 }
 
 export interface VaultEntriesResponse {
     items: VaultEntry[]
-}
-
-export interface VaultAccessResponse {
-    items: VaultAccessAssignment[]
 }
 
 export interface VaultNamespaceResponse {
@@ -248,55 +229,6 @@ export const vaultApi = {
                 method: "DELETE",
                 credentials: "same-origin",
             },
-        )
-    },
-
-    listAccess(
-        namespaceName: string,
-    ): Promise<VaultAccessResponse> {
-        return apiRequest<VaultAccessResponse>(
-            `${BASE_URL}/namespaces/${encodeURIComponent(namespaceName)}/access`,
-            {
-                method: "GET",
-                credentials: "same-origin",
-                cache: "no-store",
-            },
-        )
-    },
-
-    grantAccess(
-        namespaceName: string,
-        payload: GrantAccessRequest,
-    ): Promise<void> {
-        return apiRequest<void>(
-            `${BASE_URL}/namespaces/${encodeURIComponent(namespaceName)}/access`,
-            {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-            },
-        )
-    },
-
-    revokeAccess(
-        namespaceName: string,
-        username: string,
-    ): Promise<void> {
-        return apiRequest<void>(
-            `${BASE_URL}/namespaces/${encodeURIComponent(namespaceName)}/access/${encodeURIComponent(username)}`,
-            {
-                method: "DELETE",
-                credentials: "same-origin",
-            },
-        )
-    },
-
-    suggestUsers(query: string): Promise<{ items: VaultUserSuggestion[] }> {
-        return apiRequest<{ items: VaultUserSuggestion[] }>(
-            `${BASE_URL}/users?${new URLSearchParams({ q: query }).toString()}`,
         )
     },
 

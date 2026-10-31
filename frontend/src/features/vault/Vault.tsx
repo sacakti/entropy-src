@@ -38,27 +38,20 @@ import { vaultApi } from '../../api/vault.api'
 
 import type {
 
-    VaultAccess,
-
-    VaultAccessAssignment,
-
     VaultEntry,
 
     VaultEntryWithValue,
 
     VaultNamespace,
 
-    VaultValueType,
+    VaultPermissions,
 
-    VaultVisibility,
+    VaultValueType,
 
 } from '../../api/vault.api'
 
-import UserSuggestInput from './UserSuggestInput'
 import VaultFileDialog from './VaultFileDialog'
 import { VaultExportDialog, VaultImportDialog } from '../transfer/TransferDialogs'
-import { missingPermission } from '../administration/permissionReason'
-import { usePermissions } from '../administration/usePermissions'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import PickerDialog from '../../components/layout/PickerDialog'
 import { useShortcuts } from '../../components/layout/useShortcuts'
@@ -69,8 +62,6 @@ import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
 
 
-
-type Tab = 'secrets' | 'access'
 
 type ModalType = 'namespace' | 'entry' | 'detail' | null
 
@@ -133,6 +124,13 @@ function getErrorMessage(error: unknown): string {
     return 'An unexpected error occurred.'
 
 }
+
+
+
+// Vault access comes from the caller's role in the current project.
+const DEVELOPER_ROLE = 'Needs the Developer role (or higher) in this project'
+
+const MAINTAINER_ROLE = 'Needs the Maintainer role in this project'
 
 
 
@@ -238,10 +236,6 @@ export default function Vault() {
 
     const monacoTheme = useMonacoTheme()
 
-    const permissions = usePermissions()
-
-
-
     const [namespaces, setNamespaces] = useState<VaultNamespace[]>([])
 
     const [selectedNamespace, setSelectedNamespace] = useState('')
@@ -253,15 +247,8 @@ export default function Vault() {
 
     const [entries, setEntries] = useState<VaultEntry[]>([])
 
-    const [accessAssignments, setAccessAssignments] = useState<
-
-        VaultAccessAssignment[]
-
-    >([])
-
-
-
-    const [activeTab, setActiveTab] = useState<Tab>('secrets')
+    // The caller's Vault permissions in the current project; null until loaded.
+    const [permissions, setPermissions] = useState<VaultPermissions | null>(null)
 
     // A namespace can open straight away; a secret waits for namespaces to load.
     const [modalType, setModalType] = useState<ModalType>(() =>
@@ -270,30 +257,24 @@ export default function Vault() {
 
     const pendingEntryRef = useRef(consumeCreateIntent('vault-entry'))
 
-    const selectedAccess =
+    // Why an action is unavailable, or null when allowed. Nothing is blocked
+    // while permissions are still loading; the server enforces them anyway.
+    const missing = (allowed: keyof VaultPermissions, reason: string): string | null =>
+        permissions && !permissions[allowed] ? reason : null
 
-        namespaces.find((namespace) => namespace.name === selectedNamespace)?.access ?? null
+    const revealReason = missing('reveal', DEVELOPER_ROLE)
 
-    const isNamespaceAdmin = selectedAccess === 'admin'
+    const addReason = missing('add', DEVELOPER_ROLE)
 
-    const canWriteEntries = selectedAccess === 'admin' || selectedAccess === 'write'
+    const modifyReason = missing('modify', DEVELOPER_ROLE)
 
-    // Deleting needs the delete permission besides access to the namespace.
-    const entryDeleteReason = missingPermission(permissions, ['vault.delete'], 'deleting secrets')
+    const entryDeleteReason = missing('delete', MAINTAINER_ROLE)
 
-    const namespaceDeleteReason = missingPermission(permissions, ['vault.namespace.delete'], 'deleting namespaces')
+    const namespaceCreateReason = missing('namespace_create', MAINTAINER_ROLE)
 
-    // The effects below read the latest namespaces without re-running on each poll.
+    const namespaceDeleteReason = missing('namespace_delete', MAINTAINER_ROLE)
 
-    const namespacesRef = useRef(namespaces)
-
-    useEffect(() => {
-
-        namespacesRef.current = namespaces
-
-    }, [namespaces])
-
-
+    const noVaultAccess = permissions !== null && !permissions.namespace_read
 
     // Entry picked with a click; Ctrl+D deletes it.
     const [selectedEntryKey, setSelectedEntryKey] = useState<string | null>(null)
@@ -303,15 +284,12 @@ export default function Vault() {
     const [createMenuOpen, setCreateMenuOpen] = useState(false)
     const createMenuRef = useRef<HTMLDivElement>(null)
     const [namespaceName, setNamespaceName] = useState('')
-    const [visibility, setVisibility] = useState<VaultVisibility>('private')
-    const [accessLevel, setAccessLevel] = useState<VaultAccess>('read')
     const [entryForm, setEntryForm] = useState<EntryForm>(emptyEntry)
     const entryValueError = vaultValueError(entryForm.value, entryForm.type)
     const [editingKey, setEditingKey] = useState<string | null>(null)
     const [detailEntry, setDetailEntry] = useState<VaultEntryWithValue | null>(
         null,
     )
-    const [username, setUsername] = useState('')
 
 
 
@@ -371,6 +349,8 @@ export default function Vault() {
 
         setNamespaces(items)
 
+        setPermissions(result.permissions)
+
 
 
         setSelectedNamespace((current) => {
@@ -389,7 +369,7 @@ export default function Vault() {
 
 
 
-        return items
+        return result
 
     }, [])
 
@@ -419,26 +399,6 @@ export default function Vault() {
 
 
 
-    const refreshAccess = useCallback(async (namespace: string) => {
-
-        if (!namespace) {
-
-            setAccessAssignments([])
-
-            return
-
-        }
-
-
-
-        const result = await vaultApi.listAccess(namespace)
-
-        setAccessAssignments(result.items)
-
-    }, [])
-
-
-
     const refreshAll = useCallback(async () => {
 
         setLoading(true)
@@ -449,27 +409,27 @@ export default function Vault() {
 
         try {
 
-            const items = await refreshNamespaces()
+            const result = await refreshNamespaces()
 
             if (pendingEntryRef.current) {
 
                 pendingEntryRef.current = false
 
-                const writable = items.find((item) => item.access === 'admin' || item.access === 'write')
+                if (!result.permissions.add) {
 
-                if (writable) {
+                    setError(`Adding a secret: ${DEVELOPER_ROLE}.`)
 
-                    setSelectedNamespace(writable.name)
+                } else if (result.items.length === 0) {
+
+                    setError('Create a namespace first.')
+
+                } else {
 
                     setEditingKey(null)
 
                     setEntryForm(emptyEntry)
 
                     setModalType('entry')
-
-                } else {
-
-                    setError('You need write access to a namespace to add a secret.')
 
                 }
 
@@ -503,8 +463,6 @@ export default function Vault() {
 
             setEntries([])
 
-            setAccessAssignments([])
-
             setRevealed({})
 
             return
@@ -523,17 +481,9 @@ export default function Vault() {
 
 
 
-            // Only namespace administrators may read the access list.
-
-            const admin =
-
-                namespacesRef.current.find((namespace) => namespace.name === selectedNamespace)?.access === 'admin'
-
-            const [entryResult, accessResult] = await Promise.allSettled([
+            const [entryResult] = await Promise.allSettled([
 
                 vaultApi.listEntries(selectedNamespace),
-
-                admin ? vaultApi.listAccess(selectedNamespace) : Promise.resolve({ items: [] }),
 
             ])
 
@@ -558,20 +508,6 @@ export default function Vault() {
                 setEntries([])
 
                 setError(getErrorMessage(entryResult.reason))
-
-            }
-
-
-
-            if (accessResult.status === 'fulfilled') {
-
-                setAccessAssignments(accessResult.value.items)
-
-            } else if (entryResult.status === 'fulfilled') {
-
-                setAccessAssignments([])
-
-                setError(getErrorMessage(accessResult.reason))
 
             }
 
@@ -604,33 +540,21 @@ export default function Vault() {
         inFlight = true
 
         try {
-            const [namespaceResult, entryResult, accessResult] =
-            await vaultApi.listNamespaces().then((namespaceList) => {
-                const admin =
-                    namespaceList.items.find((namespace) => namespace.name === selectedNamespace)
-                        ?.access === 'admin'
-
-                return Promise.all([
-                    namespaceList,
-                    selectedNamespace
-                    ? vaultApi.listEntries(selectedNamespace)
-                    : Promise.resolve(null),
-                    selectedNamespace && admin
-                    ? vaultApi.listAccess(selectedNamespace)
-                    : Promise.resolve(null),
-                ])
-            })
+            const [namespaceResult, entryResult] = await Promise.all([
+                vaultApi.listNamespaces(),
+                selectedNamespace
+                ? vaultApi.listEntries(selectedNamespace)
+                : Promise.resolve(null),
+            ])
 
             if (cancelled) return
 
             setNamespaces(namespaceResult.items)
 
+            setPermissions(namespaceResult.permissions)
+
             if (entryResult) {
             setEntries(entryResult.items)
-            }
-
-            if (accessResult) {
-            setAccessAssignments(accessResult.items)
             }
         } catch (cause) {
             if (!cancelled) {
@@ -654,9 +578,15 @@ export default function Vault() {
 
     function openNamespaceModal() {
 
-        setNamespaceName('')
+        if (namespaceCreateReason) {
 
-        setVisibility('private')
+            notify.warning(`Creating a namespace: ${namespaceCreateReason}.`)
+
+            return
+
+        }
+
+        setNamespaceName('')
 
         setCreateMenuOpen(false)
 
@@ -732,10 +662,7 @@ export default function Vault() {
 
         try {
 
-            await vaultApi.createNamespace({
-                name,
-                visibility,
-                })
+            await vaultApi.createNamespace({ name })
 
             await refreshNamespaces()
 
@@ -1118,7 +1045,7 @@ export default function Vault() {
 
             title: 'Delete namespace?',
 
-            message: `Namespace "${namespaceToDelete}" and its associated secrets and access assignments will be deleted. This action cannot be undone.`,
+            message: `Namespace "${namespaceToDelete}" and its associated secrets will be deleted. This action cannot be undone.`,
 
             confirmText: 'Delete namespace',
 
@@ -1152,8 +1079,6 @@ export default function Vault() {
 
             setEntries([])
 
-            setAccessAssignments([])
-
             setRevealed({})
 
             await refreshNamespaces()
@@ -1178,123 +1103,6 @@ export default function Vault() {
 
 
 
-    async function grantAccess(event: FormEvent<HTMLFormElement>) {
-
-        event.preventDefault()
-
-
-
-        if (!selectedNamespace) {
-
-            notify.warning('Select a namespace first.')
-
-            return
-
-        }
-
-
-
-        const normalizedUsername = username.trim()
-
-
-
-        if (!normalizedUsername) {
-
-            notify.warning('Enter a username.')
-
-            return
-
-        }
-
-
-
-        setBusy(true)
-
-        setError('')
-
-
-
-        try {
-
-            await vaultApi.grantAccess(selectedNamespace, {
-            username: normalizedUsername,
-            access: accessLevel,
-            })
-
-
-
-            await refreshAccess(selectedNamespace)
-
-            setUsername('')
-
-            notify.success('Namespace access updated.')
-
-        } catch (cause) {
-
-            const messageText = getErrorMessage(cause)
-
-            setError(messageText)
-
-            notify.error(messageText)
-
-        } finally {
-
-            setBusy(false)
-
-        }
-
-    }
-
-
-
-    async function revokeAccess(assignment: VaultAccessAssignment) {
-
-        if (!selectedNamespace || !assignment.username) {
-
-            notify.warning('Restart the Entropy web server to revoke access from this page.')
-
-            return
-
-        }
-
-        const confirmed = await modal.confirm({
-
-            title: 'Revoke access?',
-
-            message: `Remove ${assignment.username}'s ${assignment.access} access to ${selectedNamespace}?`,
-
-            confirmText: 'Revoke access',
-
-            destructive: true,
-
-        })
-
-        if (!confirmed) return
-
-        setBusy(true)
-
-        try {
-
-            await vaultApi.revokeAccess(selectedNamespace, assignment.username)
-
-            await refreshAccess(selectedNamespace)
-
-            notify.success(`Access revoked for ${assignment.username}.`)
-
-        } catch (cause) {
-
-            notify.error(getErrorMessage(cause))
-
-        } finally {
-
-            setBusy(false)
-
-        }
-
-    }
-
-
-
     const openEntryShortcut = () => {
 
         if (!selectedNamespace) {
@@ -1305,9 +1113,9 @@ export default function Vault() {
 
         }
 
-        if (!canWriteEntries) {
+        if (addReason) {
 
-            notify.warning(`You have read-only access to ${selectedNamespace}.`)
+            notify.warning(`Adding a secret: ${addReason}.`)
 
             return
 
@@ -1349,7 +1157,7 @@ export default function Vault() {
 
             'mod+shift+d': () => {
 
-                if (selectedNamespace && isNamespaceAdmin) void deleteNamespace()
+                if (selectedNamespace) void deleteNamespace()
 
             },
 
@@ -1440,13 +1248,15 @@ export default function Vault() {
 
                             {selectedNamespace
 
-                                ? `${entries.length} ${entries.length === 1 ? 'secret' : 'secrets'} in ${selectedNamespace} · ${
+                                ? `${entries.length} ${entries.length === 1 ? 'secret' : 'secrets'} in ${selectedNamespace}`
 
-                                      selectedAccess ? `${selectedAccess} access` : 'read-only (shared)'
+                                : 'Secrets grouped into namespaces.'}
 
-                                  }`
+                        </p>
 
-                                : 'Secrets grouped into namespaces you can share with other users.'}
+                        <p className="vault-scope-note">
+
+                            Vault namespaces belong to this project. Access comes from your project role.
 
                         </p>
 
@@ -1480,9 +1290,11 @@ export default function Vault() {
 
                         onClick={() => setPortable('export')}
 
+                        disabled={Boolean(revealReason)}
+
                         aria-label="Export vault"
 
-                        title="Export namespaces, encrypted with a passphrase"
+                        title={revealReason ?? 'Export namespaces, encrypted with a passphrase'}
 
                     >
 
@@ -1490,7 +1302,7 @@ export default function Vault() {
 
                     </button>
 
-                    {selectedNamespace && isNamespaceAdmin && (
+                    {selectedNamespace && (
 
                         <button
 
@@ -1556,7 +1368,9 @@ export default function Vault() {
 
                                         role="menuitem"
 
-                                        disabled={!selectedNamespace || !canWriteEntries}
+                                        disabled={!selectedNamespace || Boolean(addReason)}
+
+                                        title={addReason ?? undefined}
 
                                         onClick={openCreateEntryModal}
 
@@ -1580,7 +1394,9 @@ export default function Vault() {
 
                                         role="menuitem"
 
-                                        disabled={!selectedNamespace || !canWriteEntries}
+                                        disabled={!selectedNamespace || Boolean(addReason)}
+
+                                        title={addReason ?? undefined}
 
                                         onClick={() => {
 
@@ -1610,7 +1426,9 @@ export default function Vault() {
 
                                         role="menuitem"
 
-                                        disabled={!permissions?.has('vault.namespace.create')}
+                                        disabled={Boolean(namespaceCreateReason)}
+
+                                        title={namespaceCreateReason ?? undefined}
 
                                         onClick={openNamespaceModal}
 
@@ -1694,6 +1512,27 @@ export default function Vault() {
 
                 <EntropyLoader label="Loading vault…" />
 
+            ) : noVaultAccess ? (
+
+                <div className="vault-empty-state">
+
+                    <div className="vault-empty-icon">
+
+                        <LockKeyhole size={28} />
+
+                    </div>
+
+                    <h2>No Vault access</h2>
+
+                    <p>
+
+                        You have no Vault access in this project. Ask a project maintainer for a
+                        project role (Viewer or higher).
+
+                    </p>
+
+                </div>
+
             ) : namespaces.length === 0 ? (
 
                 <div className="vault-empty-state">
@@ -1720,6 +1559,10 @@ export default function Vault() {
 
                         onClick={openNamespaceModal}
 
+                        disabled={Boolean(namespaceCreateReason)}
+
+                        title={namespaceCreateReason ?? undefined}
+
                     >
 
                         <Plus size={16} />
@@ -1733,62 +1576,6 @@ export default function Vault() {
             ) : (
 
                 <>
-
-                    <nav className="vault-tabs" aria-label="Namespace sections">
-
-                        <button
-
-                            type="button"
-
-                            className={activeTab === 'secrets' ? 'active' : ''}
-
-                            onClick={() => setActiveTab('secrets')}
-
-                            aria-current={activeTab === 'secrets' ? 'page' : undefined}
-
-                        >
-
-                            <KeyRound size={16} />
-
-                            Secrets
-
-                            <span className="vault-tab-count">{entries.length}</span>
-
-                        </button>
-
-                        {isNamespaceAdmin && (
-
-                        <button
-
-                            type="button"
-
-                            className={activeTab === 'access' ? 'active' : ''}
-
-                            onClick={() => setActiveTab('access')}
-
-                            aria-current={activeTab === 'access' ? 'page' : undefined}
-
-                        >
-
-                            <Shield size={16} />
-
-                            Access
-
-                            <span className="vault-tab-count">
-
-                                {accessAssignments.length}
-
-                            </span>
-
-                        </button>
-
-                        )}
-
-                    </nav>
-
-
-
-                    {activeTab === 'secrets' || !isNamespaceAdmin ? (
 
                         <section className="vault-content">
 
@@ -1808,11 +1595,11 @@ export default function Vault() {
 
                                     className="entropy-button entropy-button-primary"
 
-                                    title={canWriteEntries ? undefined : 'You have read-only access to this namespace'}
+                                    title={addReason ?? undefined}
 
                                     onClick={openCreateEntryModal}
 
-                                    disabled={busy || !canWriteEntries}
+                                    disabled={busy || Boolean(addReason)}
 
                                 >
 
@@ -1842,9 +1629,9 @@ export default function Vault() {
 
                                         className="entropy-button entropy-button-secondary"
 
-                                        title={canWriteEntries ? undefined : 'You have read-only access to this namespace'}
+                                        title={addReason ?? undefined}
 
-                                        disabled={!canWriteEntries}
+                                        disabled={Boolean(addReason)}
 
                                         onClick={openCreateEntryModal}
 
@@ -1940,8 +1727,9 @@ export default function Vault() {
                                                                         type="button"
                                                                         className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                                                         onClick={() => void downloadVaultFile(entry.key, entry.file?.filename ?? entry.key)}
+                                                                        disabled={Boolean(revealReason)}
                                                                         aria-label={`Download ${entry.key}`}
-                                                                        title="Download file"
+                                                                        title={revealReason ?? 'Download file'}
                                                                     >
                                                                         <Download size={15} />
                                                                     </button>
@@ -1953,9 +1741,9 @@ export default function Vault() {
                                                                         type="button"
                                                                         className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                                                         onClick={() => void revealEntry(entry.key)}
-                                                                        disabled={busy}
+                                                                        disabled={busy || (!isRevealed && Boolean(revealReason))}
                                                                         aria-label={isRevealed ? `Hide ${entry.key}` : `Reveal ${entry.key}`}
-                                                                        title={isRevealed ? 'Hide value' : 'Reveal value'}
+                                                                        title={isRevealed ? 'Hide value' : revealReason ?? 'Reveal value'}
                                                                     >
                                                                         {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
                                                                     </button>
@@ -1983,7 +1771,8 @@ export default function Vault() {
                                                                     type="button"
                                                                     className="entropy-button entropy-button-link vault-value-reveal"
                                                                     onClick={() => void revealEntry(entry.key)}
-                                                                    disabled={busy}
+                                                                    disabled={busy || Boolean(revealReason)}
+                                                                    title={revealReason ?? undefined}
                                                                 >
                                                                     View value
                                                                 </button>
@@ -1995,9 +1784,9 @@ export default function Vault() {
                                                                     type="button"
                                                                     className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
                                                                     onClick={() => (entry.type === 'file' ? setFileDialog(entry.key) : editEntry(entry))}
-                                                                    disabled={busy || !canWriteEntries}
+                                                                    disabled={busy || Boolean(modifyReason)}
                                                                     aria-label={`Edit ${entry.key}`}
-                                                                    title={entry.type === 'file' ? 'Replace file' : 'Edit secret'}
+                                                                    title={modifyReason ?? (entry.type === 'file' ? 'Replace file' : 'Edit secret')}
                                                                 >
                                                                     <Pencil size={15} />
                                                                 </button>
@@ -2005,7 +1794,7 @@ export default function Vault() {
                                                                     type="button"
                                                                     className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
                                                                     onClick={() => void deleteEntry(entry)}
-                                                                    disabled={busy || !canWriteEntries}
+                                                                    disabled={busy}
                                                                     aria-disabled={entryDeleteReason ? true : undefined}
                                                                     aria-label={`Delete ${entry.key}`}
                                                                     title={entryDeleteReason ?? 'Delete secret'}
@@ -2026,248 +1815,6 @@ export default function Vault() {
                             )}
 
                         </section>
-
-                    ) : (
-
-                        <section className="vault-content">
-
-                            <div className="vault-section-header">
-
-                                <div>
-
-                                    <h3>Namespace access</h3>
-
-                                    <p>
-
-                                        Grant a user access to this namespace and its secrets.
-
-                                    </p>
-
-                                </div>
-
-                            </div>
-
-
-
-                            <form className="vault-access-form" onSubmit={grantAccess}>
-
-                                <div className="vault-form-field">
-
-                                    <label htmlFor="vault-access-username">Username</label>
-
-                                    <UserSuggestInput
-
-                                        id="vault-access-username"
-
-                                        value={username}
-
-                                        onChange={setUsername}
-
-                                        disabled={busy}
-
-                                    />
-
-                                </div>
-
-
-
-                                <div className="vault-form-field">
-
-                                    <label htmlFor="vault-access-level">Access level</label>
-
-                                    <select
-
-                                        id="vault-access-level"
-
-                                        value={accessLevel}
-
-                                        onChange={(event) =>
-
-                                            setAccessLevel(event.target.value as VaultAccess)
-
-                                        }
-
-                                    >
-
-                                        <option value="read">Read</option>
-                                        <option value="write">Write</option>
-                                        <option value="admin">Admin</option>
-
-                                    </select>
-
-                                </div>
-
-
-
-                                <button
-
-                                    type="submit"
-
-                                    className="entropy-button entropy-button-primary"
-
-                                    disabled={busy || !username.trim()}
-
-                                >
-
-                                    <Plus size={16} />
-
-                                    Grant access
-
-                                </button>
-
-                            </form>
-
-
-
-                            <div className="vault-section-header vault-access-list-header">
-
-                                <div>
-
-                                    <h3>Access assignments</h3>
-
-                                    <p>
-
-                                        Users and permissions assigned to this namespace.
-
-                                    </p>
-
-                                </div>
-
-                            </div>
-
-
-
-                            {accessAssignments.length === 0 ? (
-
-                                <div className="vault-empty-inline">
-
-                                    <Shield size={24} />
-
-                                    <h3>No access assignments</h3>
-
-                                    <p>
-
-                                        No explicit access assignments were returned for this
-
-                                        namespace.
-
-                                    </p>
-
-                                </div>
-
-                            ) : (
-
-                                <div className="list-table-wrap">
-
-                                    <table className="list-table">
-
-                                        <thead>
-
-                                            <tr>
-
-                                                <th>User</th>
-
-                                                <th>Access level</th>
-
-                                                <th className="vault-actions-heading">Actions</th>
-
-                                            </tr>
-
-                                        </thead>
-
-                                        <tbody>
-
-                                            {accessAssignments.map((assignment) => (
-
-                                                <tr key={assignment.user_id}>
-
-                                                    <td>
-
-                                                        <div className="vault-user-cell">
-
-                                                            <div className="vault-user-avatar">
-
-                                                                <Shield size={15} />
-
-                                                            </div>
-
-                                                            <span className="vault-user-name">
-
-                                                                <strong>
-
-                                                                    {assignment.username ?? `User #${assignment.user_id}`}
-
-                                                                </strong>
-
-                                                                {assignment.full_name && (
-
-                                                                    <small>{assignment.full_name}</small>
-
-                                                                )}
-
-                                                            </span>
-
-                                                        </div>
-
-                                                    </td>
-
-                                                    <td>
-
-                                                        <span className="vault-access-badge">
-
-                                                            {assignment.access}
-
-                                                        </span>
-
-                                                    </td>
-
-                                                    <td>
-
-                                                        <div className="vault-row-actions">
-
-                                                            <button
-
-                                                                type="button"
-
-                                                                className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
-
-                                                                onClick={() =>
-
-                                                                    void revokeAccess(assignment)
-
-                                                                }
-
-                                                                disabled={busy}
-
-                                                                aria-label={`Revoke access for ${assignment.username ?? assignment.user_id}`}
-
-                                                                title="Revoke access"
-
-                                                            >
-
-                                                                <Trash2 size={15} />
-
-                                                            </button>
-
-                                                        </div>
-
-                                                    </td>
-
-                                                </tr>
-
-                                            ))}
-
-                                        </tbody>
-
-                                    </table>
-
-                                </div>
-
-                            )}
-
-                        </section>
-
-                    )}
 
                 </>
 
@@ -2420,45 +1967,6 @@ export default function Vault() {
                                 </div>
 
 
-
-                                <div className="vault-form-field">
-
-                                    <label htmlFor="vault-new-namespace-visibility">
-
-                                        Visibility
-
-                                    </label>
-
-                                    <select
-
-                                        id="vault-new-namespace-visibility"
-
-                                        value={visibility}
-
-                                        onChange={(event) =>
-
-                                            setVisibility(event.target.value as VaultVisibility)
-
-                                        }
-
-                                    >
-
-                                        <option value="private">Private</option>
-                                        <option value="shared">Shared</option>
-
-                                    </select>
-
-                                    <p className="vault-field-help">
-
-                                        Private namespaces restrict access according to explicit
-
-                                        permissions. Shared visibility follows the backend's
-
-                                        namespace access rules.
-
-                                    </p>
-
-                                </div>
 
                             </div>
 

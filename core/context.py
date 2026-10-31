@@ -32,9 +32,6 @@ if TYPE_CHECKING:
     from lib.database.repositories.roles import RoleRepository
     from lib.database.repositories.user_groups import UserGroupRepository
     from lib.database.repositories.users import UserRepository
-    from lib.database.repositories.vault_namespace_access import (
-        VaultNamespaceAccessRepository,
-    )
     from lib.database.repositories.vault_namespaces import (
         VaultNamespaceRepository,
     )
@@ -156,7 +153,6 @@ class EntropyContext:
 
         self.vault_namespace_repository: VaultNamespaceRepository | None = None
 
-        self.vault_namespace_access_repository: VaultNamespaceAccessRepository | None = None
 
         self.vault_namespace_manager: VaultNamespaceManager | None = None
 

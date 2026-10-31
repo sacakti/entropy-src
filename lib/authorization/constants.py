@@ -116,7 +116,7 @@ PERMISSIONS = (
         "vault",
         "vault.read",
         "read",
-        "Read Vault entries.",
+        "Reveal Vault values in a project (runs use them without this).",
     ),
     PermissionDefinition(
         "vault",
@@ -140,7 +140,7 @@ PERMISSIONS = (
         "vault",
         "vault.namespace.read",
         "read",
-        "Read Vault namespaces.",
+        "See a project's Vault namespaces and entry names, not their values.",
     ),
     PermissionDefinition(
         "vault",
@@ -153,12 +153,6 @@ PERMISSIONS = (
         "vault.namespace.delete",
         "delete",
         "Delete Vault namespaces.",
-    ),
-    PermissionDefinition(
-        "vault",
-        "vault.namespace.users",
-        "write",
-        "Manage users assigned to Vault namespaces.",
     ),
     PermissionDefinition(
         "users",
@@ -482,6 +476,8 @@ PERMISSION_RENAMES = {
     "plugins.upgrade": ("plugins.write",),
     "plugins.uninstall": ("plugins.delete",),
     "plugins.run": ("plugins.execute",),
+    # Vault access comes from project roles; per-namespace user grants are gone.
+    "vault.namespace.users": (),
 }
 
 # New permissions split out of one that remains: whoever held the existing

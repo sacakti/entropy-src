@@ -64,8 +64,8 @@ A role has a **scope**:
 
 | Scope   | Given                          | Holds                                           |
 |---------|--------------------------------|-------------------------------------------------|
-| global  | to a user or group             | administration permissions, plugins, vault      |
-| project | to a project member (in a project) | work inside the project: workflows, schedules, runs |
+| global  | to a user or group             | administration permissions, plugins             |
+| project | to a project member (in a project) | work inside the project: workflows, schedules, runs, Vault |
 
 Built-in roles cannot be changed or removed:
 
@@ -75,15 +75,33 @@ Built-in roles cannot be changed or removed:
 | User administrator | global  | users, groups, roles, projects and their members           |
 | Node administrator | global  | add, set up and remove nodes; assign them to projects      |
 | Plugin developer   | global  | create, install, change and remove plugins                 |
-| Vault user         | global  | use the vault                                              |
-| Viewer             | project | see workflows, schedules and runs                          |
+| Viewer             | project | see workflows, schedules, runs and Vault entry names       |
 | Operator           | project | Viewer, and run workflows and plugins                      |
-| Developer          | project | Operator, and create and change workflows and schedules    |
-| Maintainer         | project | Developer, and delete them and manage the project's members|
+| Developer          | project | Operator, and create and change workflows and schedules; reveal, add and change Vault values |
+| Maintainer         | project | Developer, and delete them; delete Vault entries; create, rename and delete Vault namespaces; manage the project's members |
 
 Custom roles pick any permissions their scope allows. A user's permissions
 in a project are their global roles' plus the project roles given to them
 or to their groups in that project.
+
+## Vault
+
+Vault namespaces belong to a project, like workflows. Names are unique
+within a project, and `${entv:namespace/key}` always resolves in the run's
+(or, for `ent`, the current) project. There are no per-namespace user grants
+or shared/private namespaces: access comes only from roles.
+
+| Permission               | Allows                                         |
+|--------------------------|------------------------------------------------|
+| `vault.namespace.read`   | see the project's namespaces and entry names   |
+| `vault.read`             | reveal values, download files, export          |
+| `vault.add` / `vault.modify` | add and change entries                     |
+| `vault.delete`           | delete entries                                 |
+| `vault.namespace.create` / `.modify` / `.delete` | manage namespaces      |
+
+Runs need none of these: a run in a project may use that project's secrets
+when its starter may run workflows or plugins there, without revealing them.
+Global Administrators have every permission in every project.
 
 ## Upgrading from the earlier model
 
@@ -91,6 +109,13 @@ The first start after upgrading converts the old per-module type roles
 (`workflows-read`, …) and directly granted privileges: unused generated
 roles are removed, used ones become custom roles, and project-type grants
 become memberships of the Default project, so nobody loses access.
+
+Migration 026 makes the Vault project scoped. Each namespace stays in the
+project it was already shown in (else Default) with all its entries. The
+old access is removed on purpose: per-user namespace grants, namespace
+ownership and shared visibility, the global "Vault user" role, and Vault
+permissions in other global roles or granted directly. Give users a project
+role (Viewer or higher) to restore their access.
 
 ---
 

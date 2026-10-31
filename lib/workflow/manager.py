@@ -271,6 +271,14 @@ class WorkflowManager:
 
             options = WorkflowExecutionOptions()
 
+        # The worker resolves ${entv:...} in this project's Vault only.
+        from lib.vault.projects import PROJECT_ENV
+
+        environment = {
+            PROJECT_ENV: str(self._project(project_id)),
+            **(environment or {}),
+        }
+
         assert self._context.workflow_job_manager is not None
         assert self._context.execution_manager is not None
 

@@ -420,6 +420,15 @@ class PluginCommand(
             "plugins.execute",
         )
 
+        # A plugin run in `ent` reads the current project's Vault only.
+        import os
+
+        from core.commands.project_context import ProjectContext
+        from lib.vault.projects import PROJECT_ENV
+
+        project = ProjectContext(self.context).current(self._session.require())
+        os.environ[PROJECT_ENV] = str(project["id"])
+
         if args.plugin is None and args.local is None:
 
             raise CommandError(

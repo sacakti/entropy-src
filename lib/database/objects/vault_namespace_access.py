@@ -1,5 +1,8 @@
 """
-Vault namespace access database table.
+Vault namespace access database table (legacy).
+
+Created by migration 003 and dropped by migration 026: Vault access now
+comes from project roles. Kept so the historical migration still runs.
 """
 
 from __future__ import annotations

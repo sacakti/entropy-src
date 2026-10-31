@@ -10,7 +10,6 @@ from lib.database.repositories.vault import VaultRepository
 from lib.models.vault import VaultEntry, VaultValueType
 from lib.vault.cipher import VaultCipher
 from lib.vault.exceptions import (
-    VaultAccessDeniedError,
     VaultEntryExistsError,
     VaultEntryNotFoundError,
     VaultValueError,
@@ -39,9 +38,13 @@ class VaultManager:
         serializer: VaultSerializer,
         key_provider: VaultKeyProvider,
         namespace_manager,
+        authorization=None,
     ) -> None:
 
         self._repository = repository
+
+        # Decides whether a run may read its project's secrets.
+        self._authorization = authorization
 
         self._serializer = serializer
 
@@ -213,26 +216,15 @@ class VaultManager:
         user_id: int,
     ) -> Any:
         """
-        Resolve a Vault value for a user through namespace access.
+        Resolve a Vault value for a run.
+
+        The namespace is looked up in the run's project, and the run's
+        starter must be allowed to run workflows or plugins there.
         """
 
-        namespace_entry = self._namespace_manager.get(
+        namespace_entry = self._run_namespace(
             namespace,
-        )
-
-        access = self._namespace_manager.access_by_user_id(
-            namespace_entry,
             user_id,
-        )
-
-        if access is None:
-
-            raise VaultAccessDeniedError(
-                f"Permission denied for Vault namespace " f"'{namespace}'.",
-            )
-
-        self._require_run_project(
-            namespace_entry,
         )
 
         assert namespace_entry.id is not None
@@ -249,26 +241,12 @@ class VaultManager:
         user_id: int,
     ) -> dict[str, Any]:
         """
-        Resolve Vault values matching a pattern for a user.
+        Resolve the Vault values matching a pattern for a run.
         """
 
-        namespace_entry = self._namespace_manager.get(
+        namespace_entry = self._run_namespace(
             namespace,
-        )
-
-        access = self._namespace_manager.access_by_user_id(
-            namespace_entry,
             user_id,
-        )
-
-        if access is None:
-
-            raise VaultAccessDeniedError(
-                f"Permission denied for Vault namespace " f"'{namespace}'.",
-            )
-
-        self._require_run_project(
-            namespace_entry,
         )
 
         assert namespace_entry.id is not None
@@ -278,27 +256,34 @@ class VaultManager:
             pattern,
         )
 
-    def _require_run_project(
+    def _run_namespace(
         self,
-        namespace_entry,
-    ) -> None:
+        namespace: str,
+        user_id: int,
+    ):
         """
-        A run reads only its own project's namespaces.
+        The run's project's namespace, after checking the run may read it.
         """
 
-        from .projects import namespace_project, run_project
+        from .access import require_run
+        from .projects import current_run_project
 
-        project_id = run_project()
+        project_id = current_run_project(
+            self._repository.connection,
+        )
 
-        if project_id is None or namespace_entry.id is None:
+        require_run(
+            self._authorization,
+            user_id,
+            project_id,
+        )
 
-            return
-
-        if namespace_project(self._repository.connection, namespace_entry.id) != project_id:
-
-            raise VaultAccessDeniedError(
-                f"Vault namespace '{namespace_entry.name}' belongs to another project.",
-            )
+        # Only the run's project is searched: other projects' namespaces
+        # are not found.
+        return self._namespace_manager.get(
+            namespace,
+            project_id,
+        )
 
     # ------------------------------------------------------------------
     # Get Entry
