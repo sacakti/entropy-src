@@ -107,6 +107,7 @@
 .entropy-app .git-browser-history h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 5px; font-size: .9rem; }
 .entropy-app .git-browser-history > button { display: flex; justify-content: space-between; gap: 12px; padding: 7px 4px; color: var(--app-text); background: transparent; border: 0; border-top: 1px solid var(--app-line); text-align: left; cursor: pointer; }
 .entropy-app .git-browser-history > button span, .entropy-app .git-browser-history > small { color: var(--app-muted); font-size: .78rem; }
+.entropy-app .git-browser-history-more { display: flex; justify-content: center; padding-top: 6px; border-top: 1px solid var(--app-line); }
 .entropy-app .git-browser-commit-diff { display: grid; gap: 10px; min-width: 0; padding: 12px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; }
 .entropy-app .git-browser-commit-diff > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .entropy-app .git-browser-commit-diff > header h3 { margin: 0; font-size: .92rem; }

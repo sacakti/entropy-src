@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import Editor from '@monaco-editor/react'
-import { ArrowLeft, ChevronDown, ChevronRight, CornerLeftUp, FileCode2, FilePlus2, Folder, FolderGit2, FolderUp, GitBranch, GitCommitHorizontal, Plus, Save, Search, Upload } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, CornerLeftUp, FileCode2, FilePlus2, Folder, FolderGit2, FolderUp, GitBranch, GitCommitHorizontal, Plus, Save, Search, Upload } from 'lucide-react'
 import { ApiError, apiRequest } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import Dialog from '../../../components/layout/Dialog'
@@ -17,6 +17,7 @@ type Listing = { path: string; entries: RepoEntry[]; history_limited: boolean }
 type FileData = { path: string; content: string; binary: boolean; size: number }
 type View = 'files' | 'editor'
 const PAGE_SIZE = 500
+const RECENT_COMMITS = 5
 
 function query(params: Record<string, string>) { return new URLSearchParams(params).toString() }
 function languageOf(path: string) {
@@ -58,6 +59,7 @@ export default function RepositoryBrowser({ repository, onBack }: {
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
     const listingRequest = useRef(0)
     const [commits, setCommits] = useState<Commit[]>([])
+    const [commitsExpanded, setCommitsExpanded] = useState(false)
     const [commitChanges, setCommitChanges] = useState<CommitChange[]>([])
     const [selectedChange, setSelectedChange] = useState<CommitChange | null>(null)
     const [sideBySide, setSideBySide] = useState(true)
@@ -98,7 +100,7 @@ export default function RepositoryBrowser({ repository, onBack }: {
     }, [repository.id])
 
     const loadBranch = useCallback(async (selectedBranch: string, selectedDirectory = '') => {
-        setSelectedFile(null); setContent(''); setCommitChanges([]); setSelectedChange(null); setIsNewFile(false)
+        setSelectedFile(null); setContent(''); setCommitChanges([]); setSelectedChange(null); setIsNewFile(false); setCommitsExpanded(false)
         const commitsLoaded = apiRequest<{ commits: Commit[] }>(`/api/git-repositories/${repository.id}/browser/commits?${query({ branch: selectedBranch })}`)
             .then((result) => setCommits(result.commits), (reason: Error) => { setCommits([]); setError(reason.message) })
         await Promise.all([loadListing(selectedBranch, selectedDirectory), commitsLoaded])
@@ -275,7 +277,7 @@ export default function RepositoryBrowser({ repository, onBack }: {
                 {!loading && !filteredEntries.length && <tr><td colSpan={6} className="git-browser-empty-cell">{filter ? 'No items in this folder match the filter.' : directory ? 'This folder is empty.' : repository.can_manage ? 'No files yet. Add files or drag them into this area.' : 'No files in this branch yet.'}</td></tr>}
             </tbody></table></div>
             {historyLimited && <small className="git-browser-history-note">Created dates are hidden because this branch has more than 2,000 commits touching this folder.</small>}
-            <section className="git-browser-history"><h3><GitCommitHorizontal size={16} /> Recent commits</h3>{commits.length ? commits.map((commit) => <button key={commit.sha} type="button" onClick={() => void openDiff(commit)}><strong>{commit.subject || '(no subject)'}</strong><span><code>{commit.short_sha}</code> · {commit.author} · {formatDate(commit.date)}</span></button>) : <small>No commits in this branch.</small>}</section>
+            <section className="git-browser-history"><h3><GitCommitHorizontal size={16} /> Recent commits</h3>{commits.length ? (commitsExpanded ? commits : commits.slice(0, RECENT_COMMITS)).map((commit) => <button key={commit.sha} type="button" onClick={() => void openDiff(commit)}><strong>{commit.subject || '(no subject)'}</strong><span><code>{commit.short_sha}</code> · {commit.author} · {formatDate(commit.date)}</span></button>) : <small>No commits in this branch.</small>}{commits.length > RECENT_COMMITS && <div className="git-browser-history-more"><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" aria-expanded={commitsExpanded} onClick={() => setCommitsExpanded((value) => !value)}>{commitsExpanded ? <><ChevronUp size={14} /> Show fewer</> : <><ChevronDown size={14} /> Show all {commits.length} commits</>}</button></div>}</section>
             {!!commitChanges.length && <section className="git-browser-commit-diff"><header><div><h3>Compare commit changes</h3><span>Select a changed file to compare its previous and committed versions.</span></div><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setSideBySide((value) => !value)}>{sideBySide ? 'Inline diff' : 'Side-by-side diff'}</button></header>
                 <div className="git-browser-change-tabs">{commitChanges.map((change) => <button type="button" key={`${change.status}:${change.path}`} className={selectedChange?.path === change.path ? 'selected' : ''} onClick={() => setSelectedChange(change)}><code>{change.status}</code>{change.path}</button>)}</div>
                 {selectedChange && <><div className="git-browser-change-heading"><strong>{selectedChange.path}</strong><span>{selectedChange.status}</span></div>{selectedChange.binary ? <div className="git-browser-empty-cell">This binary or oversized file cannot be compared in the text diff viewer.</div> : <div className="git-browser-diff-view"><DiffView original={selectedChange.original} modified={selectedChange.modified} language={languageOf(selectedChange.path)} theme={theme} sideBySide={sideBySide} /></div>}</>}
