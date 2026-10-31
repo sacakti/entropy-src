@@ -265,10 +265,10 @@ A run is started in one of two modes:
   `self.ask("One-time code", secret=True)`, or with `choices=[...]`, `default=...`.
   The question appears on the run screen; the run's starter (or anyone who may
   run workflows in the project) answers it there. Before the plugin starts,
-  the run also asks for the arguments left empty: required ones, ones declared
-  `"prompt": true`, and optional single values without a default (an empty
-  answer skips those; `"prompt": false` keeps an optional argument from being
-  asked, for plugins that ask themselves what their mode needs). Answers may be JSON for objects and lists, or a vault
+  the run also asks for the **required** arguments left empty, and for
+  optional ones the plugin declares `"prompt": true` (an empty answer skips
+  those). Other empty optional arguments keep their defaults and are not
+  asked. Answers may be JSON for objects and lists, or a vault
   reference such as `${entv:prod/sftp}`.
   Secret answers are stored encrypted with the vault key, deleted as soon as the
   plugin reads them, and never logged. Unanswered questions fail the step after
@@ -277,6 +277,28 @@ A run is started in one of two modes:
 - `self.can_ask` tells a plugin whether `ask()` reaches a person (an
   interactive run, or `ent` in a terminal), for questions that depend on
   other arguments.
+
+### Workflow variables entered at run start
+
+A workflow variable set to `${ask}` (or `${ask:secret}` for hidden input) is
+asked for when the run starts, before any step runs:
+
+```json
+"variables": {
+    "environment": "SIT",
+    "release": "${ask}",
+    "db_password": "${ask:secret}"
+}
+```
+
+- A value given when the run starts (`--var NAME=VALUE`, or the start dialog's
+  Variables) replaces the marker, so that variable is not asked.
+- Interactive runs show every such question on the run screen at once; `ent`
+  asks in the terminal. An empty answer is not accepted.
+- Automated runs, and `ent` without a terminal, cannot ask: the run fails
+  before the first step and names the variables to give.
+- Secret answers are masked in the run's output. Dry runs treat the markers
+  as placeholders.
 
 ## Two ways to build a plugin
 

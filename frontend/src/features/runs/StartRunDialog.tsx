@@ -306,7 +306,7 @@ export default function StartRunDialog({
                     {(
                         [
                             ['automated', 'Automated', 'Runs unattended; a question without a default fails the step.'],
-                            ['interactive', 'Interactive', 'Plugins may ask for input (plain or secret) while the run is followed.'],
+                            ['interactive', 'Interactive', 'Plugins, and variables set to ${ask}, may ask for input (plain or secret) while the run is followed.'],
                         ] as const
                     ).map(([value, label, help]) => (
                         <button
@@ -324,7 +324,7 @@ export default function StartRunDialog({
                 </div>
                 <small>
                     {mode === 'interactive'
-                        ? 'Questions appear on the run screen; answer them there. Runs on this server only.'
+                        ? 'Questions (including ${ask} variables) appear on the run screen; answer them there. Runs on this server only.'
                         : 'Runs unattended; a question without a default fails the step.'}
                 </small>
             </div>

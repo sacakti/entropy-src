@@ -184,6 +184,17 @@ class PluginRunner:
                 f"Plugin '{name}' has an invalid contract in plugin.json: {exc}",
             ) from None
 
+        # Arguments given as ${ask} / ${ask:secret} are asked for now, with
+        # or without a contract; the answers replace the markers.
+        context.set_arguments(
+            PluginRunner._ask_marked(
+                context,
+                contract,
+                dict(context.arguments or {}),
+                name,
+            ),
+        )
+
         if contract is None:
 
             return None, None
@@ -218,14 +229,14 @@ class PluginRunner:
         name: str,
     ) -> dict:
         """
-        In interactive runs, ask for what the run left empty: required
-        arguments, "prompt" arguments, and optional single values without a
-        default (which may be skipped) unless they say "prompt": false.
+        In interactive runs, ask only for what the plugin cannot run without:
+        required arguments the run left empty, plus optional arguments the
+        plugin explicitly marks "prompt": true (those may be skipped). Other
+        empty optional arguments keep their defaults and are not asked.
         Answers may be JSON (objects, lists) or vault references. Automated
         runs leave all of this to the usual checks.
         """
 
-        import json
         import os
 
         from lib.runs.prompts import RUN_MODE_ENV, PromptError, prompts_for
@@ -234,20 +245,10 @@ class PluginRunner:
 
             return values
 
-        single = ("string", "path", "integer", "number", "boolean", "any")
         wanted = [
             item
             for item in contract["arguments"]
-            if values.get(item["name"]) in (None, "")
-            and (
-                item.get("prompt")
-                or item["required"]
-                or (
-                    item.get("prompt") is not False
-                    and item["default"] is None
-                    and item["type"] in single
-                )
-            )
+            if values.get(item["name"]) in (None, "") and (item["required"] or item.get("prompt"))
         ]
 
         if not wanted:
@@ -297,28 +298,165 @@ class PluginRunner:
 
                 continue
 
-            value: object = answer
+            values[item["name"]] = PluginRunner._typed_answer(
+                context,
+                answer,
+                item["type"],
+                item["name"],
+                name,
+            )
 
-            if "${" in answer:
+        return values
 
-                value = PluginRunner._resolve_answer(context, answer)
+    @staticmethod
+    def _typed_answer(
+        context: ExecutionContext,
+        answer: str,
+        kind: str,
+        argument: str,
+        name: str,
+    ) -> object:
+        """An answer as its argument's type: a vault reference, JSON, or text."""
 
-            elif item["type"] in ("dictionary", "list", "any"):
+        import json
+
+        if "${" in answer:
+
+            return PluginRunner._resolve_answer(context, answer)
+
+        if kind in ("dictionary", "list", "any"):
+
+            try:
+
+                return json.loads(answer)
+
+            except ValueError:
+
+                if kind != "any":
+
+                    raise PluginValueError(
+                        f"Plugin '{name}': '{argument}' must be JSON "
+                        f"({kind}) or a vault reference.",
+                    ) from None
+
+        return answer
+
+    @staticmethod
+    def _ask_marked(
+        context: ExecutionContext,
+        contract: dict | None,
+        values: dict,
+        name: str,
+    ) -> dict:
+        """
+        Ask for the arguments given as ${ask} (or ${ask:secret}), required or
+        not. Interactive runs ask on the run screen (every question at once);
+        `ent` asks in the terminal. Automated runs cannot ask, so they fail.
+        An empty answer leaves an optional argument out; a required one
+        needs a value.
+        """
+
+        import os
+        import sys
+
+        from lib.runs.prompts import RUN_MODE_ENV, PromptError, prompts_for
+        from lib.workflow.variables.ask import ask_marker
+
+        specs = {item["name"]: item for item in (contract or {}).get("arguments", [])}
+        marked = {
+            argument: bool(ask_marker(value)) or bool(specs.get(argument, {}).get("secret"))
+            for argument, value in values.items()
+            if ask_marker(value) is not None
+        }
+
+        if not marked:
+
+            return values
+
+        mode = os.environ.get(RUN_MODE_ENV)
+        answers: dict = {}
+
+        if mode == "interactive" and context.job_id is not None:
+
+            store = prompts_for(context._entropy)
+            node = context.node
+            prompts = {}
+
+            for argument, secret in marked.items():
+
+                spec = specs.get(argument, {})
+                choices = spec.get("choices")
+                if spec.get("type") == "boolean":
+                    choices = ["true", "false"]
+                hints = [spec.get("description") or ""]
+                if not spec.get("required"):
+                    hints.append("Optional: leave empty to skip.")
+
+                prompts[argument] = store.ask(
+                    context.job_id,
+                    name=argument,
+                    label=spec.get("label") or argument,
+                    step=getattr(node, "name", None),
+                    description=" ".join(hint for hint in hints if hint),
+                    secret=secret,
+                    choices=(
+                        [str(choice) for choice in choices]
+                        if choices and spec.get("required")
+                        else None
+                    ),
+                )
+
+            for argument, prompt in prompts.items():
 
                 try:
 
-                    value = json.loads(answer)
+                    answers[argument] = store.wait(prompt).strip()
 
-                except ValueError:
+                except PromptError as exc:
 
-                    if item["type"] != "any":
+                    raise PluginValueError(
+                        f"Plugin '{name}': '{argument}': {exc}",
+                    ) from None
 
-                        raise PluginValueError(
-                            f"Plugin '{name}': '{item['name']}' must be JSON "
-                            f"({item['type']}) or a vault reference.",
-                        ) from None
+        elif mode is None and sys.stdin.isatty():
 
-            values[item["name"]] = value
+            import getpass
+
+            for argument, secret in marked.items():
+
+                label = f"{specs.get(argument, {}).get('label') or argument}: "
+                answers[argument] = (getpass.getpass(label) if secret else input(label)).strip()
+
+        else:
+
+            raise PluginValueError(
+                f"Plugin '{name}': {', '.join(marked)} "
+                f"{'is' if len(marked) == 1 else 'are'} set to ${{ask}}, "
+                "which only an interactive run (or `ent` in a terminal) can answer. "
+                "Start the run in interactive mode, or give the value.",
+            )
+
+        for argument, answer in answers.items():
+
+            if answer == "":
+
+                if specs.get(argument, {}).get("required"):
+
+                    raise PluginValueError(
+                        f"Plugin '{name}': '{argument}' needs a value.",
+                    )
+
+                values.pop(argument, None)
+
+                continue
+
+            values[argument] = PluginRunner._typed_answer(
+                context,
+                answer,
+                specs.get(argument, {}).get("type", "any"),
+                argument,
+                name,
+            )
 
         return values
 

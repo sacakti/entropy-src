@@ -30,6 +30,7 @@ from lib.workflow.exceptions import (
 from lib.workflow.overrides import WorkflowArgumentOverrides
 from lib.workflow.selector import WorkflowStepSelector
 from lib.workflow.variables import WorkflowVariableResolver
+from lib.workflow.variables.ask import DRY_RUN_PLACEHOLDER, asked_variables
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
@@ -224,6 +225,12 @@ class WorkflowRunner:
         #
 
         try:
+
+            # Variables set to ${ask} are entered now, before any step runs.
+            self._ask_variables(
+                runtime,
+                secrets,
+            )
 
             with runtime.workflow(
                 workflow.name,
@@ -460,6 +467,10 @@ class WorkflowRunner:
         variables.update(
             options.variables,
         )
+
+        # Values entered when the run starts are unknown here.
+        for name in asked_variables(variables):
+            variables[name] = DRY_RUN_PLACEHOLDER
 
         #
         # Validate selected step arguments.
@@ -760,6 +771,104 @@ class WorkflowRunner:
         )
 
         return False
+
+    def _ask_variables(
+        self,
+        runtime: ExecutionContext,
+        secrets: set[str],
+    ) -> None:
+        """
+        Ask for the variables set to ${ask} / ${ask:secret}.
+
+        A local `ent` run asks in the terminal; an interactive run asks on
+        the run screen. Automated runs (and `ent` without a terminal) cannot
+        ask, so they fail before any step runs.
+        """
+
+        import sys
+
+        from lib.runs.prompts import RUN_MODE_ENV, PromptError, prompts_for
+
+        asked = asked_variables(
+            runtime.variables,
+        )
+
+        if not asked:
+            return
+
+        assert self._context.ui is not None
+
+        names = ", ".join(asked)
+        mode = os.environ.get(RUN_MODE_ENV)
+        answers: dict[str, str] = {}
+
+        if mode is None and sys.stdin.isatty():
+
+            # A local `ent` run: ask in the terminal.
+            import getpass
+
+            for name, secret in asked.items():
+                answer = ""
+
+                while not answer:
+                    label = f"Workflow variable '{name}': "
+                    answer = getpass.getpass(label) if secret else input(label).strip()
+
+                answers[name] = answer
+
+        elif mode == "interactive" and runtime.job_id is not None:
+
+            store = prompts_for(self._context)
+
+            # Ask everything at once; the run screen shows every question.
+            prompts = {
+                name: store.ask(
+                    int(runtime.job_id),
+                    name=name,
+                    label=f"Workflow variable '{name}'",
+                    description="The workflow asks for this value when it runs.",
+                    secret=secret,
+                )
+                for name, secret in asked.items()
+            }
+
+            self._context.ui.info(
+                f"Waiting for workflow variables: {names}",
+            )
+
+            for name, prompt in prompts.items():
+                try:
+                    answers[name] = store.wait(prompt)
+                except PromptError as exc:
+                    raise WorkflowArgumentError(
+                        f"Workflow variable '{name}' was not entered: {exc}",
+                    ) from exc
+
+                if not answers[name]:
+                    raise WorkflowArgumentError(
+                        f"Workflow variable '{name}' needs a value.",
+                    )
+
+        else:
+
+            raise WorkflowArgumentError(
+                f"Workflow variable(s) {names} must be entered when the run starts. "
+                "Start the run in interactive mode, or give the values "
+                "(--var NAME=VALUE, or the start dialog's Variables).",
+            )
+
+        for name, answer in answers.items():
+
+            if asked[name]:
+                secrets.add(
+                    answer,
+                )
+
+            runtime.variables[name] = answer
+
+        self._context.ui.info(
+            f"Workflow variables entered: {names}",
+        )
 
     def _ask_resume(
         self,

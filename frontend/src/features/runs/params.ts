@@ -10,7 +10,7 @@ export interface ParamSpec {
     choices?: unknown[]
     /** For type 'path': a file, a directory or either. */
     path?: 'file' | 'directory' | 'any'
-    /** Interactive runs: true always asks when left empty; false never asks (optional arguments). */
+    /** Interactive runs: true asks when left empty (even optional); otherwise only required arguments are asked. */
     prompt?: boolean | null
     picker?: 'git_repository'
 }
@@ -55,7 +55,7 @@ export function parseRows(
         if (!key) continue
 
         if (!text) {
-            // Interactive runs ask for what is left empty.
+            // Interactive runs ask for required (and "prompt": true) arguments left empty.
             if (row.spec?.required && row.spec.default === null && !interactive) {
                 return { values, error: `'${key}' is required.` }
             }
@@ -63,6 +63,11 @@ export function parseRows(
         }
 
         const type = row.spec?.type ?? 'any'
+
+        // ${ask} / ${ask:secret}: the run asks for the value, which only interactive runs can.
+        if (!interactive && (text === '${ask}' || text === '${ask:secret}')) {
+            return { values, error: `'${key}' is asked for when the run starts: give a value, or choose Interactive.` }
+        }
 
         // Vault and workflow references are resolved when the run starts.
         if (text.startsWith('${') && text.endsWith('}')) {

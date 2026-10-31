@@ -305,8 +305,8 @@ def normalize(data: Any) -> dict[str, Any]:
             "default": item.get("default"),
             "description": str(item.get("description") or ""),
             "secret": item.get("secret") is True,
-            # True: always ask in interactive runs; False: never ask for it
-            # when optional; None: ask for optional single values without a default.
+            # True: interactive runs ask for it when left empty (even when
+            # optional). Otherwise only required arguments are asked.
             "prompt": item.get("prompt") if isinstance(item.get("prompt"), bool) else None,
         }
         if required and item.get("default") is not None:

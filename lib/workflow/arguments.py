@@ -9,6 +9,7 @@ from typing import Any
 
 from lib.models.plugin import PluginResult
 from lib.workflow.exceptions import WorkflowArgumentError
+from lib.workflow.variables.ask import ask_marker
 
 
 class WorkflowArgumentResolver:
@@ -49,6 +50,11 @@ class WorkflowArgumentResolver:
     ) -> Any:
 
         if isinstance(value, str):
+
+            # ${ask}: the plugin runner asks for it when the step starts.
+            if ask_marker(value) is not None:
+
+                return value
 
             match = self._REFERENCE.fullmatch(
                 value,

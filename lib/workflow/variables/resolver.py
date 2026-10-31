@@ -14,6 +14,8 @@ from lib.workflow.exceptions import (
     VariableNotFoundError,
 )
 
+from .ask import ask_marker
+
 
 class WorkflowVariableResolver:
     """
@@ -169,6 +171,12 @@ class WorkflowVariableResolver:
     ) -> Any:
 
         if isinstance(value, str):
+
+            # ${ask} / ${ask:secret}: entered when the run starts (by the
+            # workflow runner for variables, the plugin runner for arguments).
+            if ask_marker(value) is not None:
+
+                return value
 
             return self._resolve_string(
                 value,

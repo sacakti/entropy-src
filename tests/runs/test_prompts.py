@@ -104,7 +104,7 @@ def test_interactive_runs_ask_for_what_was_left_empty(monkeypatch) -> None:
             return name
 
         def wait(self, prompt):
-            return {"conn": '{"host": "h"}', "source": "/tmp/a", "count": ""}.get(prompt, "")
+            return {"conn": '{"host": "h"}', "note": "hello", "source": "/tmp/a"}.get(prompt, "")
 
     monkeypatch.setenv(prompts.RUN_MODE_ENV, "interactive")
     monkeypatch.setattr(prompts, "prompts_for", lambda _: Store())
@@ -118,18 +118,142 @@ def test_interactive_runs_ask_for_what_was_left_empty(monkeypatch) -> None:
                 {"name": "archive", "type": "dictionary"},
                 {"name": "given", "type": "string"},
                 {"name": "quiet", "type": "string", "prompt": False},
+                {"name": "note", "type": "string", "prompt": True},
             ],
             "outputs": [],
         }
     )
     context = SimpleNamespace(_entropy=None, node=None, job_id=1)
     values = PluginRunner._prompt_missing(context, declared, {"given": "x"}, "demo.p")
-    # Required, and optional single values without a default; not objects,
-    # defaults or arguments that say "prompt": false.
-    assert asked == ["conn", "source", "count"]
-    assert values == {"given": "x", "conn": {"host": "h"}, "source": "/tmp/a"}
+    # Only required arguments and those that say "prompt": true; other empty
+    # optional arguments (with or without a default) are not asked.
+    assert asked == ["conn", "note"]
+    assert values == {"given": "x", "conn": {"host": "h"}, "note": "hello"}
 
     asked.clear()
     monkeypatch.setenv(prompts.RUN_MODE_ENV, "automated")
     assert PluginRunner._prompt_missing(context, declared, {}, "demo.p") == {}
     assert asked == []
+
+
+# ----------------------------------------------------------------------
+# Arguments given as ${ask}
+# ----------------------------------------------------------------------
+
+
+def _ask_contract():
+    from lib.plugins import contract
+
+    return contract.normalize(
+        {
+            "arguments": [
+                {"name": "password", "type": "string", "required": True},
+                {"name": "hosts", "type": "list"},
+                {"name": "note", "type": "string"},
+                {"name": "given", "type": "string"},
+            ],
+            "outputs": [],
+        }
+    )
+
+
+def test_interactive_runs_ask_for_ask_arguments(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    import lib.runs.prompts as prompts
+    from lib.plugins.runner import PluginRunner
+
+    asked = []
+
+    class Store:
+        def ask(self, job_id, *, name, secret, **_):
+            asked.append((name, secret))
+            return name
+
+        def wait(self, prompt):
+            return {"password": "s3cret", "hosts": '["a", "b"]', "note": ""}[prompt]
+
+    monkeypatch.setenv(prompts.RUN_MODE_ENV, "interactive")
+    monkeypatch.setattr(prompts, "prompts_for", lambda _: Store())
+    context = SimpleNamespace(_entropy=None, node=None, job_id=1)
+
+    values = PluginRunner._ask_marked(
+        context,
+        _ask_contract(),
+        {"password": "${ask:secret}", "hosts": "${ask}", "note": "${ask}", "given": "x"},
+        "demo.p",
+    )
+
+    # Optional ones too; every question is posted before waiting.
+    assert asked == [("password", True), ("hosts", False), ("note", False)]
+    # Typed like any answer; an empty optional answer leaves the argument out.
+    assert values == {"password": "s3cret", "hosts": ["a", "b"], "given": "x"}
+
+
+def test_an_empty_answer_to_a_required_ask_argument_fails(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    import lib.runs.prompts as prompts
+    from lib.plugins.exceptions import PluginValueError
+    from lib.plugins.runner import PluginRunner
+
+    class Store:
+        def ask(self, job_id, *, name, **_):
+            return name
+
+        def wait(self, prompt):
+            return ""
+
+    monkeypatch.setenv(prompts.RUN_MODE_ENV, "interactive")
+    monkeypatch.setattr(prompts, "prompts_for", lambda _: Store())
+    context = SimpleNamespace(_entropy=None, node=None, job_id=1)
+
+    with pytest.raises(PluginValueError, match="'password' needs a value"):
+        PluginRunner._ask_marked(context, _ask_contract(), {"password": "${ask}"}, "demo.p")
+
+
+def test_automated_runs_cannot_answer_ask_arguments(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    import lib.runs.prompts as prompts
+    from lib.plugins.exceptions import PluginValueError
+    from lib.plugins.runner import PluginRunner
+
+    monkeypatch.setenv(prompts.RUN_MODE_ENV, "automated")
+    context = SimpleNamespace(_entropy=None, node=None, job_id=1)
+
+    with pytest.raises(PluginValueError, match="password is set to \\$\\{ask\\}"):
+        PluginRunner._ask_marked(context, _ask_contract(), {"password": "${ask}"}, "demo.p")
+
+    # Nothing marked: nothing to ask, even in automated runs.
+    assert PluginRunner._ask_marked(context, None, {"a": "b"}, "demo.p") == {"a": "b"}
+
+
+def test_ent_asks_ask_arguments_in_the_terminal(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    import lib.runs.prompts as prompts
+    from lib.plugins.runner import PluginRunner
+
+    monkeypatch.delenv(prompts.RUN_MODE_ENV, raising=False)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda label: " hello ")
+    monkeypatch.setattr("getpass.getpass", lambda label: "s3cret")
+    context = SimpleNamespace(_entropy=None, node=None, job_id=None)
+
+    # Plugins without a contract are asked too.
+    assert PluginRunner._ask_marked(
+        context, None, {"user": "${ask}", "password": "${ask:secret}"}, "demo.p"
+    ) == {"user": "hello", "password": "s3cret"}
+
+
+def test_resolvers_leave_ask_markers_for_the_plugin_runner() -> None:
+    from unittest.mock import Mock
+
+    from lib.workflow.arguments import WorkflowArgumentResolver
+    from lib.workflow.variables import WorkflowVariableResolver
+
+    arguments = {"password": "${ask:secret}", "note": "${ask}", "plain": "x"}
+
+    assert WorkflowVariableResolver(Mock(), 1, set()).resolve(arguments, {}) == arguments
+    assert WorkflowArgumentResolver().resolve(arguments, variables={}, step_results={}) == arguments
