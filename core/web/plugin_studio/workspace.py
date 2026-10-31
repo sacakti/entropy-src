@@ -30,7 +30,30 @@ from core.web.versioning import bump_version
 from lib.plugins.manifest import ManifestReader
 from lib.plugins.validator import ManifestValidator
 
-EDITABLE_SUFFIXES = (".py", ".json", ".md", ".txt", ".csv")
+# Text files only: content must also decode as UTF-8 (see read_files).
+# Keep in sync with EDITABLE_SUFFIXES in frontend/.../PluginEditor.tsx.
+EDITABLE_SUFFIXES = (
+    ".py",
+    ".json",
+    ".md",
+    ".txt",
+    ".csv",
+    ".sql",
+    ".yaml",
+    ".yml",
+    ".sh",
+    ".xml",
+    ".html",
+    ".properties",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".toml",
+    ".env",
+    ".j2",
+    ".tpl",
+    ".log",
+)
 MAX_FILE_BYTES = 512_000
 MAX_FILES = 200
 MAX_DESCRIPTION_LENGTH = 200

@@ -159,7 +159,7 @@ def test_reports_syntax_and_json_errors_with_positions() -> None:
         "../evil.py",
         "/etc/passwd.py",
         "a/../../b.py",
-        "script.sh",
+        "script.exe",
         "__pycache__/x.py",
         ".hidden.py",
         "",
@@ -174,6 +174,19 @@ def test_accepts_plugin_relative_paths() -> None:
     assert normalize_path("ops/runner.py") == "ops/runner.py"
     assert normalize_path(" README.md ") == "README.md"
     assert normalize_path("data/hosts.csv") == "data/hosts.csv"
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["sql/001_create.sql", "config/app.yaml", "scripts/run.sh", "conf/app.properties"],
+)
+def test_accepts_text_file_types(path: str) -> None:
+    assert normalize_path(path) == path
+
+
+def test_rejects_binary_file_types() -> None:
+    with pytest.raises(PluginStudioError):
+        normalize_path("assets/logo.png")
 
 
 # ----------------------------------------------------------------------
@@ -272,6 +285,24 @@ def test_save_keeps_csv_files(tmp_path: Path) -> None:
     root = manager.get("custom.demo").path
     assert (root / "data" / "hosts.csv").read_bytes() == table.encode()
     assert studio.files("custom.demo")["files"]["data/hosts.csv"] == table
+
+
+def test_save_keeps_sql_and_shell_files(tmp_path: Path) -> None:
+    studio, manager = make_studio(tmp_path)
+    current = studio.files("custom.demo")
+    sql = "-- seed\nINSERT INTO hosts VALUES ('a', 22);\n"
+    script = "#!/bin/sh\necho ok\n"
+
+    studio.save(
+        "custom.demo",
+        {"sql/001_seed.sql": sql, "scripts/run.sh": script},
+        current["revision"],
+    )
+
+    files = studio.files("custom.demo")["files"]
+    assert files["sql/001_seed.sql"] == sql
+    assert files["scripts/run.sh"] == script
+    assert (manager.get("custom.demo").path / "sql" / "001_seed.sql").read_text() == sql
 
 
 def test_save_rejects_stale_revision(tmp_path: Path) -> None:

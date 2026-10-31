@@ -448,6 +448,30 @@
     background: var(--ide-panel-2);
 }
 
+/* A problem's quick fix, e.g. "Generate contract", beside its row. */
+.entropy-app .plugin-ide-problems li:has(.plugin-ide-problem-fix) {
+    display: flex;
+    align-items: center;
+    padding-right: 14px;
+}
+
+.entropy-app .plugin-ide-problems li button.plugin-ide-problem-fix {
+    flex: none;
+    width: auto;
+    padding: 3px 9px;
+    color: var(--app-accent);
+    border: 1px solid var(--app-line);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.entropy-app .plugin-ide-problems li button.plugin-ide-problem-fix:disabled {
+    cursor: progress;
+    opacity: 0.6;
+}
+
 .entropy-app .plugin-ide-problems small {
     margin-left: auto;
     color: var(--app-muted);

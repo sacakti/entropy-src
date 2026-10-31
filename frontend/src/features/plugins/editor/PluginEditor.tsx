@@ -66,7 +66,15 @@ type EditorMode = 'edit' | 'review'
 type SidebarView = 'explorer' | 'search'
 type FileMeta = Record<string, { size?: number; modified?: string }>
 
-const EDITABLE_SUFFIXES = ['.py', '.json', '.md', '.txt', '.csv']
+// Keep in sync with EDITABLE_SUFFIXES in core/web/plugin_studio/workspace.py.
+const EDITABLE_SUFFIXES = [
+    '.py', '.json', '.md', '.txt', '.csv', '.sql', '.yaml', '.yml', '.sh', '.xml', '.html',
+    '.properties', '.ini', '.cfg', '.conf', '.toml', '.env', '.j2', '.tpl', '.log',
+]
+const LANGUAGES: Record<string, string> = {
+    py: 'python', json: 'json', md: 'markdown', sql: 'sql', yaml: 'yaml', yml: 'yaml', sh: 'shell',
+    xml: 'xml', html: 'html', properties: 'ini', ini: 'ini', cfg: 'ini', conf: 'ini', env: 'ini',
+}
 const PATH_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/
 const VALIDATION_DELAY = 600
 const PREFS_KEY = 'entropy.pluginEditor'
@@ -118,10 +126,7 @@ const SHORTCUTS: Array<[string, string]> = [
 ]
 
 function languageOf(path: string): string {
-    if (path.endsWith('.py')) return 'python'
-    if (path.endsWith('.json')) return 'json'
-    if (path.endsWith('.md')) return 'markdown'
-    return 'plaintext'
+    return LANGUAGES[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? 'plaintext'
 }
 
 function disposeModels(prefixes: string[]) {
@@ -1811,6 +1816,23 @@ export default function PluginEditor({
                                                             {item.path}:{item.line}:{item.column}
                                                         </small>
                                                     </button>
+                                                    {/* The fix the message names, right where it is read. */}
+                                                    {!readOnly && item.source === 'contract' && item.path === 'plugin.json' && (
+                                                        <button
+                                                            type="button"
+                                                            className="plugin-ide-problem-fix"
+                                                            title="Add the arguments and outputs the source uses to plugin.json"
+                                                            disabled={contractBusy}
+                                                            onClick={() => void generateContract()}
+                                                        >
+                                                            {contractBusy ? (
+                                                                <LoaderCircle size={13} className="entropy-spin" />
+                                                            ) : (
+                                                                <FileSignature size={13} />
+                                                            )}
+                                                            Generate contract
+                                                        </button>
+                                                    )}
                                                 </li>
                                             ))
                                         )}
