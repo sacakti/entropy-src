@@ -1390,3 +1390,39 @@
 .entropy-app .admin-form-grid > .admin-field {
     align-content: start;
 }
+
+/* Audit log ---------------------------------------------------------- */
+
+.entropy-app .audit-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+.entropy-app .audit-toolbar > :first-child { flex: 1 1 260px; }
+.entropy-app .audit-toolbar select { min-width: 140px; max-width: 220px; }
+.entropy-app .audit-date { display: inline-flex; align-items: center; gap: 6px; color: var(--app-muted); font-size: 12.5px; }
+.entropy-app .audit-date input { height: 36px; padding: 0 8px; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; color-scheme: light dark; }
+.entropy-app .audit-row { cursor: pointer; }
+.entropy-app .audit-row:focus-visible { outline: 2px solid var(--app-accent); outline-offset: -2px; }
+.entropy-app .audit-when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.entropy-app .audit-action { font-weight: 600; }
+.entropy-app .audit-target { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .audit-muted { color: var(--app-muted); }
+.entropy-app .audit-source { display: block; color: var(--app-muted); font-size: 11.5px; }
+.entropy-app .audit-outcome { display: inline-flex; padding: 2px 8px; border: 1px solid var(--app-line); border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.entropy-app .audit-outcome.is-success { color: var(--app-success-text); background: var(--app-success-soft); border-color: var(--app-success-border); }
+.entropy-app .audit-outcome.is-denied { color: var(--app-warning-text); border-color: color-mix(in srgb, var(--app-warning) 45%, transparent); }
+.entropy-app .audit-outcome.is-failure { color: var(--app-danger-text); background: var(--app-danger-soft); border-color: var(--app-danger-border); }
+.entropy-app .audit-retention { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; color: var(--app-muted); font-size: 13px; border: 1px dashed var(--app-line); border-radius: 10px; }
+.entropy-app .audit-retention label { display: inline-flex; align-items: center; gap: 8px; color: var(--app-text); }
+.entropy-app .audit-retention input { width: 90px; height: 32px; padding: 0 8px; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .audit-details,
+.entropy-modal .audit-details { display: grid; gap: 6px; margin: 0; }
+.entropy-app .audit-details > div,
+.entropy-modal .audit-details > div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; font-size: 13.5px; }
+.entropy-app .audit-details dt,
+.entropy-modal .audit-details dt { color: var(--app-muted); }
+.entropy-app .audit-details dd,
+.entropy-modal .audit-details dd { margin: 0; overflow-wrap: anywhere; }
+.entropy-app .audit-json,
+.entropy-modal .audit-json { max-height: 240px; margin: 12px 0 0; overflow: auto; padding: 10px 12px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; font-size: 12.5px; }
+@media (max-width: 640px) {
+    .entropy-app .audit-toolbar select { max-width: none; flex: 1 1 45%; }
+    .entropy-app .audit-details > div, .entropy-modal .audit-details > div { grid-template-columns: 1fr; gap: 2px; }
+}

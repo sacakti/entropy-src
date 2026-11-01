@@ -60,6 +60,35 @@ def _client_address(request: Request) -> Optional[str]:
     return request.client.host if request.client else None
 
 
+def _audit_sign_in(
+    request: Request,
+    username: str,
+    outcome: str,
+    reason: str = "",
+    *,
+    user_id: Optional[int] = None,
+    source: str = "web",
+) -> None:
+    """Sign-in attempts, failed ones included (with the username that was tried)."""
+
+    from core.web.audit import record_entry
+
+    record_entry(
+        request,
+        category="auth",
+        action="auth.login",
+        outcome=outcome,
+        username=(username or "").strip()[:150] or None,
+        user_id=user_id,
+        target=(username or "").strip()[:150] or None,
+        source=source,
+        method="POST",
+        path=request.url.path,
+        status=200 if outcome == "success" else 401,
+        details={"reason": reason} if reason else {},
+    )
+
+
 def _session_info(request: Request, session: Session) -> dict:
     """Lifetime and inactivity limit of the current browser session."""
 
@@ -153,12 +182,15 @@ async def login(
             payload.username, payload.password, address=_client_address(request)
         )
     except SignInRefused as exc:
+        _audit_sign_in(request, payload.username, "denied", str(exc))
         raise HTTPException(status_code=401, detail=str(exc)) from None
-    except (AuthenticationError, UserInactiveError):
+    except (AuthenticationError, UserInactiveError) as exc:
+        _audit_sign_in(request, payload.username, "denied", type(exc).__name__)
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password.",
         ) from None
+    _audit_sign_in(request, session.username, "success", user_id=session.user_id)
 
     options = _cookie_options(request)
 
@@ -400,9 +432,12 @@ async def create_token(payload: TokenRequest, request: Request, response: Respon
             browser=False,
         )
     except SignInRefused as exc:
+        _audit_sign_in(request, payload.username, "denied", str(exc), source="cli")
         raise HTTPException(status_code=401, detail=str(exc)) from None
-    except (AuthenticationError, UserInactiveError):
+    except (AuthenticationError, UserInactiveError) as exc:
+        _audit_sign_in(request, payload.username, "denied", type(exc).__name__, source="cli")
         raise HTTPException(status_code=401, detail="Invalid username or password.") from None
+    _audit_sign_in(request, session.username, "success", user_id=session.user_id, source="cli")
 
     response.headers["Cache-Control"] = "no-store"
     return _token_payload(session)

@@ -28,6 +28,10 @@ SECTIONS: Dict[str, Dict[str, Any]] = {
         # Where people open Entropy, e.g. https://entropy.example.com (links in e-mails).
         "public_url": "",
     },
+    "audit": {
+        # Audit entries older than this are removed (1 to 3650 days).
+        "retention_days": 365,
+    },
     "smtp": {
         "enabled": False,
         "host": "",
@@ -233,6 +237,8 @@ class SystemSettings:
 
     @staticmethod
     def _validate(section: str, values: Dict[str, Any]) -> None:
+        if section == "audit" and not 1 <= int(values["retention_days"]) <= 3650:
+            raise SettingsError("Keep audit entries for 1 to 3650 days.")
         if section == "smtp" and values["enabled"]:
             if not values["host"]:
                 raise SettingsError("Give the SMTP server's host name.")

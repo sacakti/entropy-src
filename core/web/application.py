@@ -261,6 +261,11 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
         app,
     )
 
+    # Every change through the API (browser and `ent`) is written to the audit log.
+    from core.web.audit import audit_middleware
+
+    app.middleware("http")(audit_middleware)
+
     @app.get("/docs", include_in_schema=False)
     async def custom_swagger_ui() -> HTMLResponse:
         """Serve Swagger UI with automatic CSRF headers for API mutations."""

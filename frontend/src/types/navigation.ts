@@ -8,6 +8,7 @@ import {
     LayoutDashboard,
     Package,
     PlayCircle,
+    ScrollText,
     Server,
     ShieldCheck,
     SlidersHorizontal,
@@ -33,6 +34,7 @@ export type PageId =
     | 'admin-groups'
     | 'admin-roles'
     | 'admin-settings'
+    | 'admin-audit'
     | 'admin-system'
     | 'about'
     | 'settings'
@@ -60,6 +62,7 @@ export const navigation: NavigationItem[] = [
             { id: 'admin-roles', label: 'Roles', icon: BadgeCheck },
             { id: 'nodes', label: 'Nodes', icon: Server },
             { id: 'admin-settings', label: 'Settings', icon: SlidersHorizontal },
+            { id: 'admin-audit', label: 'Audit', icon: ScrollText },
             { id: 'admin-system', label: 'Upgrade', icon: ArrowUpCircle },
         ],
     },
@@ -93,6 +96,7 @@ const PAGE_IDS: readonly PageId[] = [
     'admin-groups',
     'admin-roles',
     'admin-settings',
+    'admin-audit',
     'admin-system',
     'about',
     'settings',
@@ -126,6 +130,7 @@ export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
         'nodes.list',
         'system.settings',
         'upgrade.entropy',
+        'audit.read',
     ],
     // Project maintainers (projects.members in the current project) manage members here.
     'admin-projects': ['projects.manage', 'projects.read', 'projects.members'],
@@ -133,6 +138,7 @@ export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
     'admin-groups': ['groups.read'],
     'admin-roles': ['roles.read'],
     'admin-settings': ['system.settings'],
+    'admin-audit': ['audit.read'],
     'admin-system': ['upgrade.entropy'],
 }
 

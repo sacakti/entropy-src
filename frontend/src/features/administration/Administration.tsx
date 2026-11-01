@@ -4,6 +4,7 @@ import {
     ArrowUpCircle,
     BadgeCheck,
     FolderKanban,
+    ScrollText,
     Server,
     SlidersHorizontal,
     UserRound,
@@ -64,6 +65,13 @@ const SECTIONS: {
         description: 'E-mail (SMTP), sign-in with LDAP or single sign-on, data retention and purging.',
         icon: SlidersHorizontal,
         stat: () => 'E-mail, sign-in, data',
+    },
+    {
+        page: 'admin-audit',
+        title: 'Audit',
+        description: 'Who did what, when and from where: changes, sign-ins (including failed ones) and downloads.',
+        icon: ScrollText,
+        stat: () => 'Activity log',
     },
     {
         page: 'admin-system',

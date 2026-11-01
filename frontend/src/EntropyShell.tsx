@@ -58,6 +58,7 @@ const Plugins = lazy(() => import('./features/plugins/Plugins'))
 const Extensions = lazy(() => import('./features/extensions/Extensions'))
 const Administration = lazy(() => import('./features/administration/Administration'))
 const AdminSystem = lazy(() => import('./features/administration/AdminSystem'))
+const AdminAudit = lazy(() => import('./features/administration/AdminAudit'))
 const AdminUsers = lazy(() => import('./features/administration/AdminUsers'))
 const AdminGroups = lazy(() => import('./features/administration/AdminGroups'))
 const AdminRoles = lazy(() => import('./features/administration/AdminRoles'))
@@ -358,6 +359,7 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
         'admin-projects': 'Projects',
         'admin-settings': 'Settings',
         'admin-system': 'Upgrade',
+        'admin-audit': 'Audit',
         about: 'About',
         settings: 'Settings',
         preferences: 'Preferences',
@@ -604,6 +606,8 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
                             <AdminProjects />
                         ) : activePage === 'admin-settings' ? (
                             <AdminSettings />
+                        ) : activePage === 'admin-audit' ? (
+                            <AdminAudit />
                         ) : activePage === 'admin-system' ? (
                             <AdminSystem />
                         ) : null}

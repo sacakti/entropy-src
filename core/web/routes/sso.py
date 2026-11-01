@@ -126,15 +126,32 @@ def oidc_callback(request: Request) -> Response:
             managed_groups=[mapping["group"] for mapping in mappings],
         )
     except SignInRefused as exc:
+        _audit_refused(request, username, str(exc))
         return _login_page(str(exc))
     except UserInactiveError:
+        _audit_refused(request, username, "Account disabled")
         return _login_page("Your Entropy account is disabled.")
     except AuthenticationError:
+        _audit_refused(request, username, "Sign-in failed")
         return _login_page("Sign-in failed.")
 
     store = request.app.state.web_session_store
     session, csrf = store.issue(
         user, address=request.client.host if request.client else None
+    )
+    from core.web.audit import record_entry
+
+    record_entry(
+        request,
+        category="auth",
+        action="auth.login",
+        username=session.username,
+        user_id=session.user_id,
+        target=session.username,
+        method="GET",
+        path=request.url.path,
+        status=303,
+        details={"provider": "oidc"},
     )
     response = RedirectResponse("/", status_code=303)
     options = _cookie_options(request)
@@ -145,3 +162,22 @@ def oidc_callback(request: Request) -> Response:
     response.delete_cookie(STATE_COOKIE, path="/api/auth/oidc")
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def _audit_refused(request: Request, username: str, reason: str) -> None:
+    """A refused single sign-on, with the identity the provider reported."""
+
+    from core.web.audit import record_entry
+
+    record_entry(
+        request,
+        category="auth",
+        action="auth.login",
+        outcome="denied",
+        username=username or None,
+        target=username or None,
+        method="GET",
+        path=request.url.path,
+        status=401,
+        details={"provider": "oidc", "reason": reason},
+    )

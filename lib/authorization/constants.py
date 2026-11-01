@@ -99,6 +99,10 @@ MODULES = (
         description="Project release packages and deployment artifacts.",
     ),
     ModuleDefinition(
+        name="audit",
+        description="Audit log of user activity.",
+    ),
+    ModuleDefinition(
         name="system",
         description="Entropy settings: e-mail, sign-in, data retention.",
     ),
@@ -453,6 +457,12 @@ PERMISSIONS = (
     PermissionDefinition("releases", "releases.promote", "execute", "Promote completed releases using workflows."),
     PermissionDefinition("artifacts", "artifacts.read", "read", "View release artifacts in a project."),
     PermissionDefinition("artifacts", "artifacts.write", "write", "Upload and register release artifacts in a project."),
+    PermissionDefinition(
+        "audit",
+        "audit.read",
+        "read",
+        "View and export the audit log of who did what.",
+    ),
     PermissionDefinition(
         "system",
         "system.settings",
