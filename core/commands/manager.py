@@ -8,6 +8,7 @@ import argparse
 import importlib
 import inspect
 import pkgutil
+import time
 import traceback
 from argparse import Namespace
 from typing import List, Optional
@@ -19,6 +20,9 @@ from core.commands.exceptions import (
     CommandNotFoundError,
 )
 from core.exceptions import EntropyException
+from lib.audit.cli import record_command
+from lib.auth.exceptions import AuthenticationException
+from lib.authorization.exceptions import AuthorizationRequiredError
 
 
 class CommandManager:
@@ -246,6 +250,9 @@ class CommandManager:
                 name,
             )
 
+        started = time.monotonic()
+        outcome, error = "failure", None
+
         try:
 
             if command.metadata.authentication_required:
@@ -258,7 +265,21 @@ class CommandManager:
                 args,
             )
 
+            outcome = "success"
+
+        except (AuthenticationException, AuthorizationRequiredError) as exc:
+
+            outcome, error = "denied", str(exc)
+
+            self._events.log.error(
+                str(exc),
+            )
+
+            raise SystemExit(1) from exc
+
         except EntropyException as exc:
+
+            error = str(exc)
 
             self._events.log.error(
                 str(exc),
@@ -268,11 +289,21 @@ class CommandManager:
 
         except ValueError as exc:
 
+            error = str(exc)
+
             self._events.log.error(
                 str(exc),
             )
 
             raise SystemExit(1) from exc
+
+        except SystemExit as exc:
+
+            # Commands may end themselves; exit code 0 (or none) is success.
+            if exc.code in (0, None):
+                outcome = "success"
+
+            raise
 
         except Exception as exc:
 
@@ -281,6 +312,18 @@ class CommandManager:
             )
 
             raise SystemExit(2) from exc
+
+        finally:
+
+            # Server-side commands bypass the web API: audit them here.
+            record_command(
+                self._context,
+                command.metadata.name,
+                args,
+                outcome=outcome,
+                duration_ms=int((time.monotonic() - started) * 1000),
+                error=error,
+            )
 
     # ------------------------------------------------------------------
     # Parse

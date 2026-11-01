@@ -11,7 +11,7 @@ export interface AuditEntry {
     username: string | null
     address: string | null
     user_agent: string | null
-    /** web (browser) or cli (`ent`). */
+    /** web (browser), cli (`ent` through the API) or server-cli (`ent` on the Entropy host). */
     source: string
     category: string
     action: string

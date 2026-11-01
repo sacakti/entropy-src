@@ -13,6 +13,10 @@ import { AdminPanel, EmptyRow, SearchField } from './AdminPanel'
 import { errorMessage } from './format'
 
 const SORTS: AuditSortField[] = ['time', 'user', 'category', 'action', 'outcome', 'project']
+/** Where the activity came from. */
+const sourceLabel = (source: string) =>
+    source === 'server-cli' ? 'ent on the server' : source === 'cli' ? 'ent' : 'browser'
+
 const OUTCOME_LABELS: Record<AuditEntry['outcome'], string> = { success: 'Success', denied: 'Denied', failure: 'Failed' }
 
 const when = (value: string) => {
@@ -206,7 +210,7 @@ export default function AdminAudit() {
                                         <td className="audit-target" title={entry.target ?? undefined}>{entry.target ?? <span className="audit-muted">—</span>}</td>
                                         <td><span className={`audit-outcome is-${entry.outcome}`}>{OUTCOME_LABELS[entry.outcome]}{entry.status ? ` · ${entry.status}` : ''}</span></td>
                                         <td>{entry.project ?? <span className="audit-muted">—</span>}</td>
-                                        <td className="list-cell-text">{entry.address ?? '—'}<small className="audit-source">{entry.source === 'cli' ? 'ent' : 'browser'}</small></td>
+                                        <td className="list-cell-text">{entry.address ?? '—'}<small className="audit-source">{sourceLabel(entry.source)}</small></td>
                                     </tr>
                                 ))
                             )}
@@ -265,7 +269,7 @@ function AuditDetails({ entry, onClose }: { entry: AuditEntry; onClose: () => vo
         ['Project', entry.project ?? '—'],
         ['Request', [entry.method, entry.path].filter(Boolean).join(' ') || '—'],
         ['Duration', entry.duration_ms !== null ? `${entry.duration_ms} ms` : '—'],
-        ['From', `${entry.address ?? 'unknown address'} · ${entry.source === 'cli' ? 'ent command line' : 'browser'}`],
+        ['From', `${entry.address ?? 'unknown address'} · ${sourceLabel(entry.source)}`],
         ['Client', entry.user_agent ?? '—'],
     ]
     const details = Object.keys(entry.details ?? {}).length ? JSON.stringify(entry.details, null, 2) : null
