@@ -7,6 +7,7 @@ import {
     CheckCircle2,
     ChevronDown,
     CircleDashed,
+    AppWindow,
     LayoutGrid,
     Network,
     LoaderCircle,
@@ -24,6 +25,7 @@ import {
     artifactDownloadUrl,
     runsApi,
     type PlannedStep,
+    type RunApp as RunAppData,
     type RunArtifact,
     type Run,
     type RunEvent,
@@ -31,6 +33,7 @@ import {
     type RunStep,
 } from '../../api/runs.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import RunApps from './RunApp'
 import RunDiagram from './RunDiagram'
 import RunOptionsSummary from './RunOptionsSummary'
 import RunPrompts from './RunPrompts'
@@ -52,7 +55,7 @@ import { useErrorToast } from '../../components/feedback/useToast'
 
 const POLL_MS = 1000
 
-type View = 'progress' | 'diagram' | 'log'
+type View = 'progress' | 'diagram' | 'log' | 'app'
 type LogSource = 'events' | 'output'
 type CardStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled'
 
@@ -273,6 +276,9 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
     const [now, setNow] = useState(() => Date.now())
     const [artifacts, setArtifacts] = useState<RunArtifact[]>([])
     const [artifactsOpen, setArtifactsOpen] = useState<string | null>(null)
+    const [apps, setApps] = useState<RunAppData[]>([])
+    // Opening the App tab by itself happens once, unless the user picked a tab.
+    const viewPicked = useRef(false)
 
     const cursor = useRef<number | null>(null)
     const outputOffset = useRef(0)
@@ -336,6 +342,30 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
     }, [runId])
 
     const running = run ? isActive(run.state) : false
+
+    // App plugins' live pages: follow them while the run goes, read once after.
+    const loadApps = useCallback(() => {
+        runsApi
+            .apps(runId)
+            .then(({ items }) => {
+                setApps(items)
+                if (items.length && !viewPicked.current) {
+                    viewPicked.current = true
+                    setView('app')
+                }
+            })
+            .catch(() => undefined)
+    }, [runId])
+    useEffect(() => {
+        loadApps()
+        if (!running) return
+        const timer = setInterval(loadApps, POLL_MS)
+        return () => clearInterval(timer)
+    }, [loadApps, running])
+    const pickView = (next: View) => {
+        viewPicked.current = true
+        setView(next)
+    }
 
     // Artifacts appear as steps finish; reload when one does and when the run ends.
     const finishedSteps = steps.filter((step) => step.status !== 'started').length
@@ -561,7 +591,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                             role="tab"
                             aria-selected={view === 'progress'}
                             className={view === 'progress' ? 'is-active' : ''}
-                            onClick={() => setView('progress')}
+                            onClick={() => pickView('progress')}
                         >
                             <LayoutGrid size={13} /> Progress
                         </button>
@@ -570,7 +600,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                             role="tab"
                             aria-selected={view === 'diagram'}
                             className={view === 'diagram' ? 'is-active' : ''}
-                            onClick={() => setView('diagram')}
+                            onClick={() => pickView('diagram')}
                         >
                             <Network size={13} /> Diagram
                         </button>
@@ -579,10 +609,21 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                             role="tab"
                             aria-selected={view === 'log'}
                             className={view === 'log' ? 'is-active' : ''}
-                            onClick={() => setView('log')}
+                            onClick={() => pickView('log')}
                         >
                             <ScrollText size={13} /> Live log
                         </button>
+                        {apps.length > 0 && (
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={view === 'app'}
+                                className={view === 'app' ? 'is-active' : ''}
+                                onClick={() => pickView('app')}
+                            >
+                                <AppWindow size={13} /> App
+                            </button>
+                        )}
                     </div>
 
                     {view === 'log' && (
@@ -628,7 +669,9 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                     )}
                 </div>
 
-                {view === 'diagram' ? (
+                {view === 'app' ? (
+                    <RunApps runId={runId} apps={apps} live={running} onChanged={loadApps} />
+                ) : view === 'diagram' ? (
                     <RunDiagram
                         workflow={run.target}
                         plan={

@@ -330,6 +330,28 @@ class BasePlugin(ABC):
         return self._context.ui
 
     @property
+    def app(
+        self,
+    ):
+        """
+        The live page of an app plugin (plugin.json declares "app"):
+        inputs the user sets, views the plugin publishes, button presses.
+        See lib/plugins/app.py.
+        """
+
+        app = getattr(self, "_entropy_app_session", None)
+        if app is None:
+            from lib.plugins.app import PluginApp
+
+            app = PluginApp(
+                self._context,
+                getattr(self, "_entropy_app", None),
+                getattr(self._context, "_name", None) or type(self).__name__,
+            )
+            self._entropy_app_session = app
+        return app
+
+    @property
     def configuration(
         self,
     ):

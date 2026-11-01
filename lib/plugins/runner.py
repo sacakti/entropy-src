@@ -84,6 +84,8 @@ class PluginRunner:
 
         except Exception:
 
+            self._close_app(plugin)
+
             if mode is PluginMode.CLI:
 
                 context.finish_plugin_scope(
@@ -93,6 +95,8 @@ class PluginRunner:
             raise
 
         else:
+
+            self._close_app(plugin)
 
             if mode is PluginMode.CLI:
 
@@ -531,8 +535,33 @@ class PluginRunner:
         )
 
         plugin._entropy_contract = contract
+        plugin._entropy_app = self._app_definition(directory, name)
 
         return plugin
+
+    @staticmethod
+    def _app_definition(directory: Path, name: str) -> dict | None:
+        """The plugin's declared app page, if it is an app plugin."""
+
+        from lib.plugins.app import app_definition
+
+        try:
+            return app_definition(read_manifest(directory))
+        except ContractError as exc:
+            raise PluginExecutionError(
+                f"Plugin '{name}' has an invalid app in plugin.json: {exc}",
+            ) from None
+
+    @staticmethod
+    def _close_app(plugin: BasePlugin) -> None:
+        """An app plugin that ends leaves its page finished."""
+
+        session = getattr(plugin, "_entropy_app_session", None)
+        if session is not None:
+            try:
+                session.close()
+            except Exception as error:  # noqa: BLE001 - the page state must not fail the step
+                plugin.log.warning(f"Unable to close the app page: {error}")
 
     def _create_plugin(
         self,
@@ -613,6 +642,8 @@ class PluginRunner:
 
         except Exception:
 
+            self._close_app(plugin)
+
             if mode is PluginMode.CLI:
 
                 context.finish_plugin_scope(
@@ -622,6 +653,8 @@ class PluginRunner:
             raise
 
         else:
+
+            self._close_app(plugin)
 
             if mode is PluginMode.CLI:
 

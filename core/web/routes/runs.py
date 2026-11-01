@@ -150,7 +150,7 @@ def list_runs(
     order: Literal["asc", "desc"] = Query("desc"),
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
-    """List runs (newest first by default), filtered by tab (active/completed/failed/cancelled/all)."""
+    """List runs (newest first by default), filtered by tab (active/completed/failed/...)."""
 
     _, _, current = record
     project = current_project(request, current)
@@ -438,9 +438,133 @@ def stop_run(
     _require_permission(request, current, "workflows.execute", _run_project(request, job_id))
 
     try:
-        return {"run": _service(request).stop(job_id)}
+        stopped = _service(request).stop(job_id)
     except RunError as exc:
         raise _http(exc) from exc
+    # A stopped run leaves no app page waiting for input.
+    from lib.runs.apps import AppStore
+
+    connection = request.app.state.entropy_context.database_manager.connection
+    AppStore(connection).finish_jobs(_service(request).store.job_ids(job_id))
+    return {"run": stopped}
+
+
+# ----------------------------------------------------------------------
+# App plugins
+# ----------------------------------------------------------------------
+
+
+class AppInputsRequest(BaseModel):
+    values: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AppEventRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    selection: List[Any] = Field(default_factory=list, max_length=5000)
+
+
+def _app_store(request: Request) -> Any:
+    from lib.runs.apps import AppStore
+
+    return AppStore(request.app.state.entropy_context.database_manager.connection)
+
+
+def _run_app(
+    request: Request, current: User, job_id: int, app_id: int, *, act: bool
+) -> Dict[str, Any]:
+    """The run's app; acting on it (inputs, buttons, stop) needs the starter or execute."""
+
+    project_id = _run_project(request, job_id)
+    _require_permission(request, current, "workflows.read", project_id)
+    store = _service(request).store
+    app: Optional[Dict[str, Any]] = _app_store(request).get(app_id)
+    if app is None or app["job_id"] not in store.job_ids(job_id):
+        raise HTTPException(status_code=404, detail="That app does not belong to this run.")
+    if act:
+        run = store.get(job_id) or {}
+        if run.get("username") != current.username:
+            _require_permission(request, current, "workflows.execute", project_id)
+    return app
+
+
+@router.get("/api/runs/{job_id}/apps")
+def run_apps(
+    job_id: int,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """The live pages of the run's app plugins: definition, inputs, views and state."""
+
+    _, _, current = record
+    _require_permission(request, current, "workflows.read", _run_project(request, job_id))
+    items = _app_store(request).list(_service(request).store.job_ids(job_id))
+    _no_store(response)
+    return {"items": items}
+
+
+@router.put("/api/runs/{job_id}/apps/{app_id}/inputs", dependencies=[Depends(verify_csrf)])
+def set_app_inputs(
+    job_id: int,
+    app_id: int,
+    payload: AppInputsRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    from lib.runs.apps import AppError
+
+    _, _, current = record
+    _run_app(request, current, job_id, app_id, act=True)
+    try:
+        return {"inputs": _app_store(request).set_inputs(app_id, payload.values)}
+    except AppError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post(
+    "/api/runs/{job_id}/apps/{app_id}/events",
+    status_code=201,
+    dependencies=[Depends(verify_csrf)],
+)
+def press_app_button(
+    job_id: int,
+    app_id: int,
+    payload: AppEventRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    from lib.runs.apps import AppError
+
+    _, _, current = record
+    app = _run_app(request, current, job_id, app_id, act=True)
+    try:
+        _app_store(request).push_event(
+            app_id, payload.name, {"selection": payload.selection, "values": app["inputs"]},
+            current.username,
+        )
+    except AppError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"ok": True}
+
+
+@router.post("/api/runs/{job_id}/apps/{app_id}/stop", dependencies=[Depends(verify_csrf)])
+def stop_app(
+    job_id: int,
+    app_id: int,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Ask the app to end its loop; the step then completes normally."""
+
+    from lib.runs.apps import AppError
+
+    _, _, current = record
+    _run_app(request, current, job_id, app_id, act=True)
+    try:
+        _app_store(request).request_stop(app_id)
+    except AppError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"ok": True}
 
 
 # ----------------------------------------------------------------------

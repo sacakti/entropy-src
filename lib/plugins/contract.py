@@ -600,4 +600,16 @@ def plugin_contract(directory: Path) -> dict[str, Any]:
         ),
         "outputs": [item["name"] for item in contract["outputs"]],
         "output_details": contract["outputs"],
+        "app": _app_or_none(manifest),
     }
+
+
+def _app_or_none(manifest: dict[str, Any]) -> dict[str, Any] | None:
+    """The declared app page; an invalid one shows as none (the run reports why)."""
+
+    from lib.plugins.app import app_definition
+
+    try:
+        return app_definition(manifest)
+    except ContractError:
+        return None

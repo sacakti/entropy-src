@@ -136,6 +136,8 @@ export default function StartRunDialog({
                     return
                 }
                 setDeclared(contract.contract === 'declared')
+                // App plugins are live pages: interactive runs keep them open.
+                if (contract.app) setMode('interactive')
                 setRows(rowsFor(contract.arguments))
                 setCheck({
                     state: 'valid',

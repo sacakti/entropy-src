@@ -1,0 +1,18 @@
+{
+    "name": "process_monitor",
+    "version": "1.0.0",
+    "description": "Example workflow for builtin.process_monitor. Run it in interactive mode to get the live App tab.",
+    "variables": {},
+    "steps": [
+        {
+            "name": "Process monitor",
+            "plugin": "builtin.process_monitor",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["app"],
+            "arguments": {
+                "max_rows": 200
+            }
+        }
+    ]
+}

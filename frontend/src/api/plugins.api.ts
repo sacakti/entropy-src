@@ -206,6 +206,8 @@ export interface PluginContract extends PluginItem {
     arguments: PluginArgumentSpec[]
     outputs: string[]
     output_details?: PluginOutputSpec[]
+    /** App plugins declare a live page; they run interactively by default. */
+    app?: { title?: string } | null
 }
 
 /** Diagnostics carried by a 422 save response, if any. */

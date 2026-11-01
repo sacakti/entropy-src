@@ -1,0 +1,56 @@
+{
+    "name": "process_monitor",
+    "namespace": "builtin",
+    "version": "1.0.0",
+    "description": "App plugin: live, filterable view of the processes on the Entropy server (an example of a plugin app).",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+    "dependencies": [],
+    "arguments": [
+        {
+            "name": "max_rows",
+            "type": "integer",
+            "required": false,
+            "default": 200,
+            "description": "Most processes shown in the table."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "process_count",
+            "type": "integer",
+            "description": "Processes matching the filter on the last refresh."
+        }
+    ],
+    "app": {
+        "title": "Process monitor",
+        "description": "Processes on the Entropy server, refreshed live. Filter by name or user, select rows and inspect them.",
+        "refresh_seconds": 2,
+        "inputs": [
+            {"name": "filter", "type": "text", "label": "Filter", "placeholder": "Name or user, e.g. python", "default": ""},
+            {"name": "sort", "type": "select", "label": "Sort by", "choices": ["CPU", "Memory", "Name", "PID"], "default": "CPU"},
+            {"name": "only_mine", "type": "toggle", "label": "Only my processes", "default": false},
+            {"name": "inspect", "type": "button", "label": "Inspect selected", "target": "processes"}
+        ],
+        "views": [
+            {"name": "summary", "type": "stats", "title": "Summary"},
+            {
+                "name": "processes",
+                "type": "table",
+                "title": "Processes",
+                "row_key": "pid",
+                "selectable": true,
+                "columns": [
+                    {"key": "pid", "label": "PID"},
+                    {"key": "user", "label": "User"},
+                    {"key": "cpu", "label": "CPU %"},
+                    {"key": "memory", "label": "Memory %"},
+                    {"key": "command", "label": "Command"}
+                ]
+            },
+            {"name": "activity", "type": "log", "title": "Activity", "max_lines": 200}
+        ]
+    },
+    "tags": ["app", "monitoring"],
+    "license": ""
+}

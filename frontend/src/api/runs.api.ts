@@ -157,6 +157,65 @@ export type RunSortField = 'id' | 'run' | 'status' | 'user' | 'node' | 'started'
 export type RunMode = 'automated' | 'interactive'
 
 /** A question a plugin of an interactive run waits on. */
+/** An input of an app plugin's live page (plugin.json "app.inputs"). */
+export interface RunAppInput {
+    name: string
+    type: 'text' | 'number' | 'select' | 'toggle' | 'button'
+    label: string
+    description?: string
+    placeholder?: string
+    default?: unknown
+    choices?: string[]
+    /** Buttons: the selectable table whose selected rows are sent. */
+    target?: string
+}
+
+/** A view the plugin keeps up to date (plugin.json "app.views"). */
+export interface RunAppView {
+    name: string
+    type: 'table' | 'stats' | 'log' | 'keyvalue' | 'text'
+    label: string
+    title?: string
+    description?: string
+    columns?: { key: string; label: string }[]
+    row_key?: string
+    selectable?: boolean
+    filter?: boolean
+    max_lines?: number
+}
+
+export interface RunAppDefinition {
+    title?: string
+    description?: string
+    refresh_seconds: number
+    inputs: RunAppInput[]
+    views: RunAppView[]
+}
+
+/** The data the plugin published for one view. */
+export interface RunAppViewData {
+    columns?: { key: string; label: string }[]
+    rows?: Record<string, unknown>[]
+    total?: number
+    items?: { label?: string; key?: string; value: unknown }[]
+    lines?: string[]
+    text?: string
+}
+
+/** The live page of an app plugin step. */
+export interface RunApp {
+    id: number
+    job_id: number
+    step: string
+    plugin: string
+    definition: RunAppDefinition
+    inputs: Record<string, unknown>
+    views: Record<string, RunAppViewData>
+    state: 'running' | 'stopping' | 'finished'
+    created_at: string
+    updated_at: string
+}
+
 export interface RunPrompt {
     id: number
     step: string | null
@@ -283,6 +342,22 @@ export const runsApi = {
             `/api/plugins/${encodeURIComponent(qualifiedName)}/run`,
             json('POST', { node, arguments: argumentsMap, debug, mode }),
         )
+    },
+
+    apps(runId: number): Promise<{ items: RunApp[] }> {
+        return apiRequest(`/api/runs/${runId}/apps`)
+    },
+
+    setAppInputs(runId: number, appId: number, values: Record<string, unknown>): Promise<{ inputs: Record<string, unknown> }> {
+        return apiRequest(`/api/runs/${runId}/apps/${appId}/inputs`, json('PUT', { values }))
+    },
+
+    pressAppButton(runId: number, appId: number, name: string, selection: unknown[]): Promise<{ ok: boolean }> {
+        return apiRequest(`/api/runs/${runId}/apps/${appId}/events`, json('POST', { name, selection }))
+    },
+
+    stopApp(runId: number, appId: number): Promise<{ ok: boolean }> {
+        return apiRequest(`/api/runs/${runId}/apps/${appId}/stop`, json('POST', {}))
     },
 
     answerPrompt(runId: number, promptId: number, value: string): Promise<{ prompt: RunPrompt }> {
