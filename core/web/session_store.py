@@ -55,13 +55,19 @@ class WebSessionStore:
         browser: bool = True,
         address: Optional[str] = None,
     ) -> Tuple[Session, str]:
-        """Authenticate credentials and create a separate browser session."""
+        """Authenticate credentials; a sign-in (browser or `ent login`) is remembered."""
 
         from lib.auth.external import sign_in
 
         # Local accounts check their password here; LDAP accounts the directory.
         user = sign_in(self._context, username, password)
-        return self.issue(user, seconds=seconds, browser=browser, address=address)
+        return self.issue(
+            user,
+            seconds=seconds,
+            browser=browser,
+            address=address,
+            login_source="web" if browser else "cli",
+        )
 
     def issue(
         self,
@@ -70,12 +76,20 @@ class WebSessionStore:
         seconds: Optional[int] = None,
         browser: bool = True,
         address: Optional[str] = None,
+        login_source: Optional[str] = None,
     ) -> Tuple[Session, str]:
         """
         A new session for an already authenticated user. Browser sessions
-        record the sign-in and end after `idle_seconds` without activity;
-        command line tokens (browser=False) do neither.
+        end after `idle_seconds` without activity; command line tokens
+        (browser=False) do not. A sign-in (`login_source`, browser sessions
+        by default) is remembered as the user's last sign-in; a token made
+        from an existing browser session is not a sign-in.
         """
+
+        if login_source is None and browser:
+            login_source = "web"
+        # The sign-in before this one, kept with the session (shown as "previous sign-in").
+        previous = self._latest_login(user.id) if browser else None
 
         assert user.id is not None
 
@@ -105,16 +119,34 @@ class WebSessionStore:
                 "csrf_token": csrf_token,
                 "browser": browser,
                 "last_activity": now.isoformat(),
+                "previous_login": previous,
             },
         )
         self._executor.chmod(self._session_path(token), 0o600)
 
         self._executor.chmod(self._directory, 0o700)
 
-        if browser:
-            self._record_login(user.id, address)
+        if login_source is not None:
+            self._record_login(user.id, address, login_source)
 
         return session, csrf_token
+
+    def previous_login(self, token: Optional[str]) -> Optional[dict]:
+        """The sign-in before this browser session started (None: first sign-in)."""
+
+        data = self._read(token)
+        if data is None:
+            return None
+        if "previous_login" in data:
+            previous = data["previous_login"]
+            return previous if isinstance(previous, dict) else None
+        # Sessions from before the snapshot: the sign-in before the latest one.
+        manager = self._context.database_manager
+        if manager is None or not data.get("session"):
+            return None
+        from lib.database.repositories.user_logins import UserLoginsRepository
+
+        return UserLoginsRepository(manager.connection).previous(int(data["session"]["user_id"]))
 
     # ------------------------------------------------------------------
     # Inactivity
@@ -166,15 +198,23 @@ class WebSessionStore:
             return None
         return data if isinstance(data, dict) else None
 
-    def _record_login(self, user_id: Optional[int], address: Optional[str]) -> None:
-        """Remember the sign-in (shown to the user as their last sign-in next time)."""
+    def _latest_login(self, user_id: Optional[int]) -> Optional[dict]:
+        manager = self._context.database_manager
+        if manager is None or user_id is None:
+            return None
+        from lib.database.repositories.user_logins import UserLoginsRepository
+
+        return UserLoginsRepository(manager.connection).latest_entry(user_id)
+
+    def _record_login(self, user_id: Optional[int], address: Optional[str], source: str) -> None:
+        """Remember the sign-in (shown as the last sign-in, in Users and the profile)."""
 
         manager = self._context.database_manager
         if manager is None or user_id is None:
             return
         from lib.database.repositories.user_logins import UserLoginsRepository
 
-        UserLoginsRepository(manager.connection).record(user_id, address)
+        UserLoginsRepository(manager.connection).record(user_id, address, source)
 
     def get(
         self,

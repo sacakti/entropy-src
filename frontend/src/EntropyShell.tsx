@@ -36,7 +36,7 @@ import { runIdFromHash } from './features/runs/navigation'
 import { PAGE_PERMISSIONS, pageFromHash, parentPage, type PageId } from './types/navigation'
 import AccessRestricted from './components/layout/AccessRestricted'
 import { requestCreate, type CreateTarget } from './features/quickCreate'
-import { finishTour, getCurrentUser, type LastLogin, type SessionInfo } from './services/auth'
+import { finishTour, getCurrentUser, loginSourceLabel, type LastLogin, type SessionInfo } from './services/auth'
 import SessionTimeout from './components/feedback/SessionTimeout'
 import Tour, { type TourStep } from './features/tour/Tour'
 import { PROJECT_CHANGED_EVENT } from './services/project'
@@ -130,10 +130,11 @@ interface EntropyShellProps {
     onIdle: () => void
 }
 
-/** "Nov 1, 2026, 7:13 PM from 10.0.0.4" */
+const when = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
+/** "Nov 1, 2026, 7:13 PM from 10.0.0.4 (browser)" */
 function lastLoginText(login: LastLogin): string {
-    const when = new Date(login.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-    return login.address ? `${when} from ${login.address}` : when
+    return `${when(login.at)}${login.address ? ` from ${login.address}` : ''} (${loginSourceLabel(login.source)})`
 }
 
 function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
@@ -507,6 +508,7 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
                     <Topbar
                     profile={profile}
                     lastLogin={lastLogin ? lastLoginText(lastLogin) : null}
+                    signedIn={sessionInfo?.signed_in_at ? when(sessionInfo.signed_in_at) : null}
                     onOpenHelp={() => setHelpOpen(true)}
                     onToggleShell={() => setShellOpen((open) => !open)}
                     shellOpen={shellOpen}

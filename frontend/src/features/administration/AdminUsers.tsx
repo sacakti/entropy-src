@@ -32,6 +32,7 @@ import { missingPermission } from './permissionReason'
 import { ProjectMembershipEditor } from './ProjectMemberships'
 import { usePermissions } from './usePermissions'
 import { useErrorToast } from '../../components/feedback/useToast'
+import { loginSourceLabel } from '../../services/auth'
 
 type StatusFilter = 'all' | 'active' | 'disabled'
 
@@ -352,7 +353,10 @@ export default function AdminUsers() {
                                             <ChipList values={membershipLabels(user.projects ?? [])} max={2} empty="None" />
                                         </td>
                                         <td className="list-cell-text">{formatDate(user.created_at)}</td>
-                                        <td className="list-cell-text" title={user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Never signed in to the web UI'}>{user.last_login_at ? formatDate(user.last_login_at) : 'Never'}</td>
+                                        <td className="list-cell-text" title={user.last_login ? `${new Date(user.last_login.at).toLocaleString()}${user.last_login.address ? ` from ${user.last_login.address}` : ''}` : 'Never signed in'}>
+                                            {user.last_login_at ? formatDate(user.last_login_at) : 'Never'}
+                                            {user.last_login && <small className="admin-last-login-source">{loginSourceLabel(user.last_login.source)}</small>}
+                                        </td>
                                         <td>
                                             <div className="list-operations">
                                                 <button

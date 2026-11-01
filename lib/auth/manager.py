@@ -40,6 +40,8 @@ class SessionManager:
         assert context.paths is not None
         assert context.observability is not None
 
+        self._context = context
+
         self._authentication: AuthenticationService = context.authentication
 
         self._executor: LinuxExecutor = context.executor
@@ -118,11 +120,37 @@ class SessionManager:
             session,
         )
 
+        self._remember_sign_in(
+            session,
+        )
+
         self._events.log.success(
             f"User '{session.username}' authenticated successfully.",
         )
 
         return session
+
+    def _remember_sign_in(
+        self,
+        session: Session,
+    ) -> None:
+        """
+        Record the sign-in as the user's last sign-in (Users and the profile
+        menu show it); without a database there is nothing to record.
+        """
+
+        manager = getattr(self._context, "database_manager", None)
+
+        if manager is None:
+            return
+
+        from lib.database.repositories.user_logins import UserLoginsRepository
+
+        UserLoginsRepository(manager.connection).record(
+            session.user_id,
+            "localhost",
+            "server-cli",
+        )
 
     # ------------------------------------------------------------------
     # Delegated sessions

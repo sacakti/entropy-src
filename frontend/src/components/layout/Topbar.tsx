@@ -50,6 +50,8 @@ interface TopbarProps {
     profile: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>
     /** The sign-in before this one, as text (null: first sign-in or unknown). */
     lastLogin?: string | null
+    /** When this session signed in, as text. */
+    signedIn?: string | null
     onOpenHelp: () => void
     /** Open or close the shell (ent commands in the browser). */
     onToggleShell: () => void
@@ -77,6 +79,7 @@ interface TopbarProps {
 export default function Topbar({
     profile,
     lastLogin,
+    signedIn,
     onOpenHelp,
     onToggleShell,
     shellOpen,
@@ -448,11 +451,14 @@ export default function Topbar({
 
                             <div className="profile-menu-divider" />
 
-                            {lastLogin && (
-                                <p className="profile-menu-last-login" title="Your sign-in before this one. Tell an administrator if it was not you.">
+                            {(signedIn || lastLogin) && (
+                                <div className="profile-menu-last-login" title="Tell an administrator if a sign-in was not yours.">
                                     <Clock size={13} aria-hidden="true" />
-                                    <span>Last sign-in<strong>{lastLogin}</strong></span>
-                                </p>
+                                    <span className="profile-signins">
+                                        {signedIn && <span>Signed in<strong>{signedIn}</strong></span>}
+                                        <span>Previous sign-in<strong>{lastLogin ?? 'None (first sign-in)'}</strong></span>
+                                    </span>
+                                </div>
                             )}
 
                             <button

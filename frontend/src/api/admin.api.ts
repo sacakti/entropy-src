@@ -33,6 +33,7 @@ export interface AdminUser {
     source: 'local' | 'ldap' | 'oidc'
     /** Latest browser sign-in (null: never signed in to the web UI). */
     last_login_at?: string | null
+    last_login?: { at: string; address: string | null; source?: string } | null
 }
 
 export type RoleScope = 'global' | 'project'

@@ -11,6 +11,8 @@ export interface AuthUser {
 /** Lifetime and inactivity limit of the browser session. */
 export interface SessionInfo {
   expires_at: string
+  /** When this browser session signed in. */
+  signed_in_at?: string
   /** 0: no inactivity limit. */
   idle_timeout_seconds: number
   idle_expires_at: string | null
@@ -20,7 +22,12 @@ export interface SessionInfo {
 export interface LastLogin {
   at: string
   address: string | null
+  /** web (browser), cli (`ent login`) or server-cli (`ent` on the Entropy host). */
+  source?: string
 }
+
+export const loginSourceLabel = (source?: string | null) =>
+  source === 'server-cli' ? 'ent on the server' : source === 'cli' ? 'ent' : 'browser'
 
 interface CurrentUserResponse {
   user: AuthUser

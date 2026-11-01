@@ -612,3 +612,4 @@
 .entropy-app .profile-menu-last-login strong { color: var(--app-text); font-weight: 500; }
 .entropy-app .session-timeout-text,
 .entropy-modal .session-timeout-text { margin: 0; color: var(--app-muted); line-height: 1.5; }
+.entropy-app .profile-menu-last-login .profile-signins { display: grid; gap: 8px; }

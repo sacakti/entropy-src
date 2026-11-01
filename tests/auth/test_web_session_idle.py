@@ -73,12 +73,20 @@ def test_keepalive_restarts_the_timer(store, user) -> None:
 
 
 def test_command_line_tokens_have_no_idle_limit(store, user, connection) -> None:
+    # A token made from a signed-in browser (no login_source) is not a sign-in.
     session, _ = store.issue(user, seconds=3600, browser=False)
     _age(store, session.token, 600)
 
     assert store.get(session.token) is not None
     assert store.idle_deadline(session.token) is None
-    assert UserLoginsRepository(connection).get(user.id) is None  # not a browser sign-in
+    assert UserLoginsRepository(connection).get(user.id) is None
+
+
+def test_command_line_sign_ins_are_remembered(store, user, connection) -> None:
+    store.issue(user, seconds=3600, browser=False, address="10.0.0.5", login_source="cli")
+
+    latest = UserLoginsRepository(connection).latest_entry(user.id)
+    assert latest is not None and (latest["address"], latest["source"]) == ("10.0.0.5", "cli")
 
 
 def test_idle_limit_can_be_turned_off(store, user) -> None:
@@ -91,11 +99,14 @@ def test_idle_limit_can_be_turned_off(store, user) -> None:
 def test_sign_ins_remember_the_previous_one(store, user, connection) -> None:
     logins = UserLoginsRepository(connection)
 
-    store.issue(user, address="10.0.0.1")
+    first, _ = store.issue(user, address="10.0.0.1")
     assert logins.previous(user.id) is None  # first sign-in
+    assert store.previous_login(first.token) is None
 
-    store.issue(user, address="10.0.0.2")
-    previous = logins.previous(user.id)
-    assert previous is not None and previous["address"] == "10.0.0.1"
-    assert logins.get(user.id)["last_login_address"] == "10.0.0.2"
-    assert set(logins.latest([user.id, 999])) == {user.id}
+    store.issue(user, seconds=60, browser=False, address="10.0.0.9", login_source="cli")
+    second, _ = store.issue(user, address="10.0.0.2")
+
+    # The session keeps the sign-in before it, even when the command line signed in between.
+    before = store.previous_login(second.token)
+    assert before is not None and (before["address"], before["source"]) == ("10.0.0.9", "cli")
+    assert logins.latest([user.id, 999])[user.id]["address"] == "10.0.0.2"

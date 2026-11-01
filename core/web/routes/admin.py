@@ -359,7 +359,8 @@ def _user_payloads(request: Request) -> List[dict]:
             # local, ldap or oidc: where the user signs in.
             "source": sources.get(user.id, "local"),
             # Latest browser sign-in (None: never signed in to the web UI).
-            "last_login_at": logins.get(user.id) if user.id is not None else None,
+            "last_login_at": (logins.get(user.id) or {}).get("at") if user.id is not None else None,
+            "last_login": logins.get(user.id) if user.id is not None else None,
         }
         for user in users
     ]

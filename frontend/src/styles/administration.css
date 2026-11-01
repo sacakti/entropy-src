@@ -1426,3 +1426,5 @@
     .entropy-app .audit-toolbar select { max-width: none; flex: 1 1 45%; }
     .entropy-app .audit-details > div, .entropy-modal .audit-details > div { grid-template-columns: 1fr; gap: 2px; }
 }
+
+.entropy-app .admin-last-login-source { display: block; color: var(--app-muted); font-size: 11.5px; }

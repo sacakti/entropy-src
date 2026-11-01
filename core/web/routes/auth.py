@@ -95,10 +95,12 @@ def _session_info(request: Request, session: Session) -> dict:
     store = request.app.state.web_session_store
     token = bearer_token(request) or request.cookies.get(SESSION_COOKIE)
     deadline = store.idle_deadline(token)
+    # Session times are the server's local time: send them with its offset.
     return {
-        "expires_at": session.expires_at.isoformat(),
+        "expires_at": session.expires_at.astimezone().isoformat(),
+        "signed_in_at": session.created_at.astimezone().isoformat(),
         "idle_timeout_seconds": store.idle_seconds if deadline is not None else 0,
-        "idle_expires_at": deadline.isoformat() if deadline is not None else None,
+        "idle_expires_at": deadline.astimezone().isoformat() if deadline is not None else None,
     }
 
 
@@ -276,21 +278,14 @@ async def me(
         "expires_at": session.expires_at.isoformat(),
         "session": _session_info(request, session),
         # The sign-in before this one: shown so users notice sign-ins that were not theirs.
-        "last_login": _previous_login(context, user.id),
+        "last_login": request.app.state.web_session_store.previous_login(
+            bearer_token(request) or request.cookies.get(SESSION_COOKIE)
+        ),
         # Show the welcome tour (new accounts, until they finish or skip it).
         "tour": Onboarding(context.database_manager.connection).pending(user.id)
         if context.database_manager is not None
         else False,
     }
-
-
-def _previous_login(context: object, user_id: int) -> Optional[dict]:
-    manager = getattr(context, "database_manager", None)
-    if manager is None:
-        return None
-    from lib.database.repositories.user_logins import UserLoginsRepository
-
-    return UserLoginsRepository(manager.connection).previous(user_id)
 
 
 @router.get("/session")
@@ -430,6 +425,7 @@ async def create_token(payload: TokenRequest, request: Request, response: Respon
             payload.password,
             seconds=store.cli_timeout_seconds,
             browser=False,
+            address=_client_address(request),
         )
     except SignInRefused as exc:
         _audit_sign_in(request, payload.username, "denied", str(exc), source="cli")

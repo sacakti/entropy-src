@@ -9,7 +9,9 @@ import { keepSessionAlive, sessionStatus, type SessionInfo } from '../../service
 const WARN_MS = 2 * 60 * 1000
 /** Activity restarts the server's timer at most this often. */
 const PING_MS = 60 * 1000
-const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'pointermove'] as const
+// Deliberate input only: browsers fire pointer moves by themselves when the page
+// re-renders under a still cursor (polling screens), which would keep a forgotten tab signed in.
+const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
 
 const clock = (ms: number) => {
     const seconds = Math.max(0, Math.ceil(ms / 1000))
