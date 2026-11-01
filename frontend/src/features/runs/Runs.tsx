@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
     Archive,
     Blocks,
-    ChevronLeft,
-    ChevronRight,
     LoaderCircle,
     PlayCircle,
     RefreshCw,
@@ -14,7 +12,7 @@ import {
     X,
 } from 'lucide-react'
 
-import { runsApi, type Run, type RunListResponse, type RunTab } from '../../api/runs.api'
+import { runsApi, type Run, type RunListResponse, type RunSortField, type RunTab } from '../../api/runs.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { Tabs } from '../administration/AdminPanel'
@@ -33,8 +31,12 @@ import {
 import { openRun, runsTabFromHash } from './navigation'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePageSize } from '../../components/layout/usePagination'
+import { useSortState } from '../../components/layout/useSort'
 
-const PAGE_SIZE = 25
+const RUN_SORTS: RunSortField[] = ['id', 'run', 'status', 'user', 'node', 'started', 'duration']
 
 // Active runs change quickly; the rest only when something finishes.
 const POLL_ACTIVE_MS = 2000
@@ -56,6 +58,8 @@ export default function Runs() {
     const [tab, setTab] = useState<RunTab>(() => runsTabFromHash(window.location.hash) ?? 'active')
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(0)
+    const [pageSize, setPageSize] = usePageSize('runs')
+    const { sort, toggle, ariaSort } = useSortState<RunSortField>('runs', RUN_SORTS, { field: 'started', order: 'desc' }, ['id', 'started', 'duration'])
     const [data, setData] = useState<RunListResponse | null>(null)
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
@@ -92,8 +96,10 @@ export default function Runs() {
             const response = await runsApi.list({
                 tab,
                 search: search.trim(),
-                limit: PAGE_SIZE,
-                offset: page * PAGE_SIZE,
+                limit: pageSize,
+                offset: page * pageSize,
+                sort: sort.field,
+                order: sort.order,
             })
 
             if (!pickedTab.current) {
@@ -113,7 +119,7 @@ export default function Runs() {
             setLoading(false)
             setRefreshing(false)
         }
-    }, [page, search, tab])
+    }, [page, search, tab, pageSize, sort.field, sort.order])
 
     useEffect(() => {
         const first = setTimeout(() => void load(), search ? 250 : 0)
@@ -175,7 +181,12 @@ export default function Runs() {
     )
     const allVisibleSelected = items.length > 0 && items.every((run) => selectedIds.has(run.id))
     const total = data?.total ?? 0
-    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+    const pages = Math.max(1, Math.ceil(total / pageSize))
+    const changeSort = (field: RunSortField) => {
+        toggle(field)
+        setPage(0)
+        setSelectedIds(new Set())
+    }
 
     const changeTab = (next: RunTab) => {
         pickedTab.current = true
@@ -388,12 +399,12 @@ export default function Runs() {
                                         onChange={(event) => toggleVisibleSelection(event.target.checked)}
                                     />
                                 </th>
-                                <th scope="col">Run</th>
-                                <th scope="col">Status</th>
-                                <th scope="col">Executed by</th>
-                                <th scope="col">Node</th>
-                                <th scope="col">Started</th>
-                                <th scope="col">Duration</th>
+                                <th scope="col" aria-sort={ariaSort('run')}><SortHeader label="Run" field="run" sort={sort} onSort={changeSort} /></th>
+                                <th scope="col" aria-sort={ariaSort('status')}><SortHeader label="Status" field="status" sort={sort} onSort={changeSort} /></th>
+                                <th scope="col" aria-sort={ariaSort('user')}><SortHeader label="Executed by" field="user" sort={sort} onSort={changeSort} /></th>
+                                <th scope="col" aria-sort={ariaSort('node')}><SortHeader label="Node" field="node" sort={sort} onSort={changeSort} /></th>
+                                <th scope="col" aria-sort={ariaSort('started')}><SortHeader label="Started" field="started" sort={sort} onSort={changeSort} /></th>
+                                <th scope="col" aria-sort={ariaSort('duration')}><SortHeader label="Duration" field="duration" sort={sort} onSort={changeSort} /></th>
                                 <th scope="col" className="list-operations-cell">
                                     <span className="list-operations-heading">Operations</span>
                                 </th>
@@ -520,37 +531,25 @@ export default function Runs() {
                     </table>
                 </div>
 
-                {pages > 1 && (
-                    <div className="runs-pager">
-                        <span>
-                            {page * PAGE_SIZE + 1}–{Math.min(total, (page + 1) * PAGE_SIZE)} of {total}
-                        </span>
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                            aria-label="Previous page"
-                            onClick={() => {
-                                setSelectedIds(new Set())
-                                setPage((value) => Math.max(0, value - 1))
-                            }}
-                            disabled={page === 0}
-                        >
-                            <ChevronLeft size={15} />
-                        </button>
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                            aria-label="Next page"
-                            onClick={() => {
-                                setSelectedIds(new Set())
-                                setPage((value) => Math.min(pages - 1, value + 1))
-                            }}
-                            disabled={page >= pages - 1}
-                        >
-                            <ChevronRight size={15} />
-                        </button>
-                    </div>
-                )}
+                <Pagination
+                    noun="runs"
+                    state={{
+                        page: page + 1,
+                        pages,
+                        pageSize,
+                        total,
+                        pageItems: items,
+                        setPage: (next) => {
+                            setSelectedIds(new Set())
+                            setPage(next - 1)
+                        },
+                        setPageSize: (size) => {
+                            setSelectedIds(new Set())
+                            setPageSize(size)
+                            setPage(0)
+                        },
+                    }}
+                />
             </section>
 
             {housekeepingOpen && <HousekeepingDialog onClose={() => setHousekeepingOpen(false)} onApplied={refresh} />}

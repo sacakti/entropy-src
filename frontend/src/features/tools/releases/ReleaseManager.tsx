@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Archive, ArrowUpRight, Clipboard, Download, FileJson2, FileSpreadsheet, ListPlus, MapPin, PackageCheck, Play, Plus, RefreshCw, Search, Settings2, Upload, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { Archive, ArrowUpRight, Clipboard, Download, FileJson2, FileSpreadsheet, Layers, Link2, ListPlus, MapPin, PackageCheck, Play, Plus, RefreshCw, Search, Settings2, Upload, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { currentProject } from '../../../services/project'
 import { copyRich, outlookReport, releaseLabel, releaseRows, taskRows, taskStatus } from './outlook'
 import { apiRequest } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
+import '../tasks/tasks.css'
 import './release-manager.css'
+import { CreatePanel } from '../tasks/TaskPanels'
+import StartRunDialog from '../../../features/runs/StartRunDialog'
+import type { Run, RunOptions } from '../../../api/runs.api'
+import { GROUP_KINDS, tasksApi, type Task, type TaskData } from '../tasks/model'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import Pagination from '../../../components/layout/Pagination'
 import { usePagination } from '../../../components/layout/usePagination'
@@ -35,9 +40,7 @@ type Data = {
 }
 type HousekeepingRule = { entity: 'release' | 'promotion'; older_than_days: number; statuses: string[] }
 type Artifact = { id: number; name: string; size_bytes: number }
-type ProjectTaskData = { items: { id: number; key?: string; title: string }[]; members: { username: string; full_name: string | null }[] }
 type ReleaseDraft = { name: string; version: string; environment: string; description: string; workflow_name: string; tags: string; artifact_ids: number[] }
-type TaskDraft = { title: string; description: string; remarks: string; assignee: string }
 
 const stages: { id: Stage; label: string }[] = [
     { id: 'workflow_queue', label: 'Workflow queue' },
@@ -46,8 +49,9 @@ const stages: { id: Stage; label: string }[] = [
     { id: 'completed', label: 'Completed' },
 ]
 const blankRelease: ReleaseDraft = { name: '', version: '', environment: '', description: '', workflow_name: '', tags: '', artifact_ids: [] }
-const blankTask: TaskDraft = { title: '', description: '', remarks: '', assignee: '' }
 const readable = (value: string) => value.replaceAll('_', ' ')
+// Native <option>s cannot ellipsize with CSS, so long titles are cut here.
+const clip = (value: string, max = 70) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value)
 
 function ReleaseModalLayer({ children, onClose }: { children: ReactNode; onClose: () => void }) {
     const host = document.querySelector('.entropy-app') ?? document.body
@@ -59,6 +63,36 @@ function ReleaseModalLayer({ children, onClose }: { children: ReactNode; onClose
     )
 }
 
+const RELEASE_VARIABLES = ['release', 'release_id', 'release_name', 'release_version', 'release_artifacts']
+const PROMOTION_VARIABLES = ['target_environment', 'promotion_number', 'release_ids', 'releases', 'artifacts', 'artifact_paths']
+
+function ReleaseRunNote({ release }: { release: Release }) {
+    const first = release.artifacts[0]
+    return <>
+        <strong>Added by the release (they override variables of the same name)</strong>
+        <ul>
+            <li><code>{'${release.name}'}</code>, <code>{'${release.version}'}</code>, <code>{'${release.environment}'}</code>, <code>{'${release_id}'}</code></li>
+            {first ? <>
+                <li><code>{'${release.artifact.path}'}</code>: {first.name}{release.artifacts.length > 1 ? ' (the first artifact)' : ''}</li>
+                {release.artifacts.length > 1 && <li><code>{'${release.artifacts[1].path}'}</code> … or <code>{'${release_artifacts}'}</code> for all {release.artifacts.length}</li>}
+            </> : <li>No artifacts are linked to this release.</li>}
+        </ul>
+        <span>For example, set the image_transfer <code>release</code> argument to <code>{'${release.artifact.path}'}</code>. Artifact paths are on the Entropy server: run the steps that read them on the local node.</span>
+    </>
+}
+
+function PromotionRunNote({ promotion, releases }: { promotion: Promotion; releases: Release[] }) {
+    const count = promotion.releases.reduce((total, item) => total + (releases.find((release) => release.id === item.id)?.artifacts.length ?? 0), 0)
+    return <>
+        <strong>Added by the promotion (they override variables of the same name)</strong>
+        <ul>
+            <li><code>{'${target_environment}'}</code> ({promotion.target_environment}), <code>{'${promotion_number}'}</code>, <code>{'${release_ids}'}</code></li>
+            <li><code>{'${releases}'}</code>: {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'}, each with its <code>artifacts</code>, <code>artifact</code> and tasks (<code>{'${releases[0].artifact.path}'}</code>)</li>
+            <li><code>{'${artifacts}'}</code> / <code>{'${artifact_paths}'}</code>: all {count} artifact{count === 1 ? '' : 's'} of the promoted releases</li>
+        </ul>
+    </>
+}
+
 export default function ReleaseManager() {
     const { notify } = useFeedback()
     const notifyErrorRef = useRef(notify.error)
@@ -67,7 +101,6 @@ export default function ReleaseManager() {
     const [tab, setTab] = useState<'releases' | 'promotions' | 'history'>('releases')
     const [creating, setCreating] = useState(false)
     const [draft, setDraft] = useState<ReleaseDraft>(blankRelease)
-    const [taskDraft, setTaskDraft] = useState<TaskDraft>(blankTask)
     const [showTaskForm, setShowTaskForm] = useState(false)
     const [promotionWorkflow, setPromotionWorkflow] = useState('')
     const [runWorkflows, setRunWorkflows] = useState<Record<number, string>>({})
@@ -87,13 +120,16 @@ export default function ReleaseManager() {
     const [housekeepingDraft, setHousekeepingDraft] = useState<HousekeepingRule>({ entity: 'release', older_than_days: 30, statuses: ['completed'] })
     const [traceabilityOpen, setTraceabilityOpen] = useState(false)
     const [traceabilityView, setTraceabilityView] = useState<'releases' | 'tasks'>('releases')
-    const [existingTasks, setExistingTasks] = useState<{ id: number; key?: string; title: string }[]>([])
-    const [projectMembers, setProjectMembers] = useState<ProjectTaskData['members']>([])
+    const [taskData, setTaskData] = useState<TaskData | null>(null)
+    const [linkMode, setLinkMode] = useState<'group' | 'task'>('group')
     const [linkTaskId, setLinkTaskId] = useState('')
+    const [linkGroupId, setLinkGroupId] = useState('')
     const [busy, setBusy] = useState(false)
+    const [runTarget, setRunTarget] = useState<{ kind: 'release'; release: Release } | { kind: 'promotion'; promotion: Promotion; workflow: string } | null>(null)
     const [traceabilityMenu, setTraceabilityMenu] = useState(false)
     const [combinedTraceabilityMenu, setCombinedTraceabilityMenu] = useState(false)
     const selected = data?.items.find((item) => item.id === selectedId) ?? null
+    const canEditTasks = Boolean(data?.permissions['tasks.create'] && data.permissions['releases.manage'] && selected && !selected.archived_at && selected.stage !== 'completed')
 
     const refresh = useCallback(async () => {
         const result = await apiRequest<Data>(`/api/releases${showArchived ? '?include_archived=true' : ''}`)
@@ -114,15 +150,20 @@ export default function ReleaseManager() {
         const timer = window.setInterval(() => { void refresh().catch(() => undefined) }, 5000)
         return () => window.clearInterval(timer)
     }, [hasActiveRuns, refresh])
+    const loadTaskData = useCallback(() => tasksApi.load().then(setTaskData).catch(() => setTaskData(null)), [])
     useEffect(() => {
         if (!selected || !data?.permissions['tasks.create']) return
-        void apiRequest<ProjectTaskData>('/api/tasks')
-            .then((result) => {
-                setExistingTasks(result.items.filter((task) => !selected.tasks.some((linked) => linked.id === task.id)))
-                setProjectMembers(result.members)
-            })
-            .catch(() => setExistingTasks([]))
-    }, [selected?.id, selected?.tasks.length, data?.permissions['tasks.create']])
+        void loadTaskData()
+    }, [selected?.id, selected?.tasks.length, data?.permissions['tasks.create'], loadTaskData])
+    const linkedIds = useMemo(() => new Set(selected?.tasks.map((task) => task.id) ?? []), [selected])
+    const existingTasks = useMemo(() => (taskData?.items ?? []).filter((task) => !linkedIds.has(task.id)), [taskData, linkedIds])
+    // Task groups (e.g. "release1") with how many of their tasks are not linked yet.
+    const linkableGroups = useMemo(() => (taskData?.groups ?? []).map((group) => {
+        const members = (taskData?.items ?? []).filter((task) => task.group_ids.includes(group.id))
+        return { group, total: members.length, pending: members.filter((task) => !linkedIds.has(task.id)).length }
+    }).filter((entry) => entry.total > 0), [taskData, linkedIds])
+    const chosenGroup = linkableGroups.find((entry) => String(entry.group.id) === linkGroupId) ?? null
+    const effectiveLinkMode = linkableGroups.length ? linkMode : 'task'
 
     const environmentDraft = selected && environmentEdit?.id === selected.id ? environmentEdit.value : selected?.environment ?? ''
     const setEnvironmentDraft = (value: string) => selected && setEnvironmentEdit({ id: selected.id, value })
@@ -140,7 +181,6 @@ export default function ReleaseManager() {
     const queuedPages = usePagination(queuedPromotions, 'release-promotions')
     const historyPages = usePagination(historyPromotions, 'release-promotion-history')
     const setReleaseField = (key: keyof ReleaseDraft, value: string) => setDraft((current) => ({ ...current, [key]: value }))
-    const setTaskField = (key: keyof TaskDraft, value: string) => setTaskDraft((current) => ({ ...current, [key]: value }))
 
     const toggleArchiveSelection = (id: number, kind: 'release' | 'promotion') => {
         const update = kind === 'release' ? setSelectedReleaseIds : setSelectedPromotionIds
@@ -247,24 +287,21 @@ export default function ReleaseManager() {
         }
     }
 
-    const runWorkflow = async (release: Release) => {
-        setBusy(true)
-        try { await apiRequest(`/api/releases/${release.id}/run`, { method: 'POST' }); await refresh(); notify.success('Release workflow started.', { title: 'Workflow started' }) }
-        catch (reason) { notify.error((reason as Error).message, { title: 'Unable to start release workflow' }) } finally { setBusy(false) }
+    const startReleaseRun = (release: Release) => (node: string, variables: Record<string, unknown>, options: RunOptions) =>
+        apiRequest<{ run: Run }>(`/api/releases/${release.id}/run`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ node, variables, ...options }),
+        })
+
+    const createLinkedTask = (body: Record<string, unknown>) => {
+        if (!selected) return Promise.reject(new Error('Choose a release first.'))
+        return apiRequest<Task>(`/api/releases/${selected.id}/tasks`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        })
     }
 
-    const addTask = async (event: FormEvent) => {
-        event.preventDefault()
-        if (!selected) return
-        setBusy(true)
-        try {
-            await apiRequest(`/api/releases/${selected.id}/tasks`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...taskDraft, title: taskDraft.title.trim(), assignee: taskDraft.assignee || null }),
-            })
-            setTaskDraft(blankTask); setShowTaskForm(false); await refresh()
-            notify.success('Task linked to the release.', { title: 'Task created' })
-        } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to create linked task' }) } finally { setBusy(false) }
+    const linkedTaskCreated = async (another: boolean) => {
+        if (!another) setShowTaskForm(false)
+        await Promise.all([refresh(), loadTaskData()])
     }
 
     const importTasks = async (file?: File) => {
@@ -281,15 +318,21 @@ export default function ReleaseManager() {
         } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to import linked tasks' }) }
     }
 
-    const linkExistingTask = async () => {
-        if (!selected || !linkTaskId) return
+    const linkExisting = async () => {
+        if (!selected) return
+        const byGroup = effectiveLinkMode === 'group'
+        if (byGroup ? !chosenGroup : !linkTaskId) return
+        setBusy(true)
         try {
-            await apiRequest(`/api/releases/${selected.id}/tasks/link`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task_ids: [Number(linkTaskId)] }),
+            const result = await apiRequest<{ linked: number }>(`/api/releases/${selected.id}/tasks/link`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(byGroup ? { group_ids: [chosenGroup!.group.id] } : { task_ids: [Number(linkTaskId)] }),
             })
-            setLinkTaskId(''); await refresh()
-            notify.success('Task linked to the release.', { title: 'Task linked' })
-        } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to link task' }) }
+            setLinkTaskId(''); setLinkGroupId(''); await refresh()
+            notify.success(byGroup
+                ? `${result.linked} task${result.linked === 1 ? '' : 's'} from “${chosenGroup!.group.name}” linked to the release.`
+                : 'Task linked to the release.', { title: byGroup ? 'Task group linked' : 'Task linked' })
+        } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to link tasks' }) } finally { setBusy(false) }
     }
 
     const unlinkTask = async (taskId: number) => {
@@ -387,18 +430,17 @@ export default function ReleaseManager() {
     }
 
     const workflowFor = (promotion: Promotion) => runWorkflows[promotion.id] ?? promotion.workflow_name ?? ''
-    const runPromotion = async (promotion: Promotion) => {
-        const workflow = workflowFor(promotion)
-        if (!workflow) return
-        setBusy(true)
-        try {
-            await apiRequest(`/api/releases/promotions/${promotion.id}/run`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ workflow_name: workflow }),
-            })
-            await refresh()
-            notify.success(`${workflow} is promoting ${promotion.promotion_number} to ${promotion.target_environment}.`, { title: 'Promotion started' })
-        } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to start promotion' }) } finally { setBusy(false) }
+    const startPromotionRun = (promotion: Promotion, workflow: string) => (node: string, variables: Record<string, unknown>, options: RunOptions) =>
+        apiRequest<{ run: Run }>(`/api/releases/promotions/${promotion.id}/run`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workflow_name: workflow, node, variables, ...options }),
+        })
+
+    const runStarted = async (run: Run) => {
+        const target = runTarget
+        setRunTarget(null)
+        await refresh()
+        if (target?.kind === 'promotion') notify.success(`${target.workflow} is promoting ${target.promotion.promotion_number} to ${target.promotion.target_environment} (run #${run.id}).`, { title: 'Promotion started' })
+        else notify.success(`Release workflow run #${run.id} started.`, { title: 'Workflow started' })
     }
 
     const togglePromotionRelease = (id: number) => setPromotionReleaseIds((current) => {
@@ -464,7 +506,7 @@ export default function ReleaseManager() {
                         <span className={`release-stage stage-${release.stage}`}>{readable(stages.find((stage) => stage.id === release.stage)?.label ?? release.stage)}</span>
                         <span className="release-task-count">{release.tasks.length} task{release.tasks.length === 1 ? '' : 's'}</span>
                         <span className={`release-run-state ${release.workflow_state ?? ''}`}>{release.workflow_state ? `Workflow ${readable(release.workflow_state)}` : ''}</span>
-                        {data.permissions['releases.manage'] && data.permissions['workflows.execute'] && release.stage === 'workflow_queue' && (!release.workflow_job_id || ['failed', 'cancelled'].includes(release.workflow_state ?? '')) && <button className="entropy-button entropy-button-secondary entropy-button-sm" disabled={busy} onClick={() => void runWorkflow(release)}><Play size={14} /> {release.workflow_job_id ? 'Retry workflow' : 'Run workflow'}</button>}
+                        {data.permissions['releases.manage'] && data.permissions['workflows.execute'] && release.stage === 'workflow_queue' && (!release.workflow_job_id || ['failed', 'cancelled'].includes(release.workflow_state ?? '')) && <button className="entropy-button entropy-button-secondary entropy-button-sm" disabled={busy} onClick={() => setRunTarget({ kind: 'release', release })}><Play size={14} /> {release.workflow_job_id ? 'Retry workflow' : 'Run workflow'}</button>}
                     </article>)}
                     <Pagination state={releasePages} noun="releases" />
                 </div> : <div className="release-empty"><PackageCheck size={25} /><strong>{showArchived ? 'No archived releases' : 'No releases found'}</strong><span>{releaseSearch ? 'Try changing your search.' : 'Create a release and map it to a project workflow.'}</span></div>}
@@ -478,7 +520,7 @@ export default function ReleaseManager() {
                     <div className="promotion-release-picker">{completed.map((release) => <label key={release.id}><input type="checkbox" checked={promotionReleaseIds.has(release.id)} onChange={() => togglePromotionRelease(release.id)} /><span><strong>{release.name}{release.version ? ` ${release.version}` : ''}</strong><small>{release.environment || 'No environment'} · {release.tasks.length} tasks</small></span></label>)}{!completed.length && <small>No completed releases are available to promote.</small>}</div>
                 </section>}
                 {queuedPromotions.length ? <div className="promotion-list">{queuedPages.pageItems.map((promotion) => <article key={promotion.id}>
-                    <div><strong>{promotion.promotion_number} · {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'} → {promotion.target_environment}</strong><span>Created by {promotion.created_by} · {new Date(promotion.created_at).toLocaleString()}</span></div><div className="promotion-release-names">{promotion.releases.map((release) => `${release.name}${release.version ? ` ${release.version}` : ''}`).join(', ')}</div><div className="promotion-run-controls"><select aria-label={`Promotion workflow for ${promotion.promotion_number}`} value={workflowFor(promotion)} onChange={(event) => { const value = event.target.value; setRunWorkflows((current) => ({ ...current, [promotion.id]: value })) }}><option value="">Choose promotion workflow</option>{data.workflows.map((workflow) => <option key={workflow.name} value={workflow.name}>{workflow.name}</option>)}</select><button type="button" className="entropy-button entropy-button-primary entropy-button-sm" disabled={!workflowFor(promotion) || busy || !data.permissions['workflows.execute']} title={data.permissions['workflows.execute'] ? undefined : 'You may not run workflows'} onClick={() => void runPromotion(promotion)}><Play size={14} /> Run promotion</button></div>
+                    <div><strong>{promotion.promotion_number} · {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'} → {promotion.target_environment}</strong><span>Created by {promotion.created_by} · {new Date(promotion.created_at).toLocaleString()}</span></div><div className="promotion-release-names">{promotion.releases.map((release) => `${release.name}${release.version ? ` ${release.version}` : ''}`).join(', ')}</div><div className="promotion-run-controls"><select aria-label={`Promotion workflow for ${promotion.promotion_number}`} value={workflowFor(promotion)} onChange={(event) => { const value = event.target.value; setRunWorkflows((current) => ({ ...current, [promotion.id]: value })) }}><option value="">Choose promotion workflow</option>{data.workflows.map((workflow) => <option key={workflow.name} value={workflow.name}>{workflow.name}</option>)}</select><button type="button" className="entropy-button entropy-button-primary entropy-button-sm" disabled={!workflowFor(promotion) || busy || !data.permissions['workflows.execute']} title={data.permissions['workflows.execute'] ? undefined : 'You may not run workflows'} onClick={() => setRunTarget({ kind: 'promotion', promotion, workflow: workflowFor(promotion) })}><Play size={14} /> Run promotion</button></div>
                 </article>)}<Pagination state={queuedPages} noun="promotions" /></div> : <div className="release-empty"><ArrowUpRight size={25} /><strong>No queued promotions</strong><span>Select completed releases to create a promotion.</span></div>}
             </>}
 
@@ -529,12 +571,42 @@ export default function ReleaseManager() {
                     <small>{selected.stage === 'completed' ? 'Completed releases change environment through a promotion.' : 'New names are added to the environment list.'}</small>
                 </label>
                 {data.permissions['releases.manage'] && !selected.archived_at && <label className="release-stage-field">Stage<select value={selected.stage} onChange={(event) => void updateStage(selected, event.target.value as Stage)}>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select><small>Mark Completed after every linked task is done. Completed releases enter the promotion queue.</small></label>}
-                <section className="release-linked-tasks"><div className="release-section-heading"><div><h4>Linked tasks <span>{selected.tasks.length}</span></h4><p>Linked tasks are tagged to this release and remain in Tasks.</p></div>{data.permissions['tasks.create'] && <div className="release-task-actions"><button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setShowTaskForm((value) => !value)}><ListPlus size={15} /> Add task</button><label className="entropy-button entropy-button-secondary entropy-button-sm release-import-button" title='Upload JSON: [{"title":"Task title","description":"Details","remarks":"Notes","assignee":"username"}]'><FileJson2 size={15} /> Import JSON<input type="file" accept=".json,application/json" onChange={(event) => { void importTasks(event.target.files?.[0]); event.currentTarget.value = '' }} /></label></div>}</div>
-                    {data.permissions['tasks.create'] && existingTasks.length > 0 && <div className="release-link-existing"><select aria-label="Select existing task" value={linkTaskId} onChange={(event) => setLinkTaskId(event.target.value)}><option value="">Link an existing task…</option>{existingTasks.map((task) => <option key={task.id} value={task.id}>{task.key ?? `#${task.id}`} · {task.title}</option>)}</select><button className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!linkTaskId} onClick={() => void linkExistingTask()}>Link task</button></div>}
-                    {showTaskForm && <form className="release-task-form" onSubmit={(event) => void addTask(event)}><label>Title<input autoFocus value={taskDraft.title} onChange={(event) => setTaskField('title', event.target.value)} required /></label><label>Description<textarea rows={2} value={taskDraft.description} onChange={(event) => setTaskField('description', event.target.value)} /></label><label>Remarks<textarea rows={2} value={taskDraft.remarks} onChange={(event) => setTaskField('remarks', event.target.value)} /></label><label>Assign to<select value={taskDraft.assignee} onChange={(event) => setTaskField('assignee', event.target.value)}><option value="">Unassigned</option>{projectMembers.map((member) => <option key={member.username} value={member.username}>{member.full_name ? `${member.full_name} (${member.username})` : member.username}</option>)}</select></label><button className="entropy-button entropy-button-primary entropy-button-sm" disabled={busy}><Plus size={14} /> Create linked task</button></form>}
-                    {selected.tasks.length ? <ul>{selected.tasks.map((task) => <li key={task.id}><span><strong>{task.key ?? `#${task.id}`} · {task.title}</strong><small>{taskStatus(task.status)}{task.assignee ? ` · ${task.assignee}` : ''}{task.comments?.length ? ` · ${task.comments.length} comment${task.comments.length === 1 ? '' : 's'}: ${task.comments.map((comment) => comment.body).join(' | ')}` : ''}</small></span>{!selected.archived_at && <button className="entropy-button entropy-button-ghost entropy-button-sm" title="Unlink task" onClick={() => void unlinkTask(task.id)}><X size={15} /></button>}</li>)}</ul> : <div className="release-task-empty">No tasks linked. Add tasks manually, import JSON, or link existing project tasks.</div>}
+                <section className="release-linked-tasks">
+                    <div className="release-section-heading">
+                        <div><h4>Linked tasks <span>{selected.tasks.length}</span></h4><p>Linked tasks are tagged to this release and remain in Tasks.</p></div>
+                        {canEditTasks && <div className="release-task-actions">
+                            <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!taskData} onClick={() => setShowTaskForm(true)}><ListPlus size={15} /> New task</button>
+                            <label className="entropy-button entropy-button-secondary entropy-button-sm release-import-button" title='Upload JSON: [{"title":"Task title","type":"task","severity":"medium","description":"Details","remarks":"Notes","assignee":"username","group_ids":[1],"due_date":"2026-12-31"}]'><FileJson2 size={15} /> Import JSON<input type="file" accept=".json,application/json" onChange={(event) => { void importTasks(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
+                        </div>}
+                    </div>
+                    {canEditTasks && (existingTasks.length > 0 || linkableGroups.length > 0) && <div className="release-link-existing">
+                        <div className="release-link-mode" role="radiogroup" aria-label="Link by">
+                            <button type="button" role="radio" aria-checked={effectiveLinkMode === 'group'} className={effectiveLinkMode === 'group' ? 'active' : ''} disabled={!linkableGroups.length} title={linkableGroups.length ? undefined : 'No task groups have tasks yet. Create groups in Tasks → Groups.'} onClick={() => setLinkMode('group')}><Layers size={14} /> Task group</button>
+                            <button type="button" role="radio" aria-checked={effectiveLinkMode === 'task'} className={effectiveLinkMode === 'task' ? 'active' : ''} onClick={() => setLinkMode('task')}><Link2 size={14} /> Single task</button>
+                        </div>
+                        <div className="release-link-row">
+                            {effectiveLinkMode === 'group'
+                                ? <select aria-label="Select task group" value={linkGroupId} onChange={(event) => setLinkGroupId(event.target.value)}><option value="">Choose a task group…</option>{linkableGroups.map(({ group, total, pending }) => <option key={group.id} value={group.id} disabled={!pending} title={group.name}>{clip(group.name, 50)} · {GROUP_KINDS.find((kind) => kind.id === group.kind)?.title ?? group.kind} · {pending ? `${pending} of ${total} not linked` : `all ${total} linked`}</option>)}</select>
+                                : <select aria-label="Select existing task" value={linkTaskId} onChange={(event) => setLinkTaskId(event.target.value)}><option value="">Choose a task…</option>{existingTasks.map((task) => <option key={task.id} value={task.id} title={task.title}>{task.key} · {clip(task.title)}</option>)}</select>}
+                            <button type="button" className="entropy-button entropy-button-primary entropy-button-sm" disabled={busy || (effectiveLinkMode === 'group' ? !chosenGroup?.pending : !linkTaskId)} onClick={() => void linkExisting()}><Link2 size={14} /> {effectiveLinkMode === 'group' && chosenGroup ? `Link ${chosenGroup.pending} task${chosenGroup.pending === 1 ? '' : 's'}` : 'Link'}</button>
+                        </div>
+                        <small>{effectiveLinkMode === 'group' ? 'Links every task in the group at once, e.g. all tasks of “release1”. Tasks added to the group later are not linked automatically.' : 'Pick one project task to link.'}</small>
+                    </div>}
+                    {selected.tasks.length ? <ul>{selected.tasks.map((task) => <li key={task.id}><span><strong>{task.key ?? `#${task.id}`} · {task.title}</strong><small>{taskStatus(task.status)}{task.assignee ? ` · ${task.assignee}` : ' · Unassigned'}{task.comments?.length ? ` · ${task.comments.length} comment${task.comments.length === 1 ? '' : 's'}` : ''}</small>{task.group_names && <span className="release-task-groups">{task.group_names.split(',').map((name) => name.trim()).filter(Boolean).map((name) => <span key={name} className="task-group-chip">{name}</span>)}</span>}</span>{!selected.archived_at && canEditTasks && <button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" title="Unlink task" aria-label={`Unlink ${task.key ?? task.title}`} onClick={() => void unlinkTask(task.id)}><X size={15} /></button>}</li>)}</ul> : <div className="release-task-empty">No tasks linked yet. Create a task, import JSON, or link a task group or an existing task.</div>}
                 </section>
             </div>
         </section></ReleaseModalLayer>}
+
+        {runTarget && <StartRunDialog
+            kind="workflow"
+            target={runTarget.kind === 'release' ? runTarget.release.workflow_name : runTarget.workflow}
+            launch={runTarget.kind === 'release' ? startReleaseRun(runTarget.release) : startPromotionRun(runTarget.promotion, runTarget.workflow)}
+            provided={runTarget.kind === 'release' ? RELEASE_VARIABLES : PROMOTION_VARIABLES}
+            note={runTarget.kind === 'release' ? <ReleaseRunNote release={runTarget.release} /> : <PromotionRunNote promotion={runTarget.promotion} releases={data?.items ?? []} />}
+            onStarted={(run) => void runStarted(run)}
+            onClose={() => setRunTarget(null)}
+        />}
+
+        {selected && showTaskForm && taskData && <CreatePanel popup data={taskData} eyebrow={`Linked to ${releaseLabel(selected)} · will be ${taskData.settings.next_key}`} create={createLinkedTask} onClose={() => setShowTaskForm(false)} onCreated={(_task, another) => void linkedTaskCreated(another)} />}
     </div>
 }

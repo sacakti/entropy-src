@@ -66,7 +66,7 @@ class PurgeArchiveRequest(BaseModel):
 
 
 class SelectedRunsRequest(BaseModel):
-    job_ids: List[int] = Field(..., min_items=1, max_items=500)
+    job_ids: List[int] = Field(..., min_length=1, max_length=500)
 
 
 def _service(request: Request) -> RunService:
@@ -146,9 +146,11 @@ def list_runs(
     user: str = Query("", max_length=128),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    sort: str = Query("started", max_length=20),
+    order: Literal["asc", "desc"] = Query("desc"),
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
-    """List runs, newest first, filtered by tab (active/completed/failed/cancelled/all)."""
+    """List runs (newest first by default), filtered by tab (active/completed/failed/cancelled/all)."""
 
     _, _, current = record
     project = current_project(request, current)
@@ -166,6 +168,8 @@ def list_runs(
         limit=limit,
         offset=offset,
         project_id=project["id"],
+        sort=sort if sort in service.store.SORTS else "started",
+        order=order,
     )
     _no_store(response)
     return {"items": items, "total": total, "counts": service.store.counts(project["id"])}
@@ -192,6 +196,47 @@ def get_run(
         "plan": _planned_steps(request, run),
         "steps": service.store.steps(job_id),
     }
+
+
+@router.get("/api/runs/{job_id}/artifacts")
+def run_artifacts(
+    job_id: int,
+    request: Request,
+    response: Response,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Artifacts the run's steps generated, each naming its step, with a download link."""
+
+    from pathlib import Path
+
+    from lib.artifacts.store import ArtifactStore, ensure_artifacts_schema
+
+    _, _, current = record
+    project_id = _run_project(request, job_id)
+    _require_permission(request, current, "workflows.read", project_id)
+    _require_permission(request, current, "artifacts.read", project_id)
+
+    store = _service(request).store
+    runs = [store.get(item) for item in store.job_ids(job_id)]
+    execution_ids = [str(run["execution_id"]) for run in runs if run and run.get("execution_id")]
+    connection = request.app.state.entropy_context.database_manager.connection
+    ensure_artifacts_schema(connection)
+    items = [
+        {
+            "id": item["id"],
+            "name": item["name"],
+            "size_bytes": item["size_bytes"],
+            "step_name": item.get("step_name"),
+            "origin": item.get("origin"),
+            "created_at": iso_utc(item["created_at"]) if item.get("created_at") else None,
+            "download_url": f"/api/artifacts/{item['id']}/download",
+            # Generated files stay where the plugin wrote them; they may be cleaned up.
+            "available": bool(item.get("server_path")) and Path(item["server_path"]).is_file(),
+        }
+        for item in ArtifactStore(connection).for_runs(project_id, execution_ids)
+    ]
+    _no_store(response)
+    return {"items": items}
 
 
 @router.get("/api/runs/{job_id}/rerun-config")

@@ -299,9 +299,12 @@ class RunStore:
         limit: int = 50,
         offset: int = 0,
         project_id: Optional[int] = None,
+        sort: str = "started",
+        order: str = "desc",
     ) -> Tuple[List[Dict[str, Any]], int]:
+        order_by = self._order_by(sort, order)
         if tab == "archived":
-            return self._list_archived(search, node, user, limit, offset, project_id)
+            return self._list_archived(search, node, user, limit, offset, project_id, order_by)
         # Segments of a multi-node run show up as part of that run.
         where: List[str] = ["m.parent_job_id IS NULL"]
         parameters: List[Any] = []
@@ -340,7 +343,7 @@ class RunStore:
         )
 
         rows = self.connection.fetchall(
-            self._SELECT + clause + " ORDER BY j.id DESC LIMIT ? OFFSET ?",
+            self._SELECT + clause + order_by + " LIMIT ? OFFSET ?",
             tuple(parameters) + (limit, offset),
         )
 
@@ -354,6 +357,7 @@ class RunStore:
         limit: int,
         offset: int,
         project_id: Optional[int],
+        order_by: str = " ORDER BY j.id DESC",
     ) -> Tuple[List[Dict[str, Any]], int]:
         where: List[str] = ["m.parent_job_id IS NULL"]
         parameters: List[Any] = []
@@ -381,10 +385,28 @@ class RunStore:
             tuple(parameters),
         )
         rows = self.connection.fetchall(
-            self._select(True) + clause + " ORDER BY j.id DESC LIMIT ? OFFSET ?",
+            self._select(True) + clause + order_by + " LIMIT ? OFFSET ?",
             tuple(parameters) + (limit, offset),
         )
         return [run_payload(row) for row in rows], int(total["n"])
+
+    # Columns a run list may be sorted by; only these reach the SQL.
+    SORTS = {
+        "id": "j.id",
+        "run": "LOWER(COALESCE(m.target, j.workflow))",
+        "status": "j.state",
+        "user": "LOWER(COALESCE(j.full_name, j.username, ''))",
+        "node": "COALESCE(m.node, 'local')",
+        "started": "COALESCE(j.started_at, j.created_at)",
+        "duration": "(julianday(COALESCE(j.finished_at, CURRENT_TIMESTAMP)) - julianday(j.started_at))",
+    }
+
+    @classmethod
+    def _order_by(cls, sort: str, order: str) -> str:
+        column = cls.SORTS.get(sort, cls.SORTS["started"])
+        direction = "ASC" if order == "asc" else "DESC"
+        # Newest first among equals, so pages stay stable.
+        return f" ORDER BY {column} {direction}, j.id DESC"
 
     # Runs without a project (from before projects, or the CLI) are Default's.
     _PROJECT_CLAUSE = "IFNULL(m.project_id, ?) = ?"

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, LoaderCircle, Play, Server } from 'lucide-react'
 
 import { pluginsApi } from '../../api/plugins.api'
-import { nodesApi, runsApi, type EntropyNode, type Run, type RunMode, type RunRerunConfig } from '../../api/runs.api'
+import { nodesApi, runsApi, type EntropyNode, type Run, type RunMode, type RunOptions, type RunRerunConfig } from '../../api/runs.api'
 import { workflowsApi } from '../../api/workflows.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
@@ -28,6 +28,9 @@ export default function StartRunDialog({
     debug: initialDebug = false,
     onStarted,
     onClose,
+    launch,
+    provided = [],
+    note,
 }: {
     kind: 'workflow' | 'plugin'
     target: string
@@ -37,6 +40,12 @@ export default function StartRunDialog({
     /** Called instead of opening the run's live screen. */
     onStarted?: (run: Run) => void
     onClose: () => void
+    /** Workflows: start the run another way (e.g. a release run adds release variables). */
+    launch?: (node: string, variables: Record<string, unknown>, options: RunOptions) => Promise<{ run: Run }>
+    /** Variables the launcher supplies; they are not asked for here. */
+    provided?: string[]
+    /** Shown above the variables, e.g. which variables the launcher adds. */
+    note?: ReactNode
 }) {
     const { notify } = useFeedback()
     const [nodes, setNodes] = useState<EntropyNode[]>([])
@@ -103,7 +112,7 @@ export default function StartRunDialog({
                 }
                 setRows(
                     rowsFor(
-                        Object.entries(variables).map(([name, value]) => ({
+                        Object.entries(variables).filter(([name]) => !provided.includes(name)).map(([name, value]) => ({
                             name,
                             type: 'any',
                             required: false,
@@ -142,6 +151,8 @@ export default function StartRunDialog({
         return () => {
             active = false
         }
+    // `provided` is fixed for the dialog's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [kind, target, rerunFrom])
 
     const selected = nodes.find((item) => item.name === node)
@@ -178,7 +189,12 @@ export default function StartRunDialog({
         setError(null)
         try {
             const { run } =
-                kind === 'workflow'
+                kind === 'workflow' && launch
+                    ? await launch(node, parsed.values, {
+                          ...(planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {}),
+                          mode,
+                      })
+                    : kind === 'workflow'
                     ? rerunFrom !== undefined
                         ? await runsApi.rerunWorkflow(rerunFrom, node, parsed.values, {
                               ...(planCheck.state === 'valid' ? runOptionsFor(advanced, planCheck.plan.steps) : {}),
@@ -284,6 +300,8 @@ export default function StartRunDialog({
                     ))}
                 </div>
             </div>
+
+            {note && <div className="start-run-note">{note}</div>}
 
             <div className="admin-field">
                 <span>{kind === 'workflow' ? 'Variables' : 'Arguments'}</span>

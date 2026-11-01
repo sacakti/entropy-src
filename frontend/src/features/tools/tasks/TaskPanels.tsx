@@ -187,11 +187,16 @@ type Draft = {
     group_ids: number[]
 }
 
-export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
+export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = false, create = tasksApi.create, eyebrow }: {
     data: TaskData
     onClose: () => void
     onCreated: (task: Task, another: boolean) => void
     initialGroup?: number | null
+    // Shown over the page (e.g. from Release Manager) instead of beside the tasks.
+    popup?: boolean
+    // Where the task is created; Release Manager creates it linked to a release.
+    create?: (body: Record<string, unknown>) => Promise<Task>
+    eyebrow?: ReactNode
 }) {
     const { notify } = useFeedback()
     const blank: Draft = {
@@ -208,7 +213,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
         if (!draft.title.trim()) return
         setBusy(true)
         try {
-            const created = await tasksApi.create({
+            const created = await create({
                 ...draft,
                 title: draft.title.trim(),
                 assignee: draft.assignee || null,
@@ -229,7 +234,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup }: {
     }
 
     return (
-        <Panel title="New task" eyebrow={`Will be ${data.settings.next_key}`} onClose={onClose}>
+        <Panel title="New task" eyebrow={eyebrow ?? `Will be ${data.settings.next_key}`} onClose={onClose} popup={popup}>
             <form className="task-form" onSubmit={(event) => void submit(event)}>
                 <label>
                     Title
@@ -843,7 +848,7 @@ export function GroupsPanel({ data, onClose, onChanged, activeGroup, onFilter }:
                     <ul className="task-group-list">
                         {data.groups.map((group) => (
                             <li key={group.id} className={activeGroup === group.id ? 'is-active' : undefined}>
-                                <span className={`task-group-chip kind-${group.kind}`}>{group.kind}</span>
+                                <span className={`task-group-chip kind-${group.kind}`}>{GROUP_KINDS.find((kind) => kind.id === group.kind)?.title ?? group.kind}</span>
                                 {manage ? (
                                     <input key={`${group.id}-${group.name}`} defaultValue={group.name} aria-label={`Name of ${group.name}`} onBlur={(event) => void rename(group, event.target.value)} />
                                 ) : (

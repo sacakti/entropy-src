@@ -10,6 +10,7 @@ import {
     LayoutGrid,
     Network,
     LoaderCircle,
+    Package,
     RotateCcw,
     ScrollText,
     SkipForward,
@@ -20,8 +21,10 @@ import {
 } from 'lucide-react'
 
 import {
+    artifactDownloadUrl,
     runsApi,
     type PlannedStep,
+    type RunArtifact,
     type Run,
     type RunEvent,
     type RunPrompt,
@@ -243,6 +246,12 @@ function eventTone(event: RunEvent): string {
     return 'meta'
 }
 
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 export default function RunDetail({ runId, onBack }: { runId: number; onBack: () => void }) {
     const { notify, modal } = useFeedback()
 
@@ -262,6 +271,8 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
     const [stopping, setStopping] = useState(false)
     const [rerunOpen, setRerunOpen] = useState(false)
     const [now, setNow] = useState(() => Date.now())
+    const [artifacts, setArtifacts] = useState<RunArtifact[]>([])
+    const [artifactsOpen, setArtifactsOpen] = useState<string | null>(null)
 
     const cursor = useRef<number | null>(null)
     const outputOffset = useRef(0)
@@ -326,6 +337,22 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
 
     const running = run ? isActive(run.state) : false
 
+    // Artifacts appear as steps finish; reload when one does and when the run ends.
+    const finishedSteps = steps.filter((step) => step.status !== 'started').length
+    useEffect(() => {
+        let active = true
+        runsApi
+            .artifacts(runId)
+            .then(({ items }) => {
+                if (active) setArtifacts(items)
+            })
+            // Without artifacts.read the buttons are simply not shown.
+            .catch(() => undefined)
+        return () => {
+            active = false
+        }
+    }, [runId, finishedSteps, running])
+
     useEffect(() => {
         if (!running) return
         const timer = setInterval(() => setNow(Date.now()), 1000)
@@ -353,6 +380,18 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
         () => (run ? buildCards(plan, steps, grouped, run) : []),
         [grouped, plan, run, steps],
     )
+    // Each step's artifacts; older artifacts without a step go to the first step of their plugin.
+    const artifactsByStep = useMemo(() => {
+        const result = new Map<string, RunArtifact[]>()
+        for (const artifact of artifacts) {
+            const card =
+                cards.find((item) => item.name === artifact.step_name) ??
+                (artifact.step_name ? undefined : cards.find((item) => item.plugin === artifact.origin))
+            if (!card) continue
+            result.set(card.key, [...(result.get(card.key) ?? []), artifact])
+        }
+        return result
+    }, [artifacts, cards])
     const done = cards.filter((card) => card.status === 'completed' || card.status === 'skipped').length
     const multiNode = (run?.options?.nodes?.length ?? 1) > 1
     const progress = cards.length ? Math.round((done / cards.length) * 100) : 0
@@ -663,6 +702,38 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                                     </button>
 
                                     {card.status === 'running' && <span className="run-card-bar" aria-hidden="true" />}
+
+                                    {(artifactsByStep.get(card.key)?.length ?? 0) > 0 && (
+                                        <div className="run-card-artifacts">
+                                            <button
+                                                type="button"
+                                                className="run-artifacts-toggle"
+                                                aria-expanded={artifactsOpen === card.key}
+                                                onClick={() => setArtifactsOpen(artifactsOpen === card.key ? null : card.key)}
+                                            >
+                                                <Package size={14} aria-hidden="true" />
+                                                {artifactsByStep.get(card.key)!.length} artifact
+                                                {artifactsByStep.get(card.key)!.length === 1 ? '' : 's'}
+                                                <ChevronDown size={14} aria-hidden="true" />
+                                            </button>
+                                            {artifactsOpen === card.key && (
+                                                <ul className="run-artifact-list">
+                                                    {artifactsByStep.get(card.key)!.map((artifact) => (
+                                                        <li key={artifact.id}>
+                                                            {artifact.available ? (
+                                                                <a href={artifactDownloadUrl(artifact)} download={artifact.name} title={`Download ${artifact.name}`}>
+                                                                    {artifact.name}
+                                                                </a>
+                                                            ) : (
+                                                                <span className="is-missing" title="The file is no longer on the server.">{artifact.name}</span>
+                                                            )}
+                                                            <small>{artifact.available ? formatBytes(artifact.size_bytes) : 'no longer available'}</small>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {!open && (card.error || last) && (
                                         <p className={`run-card-last is-${card.error ? 'error' : levelName(last?.level ?? null)}`}>

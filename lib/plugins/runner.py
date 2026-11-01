@@ -27,6 +27,7 @@ from .mode import PluginMode
 
 if TYPE_CHECKING:
     from core.runtime.context import ExecutionContext
+    from lib.database.connection import DatabaseConnection
     from lib.plugins.base import BasePlugin
 
 
@@ -631,6 +632,34 @@ class PluginRunner:
         return result
 
     @staticmethod
+    def _run_execution_id(context: ExecutionContext, connection: DatabaseConnection) -> str:
+        """The execution id of the run's job, as the run screen knows it.
+
+        A run worker attaches to a job the server created and starts its own
+        execution with a new id; artifacts must name the job's id to be found.
+        """
+        job_id = getattr(context, "job_id", None)
+        if job_id is not None:
+            row = connection.fetchone(
+                "SELECT execution_id FROM workflow_jobs WHERE id = ?", (job_id,)
+            )
+            if row is not None and row["execution_id"]:
+                return str(row["execution_id"])
+        return context.execution.id
+
+    @staticmethod
+    def _current_step(context: ExecutionContext) -> str | None:
+        """Name of the workflow step running now (None outside a workflow step)."""
+        from core.models.runtime import RuntimeNodeType
+
+        node = context.node
+        while node is not None:
+            if node.type is RuntimeNodeType.STEP:
+                return node.name
+            node = node.parent
+        return None
+
+    @staticmethod
     def _capture_artifacts(context: ExecutionContext, plugin: BasePlugin, origin: str) -> None:
         """Expose plugin artifacts to the runtime and register existing files."""
         produced = dict(plugin.artifacts)
@@ -652,7 +681,8 @@ class PluginRunner:
             ensure_artifacts_schema(connection)
             project_id = run_project() or default_project_id(connection)
             store = ArtifactStore(connection)
-            run_id = context.execution.id
+            run_id = PluginRunner._run_execution_id(context, connection)
+            step_name = PluginRunner._current_step(context)
             run_tag = "run:" + hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:16]
             for name, raw_path in produced.items():
                 path = Path(raw_path).expanduser()
@@ -672,6 +702,7 @@ class PluginRunner:
                     classification="generated",
                     origin=origin,
                     run_id=run_id,
+                    step_name=step_name,
                 )
         except Exception as error:
             context.logger.warning("plugin", f"Unable to register generated artifacts: {error}")

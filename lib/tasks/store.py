@@ -424,6 +424,15 @@ class TaskStore:
             self.connection.execute("DELETE FROM task_group_members WHERE group_id = ?", (group_id,))
             self.connection.execute("DELETE FROM task_groups WHERE id = ?", (group_id,))
 
+    def group_task_ids(self, group_id: int) -> List[int]:
+        """Ids of the tasks in a group, oldest first."""
+
+        rows = self.connection.fetchall(
+            "SELECT task_id FROM task_group_members WHERE group_id = ? ORDER BY task_id",
+            (group_id,),
+        )
+        return [int(row["task_id"]) for row in rows]
+
     def add_to_group(self, group_id: int, task_ids: Iterable[int]) -> None:
         with self.connection.transaction():
             for task_id in task_ids:

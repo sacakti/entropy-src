@@ -141,3 +141,22 @@ def test_local_node_and_exposition(connection, tmp_path) -> None:
     assert 'entropy_node_up{node="local",kind="local"} 1' in text
     assert 'entropy_node_running_jobs{node="local",kind="local"} 2' in text
     assert "# TYPE entropy_node_disk_usage_percent gauge" in text
+
+
+def test_list_sorts_by_whitelisted_columns(connection) -> None:
+    store = RunStore(connection)
+    first = _job(connection, "failed", finished_days_ago=2)
+    second = _job(connection, "completed", finished_days_ago=1)
+    store.record(first, node="edge-1", kind="workflow", target="alpha", trigger="manual")
+    store.record(second, node="local", kind="workflow", target="beta", trigger="manual")
+
+    default, _ = store.list()
+    assert [item["id"] for item in default] == [second, first]  # newest first
+
+    by_run, _ = store.list(sort="run", order="asc")
+    assert [item["id"] for item in by_run] == [first, second]
+    by_status, _ = store.list(sort="status", order="asc")
+    assert [item["state"] for item in by_status] == ["completed", "failed"]
+    # Unknown columns never reach the SQL: they fall back to the default order.
+    hostile, _ = store.list(sort="j.id; DROP TABLE workflow_jobs", order="asc")
+    assert [item["id"] for item in hostile] == [first, second]

@@ -8,13 +8,27 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from core.web.projects import current_project, projects, require
+from core.web.projects import current_project, require
+from core.web.routes.artifacts import _public as _public_artifact
+from core.web.routes.artifacts import _root as _artifact_root
 from core.web.routes.auth import _current_session, verify_csrf
+from core.web.routes.runs import StartRunRequest
+from core.web.routes.tasks import (
+    TaskCreate,
+    _notify_mentions,
+    _validate_assignee,
+    _validate_due,
+    _validate_groups,
+    _validate_reminder,
+    _validate_severity,
+    _validate_type,
+)
+from lib.artifacts.store import ArtifactStore
 from lib.models.session import Session
 from lib.models.users import User
 from lib.releases.store import RELEASE_STAGES, ReleaseStore
 from lib.runs.service import RunError, RunService
-from lib.tasks.store import TaskStore
+from lib.tasks.store import REOPENED, STATUSES, TaskStore
 
 router = APIRouter(prefix="/api/releases", tags=["releases"])
 SessionRecord = Tuple[Session, str, User]
@@ -39,11 +53,8 @@ class ReleaseUpdate(BaseModel):
     tags: Optional[List[str]] = Field(default=None, max_length=20)
 
 
-class ReleaseTaskCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    description: str = Field(default="", max_length=10000)
-    remarks: str = Field(default="", max_length=5000)
-    assignee: Optional[str] = Field(default=None, max_length=200)
+class ReleaseTaskCreate(TaskCreate):
+    """A task created from a release: the same contract as creating it in Tasks."""
 
 
 class ReleaseTasksImport(BaseModel):
@@ -51,7 +62,10 @@ class ReleaseTasksImport(BaseModel):
 
 
 class TaskIds(BaseModel):
-    task_ids: List[int] = Field(min_length=1, max_length=500)
+    """Tasks to link, named one by one or through their task groups (e.g. "release1")."""
+
+    task_ids: List[int] = Field(default_factory=list, max_length=500)
+    group_ids: List[int] = Field(default_factory=list, max_length=50)
 
 
 class ArtifactIds(BaseModel):
@@ -70,7 +84,15 @@ class PromotionCreate(BaseModel):
     workflow_name: str = Field(default="", max_length=200)
 
 
-class PromotionStart(BaseModel):
+class ReleaseRunRequest(StartRunRequest):
+    """Node, step options and extra variables for a release workflow run.
+
+    The release variables (release, release_id, ..., release_artifacts) are added by
+    the server and take precedence over variables with the same name.
+    """
+
+
+class PromotionStart(StartRunRequest):
     workflow_name: str = Field(min_length=1, max_length=200)
     node: str = Field(default="local", max_length=64)
 
@@ -464,8 +486,50 @@ def unlink_release_artifact(release_id: int, artifact_id: int, request: Request,
     return Response(status_code=204)
 
 
+def _release_artifacts(request: Request, release: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The release's linked artifacts with the server path a workflow step can read."""
+    store = ArtifactStore(request.app.state.entropy_context.database_manager.connection)
+    root = _artifact_root(request, release["project_id"])
+    items = []
+    for linked in release.get("artifacts") or []:
+        item = store.get(int(linked["id"]))
+        if item is None or item["project_id"] != release["project_id"]:
+            continue
+        public = _public_artifact(item, root)
+        items.append({key: public.get(key) for key in (
+            "id", "name", "path", "source", "size_bytes", "sha256", "tags", "download_url",
+        )})
+    return items
+
+
+def _release_context(request: Request, release: Dict[str, Any]) -> Dict[str, Any]:
+    """A release as workflow variables see it, with its artifacts.
+
+    ${release.artifact.path} is the first artifact (the usual single release package),
+    ${release.artifacts[1].path} any of them, ${release.artifact_paths[name.zip]} one by name.
+    """
+    artifacts = _release_artifacts(request, release)
+    context: Dict[str, Any] = {
+        "id": release["id"], "name": release["name"], "version": release["version"],
+        "environment": release["environment"], "description": release["description"],
+        "tags": release.get("tags") or [], "artifacts": artifacts,
+        "artifact_paths": {item["name"]: item["path"] for item in artifacts},
+    }
+    if artifacts:
+        context["artifact"] = artifacts[0]
+    return context
+
+
+def _run_options(payload: Optional[StartRunRequest]) -> Dict[str, Any]:
+    if payload is None:
+        return {}
+    return {"node": payload.node, "steps": payload.steps, "tags": payload.tags,
+            "step_nodes": payload.step_nodes, "mode": payload.mode}
+
+
 @router.post("/{release_id}/run", status_code=201, dependencies=[Depends(verify_csrf)])
 def run_release_workflow(release_id: int, request: Request,
+                         payload: Optional[ReleaseRunRequest] = None,
                          record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
     _, _, user = record
     item = _release(request, user, release_id, "releases.manage")
@@ -478,12 +542,16 @@ def run_release_workflow(release_id: int, request: Request,
         previous = RunService(request.app.state.entropy_context).store.get(int(item["workflow_job_id"]))
         if previous and previous["state"] not in {"failed", "cancelled"}:
             raise HTTPException(status_code=409, detail="This release workflow has already started or completed.")
+    release = _release_context(request, item)
+    variables = {
+        **(payload.variables if payload else {}),
+        "release": release, "release_id": item["id"], "release_name": item["name"],
+        "release_version": item["version"], "release_artifacts": release["artifacts"],
+    }
     try:
         run = RunService(request.app.state.entropy_context).start_workflow(
-            user, item["workflow_name"], project_id=project_id,
-            variables={"release": {"id": item["id"], "name": item["name"], "version": item["version"],
-                                   "environment": item["environment"], "description": item["description"]},
-                       "release_id": item["id"], "release_name": item["name"], "release_version": item["version"]},
+            user, item["workflow_name"], project_id=project_id, variables=variables,
+            **_run_options(payload),
         )
     except RunError as exc:
         raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
@@ -491,21 +559,38 @@ def run_release_workflow(release_id: int, request: Request,
     return {"release": _store(request).get(release_id), "run": run}
 
 
+def _validate_task(request: Request, user: User, project_id: int, payload: ReleaseTaskCreate) -> str:
+    """Check a task as Tasks does on create; returns the stripped title."""
+    store = TaskStore(request.app.state.entropy_context.database_manager.connection)
+    _validate_assignee(request, user, project_id, payload.assignee)
+    _validate_reminder(payload.reminder_at)
+    _validate_type(store, project_id, payload.type)
+    _validate_severity(payload.severity)
+    _validate_groups(store, project_id, payload.group_ids)
+    _validate_due(payload.due_date)
+    if payload.status not in STATUSES or payload.status == REOPENED:
+        raise HTTPException(status_code=422, detail="Choose a valid task status.")
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Task title cannot be blank.")
+    return title
+
+
 def _add_task(request: Request, user: User, release: Dict[str, Any], payload: ReleaseTaskCreate) -> Dict[str, Any]:
     if release["stage"] == "completed":
         raise HTTPException(status_code=409, detail="Completed releases cannot accept new tasks.")
     project_id = release["project_id"]
     require(request, user, "tasks.create", project_id)
-    if payload.assignee and payload.assignee.lower() != user.username.lower():
-        members = projects(request).members(project_id)
-        if not any(m.get("kind") == "user" and m.get("name", "").lower() == payload.assignee.lower() for m in members):
-            raise HTTPException(status_code=422, detail=f"'{payload.assignee}' is not a member of this project.")
-    title = payload.title.strip()
-    if not title:
-        raise HTTPException(status_code=422, detail="Task title cannot be blank.")
+    title = _validate_task(request, user, project_id, payload)
     connection = request.app.state.entropy_context.database_manager.connection
     task = TaskStore(connection).create(project_id, title, payload.description, payload.remarks,
-                                        payload.assignee, None, user.username)
+                                        payload.assignee, payload.reminder_at, user.username,
+                                        type=payload.type,
+                                        external_ref=(payload.external_ref or "").strip() or None,
+                                        status=payload.status, group_ids=payload.group_ids,
+                                        due_date=_validate_due(payload.due_date),
+                                        severity=payload.severity)
+    _notify_mentions(request, task, user, payload.description)
     _store(request).link_task(release["id"], int(task["id"]))
     if release["stage"] == "workflow_done":
         _store(request).update(release["id"], {"stage": "task_queue"})
@@ -529,14 +614,10 @@ def import_release_tasks(release_id: int, payload: ReleaseTasksImport, request: 
     release = _release(request, user, release_id, "releases.manage")
     if release["stage"] == "completed":
         raise HTTPException(status_code=409, detail="Completed releases cannot accept new tasks.")
+    require(request, user, "tasks.create", release["project_id"])
+    # Check every task first so a bad entry creates none of them.
     for task in payload.tasks:
-        if not task.title.strip():
-            raise HTTPException(status_code=422, detail="Imported task titles cannot be blank.")
-        if task.assignee:
-            members = projects(request).members(release["project_id"])
-            if not any(m.get("kind") == "user" and m.get("name", "").lower() == task.assignee.lower()
-                       for m in members):
-                raise HTTPException(status_code=422, detail=f"'{task.assignee}' is not a member of this project.")
+        _validate_task(request, user, release["project_id"], task)
     added = [_add_task(request, user, release, task) for task in payload.tasks]
     return {"items": added}
 
@@ -550,18 +631,31 @@ def link_release_tasks(release_id: int, payload: TaskIds, request: Request,
         raise HTTPException(status_code=409, detail="Completed releases cannot change linked tasks.")
     require(request, user, "tasks.read", release["project_id"])
     connection = request.app.state.entropy_context.database_manager.connection
-    ids = list(dict.fromkeys(payload.task_ids))
+    if not payload.task_ids and not payload.group_ids:
+        raise HTTPException(status_code=422, detail="Choose tasks or task groups to link.")
+    task_store = TaskStore(connection)
+    group_task_ids: List[int] = []
+    for group_id in dict.fromkeys(payload.group_ids):
+        group = task_store.get_group(group_id)
+        if group is None or group["project_id"] != release["project_id"]:
+            raise HTTPException(status_code=404, detail=f"Task group #{group_id} not found in this project.")
+        group_task_ids.extend(task_store.group_task_ids(group_id))
+    if payload.group_ids and not payload.task_ids and not group_task_ids:
+        raise HTTPException(status_code=422, detail="The chosen task groups have no tasks.")
+    ids = list(dict.fromkeys([*payload.task_ids, *group_task_ids]))
     tasks = []
     for task_id in ids:
         task = connection.fetchone("SELECT id,project_id FROM tasks WHERE id = ?", (task_id,))
         if task is None or task["project_id"] != release["project_id"]:
             raise HTTPException(status_code=404, detail=f"Task #{task_id} not found in this project.")
         tasks.append(task_id)
+    already = {task["id"] for task in release["tasks"]}
     for task_id in tasks:
         _store(request).link_task(release_id, task_id)
     if tasks and release["stage"] == "workflow_done":
         _store(request).update(release_id, {"stage": "task_queue"})
-    return {"release": _store(request).get(release_id)}
+    linked = len([task_id for task_id in tasks if task_id not in already])
+    return {"release": _store(request).get(release_id), "linked": linked}
 
 
 @router.delete("/{release_id}/tasks/{task_id}", status_code=204, dependencies=[Depends(verify_csrf)])
@@ -638,19 +732,25 @@ def run_promotion(promotion_id: int, payload: PromotionStart, request: Request,
               if item["id"] != promotion_id and item["status"] == "running" for release in item["releases"]}
     if active.intersection(ids):
         raise HTTPException(status_code=409, detail="One or more selected releases already have a promotion in progress.")
+    contexts = [{**_release_context(request, item), "tasks": item["tasks"],
+                 "task_ids": [task["id"] for task in item["tasks"]]} for item in releases]
+    # Every artifact of the promoted releases, each naming its release.
+    artifacts = [{**artifact, "release_id": context["id"], "release_name": context["name"],
+                  "release_version": context["version"]}
+                 for context in contexts for artifact in context["artifacts"]]
     variables = {
+        **payload.variables,
         "target_environment": promotion["target_environment"],
         "promotion_number": promotion["promotion_number"],
         "release_ids": ids,
-        "releases": [{"id": item["id"], "name": item["name"], "version": item["version"],
-                      "environment": item["environment"], "description": item["description"],
-                      "tasks": item["tasks"],
-                      "task_ids": [task["id"] for task in item["tasks"]]} for item in releases],
+        "releases": contexts,
+        "artifacts": artifacts,
+        "artifact_paths": [artifact["path"] for artifact in artifacts],
     }
     try:
         run = RunService(request.app.state.entropy_context).start_workflow(
-            user, payload.workflow_name, node=payload.node, project_id=project["id"],
-            variables=variables, trigger="manual",
+            user, payload.workflow_name, project_id=project["id"],
+            variables=variables, trigger="manual", **_run_options(payload),
         )
     except RunError as exc:
         raise HTTPException(status_code=exc.status, detail=str(exc)) from exc

@@ -1,4 +1,5 @@
 import { apiRequest, downloadFile } from '../services/api'
+import { currentProject } from '../services/project'
 
 export type RunState =
     | 'queued'
@@ -82,6 +83,24 @@ export interface RunRerunConfig {
     step_nodes: Record<string, string>
 }
 
+/** A file a step of the run generated (registered in Artifacts). */
+export interface RunArtifact {
+    id: number
+    name: string
+    size_bytes: number
+    step_name: string | null
+    origin: string | null
+    created_at: string | null
+    download_url: string
+    available: boolean
+}
+
+/** A plain link sends no project header: name the project in the URL. */
+export function artifactDownloadUrl(artifact: RunArtifact): string {
+    const project = currentProject()
+    return `${artifact.download_url}${project ? `?project=${encodeURIComponent(project)}` : ''}`
+}
+
 export interface RunStep {
     id: string | null
     name: string
@@ -129,7 +148,11 @@ export interface RunListQuery {
     user?: string
     limit?: number
     offset?: number
+    sort?: RunSortField
+    order?: 'asc' | 'desc'
 }
+
+export type RunSortField = 'id' | 'run' | 'status' | 'user' | 'node' | 'started' | 'duration'
 
 export type RunMode = 'automated' | 'interactive'
 
@@ -210,6 +233,10 @@ export const runsApi = {
 
     stop(id: number): Promise<{ run: Run }> {
         return apiRequest(`/api/runs/${id}/stop`, json('POST'))
+    },
+
+    artifacts(id: number): Promise<{ items: RunArtifact[] }> {
+        return apiRequest(`/api/runs/${id}/artifacts`)
     },
 
     rerunConfig(id: number): Promise<{ config: RunRerunConfig }> {

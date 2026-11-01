@@ -29,6 +29,9 @@
 .entropy-app .task-form label { display: grid; gap: 6px; font-weight: 600; }
 .entropy-app .task-form label input:not([type='checkbox']), .entropy-app .task-form label textarea, .entropy-app .task-form label select, .entropy-app .task-form .task-mention textarea { width: 100%; min-width: 0; padding: 10px 12px; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; font: inherit; font-weight: 400; }
 .entropy-app .task-form textarea { resize: vertical; }
+/* Firefox pads native selects and clips their text in narrow columns; draw them like Chromium. */
+.entropy-app .task-form label select:not([multiple]) { -moz-appearance: none; appearance: none; height: 42px; padding-top: 0; padding-bottom: 0; padding-right: 32px; line-height: 40px; text-overflow: ellipsis; background-image: linear-gradient(45deg, transparent 50%, var(--app-muted) 50%), linear-gradient(135deg, var(--app-muted) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.entropy-app .task-form select option { color: var(--app-text); background-color: var(--app-surface); }
 .entropy-app .task-form input:focus, .entropy-app .task-form textarea:focus, .entropy-app .task-form select:focus { outline: 2px solid var(--app-accent); outline-offset: 1px; }
 .entropy-app .task-reminder-label small { color: var(--app-muted); font-weight: 400; }
 .entropy-app .task-eyebrow { color: var(--app-muted); font-size: .74rem; letter-spacing: .08em; }
@@ -94,6 +97,7 @@
 .entropy-app .task-group-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--app-line); border-radius: 10px; overflow: hidden; }
 .entropy-app .task-group-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--app-line); }
 .entropy-app .task-group-list li:last-child { border-bottom: 0; }
+.entropy-app .task-group-list li > .task-group-chip { max-width: none; overflow: visible; }
 .entropy-app .task-group-list li.is-active { background: var(--app-accent-soft); }
 .entropy-app .task-group-list li small { grid-column: 2; color: var(--app-muted); font-size: .76rem; }
 .entropy-app .task-group-list li > input { min-width: 0; padding: 4px 6px; color: var(--app-text); background: transparent; border: 1px solid transparent; border-radius: 6px; font: inherit; font-weight: 650; }
