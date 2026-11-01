@@ -30,6 +30,32 @@ import { missingPermission } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePagination } from '../../components/layout/usePagination'
+import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
+
+type ScheduleSortField = 'name' | 'target' | 'cron' | 'next' | 'last' | 'status'
+const SCHEDULE_COMPARE: Comparators<ScheduleSortField, Schedule> = {
+    name: (left, right) => compareText(left.name, right.name),
+    target: (left, right) => compareText(left.target, right.target) || compareText(left.name, right.name),
+    cron: (left, right) => compareText(left.cron, right.cron) || compareText(left.name, right.name),
+    // Paused schedules have no next run; they sort with the empty values.
+    next: (left, right) =>
+        compareValue(left.enabled ? left.next_run_at : null, right.enabled ? right.next_run_at : null) || compareText(left.name, right.name),
+    last: (left, right) =>
+        compareValue(left.last_run?.created_at ?? left.last_run_at, right.last_run?.created_at ?? right.last_run_at) ||
+        compareText(left.name, right.name),
+    status: (left, right) => compareValue(Number(left.enabled), Number(right.enabled)) || compareText(left.name, right.name),
+}
+
+type FailureSortField = 'schedule' | 'run' | 'result' | 'when'
+const FAILURE_COMPARE: Comparators<FailureSortField, ScheduleRun> = {
+    schedule: (left, right) => compareText(left.schedule ?? `Schedule ${left.schedule_id}`, right.schedule ?? `Schedule ${right.schedule_id}`),
+    run: (left, right) => compareValue(left.job_id, right.job_id),
+    result: (left, right) => compareText(left.state, right.state) || compareText(left.error, right.error),
+    when: (left, right) => compareValue(left.created_at, right.created_at),
+}
 
 const REFRESH_MS = 15_000
 
@@ -141,6 +167,18 @@ export default function Schedules() {
               )
             : schedules
     }, [schedules, search])
+    const scheduleSort = useSort(filtered, 'schedules', SCHEDULE_COMPARE, { field: 'name', order: 'asc' }, ['next', 'last'])
+    const schedulePages = usePagination(scheduleSort.sorted, 'schedules')
+    const failureSort = useSort(failed, 'schedule-failures', FAILURE_COMPARE, { field: 'when', order: 'desc' }, ['run', 'when'])
+    const failurePages = usePagination(failureSort.sorted, 'schedule-failures')
+    const sortSchedules = (field: ScheduleSortField) => {
+        scheduleSort.toggle(field)
+        schedulePages.setPage(1)
+    }
+    const sortFailures = (field: FailureSortField) => {
+        failureSort.toggle(field)
+        failurePages.setPage(1)
+    }
 
     const toggle = (set: Set<number>, id: number) => {
         const next = new Set(set)
@@ -315,7 +353,10 @@ export default function Schedules() {
                             <input
                                 type="search"
                                 value={search}
-                                onChange={(event) => setSearch(event.target.value)}
+                                onChange={(event) => {
+                                    setSearch(event.target.value)
+                                    schedulePages.setPage(1)
+                                }}
                                 placeholder="Search schedules…"
                                 aria-label="Search schedules"
                             />
@@ -404,12 +445,12 @@ export default function Schedules() {
                                             }
                                         />
                                     </th>
-                                    <th scope="col">Schedule</th>
-                                    <th scope="col">Runs</th>
-                                    <th scope="col">When</th>
-                                    <th scope="col">Next run</th>
-                                    <th scope="col">Last run</th>
-                                    <th scope="col">Status</th>
+                                    <th scope="col" aria-sort={scheduleSort.ariaSort('name')}><SortHeader label="Schedule" field="name" sort={scheduleSort.sort} onSort={sortSchedules} /></th>
+                                    <th scope="col" aria-sort={scheduleSort.ariaSort('target')}><SortHeader label="Runs" field="target" sort={scheduleSort.sort} onSort={sortSchedules} /></th>
+                                    <th scope="col" aria-sort={scheduleSort.ariaSort('cron')}><SortHeader label="When" field="cron" sort={scheduleSort.sort} onSort={sortSchedules} /></th>
+                                    <th scope="col" aria-sort={scheduleSort.ariaSort('next')}><SortHeader label="Next run" field="next" sort={scheduleSort.sort} onSort={sortSchedules} /></th>
+                                    <th scope="col" aria-sort={scheduleSort.ariaSort('last')}><SortHeader label="Last run" field="last" sort={scheduleSort.sort} onSort={sortSchedules} /></th>
+                                    <th scope="col" aria-sort={scheduleSort.ariaSort('status')}><SortHeader label="Status" field="status" sort={scheduleSort.sort} onSort={sortSchedules} /></th>
                                     <th scope="col" className="list-operations-cell">
                                         <span className="list-operations-heading">Operations</span>
                                     </th>
@@ -437,7 +478,7 @@ export default function Schedules() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filtered.map((schedule) => (
+                                    schedulePages.pageItems.map((schedule) => (
                                         <tr key={schedule.id} className={selected.has(schedule.id) ? 'is-selected' : undefined}>
                                             <td className="list-check-cell">
                                                 <input
@@ -564,10 +605,10 @@ export default function Schedules() {
                                             }
                                         />
                                     </th>
-                                    <th scope="col">Schedule</th>
-                                    <th scope="col">Run</th>
-                                    <th scope="col">Result</th>
-                                    <th scope="col">When</th>
+                                    <th scope="col" aria-sort={failureSort.ariaSort('schedule')}><SortHeader label="Schedule" field="schedule" sort={failureSort.sort} onSort={sortFailures} /></th>
+                                    <th scope="col" aria-sort={failureSort.ariaSort('run')}><SortHeader label="Run" field="run" sort={failureSort.sort} onSort={sortFailures} /></th>
+                                    <th scope="col" aria-sort={failureSort.ariaSort('result')}><SortHeader label="Result" field="result" sort={failureSort.sort} onSort={sortFailures} /></th>
+                                    <th scope="col" aria-sort={failureSort.ariaSort('when')}><SortHeader label="When" field="when" sort={failureSort.sort} onSort={sortFailures} /></th>
                                     <th scope="col" className="list-operations-cell">
                                         <span className="list-operations-heading">Operations</span>
                                     </th>
@@ -585,7 +626,7 @@ export default function Schedules() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    failed.map((run) => (
+                                    failurePages.pageItems.map((run) => (
                                         <tr key={run.id} className={selectedRuns.has(run.id) ? 'is-selected' : undefined}>
                                             <td className="list-check-cell">
                                                 <input
@@ -649,6 +690,9 @@ export default function Schedules() {
                         </table>
                     )}
                 </div>
+                {!loading && (tab === 'schedules'
+                    ? <Pagination state={schedulePages} noun="schedules" />
+                    : <Pagination state={failurePages} noun="failed runs" />)}
             </section>
 
             {moving && (

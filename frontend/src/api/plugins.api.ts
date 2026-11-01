@@ -79,7 +79,8 @@ export async function listPlugins(
     query.set('sort_by', params.sort_by ?? 'name')
     query.set('order', params.order ?? 'asc')
     query.set('page', String(params.page ?? 1))
-    query.set('page_size', String(Math.min(params.page_size ?? 10, 10)))
+    // The server accepts up to 200 per page.
+    query.set('page_size', String(Math.min(params.page_size ?? 10, 200)))
 
     return apiRequest<PluginListResponse>(
         `/api/plugins?${query.toString()}`,

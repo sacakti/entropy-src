@@ -11,6 +11,25 @@ import InstallExtensionDialog from './InstallExtensionDialog'
 import '../../styles/extensions.css'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePagination } from '../../components/layout/usePagination'
+import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
+
+type InstalledSortField = 'name' | 'version' | 'includes' | 'used_by' | 'installed'
+const INSTALLED_COMPARE: Comparators<InstalledSortField, ExtensionVersion> = {
+    name: (left, right) => compareText(left.name, right.name) || compareText(left.version, right.version),
+    version: (left, right) => compareText(left.version, right.version) || compareText(left.name, right.name),
+    includes: (left, right) => compareValue(left.packages.length, right.packages.length) || compareText(left.name, right.name),
+    used_by: (left, right) => compareValue(left.used_by.length, right.used_by.length) || compareText(left.name, right.name),
+    installed: (left, right) => compareValue(left.installed_at, right.installed_at) || compareText(left.name, right.name),
+}
+
+type BuiltinSortField = 'name' | 'version'
+const BUILTIN_COMPARE: Comparators<BuiltinSortField, BuiltinLibrary> = {
+    name: (left, right) => compareText(left.name, right.name),
+    version: (left, right) => compareText(left.version, right.version) || compareText(left.name, right.name),
+}
 
 function size(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
@@ -96,6 +115,18 @@ export default function Extensions() {
         [builtin, query],
     )
     const libraries = new Set(installed.map((entry) => entry.canonical)).size
+    const installedSort = useSort(shownInstalled, 'extensions', INSTALLED_COMPARE, { field: 'name', order: 'asc' }, ['installed'])
+    const installedPages = usePagination(installedSort.sorted, 'extensions')
+    const builtinSort = useSort(shownBuiltin, 'extensions-builtin', BUILTIN_COMPARE, { field: 'name', order: 'asc' })
+    const builtinPages = usePagination(builtinSort.sorted, 'extensions-builtin')
+    const sortInstalled = (field: InstalledSortField) => {
+        installedSort.toggle(field)
+        installedPages.setPage(1)
+    }
+    const sortBuiltin = (field: BuiltinSortField) => {
+        builtinSort.toggle(field)
+        builtinPages.setPage(1)
+    }
 
     const act = async (entry: ExtensionVersion, action: 'verify' | 'repair' | 'remove') => {
         const label = `${entry.name} ${entry.version}`
@@ -188,7 +219,11 @@ export default function Extensions() {
                         <input
                             type="search"
                             value={search}
-                            onChange={(event) => setSearch(event.target.value)}
+                            onChange={(event) => {
+                                setSearch(event.target.value)
+                                installedPages.setPage(1)
+                                builtinPages.setPage(1)
+                            }}
                             placeholder={tab === 'installed' ? 'Search libraries or plugins…' : 'Search Entropy’s libraries…'}
                             aria-label="Search libraries"
                         />
@@ -205,11 +240,11 @@ export default function Extensions() {
                         <table className="list-table extensions-table">
                             <thead>
                                 <tr>
-                                    <th scope="col">Library</th>
-                                    <th scope="col">Version</th>
-                                    <th scope="col">Includes</th>
-                                    <th scope="col">Used by</th>
-                                    <th scope="col">Installed</th>
+                                    <th scope="col" aria-sort={installedSort.ariaSort('name')}><SortHeader label="Library" field="name" sort={installedSort.sort} onSort={sortInstalled} /></th>
+                                    <th scope="col" aria-sort={installedSort.ariaSort('version')}><SortHeader label="Version" field="version" sort={installedSort.sort} onSort={sortInstalled} /></th>
+                                    <th scope="col" aria-sort={installedSort.ariaSort('includes')}><SortHeader label="Includes" field="includes" sort={installedSort.sort} onSort={sortInstalled} /></th>
+                                    <th scope="col" aria-sort={installedSort.ariaSort('used_by')}><SortHeader label="Used by" field="used_by" sort={installedSort.sort} onSort={sortInstalled} /></th>
+                                    <th scope="col" aria-sort={installedSort.ariaSort('installed')}><SortHeader label="Installed" field="installed" sort={installedSort.sort} onSort={sortInstalled} /></th>
                                     <th scope="col" className="list-operations-cell">
                                         <span className="list-operations-heading">Operations</span>
                                     </th>
@@ -237,7 +272,7 @@ export default function Extensions() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    shownInstalled.map((entry) => (
+                                    installedPages.pageItems.map((entry) => (
                                         <tr key={entry.id}>
                                             <td>
                                                 <div className="runs-who">
@@ -321,12 +356,12 @@ export default function Extensions() {
                         <table className="list-table extensions-table">
                             <thead>
                                 <tr>
-                                    <th scope="col">Library</th>
-                                    <th scope="col">Version</th>
+                                    <th scope="col" aria-sort={builtinSort.ariaSort('name')}><SortHeader label="Library" field="name" sort={builtinSort.sort} onSort={sortBuiltin} /></th>
+                                    <th scope="col" aria-sort={builtinSort.ariaSort('version')}><SortHeader label="Version" field="version" sort={builtinSort.sort} onSort={sortBuiltin} /></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {shownBuiltin.map((entry) => (
+                                {builtinPages.pageItems.map((entry) => (
                                     <tr key={entry.name}>
                                         <td>
                                             <div className="runs-who">
@@ -343,6 +378,7 @@ export default function Extensions() {
                         </table>
                     </div>
                 )}
+                {!loading && <Pagination state={tab === 'installed' ? installedPages : builtinPages} noun="libraries" />}
             </section>
 
             {installing && (

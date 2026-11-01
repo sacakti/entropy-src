@@ -8,8 +8,6 @@ import {
     ArrowUpDown,
     Check,
     ChevronDown,
-    ChevronLeft,
-    ChevronRight,
     Copy,
     Download,
     MoreHorizontal,
@@ -47,6 +45,8 @@ import PluginUpdates from './PluginUpdates'
 import StartRunDialog from '../runs/StartRunDialog'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import Pagination from '../../components/layout/Pagination'
+import { usePageSize } from '../../components/layout/usePagination'
 
 // Monaco is large; load the editor only when a plugin is opened.
 const PluginEditor = lazy(() => import('./editor/PluginEditor'))
@@ -56,7 +56,8 @@ type PluginStatusFilter = 'all' | 'enabled' | 'disabled' | 'draft'
 type PluginSortField = NonNullable<PluginListParams['sort_by']>
 type SortOrder = 'asc' | 'desc'
 
-const PAGE_SIZE = 10
+// Pickers that search plugins need only the first few matches.
+const PICKER_PAGE_SIZE = 10
 
 function formatDate(value: string | null): string {
     if (!value) return '—'
@@ -400,6 +401,7 @@ export default function Plugins() {
     const [page, setPage] = useState(1)
     const [total, setTotal] = useState(0)
     const [totalPages, setTotalPages] = useState(0)
+    const [pageSize, setPageSize] = usePageSize('plugins')
 
     const [selectedPlugin, setSelectedPlugin] =
         useState<PluginItem | null>(null)
@@ -445,7 +447,7 @@ export default function Plugins() {
                 sort_by: sortBy,
                 order,
                 page,
-                page_size: PAGE_SIZE,
+                page_size: pageSize,
             })
 
             setPlugins(result.items)
@@ -463,7 +465,7 @@ export default function Plugins() {
             setRefreshing(false)
             requestInProgress.current = false
         }
-    }, [search, statusFilter, namespaceFilter, sortBy, order, page])
+    }, [search, statusFilter, namespaceFilter, sortBy, order, page, pageSize])
 
     useEffect(() => {
         void loadPlugins()
@@ -1095,58 +1097,21 @@ export default function Plugins() {
                     </table>
                 </div>
 
-                <footer className="list-pagination">
-                    <span>
-                        {total === 0
-                            ? 'No plugins'
-                            : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(
-                                  page * PAGE_SIZE,
-                                  total,
-                              )} of ${total}`}
-                    </span>
-
-                    <div className="list-pagination-controls">
-                        <label htmlFor="list-page-select">Page</label>
-                        <select
-                            id="list-page-select"
-                            className="entropy-select list-page-select"
-                            value={page}
-                            onChange={(event) =>
-                                setPage(Number(event.target.value))
-                            }
-                            disabled={totalPages <= 1}
-                        >
-                            {Array.from(
-                                { length: totalPages },
-                                (_, index) => index + 1,
-                            ).map((pageNumber) => (
-                                <option key={pageNumber} value={pageNumber}>
-                                    {pageNumber}
-                                </option>
-                            ))}
-                        </select>
-                        <span>of {totalPages}</span>
-
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                            aria-label="Previous page"
-                            disabled={page <= 1 || loading}
-                            onClick={() => setPage((current) => current - 1)}
-                        >
-                            <ChevronLeft size={17} />
-                        </button>
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                            aria-label="Next page"
-                            disabled={page >= totalPages || loading}
-                            onClick={() => setPage((current) => current + 1)}
-                        >
-                            <ChevronRight size={17} />
-                        </button>
-                    </div>
-                </footer>
+                <Pagination
+                    noun="plugins"
+                    state={{
+                        page,
+                        pages: Math.max(1, totalPages),
+                        pageSize,
+                        total,
+                        pageItems: plugins,
+                        setPage,
+                        setPageSize: (size) => {
+                            setPageSize(size)
+                            setPage(1)
+                        },
+                    }}
+                />
             </section>
 
             {selectedPlugin && (
@@ -1241,7 +1206,7 @@ export default function Plugins() {
                     placeholder="Search plugins"
                     empty="No plugins match your search."
                     load={async (query) =>
-                        (await listPlugins({ q: query || undefined, page_size: PAGE_SIZE })).items.map(
+                        (await listPlugins({ q: query || undefined, page_size: PICKER_PAGE_SIZE })).items.map(
                             (item) => ({
                                 id: item.qualified_name,
                                 label: item.qualified_name,
@@ -1250,7 +1215,7 @@ export default function Plugins() {
                         )
                     }
                     onPick={async (item) => {
-                        const result = await listPlugins({ q: item.id, page_size: PAGE_SIZE })
+                        const result = await listPlugins({ q: item.id, page_size: PICKER_PAGE_SIZE })
                         const plugin = result.items.find((entry) => entry.qualified_name === item.id)
                         if (plugin) void handleDelete(plugin)
                     }}

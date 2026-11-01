@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ArrowUp, Check, Copy, Eye, Folder, FolderOpen, GitBranch, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Copy, Eye, Folder, FolderOpen, GitBranch, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { apiRequest } from '../../../services/api'
 import RepositoryBrowser from './RepositoryBrowser'
@@ -7,6 +7,9 @@ import Dialog from '../../../components/layout/Dialog'
 import './git-repositories.css'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../../components/feedback/useToast'
+import Pagination from '../../../components/layout/Pagination'
+import { usePagination } from '../../../components/layout/usePagination'
+import { compareText, compareValue, useSort, type Comparators } from '../../../components/layout/useSort'
 
 type Assignment = { target_type: 'workflow' | 'plugin'; target_key: string }
 type Repository = {
@@ -15,6 +18,22 @@ type Repository = {
     source_type: 'managed' | 'local' | 'remote'; source_display: string
 }
 type Target = { key: string; name: string }
+type RepositorySortField = 'name' | 'created' | 'scope' | 'source' | 'creator'
+const REPOSITORY_SORTS: { field: RepositorySortField; label: string }[] = [
+    { field: 'name', label: 'Name' },
+    { field: 'created', label: 'Created' },
+    { field: 'scope', label: 'Scope' },
+    { field: 'source', label: 'Source' },
+    { field: 'creator', label: 'Created by' },
+]
+const REPOSITORY_COMPARE: Comparators<RepositorySortField, Repository> = {
+    name: (left, right) => compareText(left.name, right.name),
+    created: (left, right) => compareValue(left.created_at, right.created_at) || compareText(left.name, right.name),
+    scope: (left, right) => compareText(left.scope, right.scope) || compareText(left.name, right.name),
+    source: (left, right) => compareText(left.source_type, right.source_type) || compareText(left.name, right.name),
+    creator: (left, right) => compareText(left.created_by, right.created_by) || compareText(left.name, right.name),
+}
+const NO_REPOSITORIES: Repository[] = []
 type RepositoryData = {
     items: Repository[]; project: { id: number; key: string; name: string }
     permissions: { project_write: boolean }
@@ -33,6 +52,12 @@ function suggestedRepositoryName(location: string) {
 export default function GitRepositories() {
     const { notify, modal } = useFeedback()
     const [data, setData] = useState<RepositoryData | null>(null)
+    const repositorySort = useSort(data?.items ?? NO_REPOSITORIES, 'git-repositories', REPOSITORY_COMPARE, { field: 'name', order: 'asc' }, ['created'])
+    const repositoryPages = usePagination(repositorySort.sorted, 'git-repositories')
+    const changeRepositorySort = (field: RepositorySortField) => {
+        repositorySort.toggle(field)
+        repositoryPages.setPage(1)
+    }
     const [targets, setTargets] = useState<Targets>({ workflows: [], plugins: [] })
     const [name, setName] = useState('')
     const [scope, setScope] = useState<'user' | 'project'>('project')
@@ -168,7 +193,17 @@ export default function GitRepositories() {
         </form>
 
         {!data ? <EntropyLoader label="Loading repositories…" /> : data.items.length ? <div className="git-repository-list">
-            {data.items.map((repository) => <article className="git-repository-card" key={repository.id}>
+            <div className="list-pagination-controls" role="group" aria-label="Sort repositories">
+                <label>Sort by{' '}
+                    <select className="entropy-select list-page-select" value={repositorySort.sort.field} onChange={(event) => changeRepositorySort(event.target.value as RepositorySortField)} aria-label="Sort repositories by">
+                        {REPOSITORY_SORTS.map((option) => <option key={option.field} value={option.field}>{option.label}</option>)}
+                    </select>
+                </label>
+                <button type="button" className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm" onClick={() => changeRepositorySort(repositorySort.sort.field)} aria-label={repositorySort.sort.order === 'asc' ? 'Ascending; switch to descending' : 'Descending; switch to ascending'} title={repositorySort.sort.order === 'asc' ? 'Ascending' : 'Descending'}>
+                    {repositorySort.sort.order === 'asc' ? <ArrowUp size={15} /> : <ArrowDown size={15} />}
+                </button>
+            </div>
+            {repositoryPages.pageItems.map((repository) => <article className="git-repository-card" key={repository.id}>
                 <div className="git-repository-card-heading"><span className="git-repository-mark"><GitBranch size={18} /></span><div><strong>{repository.name}</strong><span>{repository.scope === 'user' ? 'Personal · private to you' : `${data.project.name} · project scoped`} · {repository.source_display} · Created by {repository.created_by}</span></div><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setBrowsing(repository)}><Eye size={15} /> Browse</button>{repository.can_manage && <button type="button" className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm" onClick={() => void deleteRepository(repository)} title="Delete repository"><Trash2 size={16} /></button>}</div>
                 <div className="git-clone-command"><code>git clone '{repository.clone_path}'</code><button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => void copyClonePath(repository)} title="Copy clone command"><Copy size={15} /></button></div>
                 <p className="git-repository-help">Clone this path on the Entropy server to add commits. Assigned repositories are cloned into each run workspace.</p>
@@ -183,6 +218,7 @@ export default function GitRepositories() {
                 </details>}
                 {(!repository.can_manage || !data.permissions.project_write) && <div className="git-repository-assigned">Assigned to {(repository.assignments.length && repository.assignments.map((item) => `${item.target_type}: ${item.target_key}`).join(', ')) || 'no workflows or plugins'}</div>}
             </article>)}
+            <Pagination state={repositoryPages} noun="repositories" />
         </div> : <div className="git-repositories-empty"><GitBranch size={28} /><strong>No repositories yet</strong><span>Create a personal or project repository to start.</span></div>}
         </>}
         {pathPickerOpen && <Dialog title="Browse Entropy server" subtitle="Choose a Git repository directory on the Entropy host." icon={<FolderOpen size={18} />} onClose={() => setPathPickerOpen(false)} className="git-server-path-dialog" footer={<><button type="button" className="entropy-button entropy-button-secondary" onClick={() => setPathPickerOpen(false)}>Cancel</button><button type="button" className="entropy-button entropy-button-primary" onClick={selectServerPath} disabled={!pathListing?.is_git_repository || pathPickerLoading}>Use this repository</button></>}>

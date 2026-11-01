@@ -5,6 +5,10 @@ import { adminApi, type AdminGroup, type AdminRole, type AdminUser, type Members
 import { projectsApi, type ProjectSummary } from '../../api/projects.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePagination } from '../../components/layout/usePagination'
+import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { AdminPanel, Checklist, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
@@ -14,6 +18,18 @@ import { missingPermission } from './permissionReason'
 import { ProjectMembershipEditor } from './ProjectMemberships'
 import { usePermissions } from './usePermissions'
 import { useErrorToast } from '../../components/feedback/useToast'
+
+type GroupSortField = 'name' | 'members' | 'roles' | 'projects' | 'updated'
+const byName = (left: AdminGroup, right: AdminGroup) => compareText(left.name, right.name)
+const GROUP_COMPARE: Comparators<GroupSortField, AdminGroup> = {
+    name: byName,
+    members: (left, right) => compareValue(left.users.length, right.users.length) || byName(left, right),
+    roles: (left, right) => compareText(left.roles.join(', '), right.roles.join(', ')) || byName(left, right),
+    projects: (left, right) =>
+        compareText((left.projects ?? []).map((item) => item.project_name).join(', '), (right.projects ?? []).map((item) => item.project_name).join(', ')) ||
+        byName(left, right),
+    updated: (left, right) => compareValue(left.updated_at, right.updated_at) || byName(left, right),
+}
 
 export default function AdminGroups() {
     const { notify, modal } = useFeedback()
@@ -78,6 +94,13 @@ export default function AdminGroups() {
               )
             : groups
     }, [groups, search])
+
+    const { sorted, sort, toggle, ariaSort } = useSort(filtered, 'admin-groups', GROUP_COMPARE, { field: 'name', order: 'asc' }, ['updated'])
+    const pages = usePagination(sorted, 'admin-groups')
+    const changeSort = (field: GroupSortField) => {
+        toggle(field)
+        pages.setPage(1)
+    }
 
     const remove = async (group: AdminGroup) => {
         const confirmed = await modal.confirm({
@@ -150,7 +173,10 @@ export default function AdminGroups() {
                     <SearchField
                         inputRef={searchRef}
                         value={search}
-                        onChange={setSearch}
+                        onChange={(value) => {
+                            setSearch(value)
+                            pages.setPage(1)
+                        }}
                         placeholder="Search groups, members, roles or projects…"
                     />
                 }
@@ -159,11 +185,11 @@ export default function AdminGroups() {
                     <table className="list-table">
                         <thead>
                             <tr>
-                                <th>Group</th>
-                                <th>Members</th>
-                                <th>Global roles</th>
-                                <th>Projects</th>
-                                <th>Updated</th>
+                                <th aria-sort={ariaSort('name')}><SortHeader label="Group" field="name" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('members')}><SortHeader label="Members" field="members" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('roles')}><SortHeader label="Global roles" field="roles" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('projects')}><SortHeader label="Projects" field="projects" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('updated')}><SortHeader label="Updated" field="updated" sort={sort} onSort={changeSort} /></th>
                                 <th className="list-operations-cell">
                                     <span className="list-operations-heading">Operations</span>
                                 </th>
@@ -183,7 +209,7 @@ export default function AdminGroups() {
                                     }
                                 />
                             ) : (
-                                filtered.map((group) => (
+                                pages.pageItems.map((group) => (
                                     <tr key={group.id}>
                                         <td>
                                             <div className="list-name">
@@ -241,6 +267,7 @@ export default function AdminGroups() {
                         </tbody>
                     </table>
                 </div>
+                <Pagination state={pages} noun="groups" />
             </AdminPanel>
 
             {editing && (

@@ -4,6 +4,10 @@ import { BadgeCheck, Check, Copy, FolderKanban, Globe, LoaderCircle, Lock, Penci
 import { adminApi, type AdminModule, type AdminRole, type RoleScope } from '../../api/admin.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePagination } from '../../components/layout/usePagination'
+import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { AdminPanel, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
@@ -65,6 +69,18 @@ function allowedNames(modules: AdminModule[], scope: RoleScope): Set<string> {
     )
 }
 
+type RoleSortField = 'role' | 'permissions' | 'users' | 'groups' | 'projects'
+// Built-in roles first, then by title: the order the page always used.
+const byRole = (left: AdminRole, right: AdminRole) =>
+    Number(right.is_builtin) - Number(left.is_builtin) || compareText(roleLabel(left), roleLabel(right))
+const ROLE_COMPARE: Comparators<RoleSortField, AdminRole> = {
+    role: byRole,
+    permissions: (left, right) => compareValue(left.permissions.length, right.permissions.length) || byRole(left, right),
+    users: (left, right) => compareValue(left.users.length, right.users.length) || byRole(left, right),
+    groups: (left, right) => compareValue(left.groups.length, right.groups.length) || byRole(left, right),
+    projects: (left, right) => compareValue(left.project_members, right.project_members) || byRole(left, right),
+}
+
 export default function AdminRoles() {
     const { notify, modal } = useFeedback()
     const permissions = usePermissions()
@@ -111,19 +127,29 @@ export default function AdminRoles() {
 
     const filtered = useMemo(() => {
         const needle = search.trim().toLowerCase()
-        const sorted = [...roles].sort(
-            (a, b) => Number(b.is_builtin) - Number(a.is_builtin) || roleLabel(a).localeCompare(roleLabel(b)),
-        )
 
         return needle
-            ? sorted.filter((role) =>
+            ? roles.filter((role) =>
                   [role.name, role.title, role.description, ...role.permissions]
                       .join(' ')
                       .toLowerCase()
                       .includes(needle),
               )
-            : sorted
+            : roles
     }, [roles, search])
+
+    // One sort for both tables; each scope pages on its own.
+    const { sorted, sort, toggle, ariaSort } = useSort(filtered, 'admin-roles', ROLE_COMPARE, { field: 'role', order: 'asc' })
+    const globalRoles = useMemo(() => sorted.filter((role) => role.scope === 'global'), [sorted])
+    const projectRoles = useMemo(() => sorted.filter((role) => role.scope === 'project'), [sorted])
+    const globalPages = usePagination(globalRoles, 'admin-roles-global')
+    const projectPages = usePagination(projectRoles, 'admin-roles-project')
+    const pagesFor = (scope: RoleScope) => (scope === 'global' ? globalPages : projectPages)
+    const changeSort = (field: RoleSortField) => {
+        toggle(field)
+        globalPages.setPage(1)
+        projectPages.setPage(1)
+    }
 
     const remove = async (role: AdminRole) => {
         const holders =
@@ -223,7 +249,11 @@ export default function AdminRoles() {
                     <SearchField
                         inputRef={searchRef}
                         value={search}
-                        onChange={setSearch}
+                        onChange={(value) => {
+                            setSearch(value)
+                            globalPages.setPage(1)
+                            projectPages.setPage(1)
+                        }}
                         placeholder="Search roles or permissions…"
                     />
                 }
@@ -231,7 +261,8 @@ export default function AdminRoles() {
                 <ScopeIntro />
 
                 {SCOPES.map((scope) => {
-                    const scoped = filtered.filter((role) => role.scope === scope.id)
+                    const pages = pagesFor(scope.id)
+                    const scoped = scope.id === 'global' ? globalRoles : projectRoles
                     const Icon = scope.icon
 
                     return (
@@ -247,15 +278,15 @@ export default function AdminRoles() {
                                 <table className="list-table">
                                     <thead>
                                         <tr>
-                                            <th>Role</th>
-                                            <th>Permissions</th>
+                                            <th aria-sort={ariaSort('role')}><SortHeader label="Role" field="role" sort={sort} onSort={changeSort} /></th>
+                                            <th aria-sort={ariaSort('permissions')}><SortHeader label="Permissions" field="permissions" sort={sort} onSort={changeSort} /></th>
                                             {scope.id === 'global' ? (
                                                 <>
-                                                    <th>Users</th>
-                                                    <th>Groups</th>
+                                                    <th aria-sort={ariaSort('users')}><SortHeader label="Users" field="users" sort={sort} onSort={changeSort} /></th>
+                                                    <th aria-sort={ariaSort('groups')}><SortHeader label="Groups" field="groups" sort={sort} onSort={changeSort} /></th>
                                                 </>
                                             ) : (
-                                                <th>Used in projects</th>
+                                                <th aria-sort={ariaSort('projects')}><SortHeader label="Used in projects" field="projects" sort={sort} onSort={changeSort} /></th>
                                             )}
                                             <th className="list-operations-cell">
                                                 <span className="list-operations-heading">Operations</span>
@@ -272,7 +303,7 @@ export default function AdminRoles() {
                                                 text={search ? 'Try a different search.' : 'Create one with the + button.'}
                                             />
                                         ) : (
-                                            scoped.map((role) => (
+                                            pages.pageItems.map((role) => (
                                                 <RoleRow
                                                     key={role.id}
                                                     role={role}
@@ -289,6 +320,7 @@ export default function AdminRoles() {
                                     </tbody>
                                 </table>
                             </div>
+                            <Pagination state={pages} noun={scope.heading.toLowerCase()} />
                         </section>
                     )
                 })}

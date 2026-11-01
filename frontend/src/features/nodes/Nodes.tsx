@@ -33,6 +33,28 @@ import ProvisioningLog from './ProvisioningLog'
 import RemoveNodeDialog from './RemoveNodeDialog'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePagination } from '../../components/layout/usePagination'
+import { compareValue, useSort, type Comparators } from '../../components/layout/useSort'
+
+type SampleSortField = 'time' | 'cpu' | 'memory' | 'disk' | 'load' | 'jobs'
+const SAMPLE_COMPARE: Comparators<SampleSortField, MetricSample> = {
+    time: (left, right) => compareValue(left.sampled_at, right.sampled_at),
+    cpu: (left, right) => compareValue(left.cpu_percent, right.cpu_percent) || compareValue(left.sampled_at, right.sampled_at),
+    memory: (left, right) => compareValue(left.memory_percent, right.memory_percent) || compareValue(left.sampled_at, right.sampled_at),
+    disk: (left, right) => compareValue(left.disk_percent, right.disk_percent) || compareValue(left.sampled_at, right.sampled_at),
+    load: (left, right) => compareValue(left.load1, right.load1) || compareValue(left.sampled_at, right.sampled_at),
+    jobs: (left, right) => compareValue(left.running_jobs, right.running_jobs) || compareValue(left.sampled_at, right.sampled_at),
+}
+const SAMPLE_COLUMNS: { field: SampleSortField; label: string }[] = [
+    { field: 'time', label: 'Time' },
+    { field: 'cpu', label: 'CPU' },
+    { field: 'memory', label: 'Memory' },
+    { field: 'disk', label: 'Disk' },
+    { field: 'load', label: 'Load' },
+    { field: 'jobs', label: 'Jobs' },
+]
 
 type NodeAction = { kind: 'setup' | 'remove' | 'log'; node: EntropyNode }
 
@@ -218,6 +240,13 @@ function NodeCard({
     const [copied, setCopied] = useState(false)
     const metrics = node.metrics
     const endpoint = `${window.location.origin}${nodesApi.metricsUrl(node.name)}`
+    // Newest sample first by default; the highest values first for the metrics.
+    const sampleSort = useSort(history, 'node-history', SAMPLE_COMPARE, { field: 'time', order: 'desc' }, ['time', 'cpu', 'memory', 'disk', 'load', 'jobs'])
+    const samplePages = usePagination(sampleSort.sorted, 'node-history')
+    const sortSamples = (field: SampleSortField) => {
+        sampleSort.toggle(field)
+        samplePages.setPage(1)
+    }
 
     const copy = async () => {
         try {
@@ -365,16 +394,15 @@ function NodeCard({
                         <table className="list-table">
                             <thead>
                                 <tr>
-                                    <th scope="col">Time</th>
-                                    <th scope="col">CPU</th>
-                                    <th scope="col">Memory</th>
-                                    <th scope="col">Disk</th>
-                                    <th scope="col">Load</th>
-                                    <th scope="col">Jobs</th>
+                                    {SAMPLE_COLUMNS.map((column) => (
+                                        <th key={column.field} scope="col" aria-sort={sampleSort.ariaSort(column.field)}>
+                                            <SortHeader label={column.label} field={column.field} sort={sampleSort.sort} onSort={sortSamples} />
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
-                                {[...history].reverse().map((sample) => (
+                                {samplePages.pageItems.map((sample) => (
                                     <tr key={sample.sampled_at}>
                                         <td className="list-cell-text">{formatTime(sample.sampled_at)}</td>
                                         <td>{sample.cpu_percent?.toFixed(1) ?? '—'}%</td>
@@ -386,6 +414,7 @@ function NodeCard({
                                 ))}
                             </tbody>
                         </table>
+                        <Pagination state={samplePages} noun="samples" />
                     </div>
                 )}
             </section>

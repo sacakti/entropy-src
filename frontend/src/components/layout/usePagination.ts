@@ -27,21 +27,30 @@ export type PaginationState<T> = {
  * list (`key`) in this browser; the page is clamped when the list shrinks.
  */
 export function usePagination<T>(items: T[], key: string): PaginationState<T> {
-    const [pageSize, setSize] = useState(() => storedSize(key))
+    const [pageSize, setStoredSize] = usePageSize(key)
     const [requested, setPage] = useState(1)
     const pages = Math.max(1, Math.ceil(items.length / pageSize))
     const page = Math.min(Math.max(1, requested), pages)
     const pageItems = useMemo(() => items.slice((page - 1) * pageSize, page * pageSize), [items, page, pageSize])
 
     const setPageSize = (size: number) => {
-        setSize(size)
+        setStoredSize(size)
         setPage(1)
+    }
+
+    return { page, pages, pageSize, total: items.length, pageItems, setPage, setPageSize }
+}
+
+/** The page size of a list (`key`), remembered in this browser; for server-paged lists too. */
+export function usePageSize(key: string): [number, (size: number) => void] {
+    const [pageSize, setSize] = useState(() => storedSize(key))
+    const update = (size: number) => {
+        setSize(size)
         try {
             window.localStorage.setItem(`entropy.pageSize.${key}`, String(size))
         } catch {
             // Storage may be unavailable (private mode); the size still applies now.
         }
     }
-
-    return { page, pages, pageSize, total: items.length, pageItems, setPage, setPageSize }
+    return [pageSize, update]
 }

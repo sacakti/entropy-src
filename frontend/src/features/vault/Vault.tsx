@@ -60,6 +60,17 @@ import Editor from '@monaco-editor/react'
 import { useMonacoTheme } from '../tools/monacoTools'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePagination } from '../../components/layout/usePagination'
+import { compareText, useSort, type Comparators } from '../../components/layout/useSort'
+
+type EntrySortField = 'key' | 'type' | 'storage'
+const ENTRY_COMPARE: Comparators<EntrySortField, VaultEntry> = {
+    key: (left, right) => compareText(left.key, right.key),
+    type: (left, right) => compareText(left.type, right.type) || compareText(left.key, right.key),
+    storage: (left, right) => Number(left.sensitive) - Number(right.sensitive) || compareText(left.key, right.key),
+}
 
 
 
@@ -246,6 +257,12 @@ export default function Vault() {
     const [fileDialog, setFileDialog] = useState<string | null>(null)
 
     const [entries, setEntries] = useState<VaultEntry[]>([])
+    const entrySort = useSort(entries, 'vault-entries', ENTRY_COMPARE, { field: 'key', order: 'asc' })
+    const entryPages = usePagination(entrySort.sorted, 'vault-entries')
+    const changeEntrySort = (field: EntrySortField) => {
+        entrySort.toggle(field)
+        entryPages.setPage(1)
+    }
 
     // The caller's Vault permissions in the current project; null until loaded.
     const [permissions, setPermissions] = useState<VaultPermissions | null>(null)
@@ -1655,11 +1672,11 @@ export default function Vault() {
 
                                             <tr>
 
-                                                <th>Key</th>
+                                                <th aria-sort={entrySort.ariaSort('key')}><SortHeader label="Key" field="key" sort={entrySort.sort} onSort={changeEntrySort} /></th>
 
-                                                <th>Type</th>
+                                                <th aria-sort={entrySort.ariaSort('type')}><SortHeader label="Type" field="type" sort={entrySort.sort} onSort={changeEntrySort} /></th>
 
-                                                <th>Storage</th>
+                                                <th aria-sort={entrySort.ariaSort('storage')}><SortHeader label="Storage" field="storage" sort={entrySort.sort} onSort={changeEntrySort} /></th>
 
                                                 <th>Value</th>
 
@@ -1671,7 +1688,7 @@ export default function Vault() {
 
                                         <tbody>
 
-                                            {entries.map((entry) => {
+                                            {entryPages.pageItems.map((entry) => {
                                                 const revealedEntry = revealed[entry.key]
                                                 const isRevealed = Boolean(revealedEntry)
                                                 const revealedValue = revealedEntry
@@ -1813,6 +1830,8 @@ export default function Vault() {
                                 </div>
 
                             )}
+
+                            <Pagination state={entryPages} noun="secrets" />
 
                         </section>
 

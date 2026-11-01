@@ -27,6 +27,10 @@ import AddMenu from '../../components/layout/AddMenu'
 import { missingPermission as missing } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
 import AppPortal from '../../components/layout/AppPortal'
+import Pagination from '../../components/layout/Pagination'
+import { usePagination } from '../../components/layout/usePagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
 import StartRunDialog from '../runs/StartRunDialog'
 import RunAlertsDialog from '../runs/RunAlertsDialog'
 import { MoveToProjectDialog } from '../transfer/TransferDialogs'
@@ -57,6 +61,13 @@ function formatDate(value: string): string {
     return Number.isNaN(date.getTime())
         ? '—'
         : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+type WorkflowSortField = 'name' | 'version' | 'updated'
+const WORKFLOW_COMPARE: Comparators<WorkflowSortField, WorkflowSummary> = {
+    name: (left, right) => compareText(left.name, right.name),
+    version: (left, right) => compareText(left.version, right.version) || compareText(left.name, right.name),
+    updated: (left, right) => compareValue(left.updated_at, right.updated_at) || compareText(left.name, right.name),
 }
 
 export default function Workflows() {
@@ -341,6 +352,13 @@ export default function Workflows() {
             : workflows
     }, [search, workflows])
 
+    const { sorted, sort, toggle, ariaSort } = useSort(filtered, 'workflows', WORKFLOW_COMPARE, { field: 'name', order: 'asc' }, ['updated'])
+    const pages = usePagination(sorted, 'workflows')
+    const changeSort = (field: WorkflowSortField) => {
+        toggle(field)
+        pages.setPage(1)
+    }
+
     return (
         <section className="list-page workflows-page">
 
@@ -395,7 +413,10 @@ export default function Workflows() {
                         ref={searchRef}
                         type="search"
                         value={search}
-                        onChange={(event) => setSearch(event.target.value)}
+                        onChange={(event) => {
+                            setSearch(event.target.value)
+                            pages.setPage(1)
+                        }}
                         placeholder="Search workflows…"
                         aria-label="Search workflows"
                     />
@@ -480,9 +501,15 @@ export default function Workflows() {
                                         disabled={filtered.length === 0}
                                     />
                                 </th>
-                                <th scope="col">Workflow</th>
-                                <th scope="col">Version</th>
-                                <th scope="col">Updated</th>
+                                <th scope="col" aria-sort={ariaSort('name')}>
+                                    <SortHeader label="Workflow" field="name" sort={sort} onSort={changeSort} />
+                                </th>
+                                <th scope="col" aria-sort={ariaSort('version')}>
+                                    <SortHeader label="Version" field="version" sort={sort} onSort={changeSort} />
+                                </th>
+                                <th scope="col" aria-sort={ariaSort('updated')}>
+                                    <SortHeader label="Updated" field="updated" sort={sort} onSort={changeSort} />
+                                </th>
                                 <th scope="col" className="list-operations-cell">
                                     <span className="list-operations-heading">Operations</span>
                                 </th>
@@ -568,7 +595,7 @@ export default function Workflows() {
                                         </td>
                                     </tr>
                                 ))}
-                                {filtered.map((workflow) => (
+                                {pages.pageItems.map((workflow) => (
                                     <tr
                                         key={workflow.name}
                                         className={selectedName === workflow.name ? 'is-selected' : undefined}
@@ -676,6 +703,7 @@ export default function Workflows() {
                         </tbody>
                     </table>
                 </div>
+                {!loading && <Pagination state={pages} noun="workflows" />}
             </section>
 
             {deletePickerOpen && (

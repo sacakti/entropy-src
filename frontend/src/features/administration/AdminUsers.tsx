@@ -19,6 +19,10 @@ import { adminApi, type AdminGroup, type AdminRole, type AdminUser, type Members
 import { projectsApi, type ProjectSummary } from '../../api/projects.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePagination } from '../../components/layout/usePagination'
+import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { AdminPanel, Checklist, ChipList, EmptyRow, SearchField, Tabs } from './AdminPanel'
@@ -56,6 +60,20 @@ function initials(user: AdminUser): string {
     const words = (user.full_name ?? '').trim().split(/\s+/).filter(Boolean)
     if (words.length >= 2) return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
     return (words[0]?.[0] ?? user.username[0] ?? '?').toUpperCase()
+}
+
+type UserSortField = 'user' | 'status' | 'roles' | 'groups' | 'projects' | 'created'
+const byUsername = (left: AdminUser, right: AdminUser) => compareText(left.username, right.username)
+const USER_COMPARE: Comparators<UserSortField, AdminUser> = {
+    user: byUsername,
+    // Active before disabled when ascending.
+    status: (left, right) => compareValue(Number(right.is_active), Number(left.is_active)) || byUsername(left, right),
+    roles: (left, right) => compareText(left.roles.join(', '), right.roles.join(', ')) || byUsername(left, right),
+    groups: (left, right) => compareText(left.groups.join(', '), right.groups.join(', ')) || byUsername(left, right),
+    projects: (left, right) =>
+        compareText((left.projects ?? []).map((item) => item.project_name).join(', '), (right.projects ?? []).map((item) => item.project_name).join(', ')) ||
+        byUsername(left, right),
+    created: (left, right) => compareValue(left.created_at, right.created_at) || byUsername(left, right),
 }
 
 export default function AdminUsers() {
@@ -130,6 +148,13 @@ export default function AdminUsers() {
                         .includes(needle)),
         )
     }, [search, status, users])
+
+    const { sorted, sort, toggle, ariaSort } = useSort(filtered, 'admin-users', USER_COMPARE, { field: 'user', order: 'asc' }, ['created'])
+    const pages = usePagination(sorted, 'admin-users')
+    const changeSort = (field: UserSortField) => {
+        toggle(field)
+        pages.setPage(1)
+    }
 
     const replace = (updated: AdminUser) =>
         setUsers((current) => current.map((user) => (user.id === updated.id ? updated : user)))
@@ -234,7 +259,10 @@ export default function AdminUsers() {
                         <SearchField
                             inputRef={searchRef}
                             value={search}
-                            onChange={setSearch}
+                            onChange={(value) => {
+                                setSearch(value)
+                                pages.setPage(1)
+                            }}
                             placeholder="Search users, roles, groups or projects…"
                         />
                         <label className="list-filter">
@@ -242,7 +270,10 @@ export default function AdminUsers() {
                             <select
                                 className="entropy-select"
                                 value={status}
-                                onChange={(event) => setStatus(event.target.value as StatusFilter)}
+                                onChange={(event) => {
+                                    setStatus(event.target.value as StatusFilter)
+                                    pages.setPage(1)
+                                }}
                             >
                                 <option value="all">All users</option>
                                 <option value="active">Active</option>
@@ -256,12 +287,12 @@ export default function AdminUsers() {
                     <table className="list-table">
                         <thead>
                             <tr>
-                                <th>User</th>
-                                <th>Status</th>
-                                <th>Roles</th>
-                                <th>Groups</th>
-                                <th>Projects</th>
-                                <th>Created</th>
+                                <th aria-sort={ariaSort('user')}><SortHeader label="User" field="user" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('status')}><SortHeader label="Status" field="status" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('roles')}><SortHeader label="Roles" field="roles" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('groups')}><SortHeader label="Groups" field="groups" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('projects')}><SortHeader label="Projects" field="projects" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('created')}><SortHeader label="Created" field="created" sort={sort} onSort={changeSort} /></th>
                                 <th className="list-operations-cell">
                                     <span className="list-operations-heading">Operations</span>
                                 </th>
@@ -277,7 +308,7 @@ export default function AdminUsers() {
                                     text={search || status !== 'all' ? 'Try a different search or filter.' : 'Create the first user.'}
                                 />
                             ) : (
-                                filtered.map((user) => (
+                                pages.pageItems.map((user) => (
                                     <tr key={user.id} className={user.is_active ? undefined : 'is-muted'}>
                                         <td>
                                             <div className="list-name">
@@ -366,6 +397,7 @@ export default function AdminUsers() {
                         </tbody>
                     </table>
                 </div>
+                <Pagination state={pages} noun="users" />
             </AdminPanel>
 
             {editing && (

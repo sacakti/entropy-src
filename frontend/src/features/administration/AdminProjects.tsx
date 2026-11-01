@@ -29,6 +29,10 @@ import {
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import PickerDialog, { type PickerItem } from '../../components/layout/PickerDialog'
+import Pagination from '../../components/layout/Pagination'
+import SortHeader from '../../components/layout/SortHeader'
+import { usePagination } from '../../components/layout/usePagination'
+import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
 import { useShortcuts } from '../../components/layout/useShortcuts'
 import { notifyProjectsUpdated } from '../../services/project'
 import { ProjectDumpDialog, ProjectRestoreDialog } from '../transfer/TransferDialogs'
@@ -67,6 +71,15 @@ function projectKey(name: string): string {
 }
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
+
+type ProjectSortField = 'name' | 'workflows' | 'schedules' | 'members' | 'roles'
+const PROJECT_COMPARE: Comparators<ProjectSortField, ProjectSummary> = {
+    name: (left, right) => compareText(left.name, right.name),
+    workflows: (left, right) => compareValue(left.workflows, right.workflows) || compareText(left.name, right.name),
+    schedules: (left, right) => compareValue(left.schedules, right.schedules) || compareText(left.name, right.name),
+    members: (left, right) => compareValue(left.members, right.members) || compareText(left.name, right.name),
+    roles: (left, right) => compareText(left.my_roles.join(', '), right.my_roles.join(', ')) || compareText(left.name, right.name),
+}
 
 export default function AdminProjects() {
     const { notify, modal } = useFeedback()
@@ -153,6 +166,13 @@ export default function AdminProjects() {
     const createReason = canCreate ? null : (manageReason ?? 'You may not create projects.')
     const project = projects.find((item) => item.key === selected) ?? null
 
+    const { sorted, sort, toggle, ariaSort } = useSort(filtered, 'admin-projects', PROJECT_COMPARE, { field: 'name', order: 'asc' })
+    const pages = usePagination(sorted, 'admin-projects')
+    const changeSort = (field: ProjectSortField) => {
+        toggle(field)
+        pages.setPage(1)
+    }
+
     const remove = async (target: ProjectSummary) => {
         const confirmed = await modal.confirm({
             title: `Delete project ${target.name}?`,
@@ -223,7 +243,10 @@ export default function AdminProjects() {
                     <SearchField
                         inputRef={searchRef}
                         value={search}
-                        onChange={setSearch}
+                        onChange={(value) => {
+                            setSearch(value)
+                            pages.setPage(1)
+                        }}
                         placeholder="Search projects…"
                     />
                 }
@@ -234,11 +257,11 @@ export default function AdminProjects() {
                     <table className="list-table admin-project-table">
                         <thead>
                             <tr>
-                                <th>Project</th>
-                                <th>Workflows</th>
-                                <th>Schedules</th>
-                                <th>Members</th>
-                                <th>My roles</th>
+                                <th aria-sort={ariaSort('name')}><SortHeader label="Project" field="name" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('workflows')}><SortHeader label="Workflows" field="workflows" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('schedules')}><SortHeader label="Schedules" field="schedules" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('members')}><SortHeader label="Members" field="members" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('roles')}><SortHeader label="My roles" field="roles" sort={sort} onSort={changeSort} /></th>
                                 <th className="list-operations-cell">
                                     <span className="list-operations-heading">Operations</span>
                                 </th>
@@ -254,7 +277,7 @@ export default function AdminProjects() {
                                     text={search ? 'Try a different search.' : 'Create a project to get started.'}
                                 />
                             ) : (
-                                filtered.map((item) => (
+                                pages.pageItems.map((item) => (
                                     <tr
                                         key={item.key}
                                         className={`admin-row-selectable${item.key === selected ? ' is-selected' : ''}`}
@@ -359,6 +382,7 @@ export default function AdminProjects() {
                         </tbody>
                     </table>
                 </div>
+                <Pagination state={pages} noun="projects" />
             </AdminPanel>
 
             {project && (

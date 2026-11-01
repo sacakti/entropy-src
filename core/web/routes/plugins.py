@@ -164,7 +164,7 @@ def list_plugins(
     page_size: int = Query(
         default=10,
         ge=1,
-        le=10,
+        le=200,
     ),
 ) -> JSONResponse:
     """List installed plugins with search, sorting, and pagination."""
