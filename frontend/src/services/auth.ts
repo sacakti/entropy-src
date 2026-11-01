@@ -8,10 +8,27 @@ export interface AuthUser {
   avatar_url?: string | null
 }
 
+/** Lifetime and inactivity limit of the browser session. */
+export interface SessionInfo {
+  expires_at: string
+  /** 0: no inactivity limit. */
+  idle_timeout_seconds: number
+  idle_expires_at: string | null
+}
+
+/** A previous sign-in: when, and from which address. */
+export interface LastLogin {
+  at: string
+  address: string | null
+}
+
 interface CurrentUserResponse {
   user: AuthUser
   permissions: string[]
   expires_at: string
+  session?: SessionInfo
+  /** The sign-in before this one (null for a first sign-in). */
+  last_login?: LastLogin | null
   /** Show the welcome tour (a new account that has not finished it). */
   tour?: boolean
 }
@@ -117,4 +134,14 @@ export async function finishTour(): Promise<void> {
     credentials: 'same-origin',
     headers: { 'X-CSRF-Token': csrfToken },
   })
+}
+
+/** The user is active: restart the server's inactivity timer. */
+export function keepSessionAlive(): Promise<SessionInfo> {
+  return apiRequest<SessionInfo>('/api/auth/keepalive', { method: 'POST' })
+}
+
+/** When the session ends; asking does not count as activity. */
+export function sessionStatus(): Promise<SessionInfo> {
+  return apiRequest<SessionInfo>('/api/auth/session')
 }

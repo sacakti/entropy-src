@@ -5,6 +5,7 @@ import {
     Check,
     CheckCheck,
     ChevronDown,
+    Clock,
     ChevronRight,
     HelpCircle,
     LogOut,
@@ -47,6 +48,8 @@ function relativeTime(value: string): string {
 
 interface TopbarProps {
     profile: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>
+    /** The sign-in before this one, as text (null: first sign-in or unknown). */
+    lastLogin?: string | null
     onOpenHelp: () => void
     /** Open or close the shell (ent commands in the browser). */
     onToggleShell: () => void
@@ -73,6 +76,7 @@ interface TopbarProps {
 
 export default function Topbar({
     profile,
+    lastLogin,
     onOpenHelp,
     onToggleShell,
     shellOpen,
@@ -443,6 +447,13 @@ export default function Topbar({
                             </button>
 
                             <div className="profile-menu-divider" />
+
+                            {lastLogin && (
+                                <p className="profile-menu-last-login" title="Your sign-in before this one. Tell an administrator if it was not you.">
+                                    <Clock size={13} aria-hidden="true" />
+                                    <span>Last sign-in<strong>{lastLogin}</strong></span>
+                                </p>
+                            )}
 
                             <button
                                 className="profile-logout"

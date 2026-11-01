@@ -31,6 +31,8 @@ export interface AdminUser {
     projects: ProjectMembership[]
     /** Where the user signs in: Entropy's own password, LDAP, or single sign-on. */
     source: 'local' | 'ldap' | 'oidc'
+    /** Latest browser sign-in (null: never signed in to the web UI). */
+    last_login_at?: string | null
 }
 
 export type RoleScope = 'global' | 'project'

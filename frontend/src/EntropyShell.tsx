@@ -36,7 +36,8 @@ import { runIdFromHash } from './features/runs/navigation'
 import { PAGE_PERMISSIONS, pageFromHash, parentPage, type PageId } from './types/navigation'
 import AccessRestricted from './components/layout/AccessRestricted'
 import { requestCreate, type CreateTarget } from './features/quickCreate'
-import { finishTour, getCurrentUser } from './services/auth'
+import { finishTour, getCurrentUser, type LastLogin, type SessionInfo } from './services/auth'
+import SessionTimeout from './components/feedback/SessionTimeout'
 import Tour, { type TourStep } from './features/tour/Tour'
 import { PROJECT_CHANGED_EVENT } from './services/project'
 
@@ -124,10 +125,17 @@ interface EntropyShellProps {
     /** Display name to greet, right after signing in. */
     welcome: string | null
     onLogout: () => void
+    /** The server ended the session after inactivity. */
+    onIdle: () => void
 }
 
+/** "Nov 1, 2026, 7:13 PM from 10.0.0.4" */
+function lastLoginText(login: LastLogin): string {
+    const when = new Date(login.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    return login.address ? `${when} from ${login.address}` : when
+}
 
-function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
+function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
     const { notify } = useFeedback()
     const [profile, setProfile] = useState<Profile>(() => ({
         id: user.id,
@@ -161,11 +169,17 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
     // Greet once per sign-in (effects run twice in development).
     const greeted = useRef(false)
 
+    const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null)
+    const [lastLogin, setLastLogin] = useState<LastLogin | null | undefined>(undefined)
+
+    // After signing in, say who and when they last signed in (spotting sign-ins that were not theirs).
     useEffect(() => {
-        if (!welcome || greeted.current) return
+        if (!welcome || greeted.current || lastLogin === undefined) return
         greeted.current = true
-        notify.success(`Signed in as ${welcome}.`)
-    }, [notify, welcome])
+        notify.success(
+            lastLogin ? `Signed in as ${welcome}. Last sign-in: ${lastLoginText(lastLogin)}.` : `Signed in as ${welcome}. Welcome to your first sign-in.`,
+        )
+    }, [notify, welcome, lastLogin])
 
     useShortcuts({
         'shift+?': (event) => {
@@ -370,13 +384,18 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
             .then((result) => {
                 if (!active) return
                 setPermissions(new Set(result.permissions))
+                if (result.session) setSessionInfo((current) => current ?? result.session ?? null)
+                setLastLogin((current) => (current === undefined ? result.last_login ?? null : current))
                 // New accounts get the welcome tour once, after the page has drawn.
                 if (result.tour && !tourOffered.current) {
                     tourOffered.current = true
                     window.setTimeout(() => setTourOpen(true), 400)
                 }
             })
-            .catch(() => undefined)
+            .catch(() => {
+                // Still greet when the details are unavailable.
+                if (active) setLastLogin((current) => (current === undefined ? null : current))
+            })
 
         return () => {
             active = false
@@ -485,6 +504,7 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                     )}
                     <Topbar
                     profile={profile}
+                    lastLogin={lastLogin ? lastLoginText(lastLogin) : null}
                     onOpenHelp={() => setHelpOpen(true)}
                     onToggleShell={() => setShellOpen((open) => !open)}
                     shellOpen={shellOpen}
@@ -590,6 +610,10 @@ function EntropyShell({ user, welcome, onLogout }: EntropyShellProps) {
                         </Suspense>
                     </main>
                 </div>
+
+                {sessionInfo && sessionInfo.idle_timeout_seconds > 0 && (
+                    <SessionTimeout session={sessionInfo} onExpired={onIdle} onSignOut={onLogout} />
+                )}
 
                 {helpOpen && (
                     <HelpDialog

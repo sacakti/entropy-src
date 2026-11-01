@@ -62,7 +62,7 @@ function initials(user: AdminUser): string {
     return (words[0]?.[0] ?? user.username[0] ?? '?').toUpperCase()
 }
 
-type UserSortField = 'user' | 'status' | 'roles' | 'groups' | 'projects' | 'created'
+type UserSortField = 'user' | 'status' | 'roles' | 'groups' | 'projects' | 'created' | 'last_login'
 const byUsername = (left: AdminUser, right: AdminUser) => compareText(left.username, right.username)
 const USER_COMPARE: Comparators<UserSortField, AdminUser> = {
     user: byUsername,
@@ -74,6 +74,7 @@ const USER_COMPARE: Comparators<UserSortField, AdminUser> = {
         compareText((left.projects ?? []).map((item) => item.project_name).join(', '), (right.projects ?? []).map((item) => item.project_name).join(', ')) ||
         byUsername(left, right),
     created: (left, right) => compareValue(left.created_at, right.created_at) || byUsername(left, right),
+    last_login: (left, right) => compareValue(left.last_login_at, right.last_login_at) || byUsername(left, right),
 }
 
 export default function AdminUsers() {
@@ -149,7 +150,7 @@ export default function AdminUsers() {
         )
     }, [search, status, users])
 
-    const { sorted, sort, toggle, ariaSort } = useSort(filtered, 'admin-users', USER_COMPARE, { field: 'user', order: 'asc' }, ['created'])
+    const { sorted, sort, toggle, ariaSort } = useSort(filtered, 'admin-users', USER_COMPARE, { field: 'user', order: 'asc' }, ['created', 'last_login'])
     const pages = usePagination(sorted, 'admin-users')
     const changeSort = (field: UserSortField) => {
         toggle(field)
@@ -293,6 +294,7 @@ export default function AdminUsers() {
                                 <th aria-sort={ariaSort('groups')}><SortHeader label="Groups" field="groups" sort={sort} onSort={changeSort} /></th>
                                 <th aria-sort={ariaSort('projects')}><SortHeader label="Projects" field="projects" sort={sort} onSort={changeSort} /></th>
                                 <th aria-sort={ariaSort('created')}><SortHeader label="Created" field="created" sort={sort} onSort={changeSort} /></th>
+                                <th aria-sort={ariaSort('last_login')}><SortHeader label="Last sign-in" field="last_login" sort={sort} onSort={changeSort} /></th>
                                 <th className="list-operations-cell">
                                     <span className="list-operations-heading">Operations</span>
                                 </th>
@@ -300,10 +302,10 @@ export default function AdminUsers() {
                         </thead>
                         <tbody>
                             {loading && users.length === 0 ? (
-                                <EmptyRow colSpan={7} title="Loading users…" text="Fetching accounts." />
+                                <EmptyRow colSpan={8} title="Loading users…" text="Fetching accounts." />
                             ) : filtered.length === 0 ? (
                                 <EmptyRow
-                                    colSpan={7}
+                                    colSpan={8}
                                     title="No users found"
                                     text={search || status !== 'all' ? 'Try a different search or filter.' : 'Create the first user.'}
                                 />
@@ -350,6 +352,7 @@ export default function AdminUsers() {
                                             <ChipList values={membershipLabels(user.projects ?? [])} max={2} empty="None" />
                                         </td>
                                         <td className="list-cell-text">{formatDate(user.created_at)}</td>
+                                        <td className="list-cell-text" title={user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Never signed in to the web UI'}>{user.last_login_at ? formatDate(user.last_login_at) : 'Never'}</td>
                                         <td>
                                             <div className="list-operations">
                                                 <button

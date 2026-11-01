@@ -35,6 +35,10 @@ class WebSessionStore:
         self.timeout_seconds = int(
             self._configuration.get("auth.session.timeout", 8)
         ) * 60 * 60
+        # Browser sessions end after this long without activity (0: never).
+        self.idle_seconds = max(
+            0, int(self._configuration.get("auth.session.idle_minutes", 15)) * 60
+        )
 
     @property
     def cli_timeout_seconds(self) -> int:
@@ -43,7 +47,13 @@ class WebSessionStore:
         return int(self._configuration.get("auth.cli.timeout", 168)) * 60 * 60
 
     def login(
-        self, username: str, password: str, *, seconds: Optional[int] = None
+        self,
+        username: str,
+        password: str,
+        *,
+        seconds: Optional[int] = None,
+        browser: bool = True,
+        address: Optional[str] = None,
     ) -> Tuple[Session, str]:
         """Authenticate credentials and create a separate browser session."""
 
@@ -51,10 +61,21 @@ class WebSessionStore:
 
         # Local accounts check their password here; LDAP accounts the directory.
         user = sign_in(self._context, username, password)
-        return self.issue(user, seconds=seconds)
+        return self.issue(user, seconds=seconds, browser=browser, address=address)
 
-    def issue(self, user: User, *, seconds: Optional[int] = None) -> Tuple[Session, str]:
-        """A new session for an already authenticated user (e.g. a CLI token)."""
+    def issue(
+        self,
+        user: User,
+        *,
+        seconds: Optional[int] = None,
+        browser: bool = True,
+        address: Optional[str] = None,
+    ) -> Tuple[Session, str]:
+        """
+        A new session for an already authenticated user. Browser sessions
+        record the sign-in and end after `idle_seconds` without activity;
+        command line tokens (browser=False) do neither.
+        """
 
         assert user.id is not None
 
@@ -82,13 +103,78 @@ class WebSessionStore:
             {
                 "session": session.to_dict(),
                 "csrf_token": csrf_token,
+                "browser": browser,
+                "last_activity": now.isoformat(),
             },
         )
         self._executor.chmod(self._session_path(token), 0o600)
 
         self._executor.chmod(self._directory, 0o700)
 
+        if browser:
+            self._record_login(user.id, address)
+
         return session, csrf_token
+
+    # ------------------------------------------------------------------
+    # Inactivity
+    # ------------------------------------------------------------------
+
+    def idle_deadline(self, token: Optional[str]) -> Optional[datetime]:
+        """When the browser session ends unless it is used (None: no idle limit)."""
+
+        data = self._read(token)
+        if data is None:
+            return None
+        return self._deadline(data)
+
+    def touch(self, token: Optional[str]) -> Optional[datetime]:
+        """
+        The user is active: restart the inactivity timer. Only explicit
+        keepalives do this, so background polling never keeps an
+        abandoned browser signed in.
+        """
+
+        data = self._read(token)
+        if data is None or self.get(token) is None:
+            return None
+        data["last_activity"] = datetime.now().isoformat()
+        path = self._session_path(str(token))
+        self._executor.write_json(path, data)
+        self._executor.chmod(path, 0o600)
+        return self._deadline(data)
+
+    def _deadline(self, data: dict) -> Optional[datetime]:
+        if not data.get("browser") or not self.idle_seconds:
+            return None
+        try:
+            last = datetime.fromisoformat(data["last_activity"])
+        except (KeyError, TypeError, ValueError):
+            # Sessions from before the idle limit count from their creation.
+            last = datetime.fromisoformat(data["session"]["created_at"])
+        return last + timedelta(seconds=self.idle_seconds)
+
+    def _read(self, token: Optional[str]) -> Optional[dict]:
+        if not token or len(token) != 64 or any(c not in "0123456789abcdef" for c in token):
+            return None
+        path = self._session_path(token)
+        if not self._executor.exists(path):
+            return None
+        try:
+            data = self._executor.read_json(path)
+        except (TypeError, ValueError, OSError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _record_login(self, user_id: Optional[int], address: Optional[str]) -> None:
+        """Remember the sign-in (shown to the user as their last sign-in next time)."""
+
+        manager = self._context.database_manager
+        if manager is None or user_id is None:
+            return
+        from lib.database.repositories.user_logins import UserLoginsRepository
+
+        UserLoginsRepository(manager.connection).record(user_id, address)
 
     def get(
         self,
@@ -116,6 +202,12 @@ class WebSessionStore:
             return None
 
         if session.token != token or datetime.now() >= session.expires_at:
+            self._delete_path(path)
+            return None
+
+        deadline = self._deadline(data)
+        if deadline is not None and datetime.now() >= deadline:
+            # Signed out after inactivity.
             self._delete_path(path)
             return None
 

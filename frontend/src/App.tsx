@@ -105,6 +105,7 @@ function App() {
     return <EntropyShell
       user={user}
       welcome={justSignedIn ? displayName(user) : null}
+      onIdle={() => endSession('idle')}
       onLogout={async () => {
         try { await logout() } finally {
           endSession('signed-out')

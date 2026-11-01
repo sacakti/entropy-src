@@ -133,7 +133,9 @@ def oidc_callback(request: Request) -> Response:
         return _login_page("Sign-in failed.")
 
     store = request.app.state.web_session_store
-    session, csrf = store.issue(user)
+    session, csrf = store.issue(
+        user, address=request.client.host if request.client else None
+    )
     response = RedirectResponse("/", status_code=303)
     options = _cookie_options(request)
     response.set_cookie(

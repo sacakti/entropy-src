@@ -22,7 +22,7 @@ function takeSsoError(): string {
 export interface EndedSession {
   name: string
   username: string
-  reason: 'signed-out' | 'expired'
+  reason: 'signed-out' | 'expired' | 'idle'
 }
 
 type LoginProps = {
@@ -96,7 +96,9 @@ export default function Login({ onLogin, endedSession }: LoginProps) {
         <div className="login-heading"><h2>Welcome back</h2><p>Sign in to continue to your workspace.</p></div>
         {endedSession && (
           <p className="login-session-ended" role="status">
-            {endedSession.reason === 'expired'
+            {endedSession.reason === 'idle'
+              ? <>You were signed out after a period of inactivity, <strong>{endedSession.name}</strong>. Sign in again to continue.</>
+              : endedSession.reason === 'expired'
               ? <>Your session ended, <strong>{endedSession.name}</strong>. Sign in again to continue.</>
               : <><strong>{endedSession.name}</strong> signed out.</>}
           </p>

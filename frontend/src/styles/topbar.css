@@ -605,3 +605,10 @@
         display: none;
     }
 }
+
+.entropy-app .profile-menu-last-login { display: flex; align-items: flex-start; gap: 8px; margin: 2px 0 4px; padding: 6px 12px; color: var(--app-muted); font-size: 12px; line-height: 1.4; }
+.entropy-app .profile-menu-last-login svg { flex: none; margin-top: 2px; }
+.entropy-app .profile-menu-last-login span { display: grid; gap: 1px; }
+.entropy-app .profile-menu-last-login strong { color: var(--app-text); font-weight: 500; }
+.entropy-app .session-timeout-text,
+.entropy-modal .session-timeout-text { margin: 0; color: var(--app-muted); line-height: 1.5; }

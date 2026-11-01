@@ -333,6 +333,14 @@ def _user_payloads(request: Request) -> List[dict]:
     from lib.auth.external import ExternalAccounts
 
     sources = ExternalAccounts(_context(request)).providers()
+    from lib.database.repositories.user_logins import UserLoginsRepository
+
+    users = sorted(
+        _context(request).user_manager.list(), key=lambda item: item.username.casefold()
+    )
+    logins = UserLoginsRepository(connection).latest(
+        user.id for user in users if user.id is not None
+    )
 
     return [
         {
@@ -350,11 +358,10 @@ def _user_payloads(request: Request) -> List[dict]:
             "projects": projects.get(user.id, []),
             # local, ldap or oidc: where the user signs in.
             "source": sources.get(user.id, "local"),
+            # Latest browser sign-in (None: never signed in to the web UI).
+            "last_login_at": logins.get(user.id) if user.id is not None else None,
         }
-        for user in sorted(
-            _context(request).user_manager.list(),
-            key=lambda item: item.username.casefold(),
-        )
+        for user in users
     ]
 
 
