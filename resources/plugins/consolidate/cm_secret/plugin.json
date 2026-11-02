@@ -1,7 +1,7 @@
 {
     "name": "cm_secret",
     "namespace": "consolidate",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Consolidate the ConfigMap and Secret changes of several release packages into one set of YAMLs for oc.cm_secret_update.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",

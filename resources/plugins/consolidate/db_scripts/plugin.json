@@ -1,0 +1,30 @@
+{
+    "name": "db_scripts",
+    "namespace": "consolidate",
+    "version": "1.0.0",
+    "description": "Collect the database scripts of several release packages into one ordered execution plan for sqlplus.generic. Every script runs; none is merged or edited.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "arguments": [
+        {"name": "release_directory", "type": "path", "path": "directory", "required": false, "description": "Folder of release packages (ZIPs or extracted folders), run in natural name order (H9 before H10). Give this or 'releases'.", "example": "/opt/releases/2026-R4"},
+        {"name": "releases", "type": "list", "required": false, "description": "Release packages (ZIPs or extracted folders), run in exactly this order. Give this or 'release_directory'.", "example": ["/opt/releases/H010.zip", "/opt/releases/H011.zip"]},
+        {"name": "output_directory", "type": "path", "path": "directory", "required": false, "description": "Where DBScripts and consolidation-report.json are written; defaults to <workspace>/consolidated/db_scripts.", "example": "/opt/entropy/consolidated/db_scripts"},
+        {"name": "overwrite", "type": "boolean", "required": false, "default": false, "description": "Empty a non-empty output_directory first (otherwise such a folder is refused, so stale scripts are never run)."}
+    ],
+
+    "outputs": [
+        {"name": "output_directory", "type": "string", "description": "Folder holding DBScripts (the execution plan and one folder per execution) and the report."},
+        {"name": "report", "type": "string", "description": "Path of consolidation-report.json: releases, the executions in order, and warnings."},
+        {"name": "releases", "type": "list", "description": "Release names in the order they run."},
+        {"name": "steps", "type": "list", "description": "The executions in order: application, release, source_application, schema and calling_script."},
+        {"name": "database", "type": "dictionary", "description": "Database context with dir, scripts and execution_plan; give it to sqlplus.generic as 'execution' (plan mode)."},
+        {"name": "changed", "type": "boolean", "description": "True when at least one release has database scripts to run."}
+    ],
+
+    "tags": ["consolidate", "release", "database", "sqlplus"],
+
+    "license": ""
+}

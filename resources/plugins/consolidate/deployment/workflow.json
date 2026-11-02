@@ -1,0 +1,37 @@
+{
+    "name": "consolidated-deployment",
+    "version": "1.0.0",
+    "description": "Example workflow for consolidate.deployment: merge the Deployment changes of all releases in a folder, then apply the result to the YAML repository with oc.deployment.",
+    "variables": {
+        "release_directory": "/opt/releases/2026-R4",
+        "yaml_repository": "/opt/entropy/yamls/SIT"
+    },
+    "steps": [
+        {
+            "name": "ConsolidateDeployment",
+            "plugin": "consolidate.deployment",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "consolidate"
+            ],
+            "arguments": {
+                "release_directory": "${release_directory}"
+            }
+        },
+        {
+            "name": "ApplyDeployment",
+            "plugin": "oc.deployment",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "openshift"
+            ],
+            "arguments": {
+                "mode": "folder",
+                "source": "${steps.ConsolidateDeployment.outputs.output_directory}",
+                "target": "${yaml_repository}"
+            }
+        }
+    ]
+}

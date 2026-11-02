@@ -94,6 +94,12 @@ YAML may still have the key. In the output, deletes come before writes;
 they never overlap, so the result is the same as applying the releases in
 sequence.
 
+Comments around `format: properties` entries are kept in the output, above
+the property they precede, and `oc.cm_secret_update` writes them into the
+properties content. When several releases comment on one property, all their
+comments are kept. A later delete of the property drops them. Comments around
+`yaml` and `json` entries are not kept.
+
 Native resources in a row merge into one (later keys win). An update
 between two native resources keeps its place, so the output may hold
 several documents for one ConfigMap/Secret, in the order they must be

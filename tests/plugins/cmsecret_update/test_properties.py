@@ -216,3 +216,119 @@ def test_empty_entries_preserves_content() -> None:
     )
 
     assert result == content
+
+
+def test_preserves_spaced_separators() -> None:
+    content = "a.b = old\n" "c.d : old\n" "e.f=   old\n"
+
+    result, _ = _updater().update(
+        content,
+        {
+            "a.b": "new",
+            "c.d": "new",
+            "e.f": "new",
+        },
+    )
+
+    assert result == ("a.b = new\n" "c.d : new\n" "e.f=   new\n")
+
+
+def test_updates_indented_property_without_duplicating() -> None:
+    result, changes = _updater().update(
+        "  a.b=old\n",
+        {
+            "a.b": "new",
+        },
+    )
+
+    assert result == "  a.b=new\n"
+    assert changes == [{"key": "a.b", "status": "updated"}]
+
+
+def test_commented_property_is_left_and_active_property_added() -> None:
+    result, _ = _updater().update(
+        "#a.b=old\n" "! a.c=old\n",
+        {
+            "a.b": "new",
+        },
+    )
+
+    assert result == ("#a.b=old\n" "! a.c=old\n" "a.b=new\n")
+
+
+def test_formats_yaml_scalars() -> None:
+    result, _ = _updater().update(
+        "on=false\n",
+        {
+            "on": True,
+            "off": False,
+            "port": 8080,
+            "empty": None,
+        },
+    )
+
+    assert result == ("on=true\n" "off=false\n" "port=8080\n" "empty=\n")
+
+
+def test_update_replaces_continuation_lines() -> None:
+    result, _ = _updater().update(
+        "a.b=one,\\\n" "  two\n" "c.d=keep\n",
+        {
+            "a.b": "new",
+        },
+    )
+
+    assert result == ("a.b=new\n" "c.d=keep\n")
+
+
+def test_continuation_text_is_not_treated_as_property() -> None:
+    content = "a.b=one,\\\n" "  c.d=two\n"
+
+    result, changes = _updater().update(
+        content,
+        {
+            "c.d": "new",
+        },
+    )
+
+    assert result == (content + "c.d=new\n")
+    assert changes == [{"key": "c.d", "status": "added"}]
+
+
+def test_comment_ending_in_backslash_does_not_continue() -> None:
+    result, _ = _updater().update(
+        "# note \\\n" "a.b=old\n",
+        {
+            "a.b": "new",
+        },
+    )
+
+    assert result == ("# note \\\n" "a.b=new\n")
+
+
+def test_delete_handles_spacing_comments_and_continuations() -> None:
+    content = "# keep\n" "a.b = 1\n" "  c.d=2\n" "e.f=one,\\\n" "  two\n" "g.h=3\n"
+
+    result, changes = _updater().delete(
+        content,
+        [
+            "a.b",
+            "c.d",
+            "e.f",
+            "missing",
+        ],
+    )
+
+    assert result == ("# keep\n" "g.h=3\n")
+    assert changes[-1] == {"key": "missing", "status": "unchanged_missing"}
+
+
+def test_plain_mapping_adds_no_comments() -> None:
+    result, _ = _updater().update(
+        "# keep\n" "a.b=old\n",
+        {
+            "a.b": "new",
+        },
+    )
+
+    assert result == ("# keep\n" "a.b=new\n")

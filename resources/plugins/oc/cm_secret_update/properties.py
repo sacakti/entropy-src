@@ -4,12 +4,20 @@ Properties updater.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterator
+
+from lib.executor.yaml_comments import read_mapping_comments
 
 
 class PropertiesUpdater:
     """
     Update simple Java-style properties content.
+
+    Comments, blank lines, unmanaged properties, indentation, and the
+    separator style of updated properties are preserved.
+
+    Comments written around the entries in a YAML source are carried into
+    the properties content. Plain mappings have no comments and add none.
     """
 
     def update(
@@ -20,6 +28,9 @@ class PropertiesUpdater:
         """
         Update existing properties and add missing properties.
 
+        Comments preceding an entry in the source are written directly above
+        its property, unless already there, so repeated runs add nothing.
+
         Returns the updated content and per-key change information.
         """
 
@@ -27,64 +38,43 @@ class PropertiesUpdater:
             keepends=True,
         )
 
+        existing_comments = {line.strip() for line in lines if self._is_comment(line)}
+
+        comments, trailing = read_mapping_comments(
+            entries,
+        )
+
         updated: set[str] = set()
         result: list[str] = []
         changes: list[dict[str, str]] = []
 
-        for line in lines:
+        for statement in self._statements(
+            lines,
+        ):
 
-            stripped = line.strip()
-
-            if not stripped or stripped.startswith("#") or stripped.startswith("!"):
-
-                result.append(
-                    line,
-                )
-
-                continue
-
-            separator = self._separator(
-                line,
+            parsed = self._parse(
+                statement[0],
             )
 
-            if separator is None:
+            if parsed is None or parsed[0] not in entries:
 
-                result.append(
-                    line,
+                result.extend(
+                    statement,
                 )
 
                 continue
 
-            key, _, _ = line.partition(
-                separator,
+            key, prefix = parsed
+
+            self._insert_comments(
+                result,
+                comments.pop(key, []),
+                prefix[: len(prefix) - len(prefix.lstrip())],
+                self._line_ending(statement[-1]) or self._newline(lines),
             )
-
-            key = key.strip()
-
-            if key not in entries:
-
-                result.append(
-                    line,
-                )
-
-                continue
-
-            newline = "\n"
-
-            if line.endswith(
-                "\r\n",
-            ):
-
-                newline = "\r\n"
-
-            elif not line.endswith(
-                "\n",
-            ):
-
-                newline = ""
 
             result.append(
-                f"{key}{separator}" f"{entries[key]}" f"{newline}",
+                f"{prefix}" f"{self._format(entries[key])}" f"{self._line_ending(statement[-1])}",
             )
 
             updated.add(
@@ -118,8 +108,15 @@ class PropertiesUpdater:
 
                 result[-1] += newline
 
+            self._insert_comments(
+                result,
+                comments.pop(key, []),
+                "",
+                newline,
+            )
+
             result.append(
-                f"{key}={value}{newline}",
+                f"{key}={self._format(value)}{newline}",
             )
 
             changes.append(
@@ -128,6 +125,23 @@ class PropertiesUpdater:
                     "status": "added",
                 },
             )
+
+        # Trailing comments follow no property, so nothing marks their place on
+        # a later run: the whole content decides whether they are already there.
+        missing = [line for line in trailing if line not in existing_comments]
+
+        if missing:
+
+            if result and not result[-1].endswith(
+                (
+                    "\n",
+                    "\r",
+                ),
+            ):
+
+                result[-1] += newline
+
+            result.extend(f"{line}{newline}" for line in missing)
 
         return (
             "".join(result),
@@ -157,45 +171,25 @@ class PropertiesUpdater:
         result: list[str] = []
         changes: list[dict[str, str]] = []
 
-        for line in content.splitlines(
-            keepends=True,
+        for statement in self._statements(
+            content.splitlines(
+                keepends=True,
+            ),
         ):
 
-            stripped = line.strip()
-
-            if not stripped or stripped.startswith("#") or stripped.startswith("!"):
-
-                result.append(
-                    line,
-                )
-
-                continue
-
-            separator = self._separator(
-                line,
+            parsed = self._parse(
+                statement[0],
             )
 
-            if separator is None:
+            if parsed is None or parsed[0] not in requested:
 
-                result.append(
-                    line,
+                result.extend(
+                    statement,
                 )
 
                 continue
 
-            key, _, _ = line.partition(
-                separator,
-            )
-
-            key = key.strip()
-
-            if key not in requested:
-
-                result.append(
-                    line,
-                )
-
-                continue
+            key = parsed[0]
 
             deleted.add(
                 key,
@@ -250,39 +244,210 @@ class PropertiesUpdater:
 
         return "\n"
 
+    @staticmethod
+    def _line_ending(
+        line: str,
+    ) -> str:
+
+        if line.endswith(
+            "\r\n",
+        ):
+
+            return "\r\n"
+
+        return "\n" if line.endswith("\n") else ""
+
     # ------------------------------------------------------------------
-    # Separator
+    # Source comments
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _insert_comments(
+        cls,
+        result: list[str],
+        comments: list[str],
+        indent: str,
+        newline: str,
+    ) -> None:
+        """
+        Append comment lines missing from the block directly above this point.
+        """
+
+        present: set[str] = set()
+
+        for line in reversed(result):
+
+            if not cls._is_comment(line):
+                break
+
+            present.add(
+                line.strip(),
+            )
+
+        result.extend(f"{indent}{line}{newline}" for line in comments if line not in present)
+
+    # ------------------------------------------------------------------
+    # Value
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _separator(
+    def _format(
+        value: Any,
+    ) -> str:
+        """
+        Render a YAML/JSON scalar as properties text.
+
+        Python's str() would turn YAML true into "True" and null into "None".
+        """
+
+        if isinstance(
+            value,
+            bool,
+        ):
+
+            return "true" if value else "false"
+
+        return "" if value is None else str(value)
+
+    # ------------------------------------------------------------------
+    # Parsing
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_comment(
         line: str,
-    ) -> str | None:
+    ) -> bool:
+
+        return line.lstrip().startswith(("#", "!"))
+
+    @staticmethod
+    def _is_comment_or_blank(
+        line: str,
+    ) -> bool:
+
+        stripped = line.strip()
+
+        return not stripped or stripped.startswith(("#", "!"))
+
+    @classmethod
+    def _statements(
+        cls,
+        lines: list[str],
+    ) -> Iterator[list[str]]:
+        """
+        Group physical lines into logical lines.
+
+        A line ending in an odd number of backslashes continues on the next
+        line, so continuation text is never mistaken for a property. Comments
+        do not continue.
+        """
+
+        statement: list[str] = []
+
+        for line in lines:
+
+            statement.append(
+                line,
+            )
+
+            if len(statement) == 1 and cls._is_comment_or_blank(
+                line,
+            ):
+
+                yield statement
+
+                statement = []
+
+                continue
+
+            text = line.rstrip(
+                "\r\n",
+            )
+
+            trailing = len(text) - len(text.rstrip("\\"))
+
+            if trailing % 2 == 0:
+
+                yield statement
+
+                statement = []
+
+        if statement:
+
+            yield statement
+
+    @classmethod
+    def _parse(
+        cls,
+        line: str,
+    ) -> tuple[str, str] | None:
+        """
+        Split a property line into its key and the text before its value.
+
+        The prefix keeps the indentation and separator exactly as written,
+        such as "key=", "key = ", "key: " or "key ". Returns None for comments
+        and blank lines.
+        """
+
+        if cls._is_comment_or_blank(
+            line,
+        ):
+
+            return None
+
+        text = line.rstrip(
+            "\r\n",
+        )
+
+        start = len(text) - len(text.lstrip())
+
+        index = start
 
         escaped = False
 
-        for char in line:
+        while index < len(text):
+
+            char = text[index]
 
             if escaped:
 
                 escaped = False
 
-                continue
+            elif char == "\\":
 
-            if char == "\\":
                 escaped = True
 
-                continue
+            elif char in {"=", ":"} or char.isspace():
 
-            if char in {
-                "=",
-                ":",
-            }:
+                break
 
-                return char
+            index += 1
 
-            if char.isspace():
+        key = text[start:index]
 
-                return " "
+        # Key-only line: the value needs a separator to attach to.
+        if index == len(text):
 
-        return None
+            return (
+                key,
+                f"{text} ",
+            )
+
+        end = index
+
+        while end < len(text) and text[end].isspace():
+
+            end += 1
+
+        if end < len(text) and text[end] in {"=", ":"}:
+
+            end += 1
+
+            while end < len(text) and text[end].isspace():
+
+                end += 1
+
+        return (
+            key,
+            text[:end],
+        )

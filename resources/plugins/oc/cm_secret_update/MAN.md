@@ -985,6 +985,33 @@ specified properties.
 
 Other properties remain intact.
 
+Comments and blank lines are preserved, and an updated property keeps its
+indentation and separator (`key=value`, `key = value`, `key: value`,
+`key value`). A commented-out property such as `#server.port=8080` is left as
+it is, and an active property is added. Text after the value on the same line
+(`server.port=8080 # note`) is part of the value in the properties format, so
+it is replaced with the value.
+
+Comments written around `entries` in a YAML source are copied into the
+properties content, directly above the property they precede. This also applies
+to a property that already exists. A comment already directly above the property
+is not added again, so running the same update twice changes nothing. An inline
+comment (`server.port: "8080" # note`) becomes a comment line above the property.
+Comments after the last entry go to the end of the content. Comments indented
+less than the entries are ignored, and an old comment is not removed when the
+source comment changes.
+
+```yaml
+entries:
+  # Listener port
+  server.port: "8080"
+```
+
+```properties
+# Listener port
+server.port=8080
+```
+
 ---
 
 ### Example 8 --- YAML Update

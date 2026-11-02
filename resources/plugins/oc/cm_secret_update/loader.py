@@ -239,14 +239,9 @@ class ConfigMapSecretUpdateLoader:
             and kind == ConfigMapSecretUpdateValidator.KIND
         ):
 
-            definition = ConfigMapSecretUpdateValidator.parse(
+            return ConfigMapSecretUpdateValidator.parse(
                 document,
-            )
-
-            return ConfigMapSecretSource(
-                source_type=SourceType.UPDATE,
                 path=path,
-                update=definition,
             )
 
         raise UpdateFileError(

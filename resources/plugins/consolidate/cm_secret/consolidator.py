@@ -19,6 +19,9 @@ consolidated result is that same sequence, made as short as possible:
     Writes and deletes then never overlap, so writing the deletes first
     gives the same result as applying the releases one by one.
 
+Comments around `format: properties` entries stay with their property, so
+cm_secret_update can write them into the properties content.
+
 No I/O happens here; the plugin reads the releases and writes the result.
 """
 
@@ -28,6 +31,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from lib.executor.yaml_comments import mapping_with_comments, read_mapping_comments
+
 from .exceptions import ConsolidationDefinitionError
 
 API_VERSION = "entropy/v1"
@@ -36,6 +41,9 @@ NATIVE_API_VERSION = "v1"
 KINDS = ("ConfigMap", "Secret")
 ACTIONS = ("add", "update", "delete")
 FORMATS = ("properties", "yaml", "json")
+
+# Where the keys of an operation's `entries` are written in the output YAML.
+ENTRIES_COLUMN = 4
 
 Path_ = Tuple[str, ...]
 
@@ -61,8 +69,13 @@ class _Structured:
     action: str
     writes: Dict[Path_, Any] = field(default_factory=dict)
     deletes: List[Path_] = field(default_factory=list)
+    # format: properties only: property -> comment lines above it.
+    comments: Dict[str, List[str]] = field(default_factory=dict)
+    trailing: List[str] = field(default_factory=list)
 
     def write(self, entries: Dict[str, Any]) -> None:
+        if self.format == "properties":
+            self._keep_comments(entries)
         for path, value in _leaves(entries, nested=self.format != "properties"):
             # The write wins over earlier deletes of this path or below it.
             self.deletes = [item for item in self.deletes if not _within(item, path)]
@@ -82,10 +95,20 @@ class _Structured:
             path = (entry,) if self.format == "properties" else _dotted(entry)
             if not path:
                 continue
+            self.comments.pop(entry, None)
             for written in list(self.writes):
                 if _within(written, path):
                     del self.writes[written]
             self._delete(path)
+
+    def _keep_comments(self, entries: Dict[str, Any]) -> None:
+        """Later comments join earlier ones, as applying in sequence would leave them."""
+
+        comments, trailing = read_mapping_comments(entries)
+        for key, lines in comments.items():
+            kept = self.comments.setdefault(str(key), [])
+            kept.extend(line for line in lines if line not in kept)
+        self.trailing.extend(line for line in trailing if line not in self.trailing)
 
     def _delete(self, path: Path_) -> None:
         if path not in self.deletes:
@@ -111,10 +134,16 @@ class _Structured:
                     "action": self.action,
                     "key": key,
                     "format": self.format,
-                    "entries": _unflatten(self.writes),
+                    "entries": self._written_entries(),
                 }
             )
         return found
+
+    def _written_entries(self) -> Dict[str, Any]:
+        entries = _unflatten(self.writes)
+        if self.format != "properties":
+            return entries
+        return mapping_with_comments(entries, self.comments, self.trailing, ENTRIES_COLUMN)
 
 
 @dataclass

@@ -1,0 +1,46 @@
+{
+    "name": "consolidated-db-scripts",
+    "version": "1.0.0",
+    "description": "Example workflow for consolidate.db_scripts: collect the database scripts of all releases in a folder, then run them in release order with sqlplus.generic.",
+    "variables": {
+        "release_directory": "/opt/releases/2026-R4",
+        "sqlhome": "/opt/oracle/product/client",
+        "connection": {
+            "IP": "localhost",
+            "PORT": 1521,
+            "SID": "orcl"
+        },
+        "schemas": {}
+    },
+    "steps": [
+        {
+            "name": "ConsolidateDbScripts",
+            "plugin": "consolidate.db_scripts",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "consolidate"
+            ],
+            "arguments": {
+                "release_directory": "${release_directory}"
+            }
+        },
+        {
+            "name": "RunDbScripts",
+            "plugin": "sqlplus.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": [
+                "sqlplus"
+            ],
+            "arguments": {
+                "sqlhome": "${sqlhome}",
+                "mode": "plan",
+                "on_error": "abort",
+                "connection": "${connection}",
+                "schemas": "${schemas}",
+                "execution": "${steps.ConsolidateDbScripts.outputs.database}"
+            }
+        }
+    ]
+}

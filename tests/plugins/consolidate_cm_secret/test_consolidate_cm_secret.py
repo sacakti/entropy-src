@@ -325,6 +325,25 @@ class TestPlugin:
         self.context.arguments = PluginArguments(arguments)
         return ConsolidateCmSecretPlugin(self.context).execute()
 
+    def test_comments_in_release_files_reach_the_output_file(self) -> None:
+        releases = self.tmp / "commented"
+        _folder(
+            releases / "H1",
+            {"App/openshift/yamls/cm.yaml": _commented("# one", "a: 1", "b: 1")},
+        )
+        _folder(
+            releases / "H2",
+            {"App/openshift/yamls/cm.yaml": _commented("# two", "c: 2", "# end")},
+        )
+        output = self.tmp / "output"
+
+        result = self._run(release_directory=str(releases), output_directory=str(output))
+
+        assert result.success
+        assert _apply((output / "configmap-cm-app.yaml").read_text(), "a=0\n") == (
+            "# one\na=1\nb=1\n# two\nc=2\n# end\n"
+        )
+
     def test_releases_are_consolidated_in_natural_order(self) -> None:
         result = self._run(release_directory=str(self.releases))
 
@@ -443,3 +462,130 @@ def test_output_is_valid_cm_secret_update_input() -> None:
     for target in result.targets:
         for document in yaml.safe_load_all(yaml.safe_dump_all(target.documents())):
             ConfigMapSecretUpdateValidator.parse(document)
+
+
+# ----------------------------------------------------------------------
+# Comments
+# ----------------------------------------------------------------------
+
+
+def _commented(*lines: str) -> str:
+    entries = "".join(f"      {line}\n" for line in lines)
+    return (
+        "apiVersion: entropy/v1\n"
+        "kind: ConfigMapSecretUpdate\n"
+        "target:\n  kind: ConfigMap\n  name: cm-app\n"
+        "operations:\n"
+        "  - action: add\n"
+        "    format: properties\n"
+        "    key: app.properties\n"
+        f"    entries:\n{entries}"
+    )
+
+
+def _consolidate_text(*releases: str) -> str:
+    """Consolidate YAML texts the way the plugin does, returning the output YAML."""
+
+    filesystem = LinuxExecutor()
+    consolidator = Consolidator()
+    for number, text in enumerate(releases, start=1):
+        for document in filesystem.load_yaml_documents(text):
+            consolidator.add(document, Source(release=f"H{number:03d}", file="x.yaml"))
+    [target] = consolidator.targets
+    return filesystem.serialize_yaml_documents(target.documents())
+
+
+def _apply(output: str, properties: str) -> str:
+    """Apply consolidated YAML with oc.cm_secret_update's real properties updater."""
+
+    updater = _properties_updater()
+    filesystem = LinuxExecutor()
+    [document] = filesystem.load_yaml_documents(output)
+    content = properties
+    for operation in document["operations"]:
+        if operation["action"] == "delete":
+            content, _ = updater.delete(content, operation["entries"])
+        else:
+            content, _ = updater.update(content, operation["entries"])
+    return content
+
+
+def _properties_updater() -> Any:
+    from resources.plugins.oc.cm_secret_update.properties import PropertiesUpdater
+
+    return PropertiesUpdater()
+
+
+def test_comments_survive_consolidation_and_reach_the_properties() -> None:
+    output = _consolidate_text(
+        _commented(
+            "# first",
+            "a: 1 # inline",
+            "# second",
+            "b: 2",
+            "# trailing",
+        ),
+    )
+
+    assert _apply(output, "a=0\n") == ("# first\n# inline\na=1\n# second\nb=2\n# trailing\n")
+
+
+def test_consolidated_comments_match_applying_releases_in_sequence() -> None:
+    first = _commented("# one", "a: 1", "b: 1")
+    second = _commented("# two", "a: 2", "# three", "c: 3")
+
+    sequential = _apply(_consolidate_text(first), "")
+    sequential = _apply(_consolidate_text(second), sequential)
+
+    consolidated = _apply(_consolidate_text(first, second), "")
+
+    def parsed(content: str) -> List[str]:
+        return sorted(content.splitlines())
+
+    assert parsed(consolidated) == parsed(sequential)
+    assert consolidated.index("# one") < consolidated.index("# two") < consolidated.index("a=2")
+
+
+def test_applying_consolidated_comments_twice_changes_nothing() -> None:
+    output = _consolidate_text(_commented("# one", "a: 1", "# two", "b: 2", "# end"))
+
+    once = _apply(output, "x=1\n")
+
+    assert _apply(output, once) == once
+
+
+def test_later_delete_drops_the_comment_of_a_property() -> None:
+    delete = (
+        "apiVersion: entropy/v1\n"
+        "kind: ConfigMapSecretUpdate\n"
+        "target:\n  kind: ConfigMap\n  name: cm-app\n"
+        "operations:\n"
+        "  - action: delete\n"
+        "    format: properties\n"
+        "    key: app.properties\n"
+        "    entries:\n      - a\n"
+    )
+
+    output = _consolidate_text(_commented("# gone", "a: 1", "# stays", "b: 2"), delete)
+
+    assert "# gone" not in output
+    assert _apply(output, "a=0\n") == "# stays\nb=2\n"
+
+
+def test_comments_of_yaml_format_entries_are_not_written() -> None:
+    text = _commented("# note", "a: 1").replace("format: properties", "format: yaml")
+
+    assert "# note" not in _consolidate_text(text)
+
+
+def test_plain_mappings_stay_plain() -> None:
+    result = consolidate(
+        [
+            update(
+                "cm-app",
+                {"action": "add", "key": "p", "format": "properties", "entries": {"a": "1"}},
+            )
+        ],
+    )
+
+    assert type(operations(result)[0]["entries"]) is dict
