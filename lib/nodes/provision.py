@@ -52,6 +52,12 @@ _RUNNING: Dict[str, threading.Thread] = {}
 _RUNNING_LOCK = threading.Lock()
 
 
+
+def _ships_byte_code() -> bool:
+    """True for a release (byte code only, no sources), whose code needs PYTHON_VERSION."""
+
+    return not Path(__file__).with_suffix(".py").exists()
+
 class ProvisionError(Exception):
     """A setup step failed; the message is safe to show."""
 
@@ -437,6 +443,13 @@ df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print "free_kb=" $4}'
         if usable:
             return usable[0]["path"]
         if request.python == "system":
+            if any_modern and _ships_byte_code():
+                # A release runs byte code, which only loads on the Python that compiled it.
+                raise ProvisionError(
+                    f"This Entropy ships byte code for Python {PYTHON_VERSION}; the server has "
+                    f"{', '.join(item['version'] for item in any_modern)}. Install Python "
+                    f"{PYTHON_VERSION} with pip there, or choose the bundled Python."
+                )
             if any_modern:
                 self.log(
                     f"Using {any_modern[0]['path']} {any_modern[0]['version']}; packages not "
@@ -445,7 +458,7 @@ df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print "free_kb=" $4}'
                 )
                 return any_modern[0]["path"]
             raise ProvisionError(
-                "No Python 3.9 or newer with pip was found on the server. Install one or "
+                f"No Python {PYTHON_VERSION} with pip was found on the server. Install one or "
                 "choose the bundled Python."
             )
         found = ", ".join(f"{item['version']}" for item in facts["pythons"]) or "none"
@@ -486,7 +499,8 @@ df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print "free_kb=" $4}'
             python = self._choose_python(request, facts)
             if python is None and facts.get("os") != "Linux":
                 raise ProvisionError(
-                    "The bundled Python is for Linux; install Python 3.9 with pip on this server."
+                    f"The bundled Python is for Linux; install Python {PYTHON_VERSION} with pip "
+                    "on this server."
                 )
 
             rc, out, _ = ssh.run(f"[ -x {_q(ctl)} ] && {_q(ctl)} status")

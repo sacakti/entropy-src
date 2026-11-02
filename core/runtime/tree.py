@@ -130,7 +130,7 @@ class RuntimeTree:
 
     def walk(
         self,
-    ) -> Generator[RuntimeNode, None, None]:
+    ) -> Generator[RuntimeNode]:
 
         if self._root is None:
 
@@ -141,7 +141,7 @@ class RuntimeTree:
     def _walk(
         self,
         node: RuntimeNode,
-    ) -> Generator[RuntimeNode, None, None]:
+    ) -> Generator[RuntimeNode]:
 
         yield node
 

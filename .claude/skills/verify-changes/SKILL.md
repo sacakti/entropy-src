@@ -23,8 +23,9 @@ Focus: $ARGUMENTS
 5. **Baseline.** If failures look unrelated, confirm by running the same tests with
    your changes stashed (`git stash` / `git stash pop`), but only with the user's OK,
    or by checking whether the failing test touches changed code.
-6. **3.9 check** when relevant: the venv is Python 3.9, so a passing import or test
-   run there counts as evidence. Otherwise grep the changed lines for 3.10+ syntax.
+6. **Version check** when relevant: the server runs Python 3.13 (use a 3.13 venv).
+   Changes to `lib/remote_cli/` must stay Python 3.9 compatible; `tests/remote_cli`
+   parses it as 3.9.
 
 ## Report
 - The exact commands run, with pass/fail/error counts. Show only the failing test

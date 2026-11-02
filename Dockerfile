@@ -1,4 +1,4 @@
-# Entropy on Red Hat UBI 9 (Python 3.9), for OpenShift.
+# Entropy on Red Hat UBI 9 with CPython 3.13 (python-build-standalone), for OpenShift.
 #
 #   podman build -t entropy:latest .
 #   podman build -t entropy:latest --build-arg INSTALL_SQLPLUS=0 .
@@ -15,6 +15,10 @@
 #                      a daemon with DOCKER_HOST, see docs/architecture/10-container.md
 
 ARG UBI_REGISTRY=registry.access.redhat.com/ubi9
+# The CPython the application runs on (UBI 9 packages only Python 3.9). Keep in
+# step with CPYTHON_RELEASE / CPYTHON_FULL_VERSION in lib/nodes/packaging.py.
+ARG CPYTHON_RELEASE=20261026
+ARG CPYTHON_VERSION=3.13.18
 
 # ----------------------------------------------------------------------
 # Web UI
@@ -31,9 +35,20 @@ RUN npm run build
 # Python packages (a virtual environment copied into the final image)
 # ----------------------------------------------------------------------
 FROM ${UBI_REGISTRY}/ubi AS python
-RUN dnf -y install python3 python3-pip && dnf clean all
+ARG CPYTHON_RELEASE
+ARG CPYTHON_VERSION
+# Relocatable CPython, checksum-verified, at the path the runtime keeps it.
+RUN arch=$(uname -m) \
+ && name="cpython-${CPYTHON_VERSION}+${CPYTHON_RELEASE}-${arch}-unknown-linux-gnu-install_only.tar.gz" \
+ && base="https://github.com/astral-sh/python-build-standalone/releases/download/${CPYTHON_RELEASE}" \
+ && curl -fsSL -o "/tmp/${name}" "${base}/${name}" \
+ && curl -fsSL "${base}/SHA256SUMS" | grep " ${name}$" | sed "s| ${name}$| /tmp/${name}|" | sha256sum -c - \
+ && mkdir -p /opt/entropy \
+ && tar -xzf "/tmp/${name}" -C /opt/entropy \
+ && rm "/tmp/${name}" \
+ && /opt/entropy/python/bin/python3 --version
 COPY resources/wheels/requirements.txt /tmp/requirements.txt
-RUN python3 -m venv /opt/entropy/venv \
+RUN /opt/entropy/python/bin/python3 -m venv /opt/entropy/venv \
  && /opt/entropy/venv/bin/pip install --no-cache-dir --upgrade pip \
  && /opt/entropy/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
 
@@ -54,8 +69,9 @@ LABEL name="entropy" \
       io.openshift.expose-services="8000:http" \
       io.k8s.display-name="Entropy"
 
-# Runtime needs: Python 3.9, git (git plugin), ssh (node setup), tar/gzip.
-RUN dnf -y install python3 git-core openssh-clients tar gzip procps-ng findutils \
+# Runtime needs: git (git plugin), ssh (node setup), tar/gzip. Python comes from
+# the python stage (CPython 3.13), not the UBI packages.
+RUN dnf -y install git-core openssh-clients tar gzip procps-ng findutils \
  && dnf clean all && rm -rf /var/cache/dnf
 
 # oc + kubectl from the OpenShift mirror.
@@ -85,6 +101,7 @@ RUN if [ "$INSTALL_DOCKER" = 1 ]; then \
       && docker --version; \
     fi
 
+COPY --from=python /opt/entropy/python /opt/entropy/python
 COPY --from=python /opt/entropy/venv /opt/entropy/venv
 COPY core/ /opt/entropy/app/core/
 COPY lib/ /opt/entropy/app/lib/

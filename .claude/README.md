@@ -7,7 +7,7 @@ Written for Claude Code 2.1.x (configured on 2.1.303). Nothing here changes appl
 | File | Loaded | Purpose |
 |---|---|---|
 | `CLAUDE.md` | Every session | Core architecture, compatibility, workflow, verification rules |
-| `rules/python.md` | Only when working on `**/*.py` | 3.9 typing, exceptions, dependencies, tests |
+| `rules/python.md` | Only when working on `**/*.py` | Python versions (3.13, client 3.9), exceptions, dependencies, tests |
 | `rules/plugins.md` | Only for `lib/plugins/**`, `resources/plugins/**`, `tests/plugins/**` | Plugin layout, boundaries, executor facades, results |
 | `skills/*/SKILL.md` | Description always; body only when invoked | Repeatable procedures |
 | `agents/*.md` | Description always; runs in its own context when delegated | Specialist subagents |
@@ -38,7 +38,7 @@ Objective: <one sentence>
 Files/symbols: <path:line, ...>
 Confirmed so far: <facts already verified>
 Required behavior: <what must be true>
-Constraints: Python 3.9; no plugin-to-plugin calls; executor facades only; <task-specific>
+Constraints: Python 3.13 (lib/remote_cli: 3.9); no plugin-to-plugin calls; executor facades only; <task-specific>
 Allowed actions: read-only | may run pytest on <paths>
 Deliverable: <format, e.g. findings list, path trace, test commands>
 ```

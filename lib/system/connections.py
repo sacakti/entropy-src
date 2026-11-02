@@ -34,7 +34,7 @@ def _connect(values: Dict[str, Any], tls: bool) -> socket.socket:
         raise ConnectionCheckError("Save a host name first.")
     try:
         raw = socket.create_connection((host, port), timeout=TIMEOUT_SECONDS)
-    except socket.timeout:
+    except TimeoutError:
         raise ConnectionCheckError(
             f"{host}:{port} did not answer within {TIMEOUT_SECONDS:.0f} seconds."
         ) from None
@@ -90,7 +90,7 @@ def _guard(check: Check) -> Check:
     def run(values: Dict[str, Any]) -> Dict[str, Any]:
         try:
             return check(values)
-        except socket.timeout:
+        except TimeoutError:
             raise ConnectionCheckError("The server stopped answering.") from None
         except (ssl.SSLError, OSError) as exc:
             raise ConnectionCheckError(f"The connection failed: {exc}.") from None

@@ -5,7 +5,7 @@ Build a self-contained Entropy release package:
     entropy-<version>-<platform>.tar.gz
         install.sh | install.cmd    installer entry point
         manifest.json               version, platform, Python, contents
-        python/                     relocatable CPython 3.9
+        python/                     relocatable CPython 3.13
         application/                Entropy (compiled to byte code: no
                                     Python sources), the built web UI and
                                     the platform's Python wheels
@@ -33,12 +33,14 @@ import sys
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from lib.nodes.packaging import (  # noqa: E402
     CPYTHON_FULL_VERSION,
+    PYTHON_VERSION,
     PackagingError,
     cpython_archive_for,
 )
@@ -86,8 +88,8 @@ PLATFORM_EXTRAS = {
     "windows": ("colorama", "tzdata"),
 }
 
-# The build host's CPython 3.9 resolves the wheel set, so markers such as
-# python_version < "3.10" are evaluated for the runtime Python.
+# A CPython of the release's version (PYTHON_VERSION) on the build host resolves
+# the wheel set, so markers such as python_version < "3.14" match the runtime.
 HOST_TRIPLES = {
     ("Linux", "x86_64"): "x86_64-unknown-linux-gnu",
     ("Linux", "aarch64"): "aarch64-unknown-linux-gnu",
@@ -102,6 +104,10 @@ APPLICATION_ITEMS = ("core", "lib", "resources", "entropy.py", "pyproject.toml")
 COMPILED_ITEMS = ("core", "lib")
 KEEP_SOURCE = ("lib/install/cli.py", "lib/remote_cli/")
 EXCLUDED = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".DS_Store"}
+
+
+# The interpreter path installations before Python 3.13 recorded (see archive()).
+LEGACY_INTERPRETER = "python/bin/python3.9"
 
 
 class ReleaseError(RuntimeError):
@@ -143,16 +149,16 @@ def build_frontend(skip: bool) -> Path:
 
 
 def resolver_python(cache: Path) -> str:
-    """A CPython 3.9 that runs on the build host, to resolve wheels with."""
+    """A CPython of the release's version that runs on the build host (wheels, byte code)."""
 
-    if sys.version_info[:2] == (3, 9):
+    if f"{sys.version_info[0]}.{sys.version_info[1]}" == PYTHON_VERSION:
         return sys.executable
 
     import platform as host
 
     triple = HOST_TRIPLES.get((host.system(), host.machine()))
     if triple is None:
-        raise ReleaseError("Run the release build with Python 3.9 on this host.")
+        raise ReleaseError(f"Run the release build with Python {PYTHON_VERSION} on this host.")
 
     root = cache / "host-python" / triple
     python = root / "python" / ("python.exe" if host.system() == "Windows" else "bin/python3")
@@ -164,7 +170,8 @@ def resolver_python(cache: Path) -> str:
             raise ReleaseError(str(exc)) from exc
         root.mkdir(parents=True, exist_ok=True)
         with tarfile.open(archive) as source:
-            options = {"filter": "tar"} if hasattr(tarfile, "tar_filter") else {}
+            # The build host may run an older Python whose tarfile has no filter.
+            options: Dict[str, Any] = {"filter": "tar"} if hasattr(tarfile, "tar_filter") else {}
             source.extractall(root, **options)
     return str(python)
 
@@ -180,8 +187,12 @@ def download_wheels(platform: str, destination: Path, cache: Path, offline: Path
             shutil.copy2(wheel, destination / wheel.name)
         return
 
+    # Start empty: wheels left from an earlier build (another Python version or older
+    # pins) would otherwise ship too. pip's own cache keeps the download cheap.
     target = cache / "wheels" / platform
-    target.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True)
     combined = cache / f"requirements-{platform}.txt"
     combined.write_text(
         requirements.read_text(encoding="utf-8").rstrip()
@@ -189,7 +200,7 @@ def download_wheels(platform: str, destination: Path, cache: Path, offline: Path
         + "".join(f"{extra}\n" for extra in PLATFORM_EXTRAS.get(wheel_dir, ())),
         encoding="utf-8",
     )
-    log(f"Downloading Python wheels for {platform} (CPython 3.9)")
+    log(f"Downloading Python wheels for {platform} (CPython {PYTHON_VERSION})")
     command = [
         resolver_python(cache),
         "-m",
@@ -201,7 +212,7 @@ def download_wheels(platform: str, destination: Path, cache: Path, offline: Path
         "--implementation",
         "cp",
         "--python-version",
-        "3.9",
+        PYTHON_VERSION,
         "--dest",
         str(target),
         "-r",
@@ -298,7 +309,7 @@ def compile_application(application: Path, python: str) -> int:
     """
     Replace the Python sources of `core` and `lib` with byte code (legacy
     .pyc files beside where the sources were, which Python imports without
-    a source). `python` must be the release's Python version (3.9): byte
+    a source). `python` must be the release's Python version (PYTHON_VERSION): byte
     code is specific to it. Returns how many modules were compiled.
     """
 
@@ -378,6 +389,8 @@ def archive(stage: Path, output: Path, python: Path | None) -> str:
 
         if python is not None:
             with tarfile.open(python) as source:
+                # Read before the loop renames the members in place.
+                names = set(source.getnames())
                 directories = set()
                 for member in source.getmembers():
                     # The runtime archive lists files only; add their directories.
@@ -401,6 +414,15 @@ def archive(stage: Path, output: Path, python: Path | None) -> str:
                         # Hard link targets are archive paths too.
                         member.linkname = f"{stage.name}/{member.linkname}"
                     tar.addfile(member, source.extractfile(member) if member.isfile() else None)
+
+                # Installations made before Python 3.13 recorded the versioned
+                # interpreter (python/bin/python3.9) in install.json, the `ent`
+                # launcher and the systemd unit, and their upgrade code looks for
+                # that name in the new package. Keep it as a link to python3.
+                if "python/bin/python3" in names and LEGACY_INTERPRETER not in names:
+                    link = owner(tarfile.TarInfo(f"{stage.name}/{LEGACY_INTERPRETER}"))
+                    link.type, link.linkname, link.mode = tarfile.SYMTYPE, "python3", 0o777
+                    tar.addfile(link)
 
     digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
     temporary.replace(output)
@@ -454,6 +476,8 @@ def build(platform: str, version: str, args: argparse.Namespace, dist: Path) -> 
         "version": version,
         "platform": platform,
         "python": None if args.upgrade_only else CPYTHON_FULL_VERSION,
+        # Byte code only loads on this Python (major.minor); upgrades check it.
+        "bytecode_python": PYTHON_VERSION,
         "built_at": datetime.now(timezone.utc).isoformat(),
         "installer": None if args.upgrade_only else PLATFORMS[platform][3],
         "wheels": wheels,

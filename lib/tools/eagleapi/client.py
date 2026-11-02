@@ -245,7 +245,7 @@ def _send_once(prepared: Prepared, max_body: int) -> Dict[str, Any]:
         else:
             message = f"Connection failed: {reason}"
         return {"error": message, "elapsed_ms": round((time.monotonic() - started) * 1000)}
-    except (socket.timeout, TimeoutError):
+    except TimeoutError:
         return {
             "error": f"Timed out after {prepared.timeout:g} s.",
             "elapsed_ms": round((time.monotonic() - started) * 1000),

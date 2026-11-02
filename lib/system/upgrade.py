@@ -21,6 +21,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tarfile
 import threading
 from datetime import datetime, timezone
@@ -136,6 +137,8 @@ class ReleaseUpgrader:
                 f"The package is for {manifest.get('platform')}, this installation is {platform}."
             )
 
+        problems.extend(self._python_problems(manifest))
+
         version = str(manifest.get("version", ""))
         newer = _version_key(version) > _version_key(VERSION)
         same = version == VERSION
@@ -239,7 +242,9 @@ class ReleaseUpgrader:
                 and self._bundled_version(python) != info["python"]
             ):
                 staged_python_root = extracted / "python"
-                python = staged_python_root / python.relative_to(bundled_root)
+                # The new Python's interpreter has another versioned name
+                # (python3.9 -> python3.13): use the version-independent one.
+                python = self._interpreter(staged_python_root)
                 self.say(f"The package brings Python {info['python']}.")
 
             new_packages = self.home / "site-packages.new"
@@ -255,7 +260,10 @@ class ReleaseUpgrader:
                 swapped.append(self._swap(bundled_root, staged_python_root))
 
             self.say("Migrating the database…")
-            outcome = self._finalize(info["version"])
+            runtime_python = (
+                self._interpreter(bundled_root) if staged_python_root is not None else None
+            )
+            outcome = self._finalize(info["version"], runtime_python)
             database = Path(outcome["database"])
             backup = Path(outcome["backup"]) if outcome.get("backup") else None
         except Exception as exc:
@@ -289,6 +297,8 @@ class ReleaseUpgrader:
         record.setdefault("upgrades", []).append(entry)
         record["upgrades"] = record["upgrades"][-20:]
         install.save(record)
+        if not info["upgrade_only"]:
+            self._repoint_python()
         self.say(f"Entropy {info['version']} is installed.")
         return entry
 
@@ -341,11 +351,67 @@ class ReleaseUpgrader:
         record.setdefault("upgrades", []).append(entry)
         record["upgrades"] = record["upgrades"][-20:]
         install.save(record)
+        if not last.get("upgrade_only", False):
+            # The previous Python is back: point everything at its interpreter.
+            self._repoint_python()
         return entry
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _interpreter(root: Path) -> Path:
+        """
+        A bundled Python's interpreter by its version-independent name
+        (bin/python3, python.exe), so it survives a change of Python version.
+        """
+
+        for candidate in (root / "bin" / "python3", root / "python.exe"):
+            if candidate.exists():
+                return candidate
+        versioned = sorted((root / "bin").glob("python3.[0-9]*"))
+        return next(
+            (path for path in versioned if not path.name.endswith("-config")),
+            root / "bin" / "python3",
+        )
+
+    def _repoint_python(self) -> None:
+        """
+        After the bundled Python changed (upgrade or rollback), point the
+        install record, the `ent` launcher and the systemd unit at its
+        interpreter; they may name the old versioned file (python3.9).
+        Installations on their own Python are left alone.
+        """
+
+        from lib.system import web
+
+        record = install.load()
+        old = Path(str(record.get("python") or ""))
+        bundled_root = self.root / "python"
+        if bundled_root not in old.parents:
+            return
+        new = self._interpreter(bundled_root)
+        if new == old:
+            return
+        record["python"] = str(new)
+        install.save(record)
+        self.record = record
+
+        home = Path.home()
+        launchers = (
+            home / ".local" / "bin" / "ent",
+            home / "AppData" / "Local" / "Programs" / "Entropy" / "ent.cmd",
+        )
+        for path in (*launchers, web.service_file()):
+            if path.is_file():
+                text = path.read_text(encoding="utf-8")
+                if str(old) in text:
+                    path.write_text(text.replace(str(old), str(new)), encoding="utf-8")
+                    self.say(f"Updated {path} for the new Python.")
+        if web.service_file().is_file() and shutil.which("systemctl"):
+            # systemd reads the changed ExecStart only after a reload.
+            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
 
     @staticmethod
     def _previous(path: Path) -> Path:
@@ -368,6 +434,38 @@ class ReleaseUpgrader:
             if current.exists():
                 shutil.rmtree(current)
             previous.rename(current)
+
+    def _python_problems(self, manifest: Dict[str, Any]) -> List[str]:
+        """
+        Byte code only loads on the Python version that compiled it. A package
+        for another version is fine when it brings that Python and this
+        installation uses the bundled one; otherwise it cannot be applied.
+        """
+
+        needed = str(manifest.get("bytecode_python") or "")
+        if not needed or not install.record_path().exists():
+            return []
+        running = f"{sys.version_info[0]}.{sys.version_info[1]}"
+        if running == needed:
+            return []
+        python = Path(str(self.record.get("python") or ""))
+        brings_python = (
+            not manifest.get("upgrade_only")
+            and bool(manifest.get("python"))
+            and (self.root / "python") in python.parents
+        )
+        if brings_python:
+            return []
+        if manifest.get("upgrade_only"):
+            return [
+                f"This upgrade package needs Python {needed}, but this installation runs "
+                f"Python {running}. Apply the full release package: it brings Python {needed}."
+            ]
+        return [
+            f"Entropy {manifest.get('version')} needs Python {needed}; this installation runs "
+            f"its own Python {running} ({python}). Install Python {needed} and reinstall with "
+            "--python, or reinstall with the bundled Python."
+        ]
 
     @staticmethod
     def _bundled_version(python: Path) -> Optional[str]:
@@ -452,8 +550,8 @@ class ReleaseUpgrader:
                 f"{', '.join(missing) or result.stderr.strip()[-300:]}"
             )
 
-    def _finalize(self, version: str) -> Dict[str, Any]:
-        python = Path(install.load()["python"])
+    def _finalize(self, version: str, python: Optional[Path] = None) -> Dict[str, Any]:
+        python = python or Path(install.load()["python"])
         environment = dict(os.environ)
         environment["ENTROPY_HOME"] = str(self.home)
         environment.pop("PYTHONPATH", None)

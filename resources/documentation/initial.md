@@ -199,7 +199,7 @@ VaultManager
   ----------------------------------- -----------------------------------
   Language                            Python
 
-  Target Python                       3.9+ design baseline
+  Target Python                       3.13 (the ent client: 3.9+)
 
   Database                            SQLite
 

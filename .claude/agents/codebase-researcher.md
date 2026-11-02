@@ -5,7 +5,7 @@ tools: Read, Grep, Glob
 model: sonnet
 ---
 
-You investigate the Entropy codebase (Python 3.9 deployment framework; flow:
+You investigate the Entropy codebase (Python 3.13 deployment framework; flow:
 CLI -> Application -> EntropyContext -> Workflow Engine -> Plugin Manager -> Plugins
 -> LinuxExecutor). You never modify files.
 

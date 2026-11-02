@@ -14,12 +14,12 @@ import urllib.request
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Tuple
 
-# The vendored wheels are built for CPython 3.9, so nodes run 3.9 too.
-PYTHON_VERSION = "3.9"
+# The vendored wheels and release byte code are for CPython 3.13, so nodes run 3.13 too.
+PYTHON_VERSION = "3.13"
 
 # python-build-standalone "install_only" builds (relocatable CPython).
-CPYTHON_RELEASE = "20241016"
-CPYTHON_FULL_VERSION = "3.9.20"
+CPYTHON_RELEASE = "20261026"
+CPYTHON_FULL_VERSION = "3.13.18"
 CPYTHON_BASE_URL = (
     "https://github.com/astral-sh/python-build-standalone/releases/download/" + CPYTHON_RELEASE
 )
@@ -179,7 +179,7 @@ def plugin_digest(path: Path, cache: Dict[str, Tuple[float, str]]) -> str:
 
 def cpython_archive(cache: Path, machine: str, *, download: bool = True) -> Path:
     """
-    A relocatable CPython 3.9 for `machine` (uname -m). Uses a copy an
+    A relocatable CPython (PYTHON_VERSION) for `machine` (uname -m). Uses a copy an
     administrator placed in the cache, else downloads and verifies one.
     """
 
@@ -193,7 +193,7 @@ def cpython_archive(cache: Path, machine: str, *, download: bool = True) -> Path
 
 
 def cpython_archive_for(cache: Path, triple: str, *, download: bool = True) -> Path:
-    """A relocatable CPython 3.9 for a target triple, e.g. x86_64-pc-windows-msvc."""
+    """A relocatable CPython (PYTHON_VERSION) for a target triple, e.g. x86_64-pc-windows-msvc."""
 
     name = f"cpython-{CPYTHON_FULL_VERSION}+{CPYTHON_RELEASE}-{triple}-install_only.tar.gz"
     cache.mkdir(parents=True, exist_ok=True)
@@ -209,8 +209,7 @@ def cpython_archive_for(cache: Path, triple: str, *, download: bool = True) -> P
 
     url = f"{CPYTHON_BASE_URL}/{name}"
     try:
-        with urllib.request.urlopen(f"{url}.sha256", timeout=30) as response:
-            expected = response.read().decode().split()[0].strip().lower()
+        expected = _published_sha256(name)
         digest = hashlib.sha256()
         temporary = archive.with_suffix(".part")
         with urllib.request.urlopen(url, timeout=60) as response, temporary.open("wb") as handle:
@@ -223,7 +222,7 @@ def cpython_archive_for(cache: Path, triple: str, *, download: bool = True) -> P
     except OSError as exc:
         raise PackagingError(
             f"Could not download Python {CPYTHON_FULL_VERSION} ({exc}). Place {name} in {cache} "
-            "on the Entropy server, or install Python 3.9 with pip on the node."
+            f"on the Entropy server, or install Python {PYTHON_VERSION} with pip on the node."
         ) from exc
 
     if digest.hexdigest() != expected:
@@ -232,6 +231,24 @@ def cpython_archive_for(cache: Path, triple: str, *, download: bool = True) -> P
 
     temporary.replace(archive)
     return archive
+
+
+def _published_sha256(name: str) -> str:
+    """
+    The archive's checksum as the release publishes it: one SHA256SUMS file
+    (releases since late 2024), or a <name>.sha256 file beside it (older ones).
+    """
+
+    try:
+        with urllib.request.urlopen(f"{CPYTHON_BASE_URL}/SHA256SUMS", timeout=30) as response:
+            for line in response.read().decode().splitlines():
+                parts = line.split()
+                if len(parts) == 2 and parts[1].lstrip("*") == name:
+                    return str(parts[0]).strip().lower()
+    except OSError:
+        pass  # older releases have no SHA256SUMS: try the per-archive file below
+    with urllib.request.urlopen(f"{CPYTHON_BASE_URL}/{name}.sha256", timeout=30) as response:
+        return str(response.read().decode().split()[0]).strip().lower()
 
 
 def read_digest(path: Path) -> Optional[str]:

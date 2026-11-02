@@ -51,9 +51,9 @@ under *Last setup log*). Over one multiplexed SSH connection it:
 
 1. Inspects the server: OS, architecture, home, free space, Python
    interpreters and whether systemd user services or cron are available.
-2. Chooses Python. Entropy's vendored wheels are built for CPython 3.9,
-   so a server Python **3.9 with pip** is used if present; otherwise a
-   relocatable CPython 3.9 (python-build-standalone, checksum-verified)
+2. Chooses Python. Entropy's vendored wheels are built for CPython 3.13,
+   so a server Python **3.13 with pip** is used if present; otherwise a
+   relocatable CPython 3.13 (python-build-standalone, checksum-verified)
    is shipped. Offline main nodes can place the archive in
    `~/.entropy/node-cache/`. *Always the server's Python* uses any
    Python ≥ 3.9 and installs packages from the package index.

@@ -536,8 +536,15 @@ class Installer:
 
         shutil.copytree(source, destination, symlinks=True)
 
-        relative = Path(sys.executable).resolve().relative_to(source.resolve())
-        self._runtime_python = destination / relative
+        # The version-independent name (bin/python3, python.exe): it stays valid
+        # when an upgrade brings another Python version.
+        stable = [destination / "bin" / "python3", destination / "python.exe"]
+        existing = [candidate for candidate in stable if candidate.exists()]
+        if existing:
+            self._runtime_python = existing[0]
+        else:
+            relative = Path(sys.executable).resolve().relative_to(source.resolve())
+            self._runtime_python = destination / relative
 
         console.success(f"Python runtime installed at {destination}.")
 

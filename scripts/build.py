@@ -25,7 +25,7 @@ PACKAGE_TYPE = "application"
 PACKAGE_EXTENSION = ".epkg"
 BUILD_PATH = "build"
 
-MINIMUM_PYTHON = "3.9"
+MINIMUM_PYTHON = "3.13"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 

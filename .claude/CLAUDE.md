@@ -20,7 +20,8 @@ React/TypeScript frontend (`frontend/`). Usage guide for this config: `.claude/R
   Detailed rules load automatically from `.claude/rules/` for matching files.
 
 ## Compatibility
-- Python 3.9 (`requires-python >=3.9`, black/ruff/mypy target py39).
+- Python 3.13 (`requires-python >=3.13`, black/ruff/mypy target py313); the `ent` client
+  in `lib/remote_cli/` stays Python 3.9 compatible (it runs on users' machines).
 - Avoid unnecessary dependencies and abstractions; reuse existing implementations first.
 
 ## Implementation

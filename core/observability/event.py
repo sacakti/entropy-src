@@ -5,7 +5,7 @@ Observability events.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -16,6 +16,12 @@ if TYPE_CHECKING:
     from core.models.runtime import ExecutionStatus, RuntimeNodeType
     from core.runtime.execution import WorkflowExecution
     from core.runtime.node import RuntimeNode
+
+
+def _utc_now() -> datetime:
+    """Naive UTC now, as datetime.utcnow() (deprecated since Python 3.12) returned."""
+
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class BaseEvent:
@@ -94,7 +100,7 @@ class LifecycleEvent(RuntimeEvent):
     )
 
     timestamp: datetime = field(
-        default_factory=datetime.utcnow,
+        default_factory=_utc_now,
     )
 
 
@@ -124,7 +130,7 @@ class MessageEvent(RuntimeEvent):
     )
 
     timestamp: datetime = field(
-        default_factory=datetime.utcnow,
+        default_factory=_utc_now,
     )
 
 
@@ -152,7 +158,7 @@ class LogEvent(BaseEvent):
     )
 
     timestamp: datetime = field(
-        default_factory=datetime.utcnow,
+        default_factory=_utc_now,
     )
 
 
@@ -180,5 +186,5 @@ class PluginResultEvent(RuntimeEvent):
     )
 
     timestamp: datetime = field(
-        default_factory=datetime.utcnow,
+        default_factory=_utc_now,
     )

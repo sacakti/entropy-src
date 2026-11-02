@@ -11,7 +11,8 @@ must be run where registry.access.redhat.com is reachable)
 
 # The image
 
-`Dockerfile` (repository root) builds on Red Hat UBI 9 with its Python 3.9:
+`Dockerfile` (repository root) builds on Red Hat UBI 9 with CPython 3.13 from
+python-build-standalone (checksum-verified; UBI 9 packages only Python 3.9):
 
 | Stage | Base | Produces |
 |---|---|---|

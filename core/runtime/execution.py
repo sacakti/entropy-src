@@ -5,13 +5,19 @@ Workflow execution model.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from core.models.runtime import ExecutionStatus
 
 if TYPE_CHECKING:
     from .context import ExecutionContext
+
+
+def _utc_now() -> datetime:
+    """Naive UTC now, as datetime.utcnow() (deprecated since Python 3.12) returned."""
+
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 @dataclass
@@ -66,7 +72,7 @@ class WorkflowExecution:
 
         if self.started_at is None:
 
-            self.started_at = datetime.utcnow()
+            self.started_at = _utc_now()
 
     def complete(self) -> None:
         """
@@ -77,7 +83,7 @@ class WorkflowExecution:
 
         if self.finished_at is None:
 
-            self.finished_at = datetime.utcnow()
+            self.finished_at = _utc_now()
 
     def fail(self) -> None:
         """
@@ -88,7 +94,7 @@ class WorkflowExecution:
 
         if self.finished_at is None:
 
-            self.finished_at = datetime.utcnow()
+            self.finished_at = _utc_now()
 
     def cancel(self) -> None:
         """
@@ -99,7 +105,7 @@ class WorkflowExecution:
 
         if self.finished_at is None:
 
-            self.finished_at = datetime.utcnow()
+            self.finished_at = _utc_now()
 
     # ------------------------------------------------------------------
     # Metadata
@@ -154,7 +160,7 @@ class WorkflowExecution:
 
             return None
 
-        end = self.finished_at or datetime.utcnow()
+        end = self.finished_at or _utc_now()
 
         return int((end - self.started_at).total_seconds() * 1000)
 

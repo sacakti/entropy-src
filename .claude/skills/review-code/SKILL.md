@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: Independent read-only review of the current diff (or a given commit range/paths) for defects, security, architecture, and Python 3.9 issues. Invoke manually with /review-code.
+description: Independent read-only review of the current diff (or a given commit range/paths) for defects, security, architecture, and Python version issues. Invoke manually with /review-code.
 argument-hint: "[git range or paths; default: uncommitted changes]"
 disable-model-invocation: true
 context: fork
@@ -22,7 +22,7 @@ Do not modify any file. Do not restate the implementation.
       secrets in logs/outputs, missing authz on web endpoints (`core/web/`)
    4. Architecture: plugin-to-plugin calls, filesystem/process access that bypasses
       the executor facades, printing/logging in `lib/executor/`, bypassing the output subsystem
-   5. Python 3.9 incompatibilities (runtime `X | Y`, `match`, 3.10+ stdlib)
+   5. Python version issues (server 3.13; `lib/remote_cli` must stay 3.9 compatible)
    6. Regression risks for other callers of changed interfaces
    7. Missing tests for important new or changed behavior
 3. Skip style-only remarks unless they affect correctness or maintainability.

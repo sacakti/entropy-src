@@ -49,8 +49,8 @@ def parse_arguments():
 
     parser.add_argument(
         "--python",
-        default="3.9",
-        help="Python version (default: 3.9).",
+        default="3.13",
+        help="Python version (default: 3.13).",
     )
 
     parser.add_argument(

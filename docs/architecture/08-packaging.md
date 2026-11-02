@@ -25,7 +25,7 @@ entropy-<version>-<platform>.tar.gz
     ├── install.sh | install.cmd     installer entry point (per OS)
     ├── manifest.json                format 2, name, version, platform, python, built_at
     ├── README.txt
-    ├── python/                      CPython 3.9 (python-build-standalone, install_only)
+    ├── python/                      CPython 3.13 (python-build-standalone, install_only)
     └── application/
         ├── core/ lib/ entropy.py …     byte code only (see below)
         ├── frontend/dist/           built web UI, served by the web server
@@ -55,9 +55,12 @@ python3 scripts/release.py --all --version 1.3.0            # every platform
 | `--source` | Ship Python sources instead of byte code (debugging a release). |
 
 Wheels are resolved with `pip download --only-binary=:all:` for CPython
-3.9 and the target platform tags. The resolver itself runs on a host
-CPython 3.9 (downloaded into `build/cache/host-python`) so that markers
-such as `python_version < "3.10"` resolve as they will at run time.
+3.13 and the target platform tags. The resolver itself runs on a host
+CPython 3.13 (downloaded into `build/cache/host-python`) so that markers
+such as `python_version < "3.14"` resolve as they will at run time. The
+manifest's `bytecode_python` names that version; an upgrade whose byte code
+needs another Python than the installation runs is refused unless the
+package brings that Python (full packages on bundled-Python installations).
 Downloads are cached under `build/cache/`.
 
 Any host can build any platform's package. The bundled Python is copied
@@ -73,7 +76,7 @@ Application files get fixed permissions: directories 755, files 644,
 Releases ship Entropy's `core` and `lib` as byte code, not Python
 sources: each module is a `.pyc` file where its `.py` was (`compileall
 -b`), which Python imports without a source. The byte code is made with
-the release's own Python (3.9), as byte code only loads on that version;
+the release's own Python (3.13), as byte code only loads on that version;
 tracebacks name `application/...` paths. `manifest.json` records
 `compiled_modules`.
 
@@ -127,7 +130,7 @@ ENTROPY_ADMIN_PASSWORD='…' ./install.sh --yes --workspace /srv/entropy --port 
 |---|---|
 | `--workspace`, `--admin-user`, `--admin-name`, `--admin-password-file` | Skip the prompts. The password can also come from `ENTROPY_ADMIN_PASSWORD` (removed from the environment once read). |
 | `--deps bundled\|index\|manual`, `--index-url` | Python package source. |
-| `--python=PATH` / `ENTROPY_PYTHON` | Run on another Python 3.9+ instead of the bundled one (typical with `--deps manual`). |
+| `--python=PATH` / `ENTROPY_PYTHON` | Run on another Python 3.13 instead of the bundled one (typical with `--deps manual`; the byte code needs exactly 3.13). |
 | `--host`, `--port` | Web server address (default `127.0.0.1:8000`). |
 | `--service auto\|systemd\|none`, `--no-start` | How and whether to start the web server. |
 | `-y`, `--yes` | Never prompt. |

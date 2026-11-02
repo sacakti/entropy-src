@@ -453,7 +453,30 @@ def _certificates() -> Dict[str, bytes]:
             .not_valid_before(now - datetime.timedelta(minutes=5))
             .not_valid_after(now + datetime.timedelta(days=1))
             .add_extension(x509.BasicConstraints(ca=ca, path_length=None), critical=True)
+            # Key identifiers: Python 3.13 verifies with VERIFY_X509_STRICT (RFC 5280).
+            .add_extension(
+                x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False
+            )
+            .add_extension(
+                x509.AuthorityKeyIdentifier.from_issuer_public_key(issuer_key.public_key()),
+                critical=False,
+            )
         )
+        if ca:
+            builder = builder.add_extension(
+                x509.KeyUsage(
+                    digital_signature=True,
+                    content_commitment=False,
+                    key_encipherment=False,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    key_cert_sign=True,
+                    crl_sign=True,
+                    encipher_only=False,
+                    decipher_only=False,
+                ),
+                critical=True,
+            )
         if server:
             builder = builder.add_extension(
                 x509.SubjectAlternativeName([x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]),
@@ -656,12 +679,18 @@ def _dropping_server(material: Dict[str, Any], tmp_path, drops: int) -> Dict[str
             try:
                 with context.wrap_socket(connection, server_side=True) as tls:
                     tls.recv(65536)
-                    tls.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+                    tls.sendall(
+                        b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+                    )
             except (OSError, ssl.SSLError):
                 pass
 
     threading.Thread(target=serve, daemon=True).start()
-    return {"url": f"https://127.0.0.1:{listener.getsockname()[1]}/", "state": state, "socket": listener}
+    return {
+        "url": f"https://127.0.0.1:{listener.getsockname()[1]}/",
+        "state": state,
+        "socket": listener,
+    }
 
 
 def test_dropped_first_tls_handshake_is_retried(tls_server, tmp_path) -> None:

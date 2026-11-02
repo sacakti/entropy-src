@@ -7,7 +7,7 @@ name = "entropy"
 version = "1.0.2"
 description = "Entropy Deployment Framework"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 license = { text = "Proprietary" }
 
 authors = [
@@ -24,7 +24,7 @@ keywords = [
 
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Environment :: Console",
     "Topic :: Software Development",
@@ -73,7 +73,7 @@ exclude = [
 [tool.black]
 
 line-length = 100
-target-version = ["py39"]
+target-version = ["py313"]
 include = '\.pyi?$'
 
 ##########################################################
@@ -84,7 +84,7 @@ include = '\.pyi?$'
 
 profile = "black"
 line_length = 100
-py_version = 39
+py_version = 313
 combine_as_imports = true
 force_sort_within_sections = true
 
@@ -95,7 +95,7 @@ force_sort_within_sections = true
 [tool.ruff]
 
 line-length = 100
-target-version = "py39"
+target-version = "py313"
 
 exclude = [
     ".git",
@@ -130,9 +130,16 @@ ignore = [
     "B024",
     "N818",  # Framework uses *Exception
     "B024",  # Marker abstract base classes
-    "UP006", # Python 3.9 compatibility
+    # Typing style: modernising Optional/List/Dict to X | None, list, dict is a
+    # separate change (the remote ent client in lib/remote_cli stays Python 3.9).
+    "UP006",
     "UP035",
     "UP045",
+    # Also deferred to that change: datetime.UTC, StrEnum, X | Y unions, zip(strict=).
+    "UP007",
+    "UP017",
+    "UP042",
+    "B905",
     "B027",
 ]
 
@@ -143,7 +150,7 @@ ignore = [
 
 [tool.mypy]
 
-python_version = "3.9"
+python_version = "3.13"
 
 warn_return_any = true
 warn_unused_configs = true
@@ -188,6 +195,11 @@ filterwarnings = [
     "error",
     # ldap3 2.9 still uses pyasn1's old names.
     "ignore:.* is deprecated. Please use .* instead.:DeprecationWarning:pyasn1",
+    # Python 3.13 warns when a sqlite3 connection is garbage collected unclosed. Test
+    # fixtures open throwaway databases; the warning surfaces in whichever test runs
+    # when the collector does, so it is not attributable. (The server keeps its
+    # connections open for the life of the process.)
+    "ignore:unclosed database in <sqlite3.Connection:ResourceWarning",
 ]
 
 ##########################################################

@@ -5,14 +5,16 @@ paths:
 
 # Python rules
 
-## Python 3.9 compatibility
-- Most modules start with `from __future__ import annotations`. That makes
-  `X | None` and `list[str]` safe in annotations only.
-- At runtime (`isinstance`, type aliases, `cast`, dataclass defaults evaluated at
-  import, pydantic/FastAPI models) use `Optional[...]`, `Union[...]`, `List[...]`, `Dict[...]`.
-- Do not use 3.10+ features: `match`, parenthesized context managers,
-  `zip(strict=)`, `typing.Self`/`TypeAlias`/`ParamSpec`, `ExceptionGroup`, `tomllib`.
-- Ruff ignores UP006/UP035/UP045 for 3.9 compatibility. Do not "modernize" typing imports.
+## Python versions
+- The server (`core/`, `lib/`, plugins, the release and container) runs on **Python 3.13**
+  (`requires-python >=3.13`, black/ruff/mypy target py313).
+- **Exception: `lib/remote_cli/`** is the `ent` client people run on their own Python,
+  so it stays **Python 3.9 compatible** (standard library only; no `match`, `X | Y` at
+  runtime, `typing.Self`, `tomllib`, ...). `tests/remote_cli` checks it parses as 3.9.
+- Existing code uses `Optional[...]`/`List[...]` typing. Ruff ignores UP006/UP035/UP045 so
+  it does not churn; match the surrounding file rather than mass-modernizing.
+- `datetime.utcnow()` is deprecated: use `datetime.now(timezone.utc)` (keep stored
+  values naive or aware as the surrounding code already does).
 
 ## Conventions
 - Match the surrounding file's style: docstrings on public classes and methods,

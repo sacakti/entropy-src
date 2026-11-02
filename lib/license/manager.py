@@ -2,9 +2,15 @@
 License manager.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .edition import FEATURES
+
+
+def _utc_now() -> datetime:
+    """Naive UTC now, as datetime.utcnow() (deprecated since Python 3.12) returned."""
+
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class LicenseManager:
@@ -46,7 +52,7 @@ class LicenseManager:
 
             return True
 
-        return license.expires_at >= datetime.utcnow()
+        return license.expires_at >= _utc_now()
 
     def is_expired(self):
 
