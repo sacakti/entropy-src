@@ -5,11 +5,14 @@ workflow or plugin runs on an execution node.
 
 from __future__ import annotations
 
+import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
+from core.version import VERSION
 from core.web.projects import current_project, projects
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
@@ -17,6 +20,14 @@ from lib.models.session import Session
 from lib.models.users import User
 from lib.runs.housekeeping import Housekeeping
 from lib.runs.plan import PlanError, build_plan
+from lib.runs.report import (
+    build_report,
+    collect_events,
+    read_console,
+    render_html,
+    render_pdf,
+    resolve_zone,
+)
 from lib.runs.service import RunError, RunService
 from lib.runs.store import RUN_TABS, iso_utc
 
@@ -221,21 +232,27 @@ def run_artifacts(
 ) -> Dict[str, Any]:
     """Artifacts the run's steps generated, each naming its step, with a download link."""
 
-    from pathlib import Path
-
-    from lib.artifacts.store import ArtifactStore, ensure_artifacts_schema
-
     _, _, current = record
     project_id = _run_project(request, job_id)
     _require_permission(request, current, "workflows.read", project_id)
     _require_permission(request, current, "artifacts.read", project_id)
+
+    items = _artifact_items(request, job_id, project_id)
+    _no_store(response)
+    return {"items": items}
+
+
+def _artifact_items(request: Request, job_id: int, project_id: int) -> List[Dict[str, Any]]:
+    from pathlib import Path
+
+    from lib.artifacts.store import ArtifactStore, ensure_artifacts_schema
 
     store = _service(request).store
     runs = [store.get(item) for item in store.job_ids(job_id)]
     execution_ids = [str(run["execution_id"]) for run in runs if run and run.get("execution_id")]
     connection = request.app.state.entropy_context.database_manager.connection
     ensure_artifacts_schema(connection)
-    items = [
+    return [
         {
             "id": item["id"],
             "name": item["name"],
@@ -249,8 +266,6 @@ def run_artifacts(
         }
         for item in ArtifactStore(connection).for_runs(project_id, execution_ids)
     ]
-    _no_store(response)
-    return {"items": items}
 
 
 @router.get("/api/runs/{job_id}/rerun-config")
@@ -263,18 +278,22 @@ def get_rerun_config(
     """Return saved inputs for the run dialog to prefill (execute access only)."""
 
     _, _, current = record
-    _require_permission(request, current, "workflows.execute", _run_project(request, job_id))
+    project_id = _run_project(request, job_id)
     service = _service(request)
     run = service.store.get(job_id)
+    kind = run["kind"] if run is not None else "workflow"
+    permission = "plugins.execute" if kind == "plugin" else "workflows.execute"
+    _require_permission(request, current, permission, project_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
-    if run["kind"] != "workflow":
-        raise HTTPException(status_code=422, detail="Only workflow runs can be run again.")
     config = service.store.rerun_config(job_id)
     if config is None:
         raise HTTPException(
             status_code=409,
-            detail="This older run has no saved input configuration. Start it from the workflow instead.",
+            detail=(
+                "This older run has no saved input configuration."
+                f" Start it from the {kind} instead."
+            ),
         )
     _no_store(response)
     return {"config": config}
@@ -318,6 +337,74 @@ def rerun_workflow(
         raise _http(exc) from exc
     _no_store(response)
     return {"run": run}
+
+
+def _report_extras(
+    request: Request, user: User, job_id: int, project_id: int
+) -> Dict[str, Any]:
+    """What only this person sees on the run page: their look, and artifacts if allowed."""
+
+    from lib.database.repositories.user_preferences import UserPreferencesRepository
+
+    context = request.app.state.entropy_context
+    preferences = UserPreferencesRepository(context.database_manager.connection).get(user.id)
+    allowed = user.id is not None and context.authorization.has_permission(
+        user.id, "artifacts.read", project_id
+    )
+    return {
+        "theme": preferences.get("theme"),
+        "accent": preferences.get("accent_color"),
+        "artifacts": _artifact_items(request, job_id, project_id) if allowed else [],
+        "apps": _app_store(request).list(_service(request).store.job_ids(job_id)),
+    }
+
+
+@router.get("/api/runs/{job_id}/report")
+def run_report(
+    job_id: int,
+    request: Request,
+    report_format: Literal["html", "pdf"] = Query("html", alias="format"),
+    tz: Optional[str] = Query(None, max_length=64),
+    record: SessionRecord = Depends(_current_session),
+) -> Response:
+    """Download what the run page shows; anyone who can see the run can have it."""
+
+    _, _, current = record
+    project_id = _run_project(request, job_id)
+    _require_permission(request, current, "workflows.read", project_id)
+    service = _service(request)
+    store = service.store
+    run = store.get(job_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run #{job_id} does not exist.")
+
+    events, omitted = collect_events(store, job_id, run)
+    console, console_cut = read_console(service, job_id, run)
+    zone, zone_name = resolve_zone(tz)
+    report = build_report(
+        run,
+        _planned_steps(request, run),
+        store.steps(job_id),
+        events,
+        now=datetime.now(timezone.utc),
+        omitted=omitted,
+        console=console,
+        console_cut=console_cut,
+        zone=zone,
+        zone_name=zone_name,
+        version=VERSION,
+        **_report_extras(request, current, job_id, project_id),
+    )
+    name = re.sub(r"[^A-Za-z0-9._-]+", "-", str(run["target"])).strip("-.") or "run"
+    return Response(
+        render_pdf(report) if report_format == "pdf" else render_html(report),
+        media_type="application/pdf" if report_format == "pdf" else "text/html; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="run-{job_id}-{name}.{report_format}"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/api/runs/{job_id}/events")

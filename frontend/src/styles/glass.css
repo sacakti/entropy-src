@@ -16,7 +16,8 @@
     --glass-highlight: rgb(255 255 255 / 38%);
     --glass-shade: rgb(0 0 0 / 22%);
     --glass-blur: blur(22px) saturate(185%);
-    --glass-pane: color-mix(in srgb, var(--app-surface) 48%, transparent);
+    /* Follows the Modal backdrop preference, like every other panel. */
+    --glass-pane: var(--app-modal-surface);
 }
 
 :root[data-glass="on"][data-theme="light"] {
@@ -25,7 +26,6 @@
     --glass-rim: rgb(255 255 255 / 75%);
     --glass-highlight: rgb(255 255 255 / 90%);
     --glass-shade: rgb(15 20 10 / 14%);
-    --glass-pane: color-mix(in srgb, var(--app-surface) 58%, transparent);
 }
 
 /* ---------- Buttons ---------- */

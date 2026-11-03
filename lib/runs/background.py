@@ -202,6 +202,7 @@ class RunsBackground:
         """
         from lib.system.mailer import MailError, send_mail
         from lib.system.settings import settings_for
+        from lib.tasks.markup import plain_text
         from lib.tasks.store import CLOSED, TaskStore
 
         smtp = settings_for(self._context).values("smtp")
@@ -213,7 +214,7 @@ class RunsBackground:
                     self._notify(
                         user_id,
                         f"Task reminder: {_task_label(task)}",
-                        task["description"] or "",
+                        plain_text(task["description"] or ""),
                         "info",
                         f"task:{task['id']}",
                     )
@@ -221,7 +222,7 @@ class RunsBackground:
                 if smtp.get("enabled") and address:
                     try:
                         send_mail(smtp, [address], f"Task reminder: {task['title']}",
-                                  f"This is a reminder for task: {task['title']}\n\n{task['description']}\n\n"
+                                  f"This is a reminder for task: {task['title']}\n\n{plain_text(task['description'] or '')}\n\n"
                                   f"Open Entropy to review this task in project {task['project_id']}.")
                     except MailError:
                         LOGGER.exception("Could not send reminder for task %s.", task["id"])

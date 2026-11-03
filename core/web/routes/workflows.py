@@ -22,12 +22,14 @@ from lib.authorization.projects import workflow_key
 from lib.history import DefinitionHistory
 from lib.models.session import Session
 from lib.models.users import User
+from lib.plugins.icons import PluginIconError
 from lib.workflow.drafts import WorkflowDrafts
 from lib.workflow.exceptions import (
     WorkflowAlreadyExistsError,
     WorkflowNotFoundError,
     WorkflowNotMatchError,
 )
+from lib.workflow.icons import WorkflowIconStore
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 
@@ -178,6 +180,10 @@ def _clear_drafts(request: Request, name: str, project_id: int) -> None:
         WorkflowDrafts(context.database_manager.connection).delete_for_workflow(name, project_id)
 
 
+def _icons(request: Request) -> WorkflowIconStore:
+    return WorkflowIconStore(request.app.state.entropy_context.database_manager.connection)
+
+
 def _validate_format(format_name: str) -> str:
     normalized = format_name.strip().lower()
 
@@ -266,6 +272,7 @@ def list_workflows(
     entries = manager.list(project_id=project["id"])
 
     response.headers["Cache-Control"] = "no-store"
+    icons = _icons(request).all()
 
     return {
         "items": [
@@ -273,6 +280,7 @@ def list_workflows(
                 "name": entry.name,
                 "version": entry.version,
                 "description": entry.description,
+                "icon": icons.get(workflow_key(project["id"], entry.name)),
                 "created_at": entry.created_at.isoformat(),
                 "updated_at": entry.updated_at.isoformat(),
             }
@@ -499,6 +507,7 @@ def delete_workflow(
         raise _translate_workflow_error(exc) from exc
 
     _history(request).forget(workflow_key(project_id, name))
+    _icons(request).forget(workflow_key(project_id, name))
     _clear_drafts(request, name, project_id)
     from lib.runs.alerts import RunAlerts
 
@@ -508,6 +517,37 @@ def delete_workflow(
 
     response.headers["Cache-Control"] = "no-store"
     return {"deleted": True, "name": name}
+
+
+# ----------------------------------------------------------------------
+# Icon
+# ----------------------------------------------------------------------
+
+
+class WorkflowIconRequest(BaseModel):
+    # None goes back to the default icon.
+    icon: Optional[str] = Field(default=None, max_length=60)
+
+
+@router.put("/{name}/icon", dependencies=[Depends(verify_csrf)])
+def set_workflow_icon(
+    name: str,
+    payload: WorkflowIconRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, object]:
+    """Choose the icon everyone in the project sees for a workflow."""
+
+    _, _, user = record
+    project_id = _workflow_project(request, user)
+    _require_permission(request, user, "workflows.write", project_id)
+    _current(_manager(request), name, project_id)
+
+    try:
+        _icons(request).set(workflow_key(project_id, name), payload.icon, user.username)
+    except PluginIconError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"name": name, "icon": payload.icon}
 
 
 # ----------------------------------------------------------------------

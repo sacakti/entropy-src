@@ -1,4 +1,4 @@
-import { apiRequest, downloadFile } from '../services/api'
+import { apiRequest, downloadFile, downloadUrl } from '../services/api'
 import { currentProject } from '../services/project'
 
 export type RunState =
@@ -83,6 +83,14 @@ export interface RunRerunConfig {
     steps: string[] | null
     tags: string[]
     step_nodes: Record<string, string>
+}
+
+/** What a plugin run was started with; a plugin always runs its installed version. */
+export interface PluginRerunConfig {
+    arguments: Record<string, unknown>
+    node: string
+    debug?: boolean
+    mode?: RunMode
 }
 
 /** A file a step of the run generated (registered in Artifacts). */
@@ -302,6 +310,16 @@ export const runsApi = {
 
     rerunConfig(id: number): Promise<{ config: RunRerunConfig }> {
         return apiRequest(`/api/runs/${id}/rerun-config`)
+    },
+
+    pluginRerunConfig(id: number): Promise<{ config: PluginRerunConfig }> {
+        return apiRequest(`/api/runs/${id}/rerun-config`)
+    },
+
+    downloadReport(id: number, target: string, format: 'html' | 'pdf'): Promise<void> {
+        // Times in the report read as on the run page.
+        const zone = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)
+        return downloadUrl(`/api/runs/${id}/report?format=${format}&tz=${zone}`, `run-${id}-${target}.${format}`)
     },
 
     rerunWorkflow(id: number, node: string, variables: Record<string, unknown>, options: RunOptions = {}): Promise<{ run: Run }> {

@@ -30,6 +30,13 @@ def ensure_plugin_icons_schema(connection: DatabaseConnection) -> None:
     )
 
 
+def validate_icon(icon: str) -> None:
+    """Raise PluginIconError unless this is a well-formed icon id."""
+
+    if not _ICON.match(icon):
+        raise PluginIconError(f"'{icon}' is not a valid icon.")
+
+
 class PluginIconStore:
     def __init__(self, connection: DatabaseConnection) -> None:
         ensure_plugin_icons_schema(connection)
@@ -45,8 +52,7 @@ class PluginIconStore:
         if icon is None:
             self.forget(qualified_name)
             return
-        if not _ICON.match(icon):
-            raise PluginIconError(f"'{icon}' is not a valid icon.")
+        validate_icon(icon)
         with self.connection.transaction():
             self.connection.execute(
                 "INSERT OR REPLACE INTO plugin_icons"

@@ -3,20 +3,20 @@ A self-contained task report for people outside the tool.
 
 One HTML file: a summary, then each group's tasks with their fields,
 comments, status history and attachments. Images are embedded, text
-files shown inline, videos playable in the file. Printed from a browser
-it becomes the PDF (videos are then named, not played).
+files shown inline, videos playable in the file. lib/tasks/report_pdf.py
+makes the same report as a PDF.
 """
 
 from __future__ import annotations
 
 import base64
 import mimetypes
-import re
 from datetime import date, datetime, timezone
 from html import escape
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
+from lib.tasks.markup import parse_blocks, parse_inline
 from lib.tasks.store import CLOSED, REOPENED
 
 STATUS_LABELS = {"todo": "Open", "in_progress": "In progress", CLOSED: "Closed", REOPENED: "Reopened"}
@@ -25,9 +25,6 @@ MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_VIDEO_BYTES = 25 * 1024 * 1024
 MAX_TEXT_BYTES = 64 * 1024
 TEXT_TYPES = (".txt", ".log", ".md", ".csv", ".json", ".yaml", ".yml", ".xml")
-# An attachment shown inside a description: ![caption](attachment:42).
-ATTACHMENT_REFERENCE = re.compile(r"!\[([^\]\n]*)\]\(attachment:(\d+)\)")
-INLINE_CODE = re.compile(r"`([^`\n]+)`")
 
 
 def _status(value: str) -> str:
@@ -52,38 +49,76 @@ def _paragraphs(text: str) -> str:
     return "".join(f"<p>{escape(part).replace(chr(10), '<br>')}</p>" for part in text.split("\n\n"))
 
 
-def _rich_paragraphs(text: str) -> str:
-    """Paragraphs with `paths or code` shown as code."""
+def _inline(text: str) -> str:
+    parts = []
+    for run in parse_inline(text):
+        html = escape(run["text"]).replace(chr(10), "<br>")
+        if run.get("code"):
+            html = f"<code>{html}</code>"
+        if run.get("strike"):
+            html = f"<s>{html}</s>"
+        if run.get("italic"):
+            html = f"<em>{html}</em>"
+        if run.get("bold"):
+            html = f"<strong>{html}</strong>"
+        parts.append(html)
+    return "".join(parts)
 
-    text = text.strip()
-    if not text:
-        return ""
-    return "".join(
-        "<p>" + INLINE_CODE.sub(r"<code>\1</code>", escape(part)).replace(chr(10), "<br>") + "</p>"
-        for part in re.split(r"\n\s*\n", text)
+
+def _list(block: Dict[str, Any]) -> str:
+    items = []
+    for item in block["items"]:
+        margin = f' style="margin-left:{item["indent"] * 18}px"' if item["indent"] else ""
+        if item["checked"] is None:
+            items.append(f"<li{margin}>{_inline(item['text'])}</li>")
+        else:
+            mark = " checked" if item["checked"] else ""
+            done = " is-done" if item["checked"] else ""
+            items.append(
+                f'<li class="check{done}"{margin}><input type="checkbox" disabled{mark}>'
+                f"<span>{_inline(item['text'])}</span></li>"
+            )
+    tag = "ol" if block["ordered"] else "ul"
+    start = f' start="{block["start"]}"' if block["ordered"] and block["start"] != 1 else ""
+    return f'<{tag} class="md-list"{start}>{"".join(items)}</{tag}>'
+
+
+def _table(block: Dict[str, Any]) -> str:
+    head = "".join(f"<th>{_inline(cell)}</th>" for cell in block["header"])
+    rows = "".join(
+        "<tr>" + "".join(f"<td>{_inline(cell)}</td>" for cell in row) + "</tr>"
+        for row in block["rows"]
     )
+    return f'<table class="md-table"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>'
 
 
 def _description(text: str, attachments: List[Dict[str, Any]], root: Path) -> Tuple[str, Set[int]]:
-    """The description with referenced attachments in place, and the ids it showed."""
+    """The formatted description with referenced attachments in place, and the ids it showed."""
 
     by_id = {item["id"]: item for item in attachments}
     parts: List[str] = []
     shown: Set[int] = set()
-    position = 0
-    for match in ATTACHMENT_REFERENCE.finditer(text or ""):
-        parts.append(_rich_paragraphs(text[position:match.start()]))
-        attachment = by_id.get(int(match.group(2)))
-        if attachment is None:
-            caption = escape(match.group(1) or "attachment")
-            parts.append(f'<p class="muted">[{caption} — removed]</p>')
+    for block in parse_blocks(text or ""):
+        kind = block["type"]
+        if kind == "heading":
+            parts.append(f'<div class="md-h{block["level"]}">{_inline(block["text"])}</div>')
+        elif kind == "paragraph":
+            parts.append(f"<p>{_inline(block['text'])}</p>")
+        elif kind == "list":
+            parts.append(_list(block))
+        elif kind == "table":
+            parts.append(_table(block))
+        elif kind == "code":
+            parts.append(f'<pre class="md-code">{escape(block["text"])}</pre>')
         else:
-            shown.add(attachment["id"])
-            parts.append(_attachment(attachment, root, caption=match.group(1)))
-        position = match.end()
-    parts.append(_rich_paragraphs((text or "")[position:]))
-    html = "".join(parts)
-    return (html or '<p class="muted">—</p>'), shown
+            attachment = by_id.get(block["id"])
+            if attachment is None:
+                caption = escape(block["caption"] or "attachment")
+                parts.append(f'<p class="muted">[{caption} — removed]</p>')
+            else:
+                shown.add(attachment["id"])
+                parts.append(_attachment(attachment, root, caption=block["caption"]))
+    return ("".join(parts) or '<p class="muted">—</p>'), shown
 
 
 def _kind(attachment: Dict[str, Any]) -> str:
@@ -97,6 +132,15 @@ def _kind(attachment: Dict[str, Any]) -> str:
     return "file"
 
 
+def _attachment_path(attachment: Dict[str, Any], root: Path) -> Optional[Path]:
+    """The stored file, if it is there and inside the attachments folder."""
+
+    if not attachment.get("storage_name"):
+        return None
+    candidate = (root / attachment["storage_name"]).resolve()
+    return candidate if root.resolve() in candidate.parents and candidate.is_file() else None
+
+
 def _attachment(attachment: Dict[str, Any], root: Path, caption: str = "") -> str:
     name = escape(attachment["filename"])
     size = attachment.get("size_bytes") or 0
@@ -104,11 +148,7 @@ def _attachment(attachment: Dict[str, Any], root: Path, caption: str = "") -> st
     if caption.strip() and caption.strip() != attachment["filename"]:
         shown = escape(caption.strip())
         label = f'<div class="att-name">{shown} <span class="muted">· {name}</span></div>'
-    path = None
-    if attachment.get("storage_name"):
-        candidate = (root / attachment["storage_name"]).resolve()
-        if root.resolve() in candidate.parents and candidate.is_file():
-            path = candidate
+    path = _attachment_path(attachment, root)
     if path is None:
         link = attachment.get("url")
         target = f' — <a href="{escape(link)}">{escape(link)}</a>' if link else ""
@@ -194,6 +234,21 @@ def _task(task: Dict[str, Any], members: Dict[str, str], groups: Dict[int, str],
     return "".join(parts)
 
 
+def _sections(tasks: List[Dict[str, Any]], groups: List[Dict[str, Any]],
+              group_names: Dict[int, str]) -> List[tuple]:
+    """(name, kind, description, tasks) of each group with tasks, then those in no group."""
+
+    sections: List[tuple] = []
+    for group in groups:
+        in_group = [task for task in tasks if group["id"] in task.get("group_ids", [])]
+        if in_group:
+            sections.append((group["name"], group.get("kind", ""), group.get("description", ""), in_group))
+    ungrouped = [task for task in tasks if not any(g in group_names for g in task.get("group_ids", []))]
+    if ungrouped:
+        sections.append(("Not in a group", "", "", ungrouped))
+    return sections
+
+
 def build_report(
     *,
     project: str,
@@ -204,7 +259,6 @@ def build_report(
     attachments: Dict[int, List[Dict[str, Any]]],
     attachment_root: Path,
     generated_by: str,
-    print_mode: bool = False,
 ) -> str:
     """The report's HTML; `attachments` maps task id to its stored attachments."""
 
@@ -212,14 +266,7 @@ def build_report(
     group_names = {group["id"]: group["name"] for group in group_list}
     member_names = {m["username"].lower(): (m.get("full_name") or m["username"]) for m in members}
 
-    sections: List[tuple] = []
-    for group in group_list:
-        in_group = [task for task in tasks if group["id"] in task.get("group_ids", [])]
-        if in_group:
-            sections.append((group["name"], group.get("kind", ""), group.get("description", ""), in_group))
-    ungrouped = [task for task in tasks if not any(g in group_names for g in task.get("group_ids", []))]
-    if ungrouped:
-        sections.append(("Not in a group", "", "", ungrouped))
+    sections = _sections(tasks, group_list, group_names)
 
     counts = {status: sum(1 for task in tasks if task["status"] == status) for status in STATUS_LABELS}
     overdue = sum(1 for task in tasks if _overdue(task))
@@ -260,8 +307,6 @@ def build_report(
         )
 
     generated = datetime.now(timezone.utc).strftime("%d %b %Y, %H:%M UTC")
-    auto_print = "<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),300))</script>" \
-        if print_mode else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -275,7 +320,7 @@ def build_report(
 <section class="summary"><div class="tiles">{tile_html}</div><div class="bar">{bar}</div></section>
 {('<nav class="toc"><h2>Contents</h2><ol>' + ''.join(contents) + '</ol></nav>') if len(sections) > 1 else ''}
 {''.join(body) or '<p class="muted">No tasks to report.</p>'}
-</main>{auto_print}</body></html>"""
+</main></body></html>"""
 
 
 CSS = """
@@ -329,8 +374,20 @@ border-radius:6px;margin-top:6px}
 background:#fff;border-radius:6px;padding:8px;margin:6px 0 0}
 .att.text{grid-column:1/-1}.att-name{font-size:13px;font-weight:600;word-break:break-all}
 .task>.att{margin:8px 0 12px;max-width:760px;break-inside:avoid}.task>.att img{max-height:560px}
-.task>p code{font:12px ui-monospace,Menlo,monospace;background:var(--soft);
+.task p code,.task li code,.task td code{font:12px ui-monospace,Menlo,monospace;
+background:var(--soft);
 border:1px solid var(--line);border-radius:4px;padding:1px 5px;word-break:break-all}
+.md-h1{font-size:18px;font-weight:700;margin:14px 0 6px}
+.md-h2{font-size:16px;font-weight:700;margin:12px 0 4px}
+.md-h3{font-size:14px;font-weight:700;color:var(--muted);margin:10px 0 3px}
+.md-list{margin:0 0 8px;padding-left:22px}
+.md-list li.check{display:flex;gap:7px;list-style:none;margin-left:-22px}
+.md-list li.check input{margin-top:5px}.md-list li.is-done span{color:var(--muted);text-decoration:line-through}
+.md-table{margin:0 0 10px;font-size:13px}.md-table th{background:var(--soft);color:var(--ink)}
+.md-table th,.md-table td{border:1px solid var(--line)}
+.md-code{margin:0 0 8px;padding:8px 10px;background:var(--soft);border:1px solid var(--line);
+border-radius:6px;
+font:12px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word}
 .print-only{display:none}
 @media print{body{background:#fff}main{padding:0;max-width:none}
 .cover,.summary,.toc,.group{border:none;padding:0 0 12px;margin:0 0 12px}

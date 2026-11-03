@@ -1231,6 +1231,17 @@
     min-width: 0;
 }
 
+.entropy-app .workflow-card-description {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--app-muted);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
 /* The actions take the details' place, so the card does not change size. */
 .entropy-app .plugin-card-foot {
     position: relative;

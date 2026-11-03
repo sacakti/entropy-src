@@ -1,10 +1,11 @@
-import { Fragment, useRef, useState, type ClipboardEvent, type ReactNode } from 'react'
+import { useRef, useState, type ClipboardEvent } from 'react'
 import { Check, ImagePlus, LoaderCircle, Paperclip, Pencil, X } from 'lucide-react'
 
-import { MentionText } from './MentionInput'
+import MarkupEditor from './MarkupEditor'
+import MarkupView from './MarkupView'
+import { toggleCheckbox } from './markupEdit'
 import {
     attachmentReference,
-    attachmentReferencePattern,
     previewKind,
     tasksApi,
     type Attachment,
@@ -12,62 +13,37 @@ import {
     type Task,
 } from './model'
 
-// `paths or code` inside the text.
-function Inline({ text, members }: { text: string; members: Member[] }) {
-    return text.split(/(`[^`\n]+`)/g).map((part, index) =>
-        /^`[^`\n]+`$/.test(part) ? (
-            <code key={index} className="task-inline-code">{part.slice(1, -1)}</code>
-        ) : (
-            <Fragment key={index}>
-                <MentionText text={part} members={members} />
-            </Fragment>
-        ),
+/** An attachment placed in the text: the image itself, or a button that opens the file. */
+function PlacedAttachment({ task, id, caption, onOpen }: {
+    task: Task
+    id: number
+    caption: string
+    onOpen: (attachment: Attachment) => void
+}) {
+    const attachment = task.attachments.find((item) => item.id === id)
+    const label = caption || attachment?.filename || 'attachment'
+    if (!attachment) return <p className="task-md-p task-muted">[{label} — removed]</p>
+    if (previewKind(attachment) === 'image') {
+        return (
+            <figure className="task-description-image">
+                <button type="button" onClick={() => onOpen(attachment)} title={`View ${attachment.filename}`}>
+                    <img src={tasksApi.attachmentUrl(task.id, attachment.id)} alt={label} loading="lazy" />
+                </button>
+                <figcaption>{label}</figcaption>
+            </figure>
+        )
+    }
+    return (
+        <button type="button" className="task-description-file" onClick={() => previewKind(attachment) && onOpen(attachment)} disabled={!previewKind(attachment)}>
+            <Paperclip size={13} /> {label}
+        </button>
     )
 }
 
-function DescriptionView({ task, members, onOpen }: { task: Task; members: Member[]; onOpen: (attachment: Attachment) => void }) {
-    const text = task.description
-    if (!text.trim()) return <p className="task-description task-muted">No description.</p>
-    const byId = new Map(task.attachments.map((attachment) => [attachment.id, attachment]))
-    const parts: ReactNode[] = []
-    let position = 0
-    // Attachments sit on their own lines; drop the line breaks around them.
-    const segment = (from: number, to: number) => {
-        const piece = text.slice(from, to).replace(from > 0 ? /^\n/ : /^/, '').replace(to < text.length ? /\n$/ : /$/, '')
-        if (piece) parts.push(<Inline key={`t${from}`} text={piece} members={members} />)
-    }
-    for (const match of text.matchAll(attachmentReferencePattern())) {
-        const start = match.index ?? 0
-        segment(position, start)
-        const attachment = byId.get(Number(match[2]))
-        const caption = match[1] || attachment?.filename || 'attachment'
-        if (!attachment) {
-            parts.push(<span key={`m${start}`} className="task-muted">[{caption} — removed]</span>)
-        } else if (previewKind(attachment) === 'image') {
-            parts.push(
-                <figure key={`a${start}`} className="task-description-image">
-                    <button type="button" onClick={() => onOpen(attachment)} title={`View ${attachment.filename}`}>
-                        <img src={tasksApi.attachmentUrl(task.id, attachment.id)} alt={caption} loading="lazy" />
-                    </button>
-                    <figcaption>{caption}</figcaption>
-                </figure>,
-            )
-        } else {
-            parts.push(
-                <button key={`a${start}`} type="button" className="task-description-file" onClick={() => previewKind(attachment) && onOpen(attachment)} disabled={!previewKind(attachment)}>
-                    <Paperclip size={13} /> {caption}
-                </button>,
-            )
-        }
-        position = start + match[0].length
-    }
-    segment(position, text.length)
-    return <div className="task-description">{parts}</div>
-}
-
 /**
- * The task description: text with `paths` as code and attachments shown in
- * place. Editors insert attachments from the list or paste a screenshot.
+ * The task description: formatted text with attachments shown in place. Editors
+ * format it from the toolbar, insert attachments or paste a screenshot, and can
+ * tick its checklists without opening the editor.
  */
 export default function Description({ task, members, editable, onSave, onAttach, onOpen }: {
     task: Task
@@ -82,6 +58,19 @@ export default function Description({ task, members, editable, onSave, onAttach,
     const [busy, setBusy] = useState<'save' | 'upload' | null>(null)
     const area = useRef<HTMLTextAreaElement>(null)
     const images = task.attachments.filter((attachment) => previewKind(attachment) === 'image')
+
+    const placed = (id: number, caption: string) => (
+        <PlacedAttachment key={`${id}-${caption}`} task={task} id={id} caption={caption} onOpen={onOpen} />
+    )
+
+    const tick = async (line: number) => {
+        setBusy('save')
+        try {
+            await onSave(toggleCheckbox(task.description, line))
+        } finally {
+            setBusy(null)
+        }
+    }
 
     // Each attachment goes on its own line, where the cursor is.
     const insert = (attachments: Attachment[], value: string) => {
@@ -135,7 +124,16 @@ export default function Description({ task, members, editable, onSave, onAttach,
                         </button>
                     )}
                 </h4>
-                <DescriptionView task={task} members={members} onOpen={onOpen} />
+                {task.description.trim() ? (
+                    <MarkupView
+                        text={task.description}
+                        members={members}
+                        attachment={placed}
+                        onToggle={editable && busy === null ? (line) => void tick(line) : undefined}
+                    />
+                ) : (
+                    <p className="task-description task-muted">No description.</p>
+                )}
             </section>
         )
     }
@@ -143,32 +141,31 @@ export default function Description({ task, members, editable, onSave, onAttach,
     return (
         <section className="task-description-block is-editing">
             <h4>Description</h4>
-            <div className="task-description-tools">
-                <select className="entropy-select" value="" onChange={(event) => {
-                    const attachment = images.find((item) => item.id === Number(event.target.value))
-                    if (attachment) insert([attachment], draft)
-                }} disabled={!images.length} aria-label="Insert an attached image">
-                    <option value="">{images.length ? 'Insert image…' : 'No images attached'}</option>
-                    {images.map((attachment) => <option key={attachment.id} value={attachment.id}>{attachment.filename}</option>)}
-                </select>
-                <small className="task-muted">
-                    {busy === 'upload' ? <><LoaderCircle size={12} className="entropy-spin" /> Attaching…</> : <><ImagePlus size={12} /> Paste a screenshot to place it here · `/path/or/code` shows as code</>}
-                </small>
-            </div>
-            <textarea
-                className="task-input"
-                ref={area}
+            <MarkupEditor
                 value={draft}
-                rows={8}
+                onChange={setDraft}
+                members={members}
+                rows={10}
+                ariaLabel="Description"
                 autoFocus
-                onChange={(event) => setDraft(event.target.value)}
+                inputRef={area}
+                attachment={placed}
                 onPaste={(event) => void paste(event)}
-                onKeyDown={(event) => {
-                    if (event.key === 'Escape') setDraft(null)
-                    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void save()
-                }}
-                aria-label="Description"
+                onSubmitShortcut={() => void save()}
+                onCancel={() => setDraft(null)}
+                tools={
+                    <select className="entropy-select task-editor-style" value="" onChange={(event) => {
+                        const attachment = images.find((item) => item.id === Number(event.target.value))
+                        if (attachment) insert([attachment], draft)
+                    }} disabled={!images.length} aria-label="Insert an attached image">
+                        <option value="">{images.length ? 'Insert image…' : 'No images attached'}</option>
+                        {images.map((attachment) => <option key={attachment.id} value={attachment.id}>{attachment.filename}</option>)}
+                    </select>
+                }
             />
+            <small className="task-muted task-description-hint">
+                {busy === 'upload' ? <><LoaderCircle size={12} className="entropy-spin" /> Attaching…</> : <><ImagePlus size={12} /> Paste a screenshot to place it here · Tab moves between table cells · Enter continues a list</>}
+            </small>
             <div className="task-description-actions">
                 <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setDraft(null)} disabled={busy !== null}>
                     <X size={14} /> Cancel

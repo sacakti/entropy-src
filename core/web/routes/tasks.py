@@ -415,9 +415,10 @@ def task_report(request: Request, scope: str = Query("all", pattern="^(all|selec
                 ids: str = Query("", max_length=20000), group_id: Optional[int] = None,
                 format: str = Query("html", pattern="^(html|pdf)$"),
                 record: SessionRecord = Depends(_current_session)) -> Response:
-    """A self-contained HTML report (printed by the browser for PDF)."""
+    """A self-contained report to download, as an HTML or a PDF file."""
 
     from lib.tasks.report import build_report
+    from lib.tasks.report_pdf import build_pdf
 
     _, _, user = record
     project = current_project(request, user)
@@ -439,7 +440,7 @@ def task_report(request: Request, scope: str = Query("all", pattern="^(all|selec
         groups = [group]
         label = f"Group: {group['name']}"
     groups = sorted(groups, key=lambda g: g["name"].lower())
-    html = build_report(
+    content = dict(
         project=project.get("name") or f"Project {project['id']}",
         scope=label,
         tasks=tasks,
@@ -448,13 +449,15 @@ def task_report(request: Request, scope: str = Query("all", pattern="^(all|selec
         attachments={task["id"]: store.attachments(task["id"]) for task in tasks},
         attachment_root=_attachment_root(request, project["id"]),
         generated_by=user.full_name or user.username,
-        print_mode=format == "pdf",
     )
-    headers = {"Cache-Control": "no-store"}
-    if format == "html":
-        stamp = datetime.now().strftime("%Y%m%d-%H%M")
-        headers["Content-Disposition"] = f'attachment; filename="task-report-{stamp}.html"'
-    return HTMLResponse(html, headers=headers)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M")
+    headers = {
+        "Cache-Control": "no-store",
+        "Content-Disposition": f'attachment; filename="task-report-{stamp}.{format}"',
+    }
+    if format == "pdf":
+        return Response(build_pdf(**content), media_type="application/pdf", headers=headers)
+    return HTMLResponse(build_report(**content), headers=headers)
 
 
 @router.post("", status_code=201, dependencies=[Depends(verify_csrf)])

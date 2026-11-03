@@ -1,0 +1,18 @@
+[
+  {"name": "paragraphs", "text": "First line\nsecond line\n\nNext one"},
+  {"name": "headings", "text": "# One\n## Two\n### Three\n#### Not a heading\n#nospace"},
+  {"name": "inline", "text": "**bold** *italic* ~~gone~~ `code` ***both*** **a *b* c** 2 * 3 * 4 snake_case_name"},
+  {"name": "escapes", "text": "\\*not italic\\* and \\`not code\\` and a\\|b"},
+  {"name": "bullets", "text": "- one\n* two\n+ three\n  - nested"},
+  {"name": "numbered", "text": "3. three\n4. four\n- other list"},
+  {"name": "checklist", "text": "- [ ] todo\n- [x] done\n- [X] also\n- [ ]\n- [] plain"},
+  {"name": "table", "text": "| A | B |\n| --- | :-: |\n| 1 | **2** |\n| only |\n| x | y | extra |\nafter"},
+  {"name": "table pipes", "text": "a | b\n---|---\n1 \\| 2 | 3"},
+  {"name": "not a table", "text": "a | b\nplain line\n|---|\n---"},
+  {"name": "code", "text": "```\n# not a heading\n**raw**\n```\nafter\n```\nunclosed"},
+  {"name": "attachments", "text": "before ![cap](attachment:7) after\n![](attachment:8)\n- list"},
+  {"name": "windows lines", "text": "# Head\r\n\r\ntext\r\n- item"},
+  {"name": "mixed", "text": "## Steps\n1. Open `/etc/app.conf`\n2. Restart\n\n### Expected\nIt **works**.\n\n- [x] Checked it\n\n| Env | Ok |\n|---|---|\n| UAT | yes |"},
+  {"name": "empty", "text": ""},
+  {"name": "only spaces", "text": "   \n\t\n "}
+]

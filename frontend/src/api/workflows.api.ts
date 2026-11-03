@@ -6,6 +6,8 @@ export interface WorkflowSummary {
     name: string
     version: string
     description: string
+    /** The icon chosen for it (null: the default). */
+    icon?: string | null
     created_at: string
     updated_at: string
 }
@@ -95,6 +97,14 @@ export const workflowsApi = {
             `/api/workflows/${encodeURIComponent(name)}`,
             { method: 'DELETE' },
         )
+    },
+
+    setIcon(name: string, icon: string | null): Promise<{ name: string; icon: string | null }> {
+        return apiRequest(`/api/workflows/${encodeURIComponent(name)}/icon`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ icon }),
+        })
     },
 
     exportZip(names: string[], format: WorkflowFormat = 'json'): Promise<void> {

@@ -14,13 +14,19 @@ from lib.database.connection import DatabaseConnection
 from lib.system import release_notes
 from lib.system.release_notes import (
     MAX_ITEMS_PER_SECTION,
-    MAX_VERSIONS,
     build_notes,
     notes_from_commits,
     parse_changelog,
     unseen_releases,
 )
 from scripts import release as release_script
+
+
+@pytest.fixture(autouse=True)
+def _every_version_announced(monkeypatch) -> None:
+    """Most tests use small version numbers; the start has tests of its own."""
+
+    monkeypatch.setattr(release_notes, "FIRST_VERSION", (0, 0, 0))
 
 
 def _git(tags: dict, dates: dict | None = None):
@@ -116,6 +122,24 @@ def test_the_changelog_is_understood() -> None:
     assert parsed["1.1.0"]["items"] == {"New": ["Under no heading"]}
 
 
+def test_one_generated_line_can_be_reworded_or_dropped() -> None:
+    changelog = "## Reworded\n- Long old text => Short\n- Internal thing =>\n"
+    run = _git({"v1.0.0": ["perf: long old text", "feat: internal thing", "fix: kept as is"]})
+
+    [release] = build_notes("1.0.0", run, changelog=changelog)
+
+    assert release["sections"] == [
+        {"title": "Improved", "items": ["Short"]},
+        {"title": "Fixed", "items": ["Kept as is"]},
+    ]
+
+
+def test_rewording_is_not_read_as_part_of_a_version() -> None:
+    parsed = parse_changelog("## 1.0.0\n- Real\n## Reworded\n- Old => New\n")
+
+    assert parsed["1.0.0"]["items"] == {"New": ["Real"]}
+
+
 def test_an_untagged_version_takes_what_came_since_the_newest_tag() -> None:
     run = _git({"v1.0.0": ["feat: old"], "v1.1.0": ["feat: older"], "HEAD": ["fix: fresh"]})
 
@@ -164,12 +188,33 @@ def test_a_version_with_nothing_for_users_is_left_out() -> None:
     assert [item["version"] for item in build_notes("1.1.0", run, changelog="")] == ["1.0.0"]
 
 
-def test_old_versions_are_not_carried() -> None:
-    tags = {f"v1.{n}.0": ["feat: x"] for n in range(MAX_VERSIONS + 5)}
+def test_notes_start_at_the_first_version_and_then_stack(monkeypatch) -> None:
+    monkeypatch.setattr(release_notes, "FIRST_VERSION", (3, 3, 0))
+    tags = {"v1.0.0": ["feat: old"], "v1.1.7": ["feat: older"], "HEAD": ["fix: fresh"]}
 
-    releases = build_notes(f"1.{MAX_VERSIONS + 4}.0", _git(tags), changelog="")
+    # Before its tag, 3.3.0 holds everything since the last tag.
+    [first] = build_notes("3.3.0", _git(tags), changelog="")
+    assert first["version"] == "3.3.0"
+    assert first["sections"] == [{"title": "Fixed", "items": ["Fresh"]}]
 
-    assert len(releases) == MAX_VERSIONS
+    # Once tagged, the next version stacks on top of it.
+    tags["v3.3.0"] = ["fix: fresh"]
+    tags["HEAD"] = ["feat: next"]
+    releases = build_notes("3.3.1", _git(tags), changelog="")
+    assert [item["version"] for item in releases] == ["3.3.1", "3.3.0"]
+
+
+def test_a_version_before_the_first_has_no_notes(monkeypatch) -> None:
+    monkeypatch.setattr(release_notes, "FIRST_VERSION", (3, 3, 0))
+
+    assert build_notes("1.0.2", _git({"v1.0.0": ["feat: old"]}), changelog="") == []
+
+
+def test_no_version_is_dropped_for_being_old(monkeypatch) -> None:
+    tags = {f"v3.{n}.0": ["feat: x"] for n in range(3, 40)}
+    monkeypatch.setattr(release_notes, "FIRST_VERSION", (3, 3, 0))
+
+    assert len(build_notes("3.39.0", _git(tags), changelog="")) == 37
 
 
 def test_no_git_and_no_changelog_is_not_an_error() -> None:

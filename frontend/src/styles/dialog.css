@@ -5,8 +5,8 @@
  * --app-modal-backdrop-opacity (0–0.8, the "Modal backdrop"
  * preference) decides how much of the page and wallpaper shows
  * through every modal: it dims the backdrop and sets how solid
- * dialog panels and full-screen editors are. Lower values are
- * more see-through.
+ * dialogs, menus, toasts and full-screen editors are. Lower
+ * values are more see-through.
  * ==========================================================
  */
 

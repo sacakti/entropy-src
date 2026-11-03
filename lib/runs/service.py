@@ -489,6 +489,12 @@ class RunService:
             trigger=trigger,
             schedule_id=schedule_id,
             options={"debug": debug, "mode": mode} if debug or mode != "automated" else None,
+            rerun_config={
+                "arguments": dict(arguments or {}),
+                "node": target["name"],
+                "debug": debug,
+                "mode": mode,
+            },
         )
         self.store.set_project(job_id, project_id)
         return self.store.get(job_id) or {}

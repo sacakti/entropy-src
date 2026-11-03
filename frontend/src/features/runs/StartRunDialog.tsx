@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, LoaderCircle, Play, Server } from 'lucide-re
 import { pluginsApi } from '../../api/plugins.api'
 import { nodesApi, runsApi, type EntropyNode, type Run, type RunMode, type RunOptions, type RunRerunConfig } from '../../api/runs.api'
 import { workflowsApi } from '../../api/workflows.api'
+import { ApiError } from '../../services/api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Dialog from '../../components/layout/Dialog'
 import { errorMessage } from './format'
@@ -130,6 +131,17 @@ export default function StartRunDialog({
             } else {
                 const { items } = await pluginsApi.contracts()
                 const contract = items.find((item) => item.qualified_name === target)
+                // Runs from before inputs were saved start from an empty form.
+                const saved =
+                    rerunFrom === undefined
+                        ? null
+                        : await runsApi
+                              .pluginRerunConfig(rerunFrom)
+                              .then(({ config }) => config)
+                              .catch((cause: unknown) => {
+                                  if (cause instanceof ApiError && cause.status === 409) return null
+                                  throw cause
+                              })
                 if (!active) return
                 if (!contract) {
                     setCheck({ state: 'invalid', error: `Plugin '${target}' is not installed.` })
@@ -138,10 +150,24 @@ export default function StartRunDialog({
                 setDeclared(contract.contract === 'declared')
                 // App plugins are live pages: interactive runs keep them open.
                 if (contract.app) setMode('interactive')
-                setRows(rowsFor(contract.arguments))
+                if (saved) {
+                    setNode(saved.node)
+                    setDebug(Boolean(saved.debug))
+                    if (saved.mode) setMode(saved.mode)
+                }
+                // An upgraded plugin may no longer take an argument, and would refuse the run.
+                const savedArguments = Object.fromEntries(
+                    Object.entries(saved?.arguments ?? {}).filter(
+                        ([name]) =>
+                            contract.contract !== 'declared' ||
+                            contract.arguments.some((argument) => argument.name === name),
+                    ),
+                )
+                setRows(rowsFor(contract.arguments, savedArguments))
+                const unsaved = rerunFrom !== undefined && !saved ? ' · this older run saved no inputs' : ''
                 setCheck({
                     state: 'valid',
-                    summary: `Installed · version ${contract.version}${contract.enabled ? '' : ' · disabled'}`,
+                    summary: `Installed · version ${contract.version}${contract.enabled ? '' : ' · disabled'}${unsaved}`,
                 })
             }
         }

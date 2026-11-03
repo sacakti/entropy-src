@@ -233,6 +233,11 @@ export function defaultPluginIconId(namespace: string, qualifiedName: string): s
     return PLUGIN_DEFAULTS[qualifiedName] ?? NAMESPACE_DEFAULTS[namespace] ?? FALLBACK
 }
 
+/** A chosen icon, if this browser knows it. */
+export function iconById(id: string | null | undefined): LucideIcon | undefined {
+    return id ? ICONS.get(id) : undefined
+}
+
 /** The icon to draw: the chosen one if this browser knows it, else the default. */
 export function pluginIcon(plugin: { namespace: string; qualified_name: string; icon?: string | null }): LucideIcon {
     return (

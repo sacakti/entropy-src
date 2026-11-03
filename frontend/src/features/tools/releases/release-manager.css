@@ -172,3 +172,28 @@
 .entropy-app .promotion-environments input:focus { outline: 2px solid var(--app-accent); outline-offset: 1px; }
 
 .entropy-app :is(.release-list, .promotion-list) > .list-pagination { margin-top: 10px; }
+
+/* Linking artifacts to a release */
+.entropy-app .release-artifacts { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.entropy-app .release-artifacts legend { margin-bottom: 6px; padding: 0; font-weight: 600; }
+.entropy-app .release-artifacts-chosen { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.entropy-app .release-artifacts-chosen li { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 4px 2px 9px; color: var(--app-accent-fg); background: var(--app-accent-soft); border: 1px solid var(--app-accent-border); border-radius: 999px; font-size: .8rem; }
+.entropy-app .release-artifacts-chosen span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .release-artifacts-chosen button { display: inline-grid; flex: none; place-items: center; width: 18px; height: 18px; padding: 0; color: inherit; background: transparent; border: 0; border-radius: 50%; cursor: pointer; }
+.entropy-app .release-artifacts-chosen button:hover { background: var(--app-hover-bg); }
+.entropy-app .release-artifacts-search { width: 100%; max-width: none; }
+.entropy-app .release-dialog .release-artifacts-search input { width: 100%; padding-left: 32px; }
+.entropy-app .release-artifacts-heading { display: flex; align-items: center; gap: 6px; color: var(--app-muted); font-size: .8rem; }
+.entropy-app .release-artifacts-heading strong { font-weight: 600; }
+.entropy-app .release-artifacts-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.entropy-app .release-dialog .release-artifacts-list label { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; font-weight: 400; cursor: pointer; }
+.entropy-app .release-dialog .release-artifacts-list label:hover { background: var(--app-hover-bg); }
+.entropy-app .release-dialog .release-artifacts-list label.is-chosen { border-color: var(--app-accent-border); background: var(--app-accent-soft); }
+.entropy-app .release-dialog .release-artifacts-list input { flex: none; min-width: auto; padding: 0; }
+.entropy-app .release-artifacts-name { display: grid; flex: 1; gap: 1px; min-width: 0; }
+.entropy-app .release-artifacts-name strong { overflow: hidden; font-size: .88rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .release-artifacts-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .release-artifacts small { flex: none; color: var(--app-muted); font-size: .75rem; }
+.entropy-app .release-artifacts-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px 12px; color: var(--app-muted); border: 1px dashed var(--app-line); border-radius: 8px; font-size: .85rem; text-align: center; }
+.entropy-app .release-artifacts-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 0; color: var(--app-muted); background: transparent; border: 0; font-size: .8rem; }
+.entropy-app .release-artifacts-pages div { display: inline-flex; align-items: center; gap: 8px; }

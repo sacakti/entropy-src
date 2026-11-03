@@ -135,6 +135,21 @@ export async function downloadFile(
         cache: 'no-store',
     })
 
+    await saveResponse(response, filename)
+}
+
+/** Downloads a file with GET; unlike a plain link, a failure can be reported. */
+export async function downloadUrl(url: string, filename: string): Promise<void> {
+    const response = await fetch(url, {
+        headers: currentProject() ? { [PROJECT_HEADER]: currentProject() as string } : {},
+        credentials: 'same-origin',
+        cache: 'no-store',
+    })
+
+    await saveResponse(response, filename)
+}
+
+async function saveResponse(response: Response, filename: string): Promise<void> {
     if (!response.ok) {
         throw await toApiError(response)
     }

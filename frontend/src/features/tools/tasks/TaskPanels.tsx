@@ -27,6 +27,7 @@ import Pagination from '../../../components/layout/Pagination'
 import { usePagination } from '../../../components/layout/usePagination'
 import AttachmentViewer from './AttachmentViewer'
 import Description from './Description'
+import MarkupEditor from './MarkupEditor'
 import MentionInput, { MentionText } from './MentionInput'
 import SchedulePicker from './SchedulePicker'
 import { fromLocal, toLocal } from './schedule'
@@ -287,10 +288,17 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = fa
                         <input maxLength={120} value={draft.external_ref} placeholder="JIRA-123, INC0042…" onChange={(event) => set('external_ref', event.target.value)} />
                     </label>
                 </div>
-                <label>
-                    Description
-                    <MentionInput rows={4} value={draft.description} onChange={(value) => set('description', value)} members={data.members} placeholder="What needs to be done? @mention members to notify them." />
-                </label>
+                <div className="task-field">
+                    <span>Description</span>
+                    <MarkupEditor
+                        value={draft.description}
+                        onChange={(value) => set('description', value)}
+                        members={data.members}
+                        rows={6}
+                        ariaLabel="Description"
+                        placeholder="What needs to be done? @mention members to notify them."
+                    />
+                </div>
                 <label>
                     Remarks
                     <textarea rows={2} value={draft.remarks} onChange={(event) => set('remarks', event.target.value)} />
@@ -1120,14 +1128,8 @@ export function ReportPanel({ data, selection, groupFilter, onClose, onPickTasks
     const ready = count > 0 && (scope !== 'group' || groupId !== null)
 
     const generate = () => {
-        const url = reportUrl(scope, format, selection, groupId)
-        if (format === 'pdf') {
-            // The report opens in a tab and asks the browser to print it: choose "Save as PDF".
-            window.open(url, '_blank', 'noopener')
-            return
-        }
         const link = document.createElement('a')
-        link.href = url
+        link.href = reportUrl(scope, format, selection, groupId)
         link.click()
     }
 
@@ -1169,13 +1171,13 @@ export function ReportPanel({ data, selection, groupFilter, onClose, onPickTasks
                     </label>
                     <label className="task-choice">
                         <input type="radio" checked={format === 'pdf'} onChange={() => setFormat('pdf')} />
-                        PDF <span className="task-muted">opens the print dialog: choose “Save as PDF”</span>
+                        PDF file <span className="task-muted">ready to share or print; videos are named</span>
                     </label>
                 </fieldset>
                 <footer>
                     <button type="button" className="entropy-button entropy-button-secondary" onClick={onClose}>Cancel</button>
                     <button type="button" className="entropy-button entropy-button-primary" disabled={!ready} onClick={generate}>
-                        <Download size={15} /> {format === 'pdf' ? 'Open PDF' : 'Download'} ({count} task{count === 1 ? '' : 's'})
+                        <Download size={15} /> Download {format === 'pdf' ? 'PDF' : 'HTML'} ({count} task{count === 1 ? '' : 's'})
                     </button>
                 </footer>
             </div>

@@ -7,6 +7,8 @@ import { apiRequest } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import '../tasks/tasks.css'
 import './release-manager.css'
+import ReleaseArtifactPicker from './ReleaseArtifactPicker'
+import type { PickableArtifact } from './artifactSearch'
 import { CreatePanel } from '../tasks/TaskPanels'
 import StartRunDialog from '../../../features/runs/StartRunDialog'
 import type { Run, RunOptions } from '../../../api/runs.api'
@@ -40,7 +42,7 @@ type Data = {
     permissions: { 'releases.create': boolean; 'releases.manage': boolean; 'releases.promote': boolean; 'releases.delete': boolean; 'workflows.execute': boolean; 'tasks.create': boolean; 'artifacts.read': boolean }
 }
 type HousekeepingRule = { entity: 'release' | 'promotion'; older_than_days: number; statuses: string[] }
-type Artifact = { id: number; name: string; size_bytes: number }
+type Artifact = PickableArtifact
 type ReleaseDraft = { name: string; version: string; environment: string; description: string; workflow_name: string; tags: string; artifact_ids: number[] }
 
 const stages: { id: Stage; label: string }[] = [
@@ -608,7 +610,7 @@ export default function ReleaseManager() {
             <div className="release-form-grid"><label>Version<input value={draft.version} onChange={(event) => setReleaseField('version', event.target.value)} placeholder="e.g. 2.8.0" /></label><label>Current environment<input list="release-environment-options" value={draft.environment} onChange={(event) => setReleaseField('environment', event.target.value)} placeholder="Choose or type an environment" /><small>New environment names are added to the shared Release Manager list when saved.</small></label></div>
             <label>Workflow<select required value={draft.workflow_name} onChange={(event) => setReleaseField('workflow_name', event.target.value)}><option value="">Choose workflow</option>{data.workflows.map((workflow) => <option key={workflow.name} value={workflow.name}>{workflow.name}</option>)}</select><small>Release workflows run from the workflow queue. Their variables include release_id, release_name, release_version, and release.</small></label>
             <label>Tags<input value={draft.tags} onChange={(event) => setReleaseField('tags', event.target.value)} placeholder="SIT, payments, urgent" /><small>Separate tags with commas.</small></label>
-            {data.permissions['artifacts.read'] && <label>Link artifacts<select multiple value={draft.artifact_ids.map(String)} onChange={(event) => setDraft((current) => ({ ...current, artifact_ids: Array.from(event.target.selectedOptions, (option) => Number(option.value)) }))}>{artifacts.map((artifact) => <option key={artifact.id} value={artifact.id}>{artifact.name}</option>)}</select><small>Choose packages already registered in Artifacts. Use Ctrl or Command to select multiple.</small></label>}
+            {data.permissions['artifacts.read'] && <ReleaseArtifactPicker initial={artifacts} selected={draft.artifact_ids} onChange={(artifact_ids) => setDraft((current) => ({ ...current, artifact_ids }))} />}
             <label>Description<textarea rows={3} value={draft.description} onChange={(event) => setReleaseField('description', event.target.value)} maxLength={10000} /></label>
             {!data.workflows.length && <div className="release-form-note">Create a workflow in this project before adding a release.</div>}
             <footer><button type="button" className="entropy-button entropy-button-secondary" onClick={() => setCreating(false)}>Cancel</button><button type="submit" className="entropy-button entropy-button-primary" disabled={busy || !draft.name.trim() || !draft.workflow_name}>{busy ? 'Creating…' : 'Create release'}</button></footer>

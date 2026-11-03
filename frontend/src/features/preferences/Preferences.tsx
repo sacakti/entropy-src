@@ -551,7 +551,7 @@ export default function Preferences({
                         <p>
                             {themeEnabled
                                 ? 'Adjust wallpaper visibility, accent color, and modal backdrop.'
-                                : 'Choose the accent color.'}
+                                : 'Choose the accent color and modal backdrop.'}
                         </p>
                     </div>
 
@@ -613,24 +613,35 @@ export default function Preferences({
                             <small>Used for highlights, selections, and controls.</small>
                         </div>
 
-                        {themeEnabled && (
-                            <div className="appearance-setting">
-                                <label htmlFor="modal-backdrop-opacity">
-                                    <span>Modal backdrop</span>
-                                    <strong>{modalBackdropOpacity}%</strong>
-                                </label>
-                                <input
-                                    id="modal-backdrop-opacity"
-                                    type="range"
-                                    min="0"
-                                    max="80"
-                                    step="5"
-                                    value={modalBackdropOpacity}
-                                    disabled={!preferencesLoaded || preferencesSaving}
-                                    onChange={(event) =>
-                                        setModalBackdropOpacity(Number(event.target.value))
-                                    }
-                                    onPointerUp={(event) => {
+                        <div className="appearance-setting">
+                            <label htmlFor="modal-backdrop-opacity">
+                                <span>Modal backdrop</span>
+                                <strong>{modalBackdropOpacity}%</strong>
+                            </label>
+                            <input
+                                id="modal-backdrop-opacity"
+                                type="range"
+                                min="0"
+                                max="80"
+                                step="5"
+                                value={modalBackdropOpacity}
+                                disabled={!preferencesLoaded || preferencesSaving}
+                                onChange={(event) =>
+                                    setModalBackdropOpacity(Number(event.target.value))
+                                }
+                                onPointerUp={(event) => {
+                                    void saveWithFeedback(
+                                        theme,
+                                        accentColor,
+                                        backgroundImageId,
+                                        backgroundFit,
+                                        backgroundOpacity,
+                                        'Modal backdrop opacity updated.',
+                                        Number(event.currentTarget.value),
+                                    )
+                                }}
+                                onKeyUp={(event) => {
+                                    if (event.key.startsWith('Arrow')) {
                                         void saveWithFeedback(
                                             theme,
                                             accentColor,
@@ -640,27 +651,14 @@ export default function Preferences({
                                             'Modal backdrop opacity updated.',
                                             Number(event.currentTarget.value),
                                         )
-                                    }}
-                                    onKeyUp={(event) => {
-                                        if (event.key.startsWith('Arrow')) {
-                                            void saveWithFeedback(
-                                                theme,
-                                                accentColor,
-                                                backgroundImageId,
-                                                backgroundFit,
-                                                backgroundOpacity,
-                                                'Modal backdrop opacity updated.',
-                                                Number(event.currentTarget.value),
-                                            )
-                                        }
-                                    }}
-                                />
-                                <small>
-                                    How much of your wallpaper shows through dialogs and full-screen
-                                    editors on every page. Lower is more see-through.
-                                </small>
-                            </div>
-                        )}
+                                    }
+                                }}
+                            />
+                            <small>
+                                How much of the page shows through dialogs, menus and full-screen
+                                editors. Lower is more see-through; 75% and above is fully solid.
+                            </small>
+                        </div>
                     </div>
                 </section>
             </div>

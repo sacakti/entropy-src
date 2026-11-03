@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Fragment, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 
 import type { Member } from './model'
 
@@ -16,6 +16,12 @@ export default function MentionInput({
     rows = 2,
     ariaLabel,
     onSubmitShortcut,
+    autoFocus,
+    inputRef,
+    textareaClassName,
+    onEditorKeyDown,
+    onPaste,
+    onSelect,
 }: {
     value: string
     onChange: (value: string) => void
@@ -25,8 +31,18 @@ export default function MentionInput({
     ariaLabel?: string
     /** Ctrl/⌘ + Enter. */
     onSubmitShortcut?: () => void
+    autoFocus?: boolean
+    /** The textarea, for those working on its selection. */
+    inputRef?: RefObject<HTMLTextAreaElement | null>
+    textareaClassName?: string
+    /** Keys the suggestions did not take. */
+    onEditorKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void
+    onPaste?: (event: ClipboardEvent<HTMLTextAreaElement>) => void
+    /** The cursor or selection moved. */
+    onSelect?: () => void
 }) {
-    const area = useRef<HTMLTextAreaElement>(null)
+    const ownArea = useRef<HTMLTextAreaElement>(null)
+    const area = inputRef ?? ownArea
     const [query, setQuery] = useState<string | null>(null)
     const [active, setActive] = useState(0)
 
@@ -83,7 +99,9 @@ export default function MentionInput({
         if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && onSubmitShortcut) {
             event.preventDefault()
             onSubmitShortcut()
+            return
         }
+        onEditorKeyDown?.(event)
     }
 
     return (
@@ -91,6 +109,8 @@ export default function MentionInput({
             <textarea
                 ref={area}
                 rows={rows}
+                className={textareaClassName}
+                autoFocus={autoFocus}
                 value={value}
                 placeholder={placeholder}
                 aria-label={ariaLabel}
@@ -101,6 +121,8 @@ export default function MentionInput({
                     track(event.target.value, event.target.selectionStart)
                 }}
                 onKeyDown={onKeyDown}
+                onPaste={onPaste}
+                onSelect={onSelect}
                 onClick={(event) => track(value, event.currentTarget.selectionStart)}
                 onBlur={() => window.setTimeout(() => setQuery(null), 150)}
             />

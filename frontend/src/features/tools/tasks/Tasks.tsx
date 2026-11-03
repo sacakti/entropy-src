@@ -26,6 +26,7 @@ import { usePagination } from '../../../components/layout/usePagination'
 import { currentProject, setCurrentProject } from '../../../services/project'
 import { taskIdFromHash } from './navigation'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
+import { plainText } from './markup'
 import { CreatePanel, DetailPanel, GroupsPanel, ImportPanel, ReportPanel, SettingsPanel } from './TaskPanels'
 import { useStatusChange } from './statusChange'
 import TypeIcon from './TypeIcon'
@@ -425,7 +426,7 @@ export default function Tasks() {
                                                 <button key={task.id} className={`task-card${selected?.id === task.id ? ' selected' : ''}`} draggable={permissions['tasks.manage']} onDragStart={(event) => event.dataTransfer.setData('text/task-id', String(task.id))} onClick={() => setPanel({ kind: 'task', id: task.id })}>
                                                     {keyLabel(task)}
                                                     <strong>{task.title}</strong>
-                                                    {task.description && <span className="task-card-description">{task.description}</span>}
+                                                    {task.description && <span className="task-card-description">{plainText(task.description)}</span>}
                                                     {groupChips(task)}
                                                     {meta(task)}
                                                 </button>

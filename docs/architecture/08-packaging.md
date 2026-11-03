@@ -233,6 +233,9 @@ of it on the About page.
   Security. Other types are left out, so write those subjects for users.
 - A `## 1.2.0` section in `CHANGELOG.md` (with `### Fixed` and `- item` under it)
   replaces the generated notes of that version.
-- The file keeps the newest 12 versions, with at most 10 items per section. Security
-  items are never cut.
+- To change one generated line without rewriting history, add it under `## Reworded`
+  in `CHANGELOG.md`: `- Generated text => New wording`. Nothing after `=>` drops the line.
+- Notes start at 3.3.0 (`FIRST_VERSION` in `lib/system/release_notes.py`) and every
+  later version is kept, with at most 10 items per section. Security items are never cut.
+- Tag each release `vX.Y.Z`: the tag is what separates one version's notes from the next.
 - Check the wording before a build with `scripts/release.py --show-notes`.

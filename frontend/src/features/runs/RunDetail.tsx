@@ -37,6 +37,7 @@ import RunApps from './RunApp'
 import RunDiagram from './RunDiagram'
 import RunOptionsSummary from './RunOptionsSummary'
 import RunPrompts from './RunPrompts'
+import RunReportButton from './RunReportButton'
 import RunStatus from './RunStatus'
 import StartRunDialog from './StartRunDialog'
 import {
@@ -489,16 +490,16 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                         </p>
                     </div>
                     <RunStatus state={run.state} />
-                    {run.kind === 'workflow' &&
-                        (run.state === 'completed' || run.state === 'failed' || run.state === 'cancelled') && (
-                            <button
-                                type="button"
-                                className="entropy-button entropy-button-secondary"
-                                onClick={() => setRerunOpen(true)}
-                            >
-                                <RotateCcw size={15} /> Run again
-                            </button>
-                        )}
+                    <RunReportButton runId={run.id} target={run.target} />
+                    {(run.state === 'completed' || run.state === 'failed' || run.state === 'cancelled') && (
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary"
+                            onClick={() => setRerunOpen(true)}
+                        >
+                            <RotateCcw size={15} /> Run again
+                        </button>
+                    )}
                     {running && (
                         <button
                             type="button"
@@ -841,8 +842,8 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
             </section>
             {rerunOpen && (
                 <StartRunDialog
-                    kind="workflow"
-                    target={run.workflow}
+                    kind={run.kind === 'plugin' ? 'plugin' : 'workflow'}
+                    target={run.kind === 'plugin' ? run.target : run.workflow}
                     rerunFrom={run.id}
                     onClose={() => setRerunOpen(false)}
                 />

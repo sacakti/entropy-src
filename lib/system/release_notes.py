@@ -23,8 +23,8 @@ ROOT = Path(__file__).resolve().parents[2]
 NOTES_FILE = ROOT / "resources" / "release_notes.json"
 CHANGELOG = ROOT / "CHANGELOG.md"
 
-# The package stays small: older history is not worth carrying.
-MAX_VERSIONS = 12
+# Notes start at this version; every later one is kept.
+FIRST_VERSION = (3, 3, 0)
 MAX_ITEMS_PER_SECTION = 10
 
 SECTIONS = ("Security", "New", "Improved", "Fixed")
@@ -78,12 +78,17 @@ def _compact(items: Dict[str, List[str]]) -> Tuple[List[Dict[str, Any]], int]:
     return sections, left_out
 
 
-def notes_from_commits(subjects: Sequence[str]) -> Tuple[List[Dict[str, Any]], int]:
+def notes_from_commits(
+    subjects: Sequence[str],
+    reworded: Optional[Dict[str, str]] = None,
+) -> Tuple[List[Dict[str, Any]], int]:
     items: Dict[str, List[str]] = {}
     for subject in subjects:
         found = _section_of(subject)
         if found:
-            items.setdefault(found[0], []).append(found[1])
+            text = (reworded or {}).get(found[1], found[1])
+            if text:
+                items.setdefault(found[0], []).append(text)
     return _compact(items)
 
 
@@ -100,6 +105,10 @@ def parse_changelog(text: str) -> Dict[str, Dict[str, Any]]:
             title = "New"
             releases[version] = {"date": heading["date"], "items": {}}
             continue
+        # Any other heading (## Reworded) ends the version above it.
+        if line.startswith("## "):
+            version = None
+            continue
         if version is None:
             continue
         section = _SECTION.match(line)
@@ -110,6 +119,22 @@ def parse_changelog(text: str) -> Dict[str, Dict[str, Any]]:
         if item:
             releases[version]["items"].setdefault(title, []).append(item["text"])
     return releases
+
+
+def parse_reworded(text: str) -> Dict[str, str]:
+    """`- generated text => wording to use` under `## Reworded`; nothing after => drops the line."""
+
+    reworded: Dict[str, str] = {}
+    inside = False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            inside = line[3:].strip().lower() == "reworded"
+            continue
+        item = _ITEM.match(line)
+        if inside and item and "=>" in item["text"]:
+            generated, wording = item["text"].split("=>", 1)
+            reworded[generated.strip()] = wording.strip()
+    return reworded
 
 
 def _git(arguments: Sequence[str]) -> Optional[str]:
@@ -138,6 +163,11 @@ def _versions_of_tags(run: GitRunner) -> List[Tuple[Tuple[int, ...], str]]:
     return sorted(tags, reverse=True)
 
 
+def _is_announced(version: str) -> bool:
+    match = _TAG.match(version)
+    return match is None or tuple(int(part) for part in match.groups()) >= FIRST_VERSION
+
+
 def _subjects(run: GitRunner, revisions: str) -> List[str]:
     return (run(["log", "--no-merges", "--format=%s", revisions]) or "").splitlines()
 
@@ -153,6 +183,7 @@ def build_notes(
     if changelog is None:
         changelog = CHANGELOG.read_text(encoding="utf-8") if CHANGELOG.is_file() else ""
     written = parse_changelog(changelog)
+    reworded = parse_reworded(changelog)
     tags = _versions_of_tags(run)
     bare = [tag.lstrip("v") for _, tag in tags]
 
@@ -164,14 +195,16 @@ def build_notes(
         ranges.append((tag.lstrip("v"), tags[index + 1][1] if index + 1 < len(tags) else None, tag))
 
     releases = []
-    for name, start, end in ranges[:MAX_VERSIONS]:
+    for name, start, end in ranges:
+        if not _is_announced(name):
+            continue
         when = None
         if name in written:
             sections, left_out = _compact(written[name]["items"])
             when = written[name]["date"]
         else:
             revisions = f"{start}..{end}" if start else end
-            sections, left_out = notes_from_commits(_subjects(run, revisions))
+            sections, left_out = notes_from_commits(_subjects(run, revisions), reworded)
         if end != "HEAD":
             when = when or (run(["log", "-1", "--format=%cs", end]) or "").strip() or None
         else:

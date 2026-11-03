@@ -1,9 +1,13 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+    ArrowDown,
     ArrowRightLeft,
+    ArrowUp,
     BellRing,
     Download,
     FileWarning,
+    LayoutGrid,
+    List,
     LoaderCircle,
     Pencil,
     Eye,
@@ -41,6 +45,8 @@ import { consumeCreateIntent, useCreateIntent } from '../quickCreate'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import IconPicker from '../plugins/IconPicker'
+import { iconById } from '../plugins/pluginIcons'
 
 // The builder pulls in Monaco and YAML; load it only when opened.
 const WorkflowBuilder = lazy(() => import('./builder/WorkflowBuilder'))
@@ -64,7 +70,27 @@ function formatDate(value: string): string {
         : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
+type WorkflowView = 'list' | 'gallery'
+
+const VIEW_STORAGE_KEY = 'entropy.workflows.view'
+
+function storedView(): WorkflowView {
+    try {
+        return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'gallery' ? 'gallery' : 'list'
+    } catch {
+        return 'list'
+    }
+}
+
 type WorkflowSortField = 'name' | 'version' | 'updated'
+
+/** The gallery has no column headers to sort by. */
+const GALLERY_SORTS: { field: WorkflowSortField; label: string }[] = [
+    { field: 'name', label: 'Name' },
+    { field: 'version', label: 'Version' },
+    { field: 'updated', label: 'Updated' },
+]
+
 const WORKFLOW_COMPARE: Comparators<WorkflowSortField, WorkflowSummary> = {
     name: (left, right) => compareText(left.name, right.name),
     version: (left, right) => compareText(left.version, right.version) || compareText(left.name, right.name),
@@ -79,6 +105,7 @@ export default function Workflows() {
     const deleteReason = missing(permissions, ['workflows.delete'], 'deleting workflows')
     const runReason = missing(permissions, ['workflows.execute'], 'running workflows')
     const restoreReason = missing(permissions, ['workflows.write', 'plugins.read'], 'restoring earlier versions')
+    const canChangeIcon = !missing(permissions, ['workflows.write'], 'changing workflow icons')
     // Without write access the definition can still be viewed.
     const viewOnly = Boolean(editReason) && !missing(permissions, ['workflows.read'], 'viewing workflows')
 
@@ -89,6 +116,15 @@ export default function Workflows() {
     const [error, setError] = useState<string | null>(null)
     useErrorToast(error)
     const [search, setSearch] = useState('')
+    const [view, setViewState] = useState<WorkflowView>(storedView)
+    const setView = (next: WorkflowView) => {
+        setViewState(next)
+        try {
+            window.localStorage.setItem(VIEW_STORAGE_KEY, next)
+        } catch {
+            // Storage may be unavailable (private mode); the choice lasts this visit.
+        }
+    }
     const [builder, setBuilder] = useState<BuilderTarget>(() =>
         consumeCreateIntent('workflow') ? { mode: 'create' } : null,
     )
@@ -360,6 +396,130 @@ export default function Workflows() {
         pages.setPage(1)
     }
 
+    const changeIcon = async (name: string, icon: string | null) => {
+        await workflowsApi.setIcon(name, icon)
+        setWorkflows((current) => current.map((item) => (item.name === name ? { ...item, icon } : item)))
+    }
+
+    const iconOf = (workflow: WorkflowSummary) => (
+        <IconPicker
+            name={workflow.name}
+            noun="workflow"
+            icon={workflow.icon}
+            glyph={iconById(workflow.icon) ?? WorkflowIcon}
+            canEdit={canChangeIcon}
+            onChoose={(icon) => changeIcon(workflow.name, icon)}
+        />
+    )
+
+    const openWorkflow = (workflow: WorkflowSummary) => {
+        if (!editReason || viewOnly) setBuilder({ mode: 'edit', name: workflow.name })
+    }
+
+    const draftChip = (workflow: WorkflowSummary) =>
+        draftOf.has(workflow.name) && (
+            <span
+                className="list-chip list-chip-warning"
+                title="Has a version saved with errors; open it to continue"
+            >
+                Draft
+            </span>
+        )
+
+    const emptyState = (
+        <div className="list-empty">
+            <WorkflowIcon size={22} />
+            <strong>{workflows.length === 0 ? 'No workflows yet' : 'No workflows found'}</strong>
+            <span>{workflows.length === 0 ? 'Create one with the + button.' : 'Try a different search.'}</span>
+        </div>
+    )
+
+    /** What can be done with a workflow: the same in the list and the gallery. */
+    const workflowActions = (workflow: WorkflowSummary) => (
+        <div className="list-operations">
+            <button
+                type="button"
+                className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
+                aria-label={`Run ${workflow.name}`}
+                title={runReason ?? 'Run'}
+                aria-disabled={runReason ? true : undefined}
+                onClick={() => {
+                    if (!runReason) setRunning(workflow.name)
+                }}
+                disabled={deleting === workflow.name}
+            >
+                <Play size={15} />
+            </button>
+            <button
+                type="button"
+                className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                aria-label={`${viewOnly ? 'View' : 'Edit'} ${workflow.name}`}
+                title={viewOnly ? 'View (read only)' : editReason ?? 'Edit'}
+                aria-disabled={editReason && !viewOnly ? true : undefined}
+                onClick={() => openWorkflow(workflow)}
+                disabled={deleting === workflow.name}
+            >
+                {viewOnly ? <Eye size={15} /> : <Pencil size={15} />}
+            </button>
+            <button
+                type="button"
+                className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                aria-label={`Alerts for ${workflow.name}`}
+                title="E-mail alerts"
+                onClick={() => setAlerting(workflow.name)}
+                disabled={deleting === workflow.name}
+            >
+                <BellRing size={15} />
+            </button>
+            <button
+                type="button"
+                className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
+                aria-label={`Delete ${workflow.name}`}
+                title={deleteReason ?? 'Delete'}
+                aria-disabled={deleteReason ? true : undefined}
+                onClick={() => {
+                    if (!deleteReason) void remove(workflow)
+                }}
+                disabled={deleting === workflow.name}
+            >
+                {deleting === workflow.name ? (
+                    <LoaderCircle size={15} className="entropy-spin" />
+                ) : (
+                    <Trash2 size={15} />
+                )}
+            </button>
+        </div>
+    )
+
+    const draftActions = (item: WorkflowDraftSummary) => (
+        <div className="list-operations">
+            <button
+                type="button"
+                className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                aria-label={`Continue editing ${item.title}`}
+                title={editReason ?? 'Continue editing'}
+                aria-disabled={editReason ? true : undefined}
+                onClick={() => {
+                    if (!editReason) setBuilder({ mode: 'draft', id: item.id, workflow: null })
+                }}
+            >
+                <Pencil size={15} />
+            </button>
+            <button
+                type="button"
+                className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
+                aria-label={`Discard draft ${item.title}`}
+                title={editReason ?? 'Discard draft'}
+                aria-disabled={editReason ? true : undefined}
+                onClick={() => {
+                    if (!editReason) void discardDraft(item)
+                }}
+            >
+                <Trash2 size={15} />
+            </button>
+        </div>
+    )
+
     return (
         <section className="list-page workflows-page">
 
@@ -427,6 +587,26 @@ export default function Workflows() {
                         </button>
                     )}
                 </div>
+                <div className="list-toolbar-actions">
+                    <div className="plugins-view-switch" role="group" aria-label="Workflow view">
+                        <button
+                            type="button"
+                            aria-pressed={view === 'list'}
+                            title="List view"
+                            onClick={() => setView('list')}
+                        >
+                            <List size={15} aria-hidden="true" /> List
+                        </button>
+                        <button
+                            type="button"
+                            aria-pressed={view === 'gallery'}
+                            title="Gallery view"
+                            onClick={() => setView('gallery')}
+                        >
+                            <LayoutGrid size={15} aria-hidden="true" /> Gallery
+                        </button>
+                    </div>
+                </div>
                 {checked.size > 0 && (
                     <div className="list-bulk" role="toolbar" aria-label="Selected workflows">
                         <span>{checked.size} selected</span>
@@ -492,6 +672,111 @@ export default function Workflows() {
                     />
                 )}
 
+                {view === 'gallery' ? (
+                    <>
+                        <div className="plugin-gallery-bar">
+                            <label className="list-filter">
+                                <span>Sort by</span>
+                                <select
+                                    className="entropy-select"
+                                    value={sort.field}
+                                    aria-label="Sort workflows by"
+                                    onChange={(event) => changeSort(event.target.value as WorkflowSortField)}
+                                >
+                                    {GALLERY_SORTS.map((item) => (
+                                        <option key={item.field} value={item.field}>{item.label}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                                aria-label={sort.order === 'asc' ? 'Ascending; switch to descending' : 'Descending; switch to ascending'}
+                                title={sort.order === 'asc' ? 'Ascending' : 'Descending'}
+                                onClick={() => changeSort(sort.field)}
+                            >
+                                {sort.order === 'asc' ? <ArrowUp size={15} /> : <ArrowDown size={15} />}
+                            </button>
+                        </div>
+                        {loading ? (
+                            <EntropyLoader label="Loading workflows…" />
+                        ) : filtered.length === 0 && newDrafts.length === 0 ? (
+                            emptyState
+                        ) : (
+                            <div className="plugin-gallery">
+                                {newDrafts.map((item) => (
+                                    <article key={`draft-${item.id}`} className="plugin-card">
+                                        <header className="plugin-card-head">
+                                            <span className="list-name-icon is-warning" aria-hidden="true">
+                                                <FileWarning size={17} />
+                                            </span>
+                                            <span className="list-chip list-chip-warning">Draft</span>
+                                        </header>
+                                        <div className="plugin-card-name">
+                                            <strong title={item.title}>{item.title}</strong>
+                                        </div>
+                                        <p className="workflow-card-description">
+                                            Saved with {item.errors.length} problem{item.errors.length === 1 ? '' : 's'} by{' '}
+                                            {item.updated_by ?? 'someone'}; it cannot run until fixed.
+                                        </p>
+                                        <footer className="plugin-card-foot">
+                                            <div className="plugin-card-meta">
+                                                <span className="list-version">—</span>
+                                                <span className="list-cell-text">{formatDate(item.updated_at)}</span>
+                                            </div>
+                                            <div className="plugin-card-actions">{draftActions(item)}</div>
+                                        </footer>
+                                    </article>
+                                ))}
+                                {pages.pageItems.map((workflow) => (
+                                    <article
+                                        key={workflow.name}
+                                        className={`plugin-card${selectedName === workflow.name ? ' is-selected' : ''}${checked.has(workflow.name) ? ' is-checked' : ''}`}
+                                        onClick={() => setSelectedName(workflow.name)}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            className="list-check plugin-card-check"
+                                            aria-label={`Select ${workflow.name}`}
+                                            checked={checked.has(workflow.name)}
+                                            onClick={(event) => event.stopPropagation()}
+                                            onChange={() => toggleChecked(workflow.name)}
+                                        />
+                                        <header className="plugin-card-head">
+                                            {iconOf(workflow)}
+                                            {draftChip(workflow)}
+                                        </header>
+                                        <button
+                                            type="button"
+                                            className="plugin-card-name"
+                                            title={workflow.name}
+                                            onClick={(event) => {
+                                                event.stopPropagation()
+                                                setSelectedName(workflow.name)
+                                                openWorkflow(workflow)
+                                            }}
+                                        >
+                                            <strong>{workflow.name}</strong>
+                                        </button>
+                                        <p className="workflow-card-description" title={workflow.description || undefined}>
+                                            {workflow.description || 'No description'}
+                                        </p>
+                                        <footer className="plugin-card-foot">
+                                            <div className="plugin-card-meta">
+                                                <span className="list-version">{workflow.version}</span>
+                                                <span className="list-cell-text">{formatDate(workflow.updated_at)}</span>
+                                            </div>
+                                            {/* Buttons do their own thing; they must not also select the card. */}
+                                            <div className="plugin-card-actions" onClick={(event) => event.stopPropagation()}>
+                                                {workflowActions(workflow)}
+                                            </div>
+                                        </footer>
+                                    </article>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                ) : (
                 <div className="list-table-wrap">
                     <table className="list-table">
                         <thead>
@@ -543,19 +828,7 @@ export default function Workflows() {
                                 </tr>
                             ) : filtered.length === 0 && newDrafts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5}>
-                                        <div className="list-empty">
-                                            <WorkflowIcon size={22} />
-                                            <strong>
-                                                {workflows.length === 0 ? 'No workflows yet' : 'No workflows found'}
-                                            </strong>
-                                            <span>
-                                                {workflows.length === 0
-                                                    ? 'Create one with the + button.'
-                                                    : 'Try a different search.'}
-                                            </span>
-                                        </div>
-                                    </td>
+                                    <td colSpan={5}>{emptyState}</td>
                                 </tr>
                             ) : (
                                 <>
@@ -585,32 +858,7 @@ export default function Workflows() {
                                         </td>
                                         <td className="list-cell-text">{formatDate(item.updated_at)}</td>
                                         <td>
-                                            <div className="list-operations">
-                                                <button
-                                                    type="button"
-                                                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                                                    aria-label={`Continue editing ${item.title}`}
-                                                    title={editReason ?? 'Continue editing'}
-                                                    aria-disabled={editReason ? true : undefined}
-                                                    onClick={() => {
-                                                        if (!editReason) setBuilder({ mode: 'draft', id: item.id, workflow: null })
-                                                    }}
-                                                >
-                                                    <Pencil size={15} />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
-                                                    aria-label={`Discard draft ${item.title}`}
-                                                    title={editReason ?? 'Discard draft'}
-                                                    aria-disabled={editReason ? true : undefined}
-                                                    onClick={() => {
-                                                        if (!editReason) void discardDraft(item)
-                                                    }}
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            </div>
+                                            {draftActions(item)}
                                         </td>
                                     </tr>
                                 ))}
@@ -632,23 +880,10 @@ export default function Workflows() {
                                         </td>
                                         <td>
                                             <div className="list-name">
-                                                <span className="list-name-icon" aria-hidden="true">
-                                                    <WorkflowIcon size={16} />
-                                                </span>
+                                                {iconOf(workflow)}
                                                 <div className="list-name-content">
                                                     <strong>
-                                                        {workflow.name}
-                                                        {draftOf.has(workflow.name) && (
-                                                            <>
-                                                                {' '}
-                                                                <span
-                                                                    className="list-chip list-chip-warning"
-                                                                    title="Has a version saved with errors; open it to continue"
-                                                                >
-                                                                    Draft
-                                                                </span>
-                                                            </>
-                                                        )}
+                                                        {workflow.name} {draftChip(workflow)}
                                                     </strong>
                                                     <span>{workflow.description || 'No description'}</span>
                                                 </div>
@@ -659,61 +894,7 @@ export default function Workflows() {
                                         </td>
                                         <td className="list-cell-text">{formatDate(workflow.updated_at)}</td>
                                         <td>
-                                            <div className="list-operations">
-                                                <button
-                                                    type="button"
-                                                    className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
-                                                    aria-label={`Run ${workflow.name}`}
-                                                    title={runReason ?? 'Run'}
-                                                    aria-disabled={runReason ? true : undefined}
-                                                    onClick={() => {
-                                                        if (!runReason) setRunning(workflow.name)
-                                                    }}
-                                                    disabled={deleting === workflow.name}
-                                                >
-                                                    <Play size={15} />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                                                    aria-label={`${viewOnly ? 'View' : 'Edit'} ${workflow.name}`}
-                                                    title={viewOnly ? 'View (read only)' : editReason ?? 'Edit'}
-                                                    aria-disabled={editReason && !viewOnly ? true : undefined}
-                                                    onClick={() => {
-                                                        if (!editReason || viewOnly) setBuilder({ mode: 'edit', name: workflow.name })
-                                                    }}
-                                                    disabled={deleting === workflow.name}
-                                                >
-                                                    {viewOnly ? <Eye size={15} /> : <Pencil size={15} />}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                                                    aria-label={`Alerts for ${workflow.name}`}
-                                                    title="E-mail alerts"
-                                                    onClick={() => setAlerting(workflow.name)}
-                                                    disabled={deleting === workflow.name}
-                                                >
-                                                    <BellRing size={15} />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
-                                                    aria-label={`Delete ${workflow.name}`}
-                                                    title={deleteReason ?? 'Delete'}
-                                                    aria-disabled={deleteReason ? true : undefined}
-                                                    onClick={() => {
-                                                        if (!deleteReason) void remove(workflow)
-                                                    }}
-                                                    disabled={deleting === workflow.name}
-                                                >
-                                                    {deleting === workflow.name ? (
-                                                        <LoaderCircle size={15} className="entropy-spin" />
-                                                    ) : (
-                                                        <Trash2 size={15} />
-                                                    )}
-                                                </button>
-                                            </div>
+                                            {workflowActions(workflow)}
                                         </td>
                                     </tr>
                                 ))}
@@ -722,6 +903,7 @@ export default function Workflows() {
                         </tbody>
                     </table>
                 </div>
+                )}
                 {!loading && <Pagination state={pages} noun="workflows" />}
             </section>
 

@@ -54,8 +54,12 @@ WALLPAPER_DEFAULTS = {
     "background_image_id": None,
     "background_fit": "cover",
     "background_opacity": 35,
-    "modal_backdrop_opacity": 48,
 }
+
+# The stored default, which the slider (steps of 5) cannot select: nobody chose it.
+DEFAULT_MODAL_BACKDROP = 48
+# No wallpaper to show through, so panels start fully solid: nothing behind them is legible.
+NO_WALLPAPER_MODAL_BACKDROP = 75
 
 
 def _shown(preferences: dict) -> dict:
@@ -65,6 +69,8 @@ def _shown(preferences: dict) -> dict:
     shown = dict(preferences)
     if not enabled:
         shown.update(WALLPAPER_DEFAULTS)
+        if shown.get("modal_backdrop_opacity", DEFAULT_MODAL_BACKDROP) == DEFAULT_MODAL_BACKDROP:
+            shown["modal_backdrop_opacity"] = NO_WALLPAPER_MODAL_BACKDROP
     shown["theme_enabled"] = enabled
     return shown
 

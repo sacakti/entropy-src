@@ -90,9 +90,10 @@ class ProjectTransfer:
         return workflow.name
 
     def _move_workflow(self, name: str, source_id: int, target_id: int) -> None:
-        """Move a workflow, with its alerts and kept versions (keyed by project)."""
+        """Move a workflow, with its alerts, kept versions and icon (keyed by project)."""
 
         from lib.authorization.projects import workflow_key
+        from lib.workflow.icons import WorkflowIconStore
 
         self.workflows.move(name, source_project_id=source_id, target_project_id=target_id)
         old, new = workflow_key(source_id, name), workflow_key(target_id, name)
@@ -105,6 +106,17 @@ class ProjectTransfer:
                         f"UPDATE {table} SET {column} = ? WHERE kind = 'workflow' AND {column} = ?",
                         (new, old),
                     )
+        WorkflowIconStore(self.connection).move(old, new)
+
+    def _copy_icon(
+        self, name: str, source_id: int, created: str, target_id: int, username: str
+    ) -> None:
+        from lib.authorization.projects import workflow_key
+        from lib.workflow.icons import WorkflowIconStore
+
+        WorkflowIconStore(self.connection).copy(
+            workflow_key(source_id, name), workflow_key(target_id, created), username
+        )
 
     def _set_schedule_project(self, schedule_id: int, project_id: int) -> None:
         with self.connection.transaction():
@@ -173,6 +185,7 @@ class ProjectTransfer:
                 except Exception as exc:  # noqa: BLE001 - report and go on
                     result["errors"].append(f"Workflow '{name}': {exc}")
                     continue
+                self._copy_icon(name, source_id, created, target_id, user.username)
                 renamed[name] = created
                 result["workflows"].append({"name": name, "as": created})
 

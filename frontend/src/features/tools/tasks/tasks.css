@@ -306,3 +306,38 @@
     .entropy-app .schedule-presets button, .entropy-app .schedule-times button { min-height: 36px; padding: 2px 12px; font-size: 12.5px; }
     .entropy-app .schedule-footer .entropy-button { flex: 1; min-height: 44px; }
 }
+
+/* Formatted descriptions, and writing them */
+.entropy-app .task-description > :first-child { margin-top: 0; }
+.entropy-app .task-description > :last-child { margin-bottom: 0; }
+.entropy-app .task-description .task-md-h1 { margin: 16px 0 8px; font-size: 1.28rem; font-weight: 700; }
+.entropy-app .task-description .task-md-h2 { margin: 14px 0 6px; font-size: 1.1rem; font-weight: 700; }
+.entropy-app .task-description .task-md-h3 { margin: 12px 0 4px; color: var(--app-muted); font-size: .95rem; font-weight: 700; }
+.entropy-app .task-md-p { margin: 0 0 10px; }
+.entropy-app .task-md-list { margin: 0 0 10px; padding-left: 22px; white-space: normal; }
+.entropy-app .task-md-list.is-checklist { padding-left: 0; list-style: none; }
+.entropy-app .task-md-list li { margin: 2px 0; }
+.entropy-app .task-md-list li.is-task { display: flex; align-items: flex-start; gap: 8px; list-style: none; }
+.entropy-app .task-md-list li.is-task input { flex: none; margin-top: 4px; }
+.entropy-app .task-md-list .is-done { color: var(--app-muted); text-decoration: line-through; }
+.entropy-app .task-md-code { margin: 0 0 10px; padding: 10px 12px; overflow-x: auto; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; font: .82em/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.entropy-app .task-md-table { margin: 0 0 10px; overflow-x: auto; white-space: normal; }
+.entropy-app .task-md-table table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.entropy-app .task-md-table th, .entropy-app .task-md-table td { padding: 6px 10px; border: 1px solid var(--app-line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.entropy-app .task-md-table th { font-weight: 650; background: var(--app-surface); }
+.entropy-app .task-editor { display: grid; gap: 6px; min-width: 0; }
+.entropy-app .task-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; }
+.entropy-app .task-editor-group { display: inline-flex; align-items: center; gap: 2px; padding-left: 6px; border-left: 1px solid var(--app-line); }
+.entropy-app .task-editor-tool { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 28px; height: 28px; padding: 0 5px; color: var(--app-muted); background: transparent; border: 0; border-radius: 6px; cursor: pointer; }
+.entropy-app .task-editor-tool small { font-size: .68rem; }
+.entropy-app .task-editor-tool:hover, .entropy-app .task-editor-tool:focus-visible { color: var(--app-text); background: var(--app-hover-bg); }
+.entropy-app .task-editor-tool.is-active { color: var(--app-accent-fg); background: var(--app-accent-soft); }
+.entropy-app .task-editor-style.entropy-select { width: auto; max-width: 170px; min-height: 28px; height: 28px; padding-top: 0; padding-bottom: 0; font-size: .82rem; }
+.entropy-app .task-editor-mode { margin-left: auto; }
+:is(.entropy-app, .entropy-modal) .task-editor textarea.task-editor-input { font: .88rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.entropy-app .task-editor-preview { min-height: 150px; padding: 10px 12px; overflow: auto; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 9px; }
+.entropy-app .task-description-hint { display: inline-flex; align-items: center; gap: 5px; }
+.entropy-app .task-editor-table-menu { display: grid; gap: 6px; padding: 8px; }
+.entropy-app .task-editor-table-grid { display: grid; gap: 3px; }
+.entropy-app .task-editor-table-grid button { width: 20px; height: 20px; padding: 0; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 3px; cursor: pointer; }
+.entropy-app .task-editor-table-grid button.is-active { background: var(--app-accent-soft); border-color: var(--app-accent); }
