@@ -1,12 +1,13 @@
 import { lazy, Suspense, useState, type ComponentType, type LazyExoticComponent } from 'react'
-import { FileDiff, FolderTree, GitCompareArrows } from 'lucide-react'
+import { Database, FileDiff, FolderTree, GitCompareArrows } from 'lucide-react'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 
-type CompareMode = 'text' | 'file' | 'folder'
+type CompareMode = 'text' | 'file' | 'folder' | 'database'
 const MODES: { id: CompareMode; label: string; icon: typeof GitCompareArrows; component: LazyExoticComponent<ComponentType> }[] = [
     { id: 'text', label: 'Text Compare', icon: GitCompareArrows, component: lazy(() => import('./ContentCompare')) },
     { id: 'file', label: 'File Compare', icon: FileDiff, component: lazy(() => import('./FileCompare')) },
     { id: 'folder', label: 'Folder Compare', icon: FolderTree, component: lazy(() => import('./FolderCompare')) },
+    { id: 'database', label: 'Database Compare', icon: Database, component: lazy(() => import('./DatabaseCompare')) },
 ]
 
 export default function Clash() {

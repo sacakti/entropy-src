@@ -120,8 +120,13 @@ export interface ConnectionTestResult {
     details: string[]
 }
 
+export interface VisionSettings {
+    enabled: boolean
+}
+
 export interface AllSettings {
     general: GeneralSettings
+    vision: VisionSettings
     smtp: SmtpSettings
     ldap: LdapSettings
     oidc: OidcSettings
@@ -131,7 +136,7 @@ export interface AllSettings {
     retention: RetentionSettings
 }
 
-export type SectionName = 'general' | 'smtp' | 'ldap' | 'oidc' | 'database_target' | 'cache' | 'queue'
+export type SectionName = 'general' | 'vision' | 'smtp' | 'ldap' | 'oidc' | 'database_target' | 'cache' | 'queue'
 export type ConnectionSection = 'database_target' | 'cache' | 'queue'
 
 const json = (method: string, body: unknown): RequestInit => ({

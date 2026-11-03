@@ -1,0 +1,35 @@
+{
+    "name": "images",
+    "namespace": "consolidate",
+    "version": "1.0.0",
+    "description": "Keep the latest image of each service across several release packages: images to build from App/services and images to transfer from scripts/deploy/image_transfer.sh, for docker.build, builtin.shell and oc.deployment.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+
+    "dependencies": [],
+
+    "arguments": [
+        {"name": "release_directory", "type": "path", "path": "directory", "required": false, "description": "Folder of release packages (ZIPs or extracted folders), applied in natural name order (H9 before H10). Give this or 'releases'.", "example": "/opt/releases/2026-R4"},
+        {"name": "releases", "type": "list", "required": false, "description": "Release packages (ZIPs or extracted folders), applied in exactly this order. Give this or 'release_directory'.", "example": ["/opt/releases/H001.zip", "/opt/releases/H002.zip"]},
+        {"name": "image_tag", "type": "string", "required": true, "description": "Tag the images from App/services are built and deployed with.", "example": "1.1.10"},
+        {"name": "docker_repository", "type": "path", "path": "directory", "required": false, "description": "Last released images (<docker_repository>/<service>/image); a service whose image is identical is not built. Without it, every service in the releases is built.", "example": "/opt/entropy/docker"},
+        {"name": "yaml_repository", "type": "path", "path": "directory", "required": false, "description": "YAML repository with .entropy/resource_index.json; needed to produce the 'deployments' output. Without it, that output is empty.", "example": "/opt/entropy/yamls/SIT"},
+        {"name": "output_directory", "type": "path", "path": "directory", "required": false, "description": "Where the images, the transfer script and consolidation-report.json are written; defaults to <workspace>/consolidated/images.", "example": "/opt/entropy/consolidated/images"},
+        {"name": "overwrite", "type": "boolean", "required": false, "default": false, "description": "Empty a non-empty output_directory first (otherwise such a folder is refused, so stale images are never built)."}
+    ],
+
+    "outputs": [
+        {"name": "output_directory", "type": "string", "description": "Folder holding the staged images, the transfer script and the report."},
+        {"name": "report", "type": "string", "description": "Path of consolidation-report.json: the release each image came from, Deployment updates and warnings."},
+        {"name": "releases", "type": "list", "description": "Release names in the order they were applied."},
+        {"name": "images", "type": "dictionary", "description": "Images to build; give it to docker.build as 'images'. Empty when nothing needs building."},
+        {"name": "transfer_script", "type": "string", "description": "Generated script that transfers the latest images; give it to builtin.shell as 'script'. Always written, and does nothing when there are no images."},
+        {"name": "transfers", "type": "list", "description": "Images the transfer script pushes."},
+        {"name": "deployments", "type": "list", "description": "Image updates; give them to oc.deployment as 'deployments' (deployments mode). Empty without yaml_repository."},
+        {"name": "changed", "type": "boolean", "description": "True when there is an image to build or transfer."}
+    ],
+
+    "tags": ["consolidate", "release", "docker", "image"],
+
+    "license": ""
+}

@@ -171,8 +171,22 @@ def list_runs(
         sort=sort if sort in service.store.SORTS else "started",
         order=order,
     )
+    if tab == "active":
+        _add_waiting_counts(request, items)
     _no_store(response)
     return {"items": items, "total": total, "counts": service.store.counts(project["id"])}
+
+
+def _add_waiting_counts(request: Request, items: List[Dict[str, Any]]) -> None:
+    """Mark active runs that wait on someone: a plugin's question or a paused step."""
+
+    from lib.runs.prompts import PromptStore
+
+    # Only counts are read, so no vault key is needed (this runs on every Vision poll).
+    connection = request.app.state.entropy_context.database_manager.connection
+    counts = PromptStore(connection).waiting_counts([item["id"] for item in items])
+    for item in items:
+        item["waiting_for_input"] = counts.get(item["id"], 0)
 
 
 @router.get("/api/runs/{job_id}")

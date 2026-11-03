@@ -226,8 +226,9 @@ Select workflows (or schedules) and choose **Move or copy**:
 
 - **Move** changes the project; names, history and alerts stay. The
   schedules that run moved workflows can come along.
-- **Copy** creates new workflows with a free name (`deploy-2`), because
-  workflow names are unique across Entropy. Copied schedules start paused.
+- **Copy** keeps the name, or takes a free one (`deploy-2`) when the target
+  project already uses it: workflow and schedule names are unique per
+  project. Copied schedules start paused.
 
 Moving needs write and delete rights in the source project and write rights
 in the target; copying needs read in the source and write in the target.

@@ -1,0 +1,15 @@
+/* What's new, and the stack of release notes on the About page. */
+.entropy-app .release-history { display: grid; gap: 8px; width: min(680px, 100%); margin-top: 28px; text-align: left; }
+.entropy-app .release-history h3 { margin: 0 0 4px; font-size: 14px; }
+.entropy-app .release-history details { padding: 10px 14px; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 10px; }
+.entropy-app .release-history summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; cursor: pointer; font-size: 13px; }
+.entropy-app .release-history summary time { color: var(--app-muted); font-size: 11.5px; }
+.entropy-app .release-history details[open] summary { margin-bottom: 10px; }
+.entropy-app .release-note-section h4 { display: flex; align-items: center; gap: 6px; margin: 10px 0 4px; font-size: 12px; font-weight: 700; }
+.entropy-app .release-note-section ul { display: grid; gap: 3px; margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.entropy-app .release-note-section.is-security h4 { color: var(--app-warning); }
+.entropy-app .release-note-section.is-new h4 { color: var(--app-accent-fg); }
+.entropy-app .release-note-section.is-fixed h4 { color: var(--app-success); }
+.entropy-app .release-note-more { margin: 8px 0 0; color: var(--app-muted); font-size: 12px; }
+.whats-new-dialog .whats-new-body { display: grid; gap: 14px; max-height: min(56vh, 480px); overflow-y: auto; }
+.whats-new-dialog .whats-new-body h3 { margin: 0; font-size: 13px; }

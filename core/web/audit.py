@@ -38,6 +38,7 @@ SKIPPED = {
     ("POST", "/api/auth/login"),
     ("POST", "/api/auth/token"),
     ("POST", "/api/agent/heartbeat"),
+    ("POST", "/api/version/notes/seen"),
 }
 # Body fields that name what was created or changed (never values like passwords).
 NAME_FIELDS = ("name", "username", "title", "key", "workflow_name", "target_environment")

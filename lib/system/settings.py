@@ -28,6 +28,10 @@ SECTIONS: Dict[str, Dict[str, Any]] = {
         # Where people open Entropy, e.g. https://entropy.example.com (links in e-mails).
         "public_url": "",
     },
+    "vision": {
+        # The live island in the topbar, for everyone.
+        "enabled": True,
+    },
     "audit": {
         # Audit entries older than this are removed (1 to 3650 days).
         "retention_days": 365,

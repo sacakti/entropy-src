@@ -792,6 +792,7 @@ function ProjectDialog({
     const [key, setKey] = useState(project?.key ?? '')
     const [keyTouched, setKeyTouched] = useState(!creating)
     const [description, setDescription] = useState(project?.description ?? '')
+    const [visionActivity, setVisionActivity] = useState(project?.vision_activity ?? true)
     const [saving, setSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
     useErrorToast(formError)
@@ -807,7 +808,10 @@ function ProjectDialog({
               : null
 
     const dirty =
-        creating || name.trim() !== project.name || description.trim() !== (project.description ?? '')
+        creating ||
+        name.trim() !== project.name ||
+        description.trim() !== (project.description ?? '') ||
+        visionActivity !== project.vision_activity
 
     const save = async (event?: FormEvent) => {
         event?.preventDefault()
@@ -827,7 +831,7 @@ function ProjectDialog({
                 notifyProjectsUpdated()
                 onSaved(created.key)
             } else {
-                await projectsApi.update(project.key, { name: name.trim(), description: description.trim() })
+                await projectsApi.update(project.key, { vision_activity: visionActivity, name: name.trim(), description: description.trim() })
                 notify.success(`Project '${name.trim()}' updated.`)
                 notifyProjectsUpdated()
                 onSaved(project.key)
@@ -909,6 +913,22 @@ function ProjectDialog({
                             rows={3}
                         />
                     </label>
+                    {!creating && (
+                        <label className="project-vision-toggle admin-field-wide">
+                            <input
+                                type="checkbox"
+                                checked={visionActivity}
+                                onChange={(event) => setVisionActivity(event.target.checked)}
+                            />
+                            <span>
+                                <strong>Show everyone's runs in Vision</strong>
+                                <small>
+                                    Members see who is running what here, and which runs wait for whom. When off, Vision
+                                    shows each person only their own runs. The Runs page and alerts are not affected.
+                                </small>
+                            </span>
+                        </label>
+                    )}
                 </div>
             </form>
 

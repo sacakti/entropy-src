@@ -3,11 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { notificationsApi, type AppNotification } from '../../api/notifications.api'
 import type { NotifyInput } from './context'
 
-const POLL_MS = 20_000
+// Someone changing a task you follow should reach you right away.
+const POLL_MS = 5_000
 
 /** Server-backed notification center state, refreshed by polling and on focus. */
 export function useNotifications() {
     const [items, setItems] = useState<AppNotification[]>([])
+    // Vision flashes only what arrives after the first answer, so not the whole backlog.
+    const [loaded, setLoaded] = useState(false)
     const inFlight = useRef(false)
 
     const refresh = useCallback(async () => {
@@ -16,6 +19,7 @@ export function useNotifications() {
 
         try {
             setItems((await notificationsApi.list()).items)
+            setLoaded(true)
         } catch {
             // Older servers lack the API; the center simply stays empty.
         } finally {
@@ -25,7 +29,9 @@ export function useNotifications() {
 
     useEffect(() => {
         const first = window.setTimeout(() => void refresh(), 0)
-        const timer = window.setInterval(() => void refresh(), POLL_MS)
+        const timer = window.setInterval(() => {
+            if (!document.hidden) void refresh()
+        }, POLL_MS)
         const onFocus = () => void refresh()
         window.addEventListener('focus', onFocus)
 
@@ -66,5 +72,5 @@ export function useNotifications() {
         void notificationsApi.clear().catch(() => refresh())
     }, [refresh])
 
-    return { items, push, markRead, markAllRead, remove, clear, refresh }
+    return { items, loaded, push, markRead, markAllRead, remove, clear, refresh }
 }

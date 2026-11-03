@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     BadgeCheck,
-    Blocks,
+    Puzzle,
     CalendarClock,
     FolderLock,
     KeyRound,
@@ -38,6 +38,7 @@ import AccessRestricted from './components/layout/AccessRestricted'
 import { requestCreate, type CreateTarget } from './features/quickCreate'
 import { finishTour, getCurrentUser, loginSourceLabel, type LastLogin, type SessionInfo } from './services/auth'
 import SessionTimeout from './components/feedback/SessionTimeout'
+import { ReleaseHistory, WhatsNew } from './features/about/ReleaseNotes'
 import Tour, { type TourStep } from './features/tour/Tour'
 import { PROJECT_CHANGED_EVENT } from './services/project'
 
@@ -197,6 +198,8 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
     // The run shown by the live run screen (`#/runs/<id>`).
     const [runId, setRunId] = useState<number | null>(() => runIdFromHash(window.location.hash))
 
+    const [, setLocationHash] = useState(window.location.hash)
+
     // Each page visit is a history entry, so browser Back/Forward move between pages.
     const setActivePage = useCallback((page: PageId) => {
         setActivePageState(page)
@@ -215,6 +218,8 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
         function handlePopState() {
             setActivePageState(pageFromHash(window.location.hash) ?? 'dashboard')
             setRunId(runIdFromHash(window.location.hash))
+            // Pages read parts of the hash when drawn (the open tool), so draw them again.
+            setLocationHash(window.location.hash)
         }
 
         window.addEventListener('popstate', handlePopState)
@@ -375,7 +380,14 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
     const [projectVersion, setProjectVersion] = useState(0)
 
     useEffect(() => {
-        const onChange = () => setProjectVersion((value) => value + 1)
+        const onChange = () => {
+            setProjectVersion((value) => value + 1)
+            // A run belongs to the project being left: show the new project's runs.
+            if (runIdFromHash(window.location.hash) !== null) {
+                window.history.replaceState(null, '', '#/runs')
+                setRunId(null)
+            }
+        }
         window.addEventListener(PROJECT_CHANGED_EVENT, onChange)
         return () => window.removeEventListener(PROJECT_CHANGED_EVENT, onChange)
     }, [])
@@ -414,7 +426,7 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
 
     const quickCreate = (
         [
-            { target: 'plugin', label: 'Plugin', icon: Blocks, page: 'plugins', permission: 'plugins.write' },
+            { target: 'plugin', label: 'Plugin', icon: Puzzle, page: 'plugins', permission: 'plugins.write' },
             { target: 'workflow', label: 'Workflow', icon: WorkflowIcon, page: 'workflows', permission: ['workflows.write', 'plugins.read'] },
             { target: 'schedule', label: 'Schedule', icon: CalendarClock, page: 'schedulers', permission: 'schedules.manage' },
             { target: 'vault-entry', label: 'Vault secret', icon: KeyRound, page: 'vault', permission: null },
@@ -536,6 +548,8 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
                     onPageChange={setActivePage}
                     onLogout={onLogout}
                     notifications={notifications.items}
+                    notificationsLoaded={notifications.loaded}
+                    onRefreshNotifications={notifications.refresh}
                     onMarkNotificationRead={notifications.markRead}
                     onClearNotification={notifications.remove}
                     onMarkAllNotificationsRead={notifications.markAllRead}
@@ -559,6 +573,7 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
                                 <div className="about-version">
                                     Version {appVersion || 'Unavailable'}
                                 </div>
+                                <ReleaseHistory />
                             </section>
                         ) : activePage === 'preferences' ? (
                             <Preferences {...appearance} />
@@ -628,6 +643,11 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
                             setHelpOpen(false)
                             setTourOpen(true)
                         }}
+                    />
+                )}
+                {!tourOpen && (
+                    <WhatsNew
+                        onSeeAll={() => setActivePage('about')}
                     />
                 )}
                 {tourOpen && (

@@ -33,6 +33,8 @@
 .entropy-app .task-form label select:not([multiple]) { -moz-appearance: none; appearance: none; height: 42px; padding-top: 0; padding-bottom: 0; padding-right: 32px; line-height: 40px; text-overflow: ellipsis; background-image: linear-gradient(45deg, transparent 50%, var(--app-muted) 50%), linear-gradient(135deg, var(--app-muted) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
 .entropy-app .task-form select option { color: var(--app-text); background-color: var(--app-surface); }
 .entropy-app .task-form input:focus, .entropy-app .task-form textarea:focus, .entropy-app .task-form select:focus { outline: 2px solid var(--app-accent); outline-offset: 1px; }
+.entropy-app .task-reminder-label { display: grid; gap: 6px; }
+.entropy-app .task-reminder-label > span { font-weight: 600; }
 .entropy-app .task-reminder-label small { color: var(--app-muted); font-weight: 400; }
 .entropy-app .task-eyebrow { color: var(--app-muted); font-size: .74rem; letter-spacing: .08em; }
 .entropy-app .task-detail-info { display: flex; flex-wrap: wrap; gap: 15px; color: var(--app-muted); font-size: .85rem; }
@@ -95,15 +97,19 @@
 .entropy-app .task-group-chip button, .entropy-app .task-type-chip button { display: inline-flex; padding: 0; color: var(--app-muted); background: none; border: 0; cursor: pointer; }
 .entropy-app .task-groups-picker select { height: 28px; padding: 0 6px; color: var(--app-text); background: var(--app-surface); border: 1px dashed var(--app-hover-border); border-radius: 999px; font: inherit; font-size: .78rem; }
 .entropy-app .task-group-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--app-line); border-radius: 10px; overflow: hidden; }
-.entropy-app .task-group-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--app-line); }
+.entropy-app .task-group-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-bottom: 1px solid var(--app-line); }
 .entropy-app .task-group-list li:last-child { border-bottom: 0; }
-.entropy-app .task-group-list li > .task-group-chip { max-width: none; overflow: visible; }
 .entropy-app .task-group-list li.is-active { background: var(--app-accent-soft); }
-.entropy-app .task-group-list li small { grid-column: 2; color: var(--app-muted); font-size: .76rem; }
-.entropy-app .task-group-list li > input { min-width: 0; padding: 4px 6px; color: var(--app-text); background: transparent; border: 1px solid transparent; border-radius: 6px; font: inherit; font-weight: 650; }
-.entropy-app .task-group-list li > input:hover, .entropy-app .task-group-list li > input:focus { border-color: var(--app-line); background: var(--app-surface); outline: none; }
-.entropy-app .task-group-list li > button:first-of-type { grid-row: 1 / span 2; grid-column: 3; }
-.entropy-app .task-group-list li > button:last-of-type { grid-row: 1 / span 2; }
+.entropy-app .task-group-main { display: grid; flex: 1; gap: 4px; min-width: 0; }
+.entropy-app .task-group-main > strong { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Reads as text until hovered or focused: renaming happens in place. */
+.entropy-app .task-group-list .task-group-main > input { width: 100%; min-width: 0; min-height: 0; padding: 2px 6px; color: var(--app-text); background: transparent; border: 1px solid transparent; border-radius: 6px; font: inherit; font-weight: 650; }
+.entropy-app .task-group-list .task-group-main > input:hover, .entropy-app .task-group-list .task-group-main > input:focus { border-color: var(--app-line); background: var(--app-surface); outline: none; }
+.entropy-app .task-group-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 6px; min-width: 0; }
+.entropy-app .task-group-meta small { color: var(--app-muted); font-size: .76rem; overflow-wrap: anywhere; }
+.entropy-app .task-group-actions { display: flex; flex: none; align-items: center; gap: 4px; }
+.entropy-app .task-group-search input { flex: 1; width: auto; }
+.entropy-app .task-form .task-group-search input:focus { outline: none; }
 .entropy-app .task-group-form { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--app-line); border-radius: 10px; background: var(--app-surface); }
 
 /* List ---------------------------------------------------------------- */
@@ -247,3 +253,56 @@
 .entropy-app .task-markup-tools .task-markup-width { width: auto; }
 
 .entropy-app .tasks-tool .list-pagination { margin-top: 12px; }
+
+/* Due date and reminder picker -------------------------------------- */
+.entropy-app .schedule-field { display: grid; gap: 6px; min-width: 0; font-weight: 600; }
+.entropy-app .schedule-trigger-row { display: flex; align-items: stretch; gap: 4px; min-width: 0; }
+.entropy-app .schedule-trigger { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; min-height: 42px; padding: 6px 12px; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 9px; font: inherit; font-weight: 500; text-align: left; cursor: pointer; }
+.entropy-app .schedule-trigger > svg { flex: none; color: var(--app-accent-fg); }
+.entropy-app .schedule-trigger:hover:not(:disabled), .entropy-app .schedule-trigger[aria-expanded='true'] { border-color: var(--app-accent-border); }
+.entropy-app .schedule-trigger:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 1px; }
+.entropy-app .schedule-trigger:disabled { color: var(--app-muted); cursor: not-allowed; background: var(--app-bg); }
+.entropy-app .schedule-trigger.is-empty { color: var(--app-muted); }
+.entropy-app .schedule-trigger.is-empty > svg { color: var(--app-muted); }
+.entropy-app .schedule-trigger-text { display: grid; gap: 1px; min-width: 0; }
+.entropy-app .schedule-trigger-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .schedule-trigger-text small { display: inline-flex; align-items: center; gap: 4px; color: var(--app-muted); font-size: 11px; font-weight: 400; }
+.entropy-app .schedule-clear { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 34px; color: var(--app-muted); background: transparent; border: 1px solid transparent; border-radius: 9px; cursor: pointer; }
+.entropy-app .schedule-clear:hover { color: var(--app-text); background: var(--app-hover-bg); }
+
+.entropy-app .schedule-panel { width: 320px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; padding: 12px; }
+.entropy-app .schedule-body { display: grid; gap: 10px; font-size: 13px; }
+.entropy-app .schedule-presets, .entropy-app .schedule-times { display: flex; flex-wrap: wrap; gap: 5px; }
+.entropy-app .schedule-presets button, .entropy-app .schedule-times button { min-height: 28px; padding: 2px 9px; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 999px; font: inherit; font-size: 11.5px; cursor: pointer; }
+.entropy-app .schedule-presets button:hover, .entropy-app .schedule-times button:hover:not(:disabled) { background: var(--app-hover-bg); }
+.entropy-app .schedule-times button[aria-pressed='true'] { color: var(--app-accent-fg); background: var(--app-accent-soft); border-color: var(--app-accent-border); }
+.entropy-app .schedule-times button:disabled { cursor: not-allowed; opacity: 0.5; }
+.entropy-app .schedule-month { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.entropy-app .schedule-month button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; color: var(--app-text); background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
+.entropy-app .schedule-month button:hover { background: var(--app-hover-bg); }
+.entropy-app .schedule-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.entropy-app .schedule-grid th { padding: 2px 0 4px; color: var(--app-subtle); font-size: 10.5px; font-weight: 700; text-align: center; }
+.entropy-app .schedule-grid td { padding: 1px; text-align: center; }
+.entropy-app .schedule-grid button { width: 100%; aspect-ratio: 1; min-height: 34px; color: var(--app-text); background: transparent; border: 1px solid transparent; border-radius: 8px; font: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.entropy-app .schedule-grid button:hover { background: var(--app-hover-bg); }
+.entropy-app .schedule-grid button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 0; }
+.entropy-app .schedule-grid button.is-past { color: var(--app-muted); }
+.entropy-app .schedule-grid button.is-outside { color: var(--app-subtle); opacity: 0.6; }
+.entropy-app .schedule-grid button.is-today { border-color: var(--app-accent-border); font-weight: 700; }
+.entropy-app .schedule-grid button.is-selected { color: var(--app-accent-text); background: var(--app-accent); font-weight: 700; opacity: 1; }
+.entropy-app .schedule-row { display: grid; gap: 6px; }
+.entropy-app .schedule-time, .entropy-app .schedule-repeat { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--app-muted); font-size: 12px; font-weight: 600; }
+.entropy-app .schedule-repeat > span { display: inline-flex; flex: none; align-items: center; gap: 5px; }
+.entropy-app .schedule-repeat .entropy-select { flex: 1; width: auto; min-width: 0; }
+.entropy-app .schedule-time input { min-height: 34px; padding: 0 8px; color: var(--app-text); color-scheme: dark light; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; font: inherit; }
+.entropy-app .schedule-note { min-height: 16px; margin: 0; color: var(--app-muted); font-size: 11.5px; }
+.entropy-app .schedule-note .is-warning { display: inline-flex; align-items: flex-start; gap: 5px; color: var(--app-warning); }
+.entropy-app .schedule-footer { display: flex; justify-content: flex-end; gap: 6px; }
+
+/* A phone gets a sheet from the bottom, with bigger targets. */
+@media (max-width: 640px) {
+    .entropy-app .schedule-panel { position: fixed !important; top: auto !important; right: 0; bottom: 0; left: 0 !important; width: 100%; max-width: none; max-height: 92vh; padding: 16px; border-radius: 16px 16px 0 0; box-shadow: 0 0 0 100vmax rgb(0 0 0 / 45%); }
+    .entropy-app .schedule-grid button { min-height: 44px; font-size: 14px; }
+    .entropy-app .schedule-presets button, .entropy-app .schedule-times button { min-height: 36px; padding: 2px 12px; font-size: 12.5px; }
+    .entropy-app .schedule-footer .entropy-button { flex: 1; min-height: 44px; }
+}

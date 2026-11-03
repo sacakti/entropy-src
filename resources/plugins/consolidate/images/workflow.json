@@ -1,0 +1,144 @@
+{
+    "name": "consolidated-release",
+    "version": "1.0.0",
+    "description": "Consolidate releases H001 and H002, whatever each contains: ConfigMaps and Secrets, Deployments, database scripts, and images from App/services or App-Published. Updates the YAML repository, builds and transfers images, and runs the database scripts. Nothing is applied to the cluster.",
+    "variables": {
+        "releases": [
+            "/opt/releases/H001.zip",
+            "/opt/releases/H002.zip"
+        ],
+        "image_tag": "1.1.10",
+        "docker_repository": "/opt/entropy/docker",
+        "yaml_repository": "/opt/entropy/yamls/SIT",
+        "sqlhome": "/opt/oracle/product/client",
+        "connection": {
+            "IP": "localhost",
+            "PORT": 1521,
+            "SID": "orcl"
+        },
+        "schemas": {}
+    },
+    "steps": [
+        {
+            "name": "ConsolidateCmSecret",
+            "plugin": "consolidate.cm_secret",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["consolidate"],
+            "arguments": {
+                "releases": "${releases}",
+                "overwrite": true
+            }
+        },
+        {
+            "name": "ConsolidateDeployment",
+            "plugin": "consolidate.deployment",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["consolidate"],
+            "arguments": {
+                "releases": "${releases}",
+                "overwrite": true
+            }
+        },
+        {
+            "name": "ConsolidateDbScripts",
+            "plugin": "consolidate.db_scripts",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["consolidate"],
+            "arguments": {
+                "releases": "${releases}",
+                "overwrite": true
+            }
+        },
+        {
+            "name": "ConsolidateImages",
+            "plugin": "consolidate.images",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["consolidate"],
+            "arguments": {
+                "releases": "${releases}",
+                "image_tag": "${image_tag}",
+                "docker_repository": "${docker_repository}",
+                "yaml_repository": "${yaml_repository}",
+                "overwrite": true
+            }
+        },
+        {
+            "name": "BuildImages",
+            "plugin": "docker.build",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["docker"],
+            "arguments": {
+                "images": "${steps.ConsolidateImages.outputs.images}"
+            }
+        },
+        {
+            "name": "TransferImages",
+            "plugin": "builtin.shell",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["docker"],
+            "arguments": {
+                "script": "${steps.ConsolidateImages.outputs.transfer_script}"
+            }
+        },
+        {
+            "name": "ApplyCmSecret",
+            "plugin": "oc.cm_secret_update",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["openshift"],
+            "arguments": {
+                "mode": "folder",
+                "source": "${steps.ConsolidateCmSecret.outputs.output_directory}",
+                "target": "${yaml_repository}",
+                "recursive": true,
+                "allow_empty": true
+            }
+        },
+        {
+            "name": "ApplyDeployment",
+            "plugin": "oc.deployment",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["openshift"],
+            "arguments": {
+                "mode": "folder",
+                "source": "${steps.ConsolidateDeployment.outputs.output_directory}",
+                "target": "${yaml_repository}/deployments",
+                "allow_empty": true
+            }
+        },
+        {
+            "name": "ApplyImages",
+            "plugin": "oc.deployment",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["openshift"],
+            "arguments": {
+                "mode": "deployments",
+                "repository": "${yaml_repository}",
+                "deployments": "${steps.ConsolidateImages.outputs.deployments}"
+            }
+        },
+        {
+            "name": "RunDbScripts",
+            "plugin": "sqlplus.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["sqlplus"],
+            "arguments": {
+                "sqlhome": "${sqlhome}",
+                "mode": "plan",
+                "on_error": "abort",
+                "connection": "${connection}",
+                "schemas": "${schemas}",
+                "execution": "${steps.ConsolidateDbScripts.outputs.database}"
+            }
+        }
+    ]
+}

@@ -28,6 +28,7 @@ import { missingPermission as missing } from '../administration/permissionReason
 import { usePermissions } from '../administration/usePermissions'
 import AppPortal from '../../components/layout/AppPortal'
 import Pagination from '../../components/layout/Pagination'
+import SelectionBar from '../../components/layout/SelectionBar'
 import { usePagination } from '../../components/layout/usePagination'
 import SortHeader from '../../components/layout/SortHeader'
 import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
@@ -201,7 +202,7 @@ export default function Workflows() {
 
         const confirmed = await modal.confirm({
             title: `Delete ${names.length} workflow${names.length === 1 ? '' : 's'}?`,
-            message: `${names.join(', ')} will be removed from the registry. This cannot be undone.`,
+            message: `${names.length > 8 ? `${names.slice(0, 8).join(', ')} and ${names.length - 8} more` : names.join(', ')} will be removed from the registry. This cannot be undone.`,
             confirmText: names.length === 1 ? 'Delete workflow' : `Delete ${names.length} workflows`,
             cancelText: 'Cancel',
             destructive: true,
@@ -477,6 +478,20 @@ export default function Workflows() {
                 )}
                 </div>
 
+                {!loading && (
+                    <SelectionBar
+                        noun="workflows"
+                        pageCount={pages.pageItems.length}
+                        total={filtered.length}
+                        pageSelected={pages.pageItems.filter((item) => checked.has(item.name)).length}
+                        selectedCount={checked.size}
+                        onSelectPage={() => setChecked(new Set(pages.pageItems.map((item) => item.name)))}
+                        onSelectAll={() => setChecked(new Set(filtered.map((item) => item.name)))}
+                        onClear={() => setChecked(new Set())}
+                        disabled={bulkBusy}
+                    />
+                )}
+
                 <div className="list-table-wrap">
                     <table className="list-table">
                         <thead>
@@ -485,20 +500,24 @@ export default function Workflows() {
                                     <input
                                         type="checkbox"
                                         className="list-check"
-                                        aria-label="Select all workflows"
-                                        checked={filtered.length > 0 && filtered.every((item) => checked.has(item.name))}
+                                        aria-label="Select the workflows on this page"
+                                        checked={pages.pageItems.length > 0 && pages.pageItems.every((item) => checked.has(item.name))}
                                         ref={(element) => {
                                             if (element) {
-                                                const count = filtered.filter((item) => checked.has(item.name)).length
-                                                element.indeterminate = count > 0 && count < filtered.length
+                                                const count = pages.pageItems.filter((item) => checked.has(item.name)).length
+                                                element.indeterminate = count > 0 && count < pages.pageItems.length
                                             }
                                         }}
                                         onChange={(event) =>
-                                            setChecked(
-                                                event.target.checked ? new Set(filtered.map((item) => item.name)) : new Set(),
-                                            )
+                                            setChecked((current) => {
+                                                const next = new Set(current)
+                                                pages.pageItems.forEach((item) =>
+                                                    event.target.checked ? next.add(item.name) : next.delete(item.name),
+                                                )
+                                                return next
+                                            })
                                         }
-                                        disabled={filtered.length === 0}
+                                        disabled={pages.pageItems.length === 0}
                                     />
                                 </th>
                                 <th scope="col" aria-sort={ariaSort('name')}>

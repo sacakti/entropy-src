@@ -10,6 +10,8 @@ export interface PluginItem {
     installed_at: string | null
     /** Saved but not installed; workflows cannot use it until installed. */
     draft?: boolean
+    /** The icon chosen for it (null: its default); sent by the list endpoint only. */
+    icon?: string | null
     /** From plugin.json; sent by the list endpoint only. */
     depends_on?: PluginDependencies
 }
@@ -19,11 +21,23 @@ export interface PluginDependency {
     version?: string
 }
 
+/** A command line tool the plugin runs ("system_requirements" in plugin.json). */
+export interface PluginSystemRequirement {
+    name: string
+    /** Only some uses of the plugin need it. */
+    optional: boolean
+    note: string
+    /** Found on the Entropy server (a remote node may differ). */
+    available: boolean
+}
+
 export interface PluginDependencies {
     /** Python libraries ("dependencies"). */
     extensions: PluginDependency[]
     /** Other plugins ("required_plugins"). */
     plugins: PluginDependency[]
+    /** Command line tools; absent on older servers. */
+    tools?: PluginSystemRequirement[]
 }
 
 export interface PluginListResponse {
@@ -324,6 +338,22 @@ export const pluginsApi = {
         })
     },
 
+    setEnabled(qualifiedName: string, enabled: boolean): Promise<{ qualified_name: string; enabled: boolean }> {
+        return apiRequest(`${pluginPath(qualifiedName)}/enabled`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled }),
+        })
+    },
+
+    setIcon(qualifiedName: string, icon: string | null): Promise<{ qualified_name: string; icon: string | null }> {
+        return apiRequest(`${pluginPath(qualifiedName)}/icon`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ icon }),
+        })
+    },
+
     delete(
         qualifiedName: string,
     ): Promise<{ deleted: boolean; qualified_name: string }> {
@@ -394,6 +424,8 @@ export interface PluginDocs extends PluginItem {
     license: string | null
     tags: string[]
     dependencies: string[]
+    /** Absent on older servers. */
+    system_requirements?: PluginSystemRequirement[]
     /** Entropy versions the plugin supports, e.g. ">=1.0.0". */
     entropy: string | null
     arguments: PluginArgumentSpec[]

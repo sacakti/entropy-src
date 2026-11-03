@@ -1,11 +1,14 @@
 {
     "name": "generic",
     "namespace": "docker",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
     "dependencies": [],
+    "system_requirements": [
+        {"name": "docker", "note": "Docker command line client and a running daemon."}
+    ],
     "arguments": [
         {
             "name": "operation",

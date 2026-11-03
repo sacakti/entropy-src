@@ -1,7 +1,7 @@
 {
     "name": "deployment",
     "namespace": "oc",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "description": "Update OpenShift Deployment YAML resources.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
@@ -48,6 +48,13 @@
             "required": false,
             "default": [],
             "description": "Deployment resources from release context (name, kind, action, repository, file or source, operations or container/target_image); used in deployments mode."
+        },
+        {
+            "name": "allow_empty",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Folder mode: succeed without changes when source has no YAML files, instead of failing."
         }
     ],
     "outputs": [

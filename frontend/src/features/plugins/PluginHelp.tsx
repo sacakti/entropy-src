@@ -220,6 +220,20 @@ export default function PluginHelp({
                                             <dd>{docs.license}</dd>
                                         </div>
                                     )}
+                                    {(docs.system_requirements ?? []).length > 0 && (
+                                        <div>
+                                            <dt>Command line tools</dt>
+                                            <dd>
+                                                {(docs.system_requirements ?? []).map((item) => (
+                                                    <span key={item.name} title={item.note} className={item.available ? undefined : 'plugin-help-tool-missing'}>
+                                                        {item.name}
+                                                        {item.optional ? ' (optional)' : ''}
+                                                        {item.available ? '' : ' (not found on this server)'}{' '}
+                                                    </span>
+                                                ))}
+                                            </dd>
+                                        </div>
+                                    )}
                                     {docs.dependencies.length > 0 && (
                                         <div>
                                             <dt>Needs</dt>

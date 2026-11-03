@@ -3,7 +3,7 @@ import {
     AlertCircle,
     ArrowLeft,
     Ban,
-    Blocks,
+    Puzzle,
     CheckCircle2,
     ChevronDown,
     CircleDashed,
@@ -479,7 +479,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                         <ArrowLeft size={16} />
                     </button>
                     <span className="list-name-icon run-header-icon" aria-hidden="true">
-                        {run.kind === 'plugin' ? <Blocks size={18} /> : <WorkflowIcon size={18} />}
+                        {run.kind === 'plugin' ? <Puzzle size={18} /> : <WorkflowIcon size={18} />}
                     </span>
                     <div className="run-title">
                         <h2>{run.target}</h2>

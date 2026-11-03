@@ -1,11 +1,14 @@
 {
     "name": "generic",
     "namespace": "oc",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Aravinthan Selvaraj",
     "author": "",
     "entropy": ">=1.0.0",
     "dependencies": [],
+    "system_requirements": [
+        {"name": "oc", "note": "OpenShift command line client."}
+    ],
     "arguments": [
         {
             "name": "environment",

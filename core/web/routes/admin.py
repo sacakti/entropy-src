@@ -540,7 +540,7 @@ def delete_user(
 
     # Foreign keys are not enforced, so clear what referenced the user.
     with context.database_manager.connection.transaction() as connection:
-        for table in ("user_roles", "user_groups"):
+        for table in ("user_roles", "user_groups", "project_members"):
             connection.execute(f"DELETE FROM {table} WHERE user_id = ?", (user.id,))
 
     NotificationRepository(context.database_manager.connection).delete(user.id)
@@ -730,7 +730,7 @@ def delete_group(
         raise _http_error(exc) from None
 
     with context.database_manager.connection.transaction() as connection:
-        for table in ("user_groups", "group_roles"):
+        for table in ("user_groups", "group_roles", "project_members"):
             connection.execute(f"DELETE FROM {table} WHERE group_id = ?", (group.id,))
 
     return {"message": f"Group '{name}' deleted."}

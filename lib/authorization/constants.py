@@ -455,6 +455,12 @@ PERMISSIONS = (
     PermissionDefinition("releases", "releases.create", "write", "Create project releases."),
     PermissionDefinition("releases", "releases.manage", "write", "Update releases and link tasks."),
     PermissionDefinition("releases", "releases.promote", "execute", "Promote completed releases using workflows."),
+    PermissionDefinition(
+        "releases",
+        "releases.delete",
+        "delete",
+        "Permanently delete releases and promotion history.",
+    ),
     PermissionDefinition("artifacts", "artifacts.read", "read", "View release artifacts in a project."),
     PermissionDefinition("artifacts", "artifacts.write", "write", "Upload and register release artifacts in a project."),
     PermissionDefinition(

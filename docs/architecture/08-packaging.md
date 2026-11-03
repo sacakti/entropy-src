@@ -49,6 +49,7 @@ python3 scripts/release.py --all --version 1.3.0            # every platform
 |---|---|
 | `--platform` (repeatable), `--all` | Target platforms. |
 | `--version` | Overrides `core/version.py` inside the package. |
+| `--show-notes` | Prints the release notes the build would ship, and builds nothing. |
 | `--skip-frontend` | Reuse `frontend/dist` instead of `npm ci && npm run build`. |
 | `--wheels DIR`, `--python-archive FILE` | Offline builds from pre-downloaded inputs. |
 | `--output DIR` | Default `build/dist/`. |
@@ -220,3 +221,18 @@ proceeding. Only the last upgrade can be rolled back.
 
 Job state lives in `~/.entropy/run/upgrade-status.json` because the
 server restarts during an upgrade.
+
+# Release notes
+
+Every package carries `resources/release_notes.json`, written by the build, and
+needs no extra step. People see it once as "What's new" after an upgrade, and all
+of it on the About page.
+
+- Notes come from the commit subjects since the previous `vX.Y.Z` tag: `feat` is
+  New, `fix` is Fixed, `perf` is Improved, `security` (or `fix(security)`) is
+  Security. Other types are left out, so write those subjects for users.
+- A `## 1.2.0` section in `CHANGELOG.md` (with `### Fixed` and `- item` under it)
+  replaces the generated notes of that version.
+- The file keeps the newest 12 versions, with at most 10 items per section. Security
+  items are never cut.
+- Check the wording before a build with `scripts/release.py --show-notes`.

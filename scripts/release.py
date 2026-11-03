@@ -44,6 +44,7 @@ from lib.nodes.packaging import (  # noqa: E402
     PackagingError,
     cpython_archive_for,
 )
+from lib.system.release_notes import build_notes, write_notes  # noqa: E402
 
 PACKAGE_FORMAT = 2
 TEMPLATES = PROJECT_ROOT / "scripts" / "release_templates"
@@ -287,6 +288,10 @@ def copy_application(
         dist, destination / "frontend" / "dist", ignore=shutil.ignore_patterns(*EXCLUDED)
     )
 
+    # What's new, from git and CHANGELOG.md: no extra step for whoever builds.
+    written = write_notes(destination / "resources" / "release_notes.json", version)
+    log(f"Release notes: {written} version(s)")
+
     # The release carries a fixed version.
     (destination / "core" / "version.py").write_text(
         '"""\nApplication version information.\n"""\n\n'
@@ -522,7 +527,16 @@ def main() -> int:
         action="store_true",
         help="Ship Python sources instead of byte code (for debugging a release).",
     )
+    parser.add_argument(
+        "--show-notes",
+        action="store_true",
+        help="Print the release notes this build would ship, and build nothing.",
+    )
     args = parser.parse_args()
+
+    if args.show_notes:
+        print(json.dumps(build_notes(args.version or current_version()), indent=2))
+        return 0
 
     platforms = sorted(PLATFORMS) if args.all else (args.platform or ["linux-x86_64"])
     if len(platforms) > 1 and (args.wheels or args.python_archive):

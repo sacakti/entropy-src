@@ -920,7 +920,7 @@ class WorkflowRunner:
             f"Run #{runtime.job_id} is paused",
             f"Step '{step.name}' failed and waits for you to resume or terminate it.",
             "warning",
-            "runs",
+            f"run:{runtime.job_id}",
         )
 
         self._context.ui.warning(

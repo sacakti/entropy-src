@@ -71,6 +71,7 @@ and it can create a new Deployment file from a release YAML.
 | `target` | In `folder` mode | `path` (directory) | --- | Directory of Deployment YAML files to update. |
 | `repository` | No | `path` (directory) | --- | YAML repository used for `UPDATE` entries that have no `repository`. |
 | `deployments` | In `deployments` mode | `list` | `[]` | Deployment entries, normally from `release.context_builder`. |
+| `allow_empty` | No | `boolean` | `false` | `folder` mode: succeed without changes when `source` has no YAML files, as `consolidate.deployment` output can. |
 
 `source`, `target` and `repository` are never asked for interactively;
 leave them out when they do not apply.

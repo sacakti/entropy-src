@@ -71,6 +71,7 @@ def test_list_dependencies_read_from_manifest(tmp_path: Path) -> None:
     assert _manifest_dependencies(tmp_path) == {
         "extensions": [{"name": "paramiko", "version": "3.0"}, {"name": "requests"}],
         "plugins": [{"name": "oc.sync_yamls"}],
+        "tools": [],
     }
 
 
@@ -83,5 +84,5 @@ def test_list_dependencies_tolerate_missing_or_bad_manifest(
     if content is not None:
         (tmp_path / "plugin.json").write_text(content, encoding="utf-8")
 
-    assert _manifest_dependencies(tmp_path) == {"extensions": [], "plugins": []}
-    assert _manifest_dependencies(None) == {"extensions": [], "plugins": []}
+    assert _manifest_dependencies(tmp_path) == {"extensions": [], "plugins": [], "tools": []}
+    assert _manifest_dependencies(None) == {"extensions": [], "plugins": [], "tools": []}

@@ -26,12 +26,10 @@
                 "force_remove_processed": true,
 
                 "skip_docker": true,
-                "cleanup_builder_cache": false,
 
                 "validate_yaml": true,
 
-                "min_free_storage_gb": 10,
-                "old_image_pattern": ":25.01.01."
+                "min_free_storage_gb": 10
             }
         }
     ]

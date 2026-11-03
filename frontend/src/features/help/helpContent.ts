@@ -22,6 +22,14 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
         ],
     },
     {
+        title: 'Lists with row selection',
+        note: 'Not while typing or with a dialog open. Pressing a shortcut again cancels the selection.',
+        entries: [
+            { keys: ['Ctrl', 'A'], action: 'Select the rows on the current page' },
+            { keys: ['Ctrl', 'Shift', 'A'], action: 'Select all rows matching the search and filters, on every page' },
+        ],
+    },
+    {
         title: 'Plugins',
         note: 'Chrome reserves Ctrl+N for a new window; use Alt+N there.',
         entries: [

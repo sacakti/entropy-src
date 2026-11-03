@@ -257,3 +257,30 @@ def test_resolvers_leave_ask_markers_for_the_plugin_runner() -> None:
 
     assert WorkflowVariableResolver(Mock(), 1, set()).resolve(arguments, {}) == arguments
     assert WorkflowArgumentResolver().resolve(arguments, variables={}, step_results={}) == arguments
+
+
+def test_waiting_counts_only_count_unanswered_questions_of_the_runs_asked(store) -> None:
+    answered = store.ask(1, name="a", label="A")
+    store.ask(1, name="b", label="B")
+    store.ask(1, name="c", label="C")
+    store.ask(2, name="d", label="D")
+    store.ask(3, name="e", label="E")
+    store.answer(answered, "yes", "owner")
+
+    assert store.waiting_counts([1, 2, 9]) == {1: 2, 2: 1}
+    assert store.waiting_counts([]) == {}
+
+
+def test_active_runs_are_marked_when_they_wait_on_someone(store) -> None:
+    from types import SimpleNamespace
+
+    from core.web.routes.runs import _add_waiting_counts
+
+    store.ask(1, name="a", label="A")
+    context = SimpleNamespace(database_manager=SimpleNamespace(connection=store.connection))
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(entropy_context=context)))
+    items = [{"id": 1}, {"id": 2}]
+
+    _add_waiting_counts(request, items)
+
+    assert items == [{"id": 1, "waiting_for_input": 1}, {"id": 2, "waiting_for_input": 0}]

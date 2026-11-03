@@ -2500,7 +2500,7 @@
 
 .entropy-app .run-app-views { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 .entropy-app .run-app-view { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--app-line); border-radius: 10px; background: var(--app-surface); }
-.entropy-app .run-app-view.is-table, .entropy-app .run-app-view.is-log { grid-column: 1 / -1; }
+.entropy-app .run-app-view.is-table, .entropy-app .run-app-view.is-stats, .entropy-app .run-app-view.is-log { grid-column: 1 / -1; }
 .entropy-app .run-app-view h5 { margin: 0; font-size: 13.5px; }
 .entropy-app .run-app-muted { margin: 0; color: var(--app-muted); font-size: 13px; }
 .entropy-app .run-app-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }

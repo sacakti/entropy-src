@@ -186,22 +186,18 @@ class ImageTransferPlugin(BasePlugin):
         if min_free_storage_gb <= 0:
             raise ImageTransferError("Argument 'min_free_storage_gb' must be " "greater than zero.")
 
-        old_image_pattern = self.arguments.string(
+        # Cleaning belongs to docker.clean. Workflows that still set these keep working.
+        for deprecated in (
             "old_image_pattern",
-            default="25.01.01.",
-            required=True,
-        )
-
-        assert old_image_pattern is not None
-
-        compiled_old_image_pattern = re.compile(
-            old_image_pattern,
-        )
-
-        cleanup_builder_cache = self.arguments.boolean(
             "cleanup_builder_cache",
-            default=False,
-        )
+        ):
+
+            if self.arguments.get(deprecated) is not None:
+
+                self.message.warning(
+                    f"Argument '{deprecated}' is ignored: this plugin no longer cleans "
+                    "Docker storage. Run docker.clean before it, and remove the argument.",
+                )
 
         skip_docker = self.arguments.boolean(
             "skip_docker",
@@ -230,8 +226,6 @@ class ImageTransferPlugin(BasePlugin):
                 release_base_path,
             ),
             "min_free_storage_gb": (min_free_storage_gb),
-            "old_image_pattern": old_image_pattern,
-            "cleanup_builder_cache": (cleanup_builder_cache),
             "skip_docker": skip_docker,
             "validate_yaml": validate_yaml,
             "force_remove_processed": (force_remove_processed),
@@ -286,25 +280,7 @@ class ImageTransferPlugin(BasePlugin):
 
             self._check_docker_storage(
                 min_free_storage_gb,
-                raise_on_insufficient=False,
             )
-
-            self._cleanup_old_images_if_required(
-                min_free_storage_gb,
-                compiled_old_image_pattern,
-            )
-
-            self._check_docker_storage(
-                min_free_storage_gb,
-            )
-
-            if cleanup_builder_cache:
-
-                self._cleanup_builder_cache()
-
-                self._check_docker_storage(
-                    min_free_storage_gb,
-                )
 
             self._execute_docker_commands(
                 docker_commands,
@@ -335,11 +311,6 @@ class ImageTransferPlugin(BasePlugin):
         #
 
         self.outputs["image_transfer"] = not skip_docker
-
-        self.outputs["cleanup_performed"] = self.outputs.get(
-            "cleanup_performed",
-            False,
-        )
 
         self.outputs["yaml_script_prepared"] = True
 
@@ -884,8 +855,6 @@ class ImageTransferPlugin(BasePlugin):
     def _check_docker_storage(
         self,
         min_free_storage_gb: float,
-        *,
-        raise_on_insufficient: bool = True,
     ) -> int:
         """
         Check Docker's backing filesystem free storage.
@@ -976,22 +945,13 @@ class ImageTransferPlugin(BasePlugin):
 
             if free_bytes < minimum_free_storage_bytes:
 
-                message = (
+                raise RuntimeError(
                     "Docker filesystem has less than "
                     f"{min_free_storage_gb:g} GB "
                     "of free storage "
                     f"({free_bytes / (1024**3):.2f} "
-                    "GB available)."
-                )
-
-                if raise_on_insufficient:
-
-                    raise RuntimeError(
-                        message,
-                    )
-
-                self.message.warning(
-                    message,
+                    "GB available). Free some with docker.clean, "
+                    "or lower min_free_storage_gb.",
                 )
 
             return free_bytes
@@ -1032,135 +992,6 @@ class ImageTransferPlugin(BasePlugin):
             ) from exc
 
         return available_kib * 1024
-
-    def _cleanup_old_images_if_required(
-        self,
-        min_free_storage_gb: float,
-        old_image_pattern: re.Pattern[str],
-    ) -> None:
-        """
-        Remove matching old images when Docker storage
-        is below the configured threshold.
-        """
-
-        storage = self.outputs.get(
-            "docker_storage",
-        )
-
-        if not isinstance(
-            storage,
-            dict,
-        ):
-
-            raise RuntimeError("Docker storage state is unavailable.")
-
-        free_bytes = storage.get(
-            "free_bytes",
-        )
-
-        if not isinstance(
-            free_bytes,
-            int,
-        ):
-
-            raise RuntimeError("Docker storage state is unavailable.")
-
-        minimum_free_storage_bytes = int(min_free_storage_gb * 1024 * 1024 * 1024)
-
-        if free_bytes >= minimum_free_storage_bytes:
-
-            self.outputs["cleanup_performed"] = False
-
-            return
-
-        with self.activity(
-            "Cleanup old images",
-        ):
-
-            result = self.shell.run(
-                [
-                    "docker",
-                    "images",
-                    "--format",
-                    "{{.Repository}}:{{.Tag}}",
-                ],
-            )
-
-            if result.failed:
-
-                raise RuntimeError(
-                    "Unable to list Docker images: " f"{result.stderr or result.stdout}"
-                )
-
-            images = [
-                image.strip()
-                for image in result.stdout.splitlines()
-                if (
-                    image.strip()
-                    and old_image_pattern.search(
-                        image,
-                    )
-                )
-            ]
-
-            if not images:
-
-                self.message.warning("No matching old Docker images " "were found for cleanup.")
-
-                self.outputs["cleanup_performed"] = False
-
-                return
-
-            for image in images:
-
-                remove_result = self.shell.run(
-                    [
-                        "docker",
-                        "rmi",
-                        image,
-                    ],
-                )
-
-                if remove_result.failed:
-
-                    raise RuntimeError(
-                        "Failed to remove Docker "
-                        f"image '{image}': "
-                        f"{remove_result.stderr or remove_result.stdout}"
-                    )
-
-            self.outputs["cleanup_performed"] = True
-
-            self.message.info(f"Removed {len(images)} old " "Docker image(s).")
-
-    def _cleanup_builder_cache(
-        self,
-    ) -> None:
-        """
-        Remove unused Docker builder cache.
-        """
-
-        with self.activity(
-            "Cleanup Docker builder cache",
-        ):
-
-            result = self.shell.run(
-                [
-                    "docker",
-                    "builder",
-                    "prune",
-                    "-f",
-                ],
-            )
-
-            if result.failed:
-
-                raise RuntimeError(
-                    "Docker builder cache cleanup failed "
-                    f"(exit code "
-                    f"{result.exit_code}): "
-                    f"{result.stderr or result.stdout}"
-                )
 
     # ------------------------------------------------------------------
     # Docker execution

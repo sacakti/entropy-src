@@ -25,9 +25,9 @@ export const TOOLS: ToolDefinition[] = [
     {
         id: 'clash',
         name: 'Clash',
-        description: 'Compare text, files, and folders in one place.',
+        description: 'Compare text, files, folders, and Oracle databases in one place.',
         icon: GitCompareArrows,
-        keywords: ['text compare', 'file compare', 'folder compare', 'diff', 'upload', 'directory', 'json', 'yaml', 'sql'],
+        keywords: ['text compare', 'file compare', 'folder compare', 'database compare', 'oracle', 'schema', 'ddl', 'dml', 'diff', 'upload', 'directory', 'json', 'yaml', 'sql'],
         component: lazy(() => import('./Clash')),
     },
     {

@@ -79,9 +79,9 @@ release ZIP (with scripts/deploy/image_transfer.sh)
 | `apply_script` | No | `string` | `apply_yaml.sh` | OpenShift apply script name. |
 | `release_base_path` | No | `string` | `/home/devops` | Path prefix in `oc apply -f` lines that is replaced by the extracted path. |
 | `min_free_storage_gb` | No | `number` | `10` | Minimum free Docker storage in GB (greater than zero). |
-| `old_image_pattern` | No | `string` | `25.01.01.` | Regular expression for old local images that may be removed to free storage. |
-| `cleanup_builder_cache` | No | `boolean` | `false` | Run `docker builder prune -f` before transferring. |
-| `skip_docker` | No | `boolean` | `false` | Skip storage checks, cleanup and the transfer. |
+| `old_image_pattern` | No | `string` | --- | Deprecated and ignored; use `docker.clean`. |
+| `cleanup_builder_cache` | No | `boolean` | --- | Deprecated and ignored; use `docker.clean`. |
+| `skip_docker` | No | `boolean` | `false` | Skip the storage check and the transfer. |
 | `validate_yaml` | No | `boolean` | `true` | Check that the YAML paths in the prepared apply script exist. |
 | `force_remove_processed` | No | `boolean` | `false` | Remove an existing extracted directory before extracting. |
 
@@ -117,16 +117,17 @@ A path outside the prefix is rejected.
 #### `min_free_storage_gb`
 
 Free space required on Docker's root filesystem before images are
-pulled. Must be greater than zero.
+pulled. Must be greater than zero. With less, the step fails and nothing
+is transferred.
 
-#### `old_image_pattern`
+This plugin does not clean Docker storage. If space may be short, run
+`docker.clean` in a step before it.
 
-Regular expression matched against local `repository:tag` names. When
-storage is short, matching images are removed with `docker rmi`.
+#### `old_image_pattern`, `cleanup_builder_cache`
 
-#### `cleanup_builder_cache`
-
-When `true`, prunes the Docker builder cache and checks storage again.
+Deprecated and ignored: cleaning belongs to `docker.clean`. They are still
+accepted so existing workflows keep working, with a warning in the run.
+Remove them from your workflows.
 
 #### `skip_docker`
 
@@ -377,8 +378,7 @@ Release ZIP
   → locate image_transfer.sh and apply_yaml.sh
   → read and validate Docker commands
   → (unless skip_docker)
-        check storage → remove old images if short → check storage
-        → prune builder cache (optional) → check storage
+        check storage (fail if short)
         → run each Docker command
   → prepare apply_yaml.sh (remove git/credentials, rewrite paths)
   → validate YAML paths (optional)
@@ -397,7 +397,6 @@ the workflow log, not the UI. The first failing command stops the step.
 | `configuration` | `dictionary` | Resolved arguments. |
 | `force_remove_processed` | `boolean` | Whether an existing extraction could be removed. |
 | `docker_storage` | `dictionary` | `docker_root`, `free_bytes`, `free_gb`, `minimum_required_gb`. |
-| `cleanup_performed` | `boolean` | Whether old images were removed. |
 | `docker_skipped` | `boolean` | Whether Docker work was skipped. |
 | `image_transfer` | `boolean` | Whether images were transferred. |
 | `yaml_script_prepared` | `boolean` | Whether `apply_yaml.sh` was prepared. |
@@ -411,7 +410,6 @@ the workflow log, not the UI. The first failing command stops the step.
 {
     "docker_skipped": false,
     "image_transfer": true,
-    "cleanup_performed": false,
     "docker_storage": {
         "docker_root": "/var/lib/docker",
         "free_bytes": 53687091200,
@@ -484,9 +482,7 @@ the workflow log, not the UI. The first failing command stops the step.
     "plugin": "custom.image_transfer",
     "arguments": {
         "release": "/opt/releases/H001.zip",
-        "min_free_storage_gb": 20,
-        "old_image_pattern": "^quay\\.io/sacakti/.*:1\\.0\\.",
-        "cleanup_builder_cache": true
+        "min_free_storage_gb": 20
     }
 }
 ```
@@ -501,8 +497,7 @@ the workflow log, not the UI. The first failing command stops the step.
 - Both scripts exist in `release_scripts_directory`.
 - `image_transfer.sh` has `login`, `pull`, `tag` and `push`, in a valid
   order.
-- `min_free_storage_gb` is greater than zero; `old_image_pattern` is a
-  valid regular expression.
+- `min_free_storage_gb` is greater than zero.
 - Every `oc apply -f` path starts with `release_base_path`.
 - With `validate_yaml`, every rewritten path exists.
 
@@ -557,9 +552,6 @@ idempotent. The extracted directory is left in place for inspection.
 docker system df
 docker info --format ...
 df ...
-docker images --format ...
-docker rmi <image>              (only when storage is short)
-docker builder prune -f         (only with cleanup_builder_cache)
 docker login <registry>
 docker pull <image>
 docker tag <source> <target>
@@ -666,6 +658,19 @@ Add `release.context_builder` before and `oc.deployment` after this step
 ------------------------------------------------------------------------
 
 ## Changelog
+
+### 1.0.6
+
+- This plugin no longer cleans Docker storage: `docker rmi` and
+  `docker builder prune` are gone. Run `docker.clean` before it if space
+  may be short. With too little space the step now fails straight away.
+- `old_image_pattern` and `cleanup_builder_cache` are deprecated and
+  ignored, with a warning; existing workflows that set them keep working.
+- The `cleanup_performed` output is removed.
+
+### 1.0.5
+
+- Declares `docker` in `system_requirements`.
 
 ### 1.0.4
 

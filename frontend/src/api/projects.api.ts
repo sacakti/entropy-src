@@ -9,6 +9,8 @@ export interface Project {
     created_by: string | null
     created_at: string | null
     updated_at: string | null
+    /** Vision shows members each other's runs here, not only their own. */
+    vision_activity: boolean
 }
 
 /** A project as `GET /api/projects` lists it, with counts and what the signed-in user may do. */
@@ -78,7 +80,7 @@ export const projectsApi = {
         apiRequest<{ items: ProjectSummary[]; current: string | null; can_create: boolean }>(projectPath()),
     create: (project: { key: string; name: string; description: string }) =>
         send<Project>('POST', projectPath(), project),
-    update: (key: string, changes: { name?: string; description?: string }) =>
+    update: (key: string, changes: { name?: string; description?: string; vision_activity?: boolean }) =>
         send<Project>('PATCH', projectPath(key), changes),
     /** Refused (409) for the default project or one that still has workflows or schedules. */
     remove: (key: string) => send<{ deleted: boolean }>('DELETE', projectPath(key)),

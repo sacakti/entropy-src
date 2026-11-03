@@ -1,11 +1,14 @@
 {
     "name": "rsync",
     "namespace": "oc",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
     "dependencies": [],
+    "system_requirements": [
+        {"name": "oc", "note": "OpenShift command line client."}
+    ],
     "arguments": [
         {
             "name": "environment",

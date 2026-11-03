@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -14,10 +14,11 @@ from fastapi import Query
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
-from core.web.projects import current_project, projects, require
+from core.web.projects import current_project, require
 from core.web.routes.auth import _current_session, verify_csrf
 from lib.models.session import Session
 from lib.models.users import User
+from lib.tasks.recurrence import REPEATS
 from lib.tasks.store import (
     CLOSED,
     GROUP_KINDS,
@@ -28,6 +29,7 @@ from lib.tasks.store import (
     TYPE_NAME,
     TaskStatusError,
     TaskStore,
+    task_version,
 )
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -50,6 +52,9 @@ class TaskCreate(BaseModel):
     status: str = "todo"
     group_ids: List[int] = Field(default_factory=list, max_length=50)
     due_date: Optional[str] = Field(default=None, max_length=10)
+    due_time: Optional[str] = Field(default=None, max_length=5)
+    due_repeat: Optional[str] = Field(default=None, max_length=20)
+    reminder_repeat: Optional[str] = Field(default=None, max_length=20)
     severity: str = "medium"
 
 
@@ -64,6 +69,9 @@ class TaskUpdate(BaseModel):
     external_ref: Optional[str] = Field(default=None, max_length=120)
     group_ids: Optional[List[int]] = Field(default=None, max_length=50)
     due_date: Optional[str] = Field(default=None, max_length=10)
+    due_time: Optional[str] = Field(default=None, max_length=5)
+    due_repeat: Optional[str] = Field(default=None, max_length=20)
+    reminder_repeat: Optional[str] = Field(default=None, max_length=20)
     severity: Optional[str] = None
     # Required to reopen a closed task; kept in its status history.
     reason: Optional[str] = Field(default=None, max_length=2000)
@@ -124,15 +132,22 @@ def _task(request: Request, user: User, task_id: int, permission: str) -> Dict[s
 
 
 def _members(request: Request, project_id: int) -> List[Dict[str, Any]]:
-    connection = request.app.state.entropy_context.database_manager.connection
-    rows = connection.fetchall(
-        "SELECT DISTINCT u.id, u.username, u.full_name, u.email FROM users u WHERE u.is_active = 1 AND ("
-        "EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ? AND pm.user_id = u.id) "
-        "OR EXISTS (SELECT 1 FROM project_members pm JOIN user_groups ug ON ug.group_id = pm.group_id "
-        "WHERE pm.project_id = ? AND ug.user_id = u.id)) ORDER BY u.username COLLATE NOCASE",
-        (project_id, project_id),
+    """
+    Who can work on the project's tasks: everyone active who may read them, so also people
+    with a global role (an administrator who is not a project member). Assigning and
+    mentioning offer exactly these people.
+    """
+
+    context = request.app.state.entropy_context
+    rows = context.database_manager.connection.fetchall(
+        "SELECT id, username, full_name, email FROM users WHERE is_active = 1"
+        " ORDER BY username COLLATE NOCASE"
     )
-    return [dict(row) for row in rows]
+    return [
+        dict(row)
+        for row in rows
+        if context.authorization.has_permission(row["id"], "tasks.read", project_id)
+    ]
 
 
 def _validate_assignee(request: Request, user: User, project_id: int, name: Optional[str]) -> None:
@@ -141,8 +156,8 @@ def _validate_assignee(request: Request, user: User, project_id: int, name: Opti
     # Anyone working on the project's tasks may take one.
     if name.lower() == user.username.lower():
         return
-    members = projects(request).members(project_id)
-    if not any(m.get("kind") == "user" and m.get("name", "").lower() == name.lower() for m in members):
+    # The people the task forms offer: direct members, and members through a group.
+    if not any(m["username"].lower() == name.lower() for m in _members(request, project_id)):
         raise HTTPException(status_code=422, detail="Assignee must be a user in the current project.")
 
 
@@ -163,6 +178,9 @@ def _validate_groups(store: TaskStore, project_id: int, group_ids: Optional[List
             raise HTTPException(status_code=422, detail="Choose groups of the current project.")
 
 
+DUE_TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
 def _validate_reminder(value: Optional[str]) -> None:
     if value:
         try:
@@ -180,6 +198,21 @@ def _validate_due(value: Optional[str]) -> Optional[str]:
         raise HTTPException(status_code=422, detail="Due date must be a date (YYYY-MM-DD).") from None
 
 
+def _validate_schedule(due_date: Optional[str], due_time: Optional[str], due_repeat: Optional[str],
+                       reminder_at: Optional[str], reminder_repeat: Optional[str]) -> None:
+    """A due time or repeat belongs to a due date, and a reminder's repeat to a reminder."""
+
+    if due_time and not DUE_TIME.match(due_time):
+        raise HTTPException(status_code=422, detail="Due time must be a time (HH:MM).")
+    for value in (due_repeat, reminder_repeat):
+        if value and value not in REPEATS:
+            raise HTTPException(status_code=422, detail=f"Repeat must be one of {', '.join(REPEATS)}.")
+    if (due_time or due_repeat) and not due_date:
+        raise HTTPException(status_code=422, detail="Choose a due date first.")
+    if reminder_repeat and not reminder_at:
+        raise HTTPException(status_code=422, detail="Choose a reminder time first.")
+
+
 STATUS_LABELS = {"todo": "Open", "in_progress": "In progress", CLOSED: "Closed", REOPENED: "Reopened"}
 
 
@@ -187,21 +220,92 @@ def _label(item: Dict[str, Any]) -> str:
     return f"{item.get('key')} {item['title']}" if item.get("key") else item["title"]
 
 
-def _notify_followers(request: Request, item: Dict[str, Any], actor_id: int, message: str,
-                      skip: Optional[set] = None) -> None:
+def _notify_one(request: Request, user_id: int, title: str, message: str, source: str,
+                level: str = "info") -> None:
     from lib.database.repositories.notifications import notify_user
 
-    for follower_id in item.get("follower_ids", []):
-        if follower_id != actor_id and follower_id not in (skip or set()):
-            notify_user(request.app.state.entropy_context, follower_id,
-                        f"Task updated: {_label(item)}", message, "info", f"task:{item['id']}")
+    notify_user(request.app.state.entropy_context, user_id, title, message, level, source)
+
+
+def _notify_watchers(request: Request, item: Dict[str, Any], actor_id: Optional[int], message: str,
+                     *, title: Optional[str] = None, skip: Optional[set] = None,
+                     source: Optional[str] = None) -> None:
+    """Tell everyone watching the task (followers and the assignee) that it changed, once each."""
+
+    for user_id in _store(request).watcher_ids(item):
+        if user_id != actor_id and user_id not in (skip or set()):
+            _notify_one(request, user_id, title or f"Task updated: {_label(item)}", message,
+                        source or f"task:{item['id']}")
+
+
+def _user_id(request: Request, username: Optional[str]) -> Optional[int]:
+    if not username:
+        return None
+    row = request.app.state.entropy_context.database_manager.connection.fetchone(
+        "SELECT id FROM users WHERE lower(username) = lower(?) AND is_active = 1", (username,)
+    )
+    return int(row["id"]) if row else None
+
+
+def _notify_assignment(request: Request, item: Dict[str, Any], user: User,
+                       previous: Optional[str] = None) -> set:
+    """Tell the new assignee and the one replaced; returns who heard, so they hear once."""
+
+    source = f"task:{item['id']}"
+    notified = set()
+    assignee = _user_id(request, item.get("assignee"))
+    if assignee is not None and assignee != user.id:
+        _notify_one(request, assignee, f"Assigned to you: {_label(item)}",
+                    f"{user.username} assigned this task to you.", source)
+        notified.add(assignee)
+    replaced = _user_id(request, previous)
+    if replaced is not None and replaced not in (user.id, assignee):
+        who = f"to {item['assignee']}" if item.get("assignee") else "to nobody"
+        _notify_one(request, replaced, f"No longer assigned: {_label(item)}",
+                    f"{user.username} assigned this task {who}.", source)
+        notified.add(replaced)
+    return notified
+
+
+def _notify_new_task(request: Request, item: Dict[str, Any], user: User, description: str) -> None:
+    """A task was created: tell its assignee, and whoever its description mentions."""
+
+    assigned = _notify_assignment(request, item, user)
+    _notify_mentions(request, item, user, description, skip=assigned)
+
+
+def _short(value: Any) -> str:
+    return str(value) if value not in (None, "") else "none"
+
+
+def _describe_changes(store: TaskStore, before: Dict[str, Any], after: Dict[str, Any]) -> List[str]:
+    """What changed in a task, in words. Status has its own alert."""
+
+    changes = []
+    for key, label in (("title", "title"), ("type", "type"), ("severity", "severity"),
+                       ("due_date", "due date"), ("due_time", "due time"),
+                       ("due_repeat", "repeat"), ("reminder_at", "reminder"),
+                       ("reminder_repeat", "reminder repeat"),
+                       ("external_ref", "external reference")):
+        if before.get(key) != after.get(key):
+            changes.append(f"{label} from {_short(before.get(key))} to {_short(after.get(key))}")
+    for key, label in (("description", "description"), ("remarks", "remarks")):
+        if (before.get(key) or "") != (after.get(key) or ""):
+            changes.append(f"the {label}")
+    if (before.get("assignee") or "") != (after.get("assignee") or ""):
+        changes.append(f"assignee from {_short(before.get('assignee'))} to {_short(after.get('assignee'))}")
+    was, now = set(before.get("group_ids") or []), set(after.get("group_ids") or [])
+    if was != now:
+        names = {group["id"]: group["name"] for group in store.groups(after["project_id"])}
+        for label, ids in (("added to group", now - was), ("removed from group", was - now)):
+            changes.extend(f"{label} {names.get(group_id, group_id)}" for group_id in sorted(ids))
+    return changes
 
 
 def _alert_status(request: Request, background: BackgroundTasks, item: Dict[str, Any],
-                  user: User, previous: str, reason: Optional[str]) -> None:
-    """Tell the task's followers, in Entropy and by e-mail, that its status changed."""
-
-    from lib.database.repositories.notifications import notify_user
+                  user: User, previous: str, reason: Optional[str], changes: List[str],
+                  skip: set) -> None:
+    """Tell those watching the task that its status changed, and followers by e-mail too."""
 
     context = request.app.state.entropy_context
     status = STATUS_LABELS.get(item["status"], item["status"])
@@ -209,14 +313,15 @@ def _alert_status(request: Request, background: BackgroundTasks, item: Dict[str,
                f"{STATUS_LABELS.get(previous, previous)} to {status}.")
     if reason:
         message += f" Reason: {reason.strip()}"
-    addresses = []
-    for follower in _store(request).follower_contacts(item["id"]):
-        if follower["id"] == user.id:
-            continue
-        notify_user(context, follower["id"], f"Task {status.lower()}: {_label(item)}",
-                    message, "info", f"task:{item['id']}")
-        if follower.get("email"):
-            addresses.append(follower["email"])
+    if changes:
+        message += f" Also changed: {'; '.join(changes)}."
+    _notify_watchers(request, item, user.id, message, title=f"Task {status.lower()}: {_label(item)}",
+                     skip=skip)
+    addresses = [
+        follower["email"]
+        for follower in _store(request).follower_contacts(item["id"])
+        if follower["id"] != user.id and follower.get("email")
+    ]
     if addresses:
         background.add_task(_mail_followers, context, addresses, f"[Entropy] {_label(item)} is {status.lower()}",
                             message)
@@ -234,21 +339,22 @@ def _mail_followers(context: Any, addresses: List[str], subject: str, text: str)
         pass
 
 
-def _notify_mentions(request: Request, item: Dict[str, Any], user: User, body: str) -> set:
-    """Tell the project members named with @username; returns their ids."""
+def _notify_mentions(request: Request, item: Dict[str, Any], user: User, body: str,
+                     *, earlier: str = "", skip: Optional[set] = None) -> set:
+    """Tell those newly named with @username (not already in `earlier`); returns their ids."""
 
-    from lib.database.repositories.notifications import notify_user
-
-    names = {name.lower().rstrip(".") for name in MENTION.findall(body)}
+    names = {name.lower().rstrip(".") for name in MENTION.findall(body or "")}
+    names -= {name.lower().rstrip(".") for name in MENTION.findall(earlier or "")}
     if not names:
         return set()
     notified = set()
     for member in _members(request, item["project_id"]):
-        if member["username"].lower() in names and member["id"] != user.id:
-            notify_user(request.app.state.entropy_context, member["id"],
-                        f"{user.username} mentioned you in {_label(item)}",
-                        body[:300], "info", f"task:{item['id']}")
-            notified.add(member["id"])
+        if member["username"].lower() not in names or member["id"] == user.id:
+            continue
+        notified.add(member["id"])
+        if member["id"] not in (skip or set()):
+            _notify_one(request, member["id"], f"{user.username} mentioned you in {_label(item)}",
+                        (body or "")[:300], f"task:{item['id']}")
     return notified
 
 
@@ -276,7 +382,10 @@ def list_tasks(request: Request, response: Response, record: SessionRecord = Dep
         pass
     store = _store(request)
     authorization = request.app.state.entropy_context.authorization
-    return {"items": store.list(project_id),
+    # Read before the tasks: a change in between then only causes one more reload, never a missed one.
+    version = task_version(request.app.state.entropy_context.database_manager.connection, project_id)
+    return {"version": version,
+            "items": store.list(project_id),
             "groups": store.groups(project_id),
             "settings": store.settings(project_id),
             "statuses": list(STATUSES),
@@ -288,6 +397,17 @@ def list_tasks(request: Request, response: Response, record: SessionRecord = Dep
             "permissions": {name: authorization.has_permission(user.id, name, project_id)
                             for name in ("tasks.create", "tasks.manage", "tasks.comment", "tasks.follow")},
             "mail_ready": mail_ready}
+
+
+@router.get("/version")
+def tasks_version(request: Request, response: Response,
+                  record: SessionRecord = Depends(_current_session)) -> Dict[str, int]:
+    """Whether anything changed, for open pages to ask often: one row, not the whole list."""
+
+    _, _, user = record
+    project_id = _project_id(request, user, "tasks.read")
+    response.headers["Cache-Control"] = "no-store"
+    return {"version": task_version(request.app.state.entropy_context.database_manager.connection, project_id)}
 
 
 @router.get("/report")
@@ -347,6 +467,8 @@ def create_task(payload: TaskCreate, request: Request, record: SessionRecord = D
     _validate_type(store, project_id, payload.type)
     _validate_severity(payload.severity)
     _validate_groups(store, project_id, payload.group_ids)
+    _validate_schedule(payload.due_date, payload.due_time, payload.due_repeat,
+                       payload.reminder_at, payload.reminder_repeat)
     if payload.status not in STATUSES or payload.status == REOPENED:
         raise HTTPException(status_code=422, detail="Choose a valid task status.")
     title = payload.title.strip()
@@ -356,8 +478,10 @@ def create_task(payload: TaskCreate, request: Request, record: SessionRecord = D
                         payload.reminder_at, user.username, type=payload.type,
                         external_ref=(payload.external_ref or "").strip() or None,
                         status=payload.status, group_ids=payload.group_ids,
-                        due_date=_validate_due(payload.due_date), severity=payload.severity)
-    _notify_mentions(request, item, user, payload.description)
+                        due_date=_validate_due(payload.due_date), severity=payload.severity,
+                        due_time=payload.due_time or None, due_repeat=payload.due_repeat or None,
+                        reminder_repeat=payload.reminder_repeat or None)
+    _notify_new_task(request, item, user, payload.description)
     return item
 
 
@@ -386,16 +510,56 @@ def update_task(task_id: int, payload: TaskUpdate, request: Request, background:
     _validate_reminder(data.get("reminder_at"))
     if "due_date" in data:
         data["due_date"] = _validate_due(data["due_date"])
+    # Removing a date removes what depends on it.
+    if "due_date" in data and not data["due_date"]:
+        data.update(due_time=None, due_repeat=None)
+    if "reminder_at" in data and not data["reminder_at"]:
+        data["reminder_repeat"] = None
+    for key in ("due_time", "due_repeat", "reminder_repeat"):
+        if key in data:
+            data[key] = data[key] or None
+    merged = {**item, **data}
+    _validate_schedule(merged.get("due_date"), merged.get("due_time"), merged.get("due_repeat"),
+                       merged.get("reminder_at"), merged.get("reminder_repeat"))
     try:
         updated = store.update(task_id, data, user.username, reason)
     except TaskStatusError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     assert user.id is not None
+    told: set = set()
+    if (updated.get("assignee") or "") != (item.get("assignee") or ""):
+        told |= _notify_assignment(request, updated, user, item.get("assignee"))
+    told |= _notify_mentions(request, updated, user, updated.get("description") or "",
+                             earlier=item.get("description") or "", skip=told)
+    changes = _describe_changes(store, item, updated)
     if updated["status"] != item["status"]:
-        _alert_status(request, background, updated, user, item["status"], reason)
-    elif data:
-        _notify_followers(request, item, user.id, f"{user.username} updated this task.")
+        _alert_status(request, background, updated, user, item["status"], reason, changes, told)
+    elif changes:
+        _notify_watchers(request, updated, user.id, f"{user.username} changed {'; '.join(changes)}.", skip=told)
+    if updated["status"] == CLOSED and item["status"] != CLOSED:
+        upcoming = store.create_next_occurrence(task_id, date.today(), user.username)
+        if upcoming:
+            _notify_watchers(request, upcoming, user.id,
+                             f"Repeats {upcoming['due_repeat']}: next due {upcoming['due_date']}.",
+                             title=f"Next occurrence: {_label(upcoming)}")
     return updated
+
+
+@router.get("/{task_id}/project")
+def task_project(task_id: int, request: Request, record: SessionRecord = Depends(_current_session)) -> Dict[str, str]:
+    """The project a task is in, to open it from an alert raised while in another project."""
+
+    _, _, user = record
+    item = _store(request).get(task_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="That task no longer exists.")
+    require(request, user, "tasks.read", item["project_id"])
+    row = request.app.state.entropy_context.database_manager.connection.fetchone(
+        "SELECT key FROM projects WHERE id = ?", (item["project_id"],)
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="That task no longer exists.")
+    return {"project": row["key"]}
 
 
 @router.delete("/{task_id}", status_code=204, dependencies=[Depends(verify_csrf)])
@@ -403,6 +567,9 @@ def delete_task(task_id: int, request: Request, record: SessionRecord = Depends(
     _, _, user = record
     item = _task(request, user, task_id, "tasks.manage")
     root = _attachment_root(request, item["project_id"])
+    # Before it goes: who watches it is kept with the task. There is no task left to link to.
+    _notify_watchers(request, item, user.id, f"{user.username} deleted this task.",
+                     title=f"Task deleted: {_label(item)}", source="tasks")
     for attachment in _store(request).delete(task_id):
         if attachment.get("storage_name"):
             target = (root / attachment["storage_name"]).resolve()
@@ -423,7 +590,7 @@ def comment_task(task_id: int, payload: CommentCreate, request: Request, record:
     assert user.id is not None
     item = store.get(task_id) or {}
     mentioned = _notify_mentions(request, item, user, body)
-    _notify_followers(request, item, user.id, f"{user.username} added a comment.", skip=mentioned)
+    _notify_watchers(request, item, user.id, f"{user.username} commented: {body[:200]}", skip=mentioned)
     return store.get(task_id) or {}
 
 
@@ -471,7 +638,8 @@ async def upload_attachments(task_id: int, request: Request, files: List[UploadF
             temporary.unlink(missing_ok=True)
             await upload.close()
     assert user.id is not None
-    _notify_followers(request, item, user.id, f"{user.username} attached files.")
+    names = ", ".join(Path((upload.filename or "").replace("\\", "/")).name for upload in files[:20])
+    _notify_watchers(request, item, user.id, f"{user.username} attached {names}.")
     return store.get(task_id) or {}
 
 
@@ -511,6 +679,9 @@ def rename_attachment(task_id: int, attachment_id: int, payload: AttachmentRenam
         raise HTTPException(status_code=422, detail="Choose a valid file name.")
     store = _store(request)
     store.rename_attachment(attachment_id, name)
+    if name != attachment["filename"]:
+        _notify_watchers(request, item, user.id,
+                         f"{user.username} renamed attachment {attachment['filename']} to {name}.")
     return store.get(task_id) or {}
 
 
@@ -528,6 +699,7 @@ def delete_attachment(task_id: int, attachment_id: int, request: Request,
         if root.resolve() in target.parents:
             target.unlink(missing_ok=True)
     _store(request).delete_attachment(attachment_id)
+    _notify_watchers(request, item, user.id, f"{user.username} removed attachment {attachment['filename']}.")
     return Response(status_code=204)
 
 
@@ -567,7 +739,16 @@ def create_group(payload: GroupCreate, request: Request, record: SessionRecord =
     group = store.create_group(project_id, name, payload.kind, payload.description,
                                (payload.external_ref or "").strip() or None, user.username)
     _add_tasks(store, project_id, group["id"], payload.task_ids)
+    _notify_grouped(request, user, store, group, payload.task_ids, "added it to")
     return group
+
+
+def _notify_grouped(request: Request, user: User, store: TaskStore, group: Dict[str, Any],
+                    task_ids: List[int], verb: str) -> None:
+    for task_id in dict.fromkeys(task_ids):
+        task = store.get(task_id)
+        if task:
+            _notify_watchers(request, task, user.id, f"{user.username} {verb} group {group['name']}.")
 
 
 def _add_tasks(store: TaskStore, project_id: int, group_id: int, task_ids: List[int]) -> None:
@@ -599,7 +780,11 @@ def update_group(group_id: int, payload: GroupUpdate, request: Request, record: 
         other = store.group_by_name(project_id, data["name"])
         if other and other["id"] != group_id:
             raise HTTPException(status_code=409, detail=f"A group named '{data['name']}' already exists.")
+    # Only those not in the group yet have changed.
+    members = set(store.group_task_ids(group_id))
+    added = [task_id for task_id in payload.add_task_ids if task_id not in members]
     _add_tasks(store, project_id, group_id, payload.add_task_ids)
+    _notify_grouped(request, user, store, group, added, "added it to")
     return store.update_group(group_id, data)
 
 
@@ -608,8 +793,11 @@ def delete_group(group_id: int, request: Request, record: SessionRecord = Depend
     """Removes the group; its tasks are kept."""
 
     _, _, user = record
-    _group(request, user, group_id, "tasks.manage")
-    _store(request).delete_group(group_id)
+    _, group = _group(request, user, group_id, "tasks.manage")
+    store = _store(request)
+    members = store.group_task_ids(group_id)
+    store.delete_group(group_id)
+    _notify_grouped(request, user, store, group, members, "deleted its")
     return Response(status_code=204)
 
 

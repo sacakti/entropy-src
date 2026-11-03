@@ -192,6 +192,19 @@ class PromptStore:
         rows = self.connection.fetchall(query + " ORDER BY id", tuple(job_ids))
         return [_public(row) for row in rows]
 
+    def waiting_counts(self, job_ids: Sequence[int]) -> Dict[int, int]:
+        """How many unanswered questions each run has; runs with none are left out."""
+
+        if not job_ids:
+            return {}
+        marks = ", ".join("?" for _ in job_ids)
+        rows = self.connection.fetchall(
+            "SELECT job_id, COUNT(*) AS n FROM run_prompts"  # nosec B608 - placeholders only
+            f" WHERE state = 'waiting' AND job_id IN ({marks}) GROUP BY job_id",
+            tuple(job_ids),
+        )
+        return {int(row["job_id"]): int(row["n"]) for row in rows}
+
     def get(self, prompt_id: int) -> Optional[Dict[str, Any]]:
         row = self.connection.fetchone("SELECT * FROM run_prompts WHERE id = ?", (prompt_id,))
         return None if row is None else {**_public(row), "job_id": row["job_id"]}

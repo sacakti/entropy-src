@@ -138,6 +138,17 @@ class CmSecretUpdatePlugin(BasePlugin):
             filesystem=self.filesystem,
         )
 
+        if self.arguments.boolean("allow_empty", False) and not any(
+            self.filesystem.is_file(path) and path.suffix.lower() in source_loader.EXTENSIONS
+            for path in self.filesystem.listdir(source)
+        ):
+
+            self.message.info(
+                f"No source definitions in '{source}'; nothing to do.",
+            )
+
+            return self._empty_folder_result()
+
         sources = source_loader.load_directory(
             source,
         )
@@ -152,6 +163,7 @@ class CmSecretUpdatePlugin(BasePlugin):
 
         resources = target_loader.load_directory(
             target,
+            recursive=self.arguments.boolean("recursive", False) or False,
         )
 
         self.message.info(
@@ -212,6 +224,30 @@ class CmSecretUpdatePlugin(BasePlugin):
             outputs=dict(self.outputs),
             changes=changes,
             errors=errors,
+            metadata=self._metadata(),
+        )
+
+    def _empty_folder_result(self) -> PluginResult:
+        """The result of a folder-mode run with nothing to apply."""
+
+        self.outputs.update(
+            {
+                "success": True,
+                "failed": False,
+                "resources_processed": 0,
+                "resources_succeeded": 0,
+                "resources_failed": 0,
+                "changes": 0,
+                "errors": [],
+            },
+        )
+
+        return PluginResult(
+            success=True,
+            changed=False,
+            outputs=dict(self.outputs),
+            changes=[],
+            errors=[],
             metadata=self._metadata(),
         )
 

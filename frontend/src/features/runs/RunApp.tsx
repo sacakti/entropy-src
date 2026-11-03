@@ -4,6 +4,7 @@ import { AppWindow, CircleStop, LoaderCircle, Search, X } from 'lucide-react'
 import { runsApi, type RunApp as RunAppData, type RunAppInput, type RunAppView, type RunAppViewData } from '../../api/runs.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import Pagination from '../../components/layout/Pagination'
+import SelectionBar from '../../components/layout/SelectionBar'
 import SortHeader from '../../components/layout/SortHeader'
 import { usePagination } from '../../components/layout/usePagination'
 import { compareText, compareValue, type SortState } from '../../components/layout/useSort'
@@ -308,6 +309,19 @@ function AppTable({ view, data, selected, onSelect, selectable }: {
 
     return (
         <div className="run-app-table">
+            {view.selectable && selectable && (
+                <SelectionBar
+                    noun="rows"
+                    pageCount={visibleKeys.length}
+                    total={rows.length}
+                    pageSelected={visibleKeys.filter((key) => selected.has(key)).length}
+                    selectedCount={selected.size}
+                    onSelectPage={() => onSelect(new Set(visibleKeys))}
+                    // Without a key column a row is only known by its place on the page.
+                    onSelectAll={rowKey ? () => onSelect(new Set(rows.map((row, index) => keyOf(row, index)))) : undefined}
+                    onClear={() => onSelect(new Set())}
+                />
+            )}
             <div className="run-app-table-tools">
                 {view.filter !== false && (
                     <label className="list-search">

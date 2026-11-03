@@ -1,6 +1,7 @@
 /* CSS entry point. Keep imports in cascade order. */
 @import "./styles/sidebar.css";
 @import "./styles/topbar.css";
+@import "./styles/vision.css";
 @import "./styles/shell.css";
 @import "./styles/Dashboard.css";
 @import "./styles/shared-content.css";

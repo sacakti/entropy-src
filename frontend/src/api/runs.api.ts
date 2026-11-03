@@ -38,6 +38,8 @@ export interface Run {
     debug?: boolean
     /** "interactive": the run's plugins may ask for input on the run screen. */
     mode?: RunMode
+    /** Active-runs list only: questions waiting for an answer (input or a paused step). */
+    waiting_for_input?: number
     /** Set on a segment of a multi-node run. */
     parent_job_id?: number | null
     /** Runs steps on several nodes, one segment after another. */

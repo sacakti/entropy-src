@@ -35,6 +35,8 @@ from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
 from lib.history import DefinitionHistory
 from lib.plugins.exceptions import InvalidPluginNameError, PluginNotFoundError
+from lib.plugins.icons import PluginIconError, PluginIconStore
+from lib.plugins.requirements import system_requirements
 
 router = APIRouter(
     prefix="/api/plugins",
@@ -72,6 +74,10 @@ def _plugin_manager(request: Request) -> Any:
     return manager
 
 
+def _connection(request: Request) -> Any:
+    return request.app.state.entropy_context.database_manager.connection
+
+
 def _serialize_plugin(plugin: Any) -> dict[str, Any]:
     """Serialize fields supported by the plugin registry."""
 
@@ -97,10 +103,11 @@ def _serialize_plugin(plugin: Any) -> dict[str, Any]:
     }
 
 
-def _manifest_dependencies(path: Any) -> dict[str, list[dict[str, str]]]:
+def _manifest_dependencies(path: Any) -> dict[str, list[dict[str, Any]]]:
     """
-    The libraries ("dependencies") and plugins ("required_plugins") a
-    plugin's plugin.json declares. An unreadable manifest has none.
+    The libraries ("dependencies"), plugins ("required_plugins") and command line
+    tools ("system_requirements") a plugin's plugin.json declares. An unreadable
+    manifest has none.
     """
 
     try:
@@ -128,6 +135,7 @@ def _manifest_dependencies(path: Any) -> dict[str, list[dict[str, str]]]:
     return {
         "extensions": entries(manifest.get("dependencies")),
         "plugins": entries(manifest.get("required_plugins")),
+        "tools": system_requirements(manifest),
     }
 
 
@@ -193,6 +201,10 @@ def list_plugins(
         (item["qualified_name"], item["draft"]): getattr(plugin, "path", None)
         for item, plugin in zip(items, sources)
     }
+
+    icons = PluginIconStore(_connection(request)).all()
+    for item in items:
+        item["icon"] = icons.get(item["qualified_name"])
 
     summary = {
         "total": len(items),
@@ -880,9 +892,66 @@ def delete_plugin(
         raise _translate(exc) from exc
 
     _history(request).forget(qualified_name)
+    PluginIconStore(_connection(request)).forget(qualified_name)
 
     response.headers["Cache-Control"] = "no-store"
     return {"deleted": True, "qualified_name": qualified_name}
+
+
+class PluginEnabledRequest(BaseModel):
+    enabled: bool
+
+
+@router.put("/{qualified_name}/enabled", dependencies=[Depends(verify_csrf)])
+def set_plugin_enabled(
+    qualified_name: str,
+    payload: PluginEnabledRequest,
+    request: Request,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Turn an installed plugin on or off; steps that use a disabled plugin fail."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.write")
+
+    manager = _plugin_manager(request)
+    try:
+        if payload.enabled:
+            manager.enable(qualified_name)
+        else:
+            manager.disable(qualified_name)
+    except (PluginNotFoundError, InvalidPluginNameError) as exc:
+        raise _translate(exc) from exc
+
+    return {"qualified_name": qualified_name, "enabled": payload.enabled}
+
+
+class PluginIconRequest(BaseModel):
+    # None goes back to the plugin's default icon.
+    icon: Optional[str] = Field(default=None, max_length=60)
+
+
+@router.put("/{qualified_name}/icon", dependencies=[Depends(verify_csrf)])
+def set_plugin_icon(
+    qualified_name: str,
+    payload: PluginIconRequest,
+    request: Request,
+    session_record: tuple = Depends(_current_session),
+) -> dict[str, Any]:
+    """Choose the icon everyone sees for a plugin."""
+
+    _, _, user = session_record
+    _require_permission(request, user, "plugins.write")
+
+    known = [*_plugin_manager(request).list(), *_studio(request).drafts()]
+    if not any(f"{item.namespace}.{item.name}" == qualified_name for item in known):
+        raise HTTPException(status_code=404, detail=f"Plugin '{qualified_name}' was not found.")
+
+    try:
+        PluginIconStore(_connection(request)).set(qualified_name, payload.icon, user.username)
+    except PluginIconError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return {"qualified_name": qualified_name, "icon": payload.icon}
 
 
 # ----------------------------------------------------------------------

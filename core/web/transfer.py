@@ -77,11 +77,6 @@ class ProjectTransfer:
 
         return bool(self.workflows.exists(name, project_id=project_id))
 
-    def _schedule_name_taken(self, name: str) -> bool:
-        return (
-            self.connection.fetchone("SELECT 1 FROM schedules WHERE name = ?", (name,)) is not None
-        )
-
     def _definition(self, name: str, project_id: int) -> Dict[str, Any]:
         return json.loads(
             self.workflows.serialize(self.workflows.get(name, project_id=project_id), "json")
@@ -123,7 +118,10 @@ class ProjectTransfer:
         data = {field: schedule.get(field) for field in SCHEDULE_FIELDS}
         if target:
             data["target"] = target
-        data["name"] = unique(str(data["name"]), self._schedule_name_taken)
+        # Only names in the target project are taken.
+        data["name"] = unique(
+            str(data["name"]), lambda candidate: self.schedules.name_taken(candidate, project_id)
+        )
         # A copy starts paused: it runs only once someone turns it on.
         data["enabled"] = False
         return self.schedules.create(data, user.id, user.username, project_id)
@@ -192,6 +190,12 @@ class ProjectTransfer:
                 continue
             try:
                 if mode == "move":
+                    if self.schedules.name_taken(schedule["name"], target_id):
+                        result["errors"].append(
+                            f"Schedule '{schedule['name']}': the target project already has"
+                            " one of that name."
+                        )
+                        continue
                     self._set_schedule_project(schedule_id, target_id)
                     result["schedules"].append({"name": schedule["name"], "as": schedule["name"]})
                 else:
@@ -400,7 +404,9 @@ class ProjectTransfer:
                 result["errors"].append("schedules.json is damaged.")
             restored = {item["name"]: item["as"] for item in result["workflows"]}
             for schedule in schedules if isinstance(schedules, list) else []:
-                if conflict == "skip" and self._schedule_name_taken(str(schedule.get("name"))):
+                if conflict == "skip" and self.schedules.name_taken(
+                    str(schedule.get("name")), project_id
+                ):
                     result["skipped_schedules"].append(str(schedule.get("name")))
                     continue
                 if schedule.get("kind") == "workflow" and schedule.get("target") not in restored:

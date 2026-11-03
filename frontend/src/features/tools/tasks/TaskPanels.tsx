@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import {
     Bell,
     Check,
@@ -14,6 +14,7 @@ import {
     Minimize2,
     Paperclip,
     Plus,
+    Search,
     Send,
     Trash2,
     Upload,
@@ -22,9 +23,13 @@ import {
 
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import AppPortal from '../../../components/layout/AppPortal'
+import Pagination from '../../../components/layout/Pagination'
+import { usePagination } from '../../../components/layout/usePagination'
 import AttachmentViewer from './AttachmentViewer'
 import Description from './Description'
 import MentionInput, { MentionText } from './MentionInput'
+import SchedulePicker from './SchedulePicker'
+import { fromLocal, toLocal } from './schedule'
 import TypeIcon from './TypeIcon'
 import { useStatusChange } from './statusChange'
 import {
@@ -184,6 +189,9 @@ type Draft = {
     external_ref: string
     reminder_at: string
     due_date: string
+    due_time: string
+    due_repeat: string
+    reminder_repeat: string
     group_ids: number[]
 }
 
@@ -201,7 +209,7 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = fa
     const { notify } = useFeedback()
     const blank: Draft = {
         title: '', type: 'issue', status: 'todo', severity: 'medium', description: '', remarks: '', assignee: '',
-        external_ref: '', reminder_at: '', due_date: '', group_ids: initialGroup ? [initialGroup] : [],
+        external_ref: '', reminder_at: '', due_date: '', due_time: '', due_repeat: '', reminder_repeat: '', group_ids: initialGroup ? [initialGroup] : [],
     }
     const [draft, setDraft] = useState<Draft>(blank)
     const [busy, setBusy] = useState(false)
@@ -220,6 +228,9 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = fa
                 external_ref: draft.external_ref.trim() || null,
                 reminder_at: reminderValue(draft.reminder_at),
                 due_date: draft.due_date || null,
+                due_time: draft.due_time || null,
+                due_repeat: draft.due_repeat || null,
+                reminder_repeat: draft.reminder_repeat || null,
             })
             notify.success(`${created.key} created.`, { title: 'Task created' })
             const keep = another.current
@@ -289,14 +300,19 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = fa
                     <GroupPicker groups={data.groups} value={draft.group_ids} onChange={(ids) => set('group_ids', ids)} />
                 </div>
                 <div className="task-form-row">
-                    <label>
-                        Due date
-                        <input type="date" value={draft.due_date} onChange={(event) => set('due_date', event.target.value)} />
-                    </label>
-                    <label className="task-reminder-label">
-                        Reminder
-                        <input type="datetime-local" value={draft.reminder_at} onChange={(event) => set('reminder_at', event.target.value)} />
-                    </label>
+                    <SchedulePicker
+                        kind="due"
+                        label="Due date"
+                        value={{ date: draft.due_date, time: draft.due_time, repeat: draft.due_repeat }}
+                        onChange={(next) => setDraft((current) => ({ ...current, due_date: next.date, due_time: next.time, due_repeat: next.repeat }))}
+                    />
+                    <SchedulePicker
+                        kind="reminder"
+                        label="Reminder"
+                        dueDate={draft.due_date}
+                        value={fromLocal(draft.reminder_at, draft.reminder_repeat)}
+                        onChange={(next) => setDraft((current) => ({ ...current, reminder_at: toLocal(next), reminder_repeat: next.repeat }))}
+                    />
                 </div>
                 {!data.mail_ready && <small className="task-muted">Email reminders need SMTP configuration in Administration → Settings.</small>}
                 <footer>
@@ -319,6 +335,19 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = fa
 // Details
 // ----------------------------------------------------------------------
 
+/**
+ * Keep a field that saves on blur up to date as others change the task, but never
+ * while someone is typing in it: their text wins until they leave the field.
+ */
+function useLiveValue<T extends HTMLInputElement | HTMLTextAreaElement>(value: string) {
+    const field = useRef<T>(null)
+    useEffect(() => {
+        const element = field.current
+        if (element && document.activeElement !== element) element.value = value
+    }, [value])
+    return field
+}
+
 export function DetailPanel({ data, task, onClose, onChanged, onDeleted, popup = false, onPopup }: {
     data: TaskData
     task: Task
@@ -329,6 +358,9 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted, popup =
     onPopup?: (popup: boolean) => void
 }) {
     const { notify, modal } = useFeedback()
+    const titleField = useLiveValue<HTMLInputElement>(task.title)
+    const referenceField = useLiveValue<HTMLInputElement>(task.external_ref ?? '')
+    const remarksField = useLiveValue<HTMLTextAreaElement>(task.remarks)
     const [comment, setComment] = useState('')
     const [busy, setBusy] = useState<string | null>(null)
     const [dragging, setDragging] = useState(false)
@@ -513,7 +545,7 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted, popup =
                 {manage && (
                     <label>
                         Title
-                        <input key={`${task.id}-title`} defaultValue={task.title} maxLength={200} onBlur={(event) => {
+                        <input ref={titleField} key={`${task.id}-title`} defaultValue={task.title} maxLength={200} onBlur={(event) => {
                             const value = event.target.value.trim()
                             if (value && value !== task.title) void save({ title: value })
                         }} />
@@ -559,7 +591,7 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted, popup =
                     </label>
                     <label>
                         External reference
-                        <input key={`${task.id}-ref`} disabled={!manage} maxLength={120} defaultValue={task.external_ref ?? ''} placeholder="JIRA-123…" onBlur={(event) => {
+                        <input ref={referenceField} key={`${task.id}-ref`} disabled={!manage} maxLength={120} defaultValue={task.external_ref ?? ''} placeholder="JIRA-123…" onBlur={(event) => {
                             if (event.target.value.trim() !== (task.external_ref ?? '')) void save({ external_ref: event.target.value.trim() || null })
                         }} />
                     </label>
@@ -568,13 +600,14 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted, popup =
                     <span>Groups</span>
                     <GroupPicker groups={data.groups} value={task.group_ids} disabled={!manage} onChange={(ids) => void save({ group_ids: ids })} />
                 </div>
-                <div className="task-form-row">
-                    <label>
-                        Due date {isOverdue(task) && <span className="task-overdue">Overdue</span>}
-                        <input type="date" disabled={!manage} value={task.due_date ?? ''} onChange={(event) => void save({ due_date: event.target.value || null })} />
-                    </label>
-                    <span />
-                </div>
+                <SchedulePicker
+                    kind="due"
+                    label="Due date"
+                    badge={isOverdue(task) ? <span className="task-overdue">Overdue</span> : undefined}
+                    disabled={!manage}
+                    value={{ date: task.due_date ?? '', time: task.due_time ?? '', repeat: task.due_repeat ?? '' }}
+                    onChange={(next) => void save({ due_date: next.date || null, due_time: next.time || null, due_repeat: next.repeat || null })}
+                />
                 <div className="task-detail-info">
                     <span>Created by <strong>{task.creator}</strong> {localDate(task.created_at)}</span>
                     <span>Updated {localDate(task.updated_at)}</span>
@@ -591,20 +624,26 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted, popup =
                     <>
                         <label>
                             Remarks
-                            <textarea key={`${task.id}-remarks`} defaultValue={task.remarks} rows={2} onBlur={(event) => {
+                            <textarea ref={remarksField} key={`${task.id}-remarks`} defaultValue={task.remarks} rows={2} onBlur={(event) => {
                                 if (event.target.value !== task.remarks) void save({ remarks: event.target.value })
                             }} />
                         </label>
-                        <label className="task-reminder-label">
-                            Reminder
+                        <div className="task-reminder-label">
+                            <span>Reminder</span>
                             {!data.mail_ready && <small>Email reminders need SMTP configuration in Administration → Settings.</small>}
-                            <input type="datetime-local" value={reminderInput(task.reminder_at)} onChange={(event) => void save({ reminder_at: reminderValue(event.target.value) })} />
-                        </label>
+                            <SchedulePicker
+                                kind="reminder"
+                                label=""
+                                dueDate={task.due_date ?? ''}
+                                value={fromLocal(reminderInput(task.reminder_at), task.reminder_repeat ?? '')}
+                                onChange={(next) => void save({ reminder_at: reminderValue(toLocal(next)), reminder_repeat: next.repeat || null })}
+                            />
+                        </div>
                     </>
                 ) : (
                     <>
                         {task.remarks && <p className="task-remarks">{task.remarks}</p>}
-                        {task.reminder_at && <p className="task-detail-info"><Bell size={14} /> Reminder {localDate(task.reminder_at)}</p>}
+                        {task.reminder_at && <p className="task-detail-info"><Bell size={14} /> Reminder {localDate(task.reminder_at)}{task.reminder_repeat ? ` · repeats ${task.reminder_repeat}` : ''}</p>}
                     </>
                 )}
                 {data.permissions['tasks.follow'] && (
@@ -751,6 +790,10 @@ export function DetailPanel({ data, task, onClose, onChanged, onDeleted, popup =
 // Groups
 // ----------------------------------------------------------------------
 
+function kindTitle(id: string): string {
+    return GROUP_KINDS.find((kind) => kind.id === id)?.title ?? id
+}
+
 export function GroupsPanel({ data, onClose, onChanged, activeGroup, onFilter }: {
     data: TaskData
     onClose: () => void
@@ -761,8 +804,17 @@ export function GroupsPanel({ data, onClose, onChanged, activeGroup, onFilter }:
     const { notify, modal } = useFeedback()
     const [draft, setDraft] = useState({ name: '', kind: 'release' as GroupKind, external_ref: '', description: '' })
     const [busy, setBusy] = useState(false)
+    const [search, setSearch] = useState('')
     const canCreate = data.permissions['tasks.create']
     const manage = data.permissions['tasks.manage']
+    const needle = search.trim().toLowerCase()
+    const visibleGroups = useMemo(
+        () => data.groups.filter((group) => !needle
+            || [group.name, group.external_ref ?? '', kindTitle(group.kind)]
+                .some((value) => value.toLowerCase().includes(needle))),
+        [data.groups, needle],
+    )
+    const groupPages = usePagination(visibleGroups, 'task-groups')
 
     const create = async (event: FormEvent) => {
         event.preventDefault()
@@ -845,27 +897,52 @@ export function GroupsPanel({ data, onClose, onChanged, activeGroup, onFilter }:
                 {data.groups.length === 0 ? (
                     <p className="task-muted">No groups yet.</p>
                 ) : (
-                    <ul className="task-group-list">
-                        {data.groups.map((group) => (
-                            <li key={group.id} className={activeGroup === group.id ? 'is-active' : undefined}>
-                                <span className={`task-group-chip kind-${group.kind}`}>{GROUP_KINDS.find((kind) => kind.id === group.kind)?.title ?? group.kind}</span>
-                                {manage ? (
-                                    <input key={`${group.id}-${group.name}`} defaultValue={group.name} aria-label={`Name of ${group.name}`} onBlur={(event) => void rename(group, event.target.value)} />
-                                ) : (
-                                    <strong>{group.name}</strong>
-                                )}
-                                <small>{group.task_count} task{group.task_count === 1 ? '' : 's'}{group.external_ref ? ` · ${group.external_ref}` : ''}</small>
-                                <button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => onFilter(activeGroup === group.id ? null : group.id)}>
-                                    {activeGroup === group.id ? 'Show all' : 'Show tasks'}
-                                </button>
-                                {manage && (
-                                    <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm" aria-label={`Delete group ${group.name}`} onClick={() => void remove(group)}>
-                                        <Trash2 size={14} />
-                                    </button>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
+                    <>
+                        <div className="tasks-search task-group-search">
+                            <Search size={14} aria-hidden="true" />
+                            <input
+                                value={search}
+                                placeholder="Search name, kind or reference…"
+                                aria-label="Search groups"
+                                onChange={(event) => {
+                                    setSearch(event.target.value)
+                                    groupPages.setPage(1)
+                                }}
+                            />
+                        </div>
+                        {visibleGroups.length === 0 ? (
+                            <p className="task-muted">No groups match your search.</p>
+                        ) : (
+                            <ul className="task-group-list">
+                                {groupPages.pageItems.map((group) => (
+                                    <li key={group.id} className={activeGroup === group.id ? 'is-active' : undefined}>
+                                        <div className="task-group-main">
+                                            {manage ? (
+                                                <input key={`${group.id}-${group.name}`} defaultValue={group.name} aria-label={`Name of ${group.name}`} onBlur={(event) => void rename(group, event.target.value)} />
+                                            ) : (
+                                                <strong>{group.name}</strong>
+                                            )}
+                                            <div className="task-group-meta">
+                                                <span className={`task-group-chip kind-${group.kind}`}>{kindTitle(group.kind)}</span>
+                                                <small>{group.task_count} task{group.task_count === 1 ? '' : 's'}{group.external_ref ? ` · ${group.external_ref}` : ''}</small>
+                                            </div>
+                                        </div>
+                                        <div className="task-group-actions">
+                                            <button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => onFilter(activeGroup === group.id ? null : group.id)}>
+                                                {activeGroup === group.id ? 'Show all' : 'Show tasks'}
+                                            </button>
+                                            {manage && (
+                                                <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm" aria-label={`Delete group ${group.name}`} title="Delete group" onClick={() => void remove(group)}>
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        <Pagination state={groupPages} noun="groups" />
+                    </>
                 )}
             </div>
         </Panel>

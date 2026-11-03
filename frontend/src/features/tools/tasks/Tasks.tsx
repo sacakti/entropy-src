@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import {
     Bell,
     CalendarClock,
@@ -17,12 +17,14 @@ import {
     Settings2,
     Trash2,
     Upload,
-    UserRound,
-} from 'lucide-react'
+    UserRound, Repeat } from 'lucide-react'
 
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import Pagination from '../../../components/layout/Pagination'
+import SelectionBar from '../../../components/layout/SelectionBar'
 import { usePagination } from '../../../components/layout/usePagination'
+import { currentProject, setCurrentProject } from '../../../services/project'
+import { taskIdFromHash } from './navigation'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { CreatePanel, DetailPanel, GroupsPanel, ImportPanel, ReportPanel, SettingsPanel } from './TaskPanels'
 import { useStatusChange } from './statusChange'
@@ -42,6 +44,7 @@ import {
     type TaskData,
 } from './model'
 import './tasks.css'
+import { inChunks } from '../../../services/chunks'
 
 type PanelState =
     | { kind: 'create' }
@@ -62,10 +65,20 @@ function storedView(): 'board' | 'list' {
     }
 }
 
+const LIVE_POLL_MS = 5_000
+const LIVE_POLL_MAX_MS = 60_000
+
+/** The group filter's value for tasks in no group; real group ids are positive. */
+const NO_GROUP = -1
+
 export default function Tasks() {
     const { notify, modal } = useFeedback()
     const [data, setData] = useState<TaskData | null>(null)
     const [panel, setPanel] = useState<PanelState>(null)
+    // The version `data` was loaded at, for the live check below.
+    const shownVersion = useRef<number | null>(null)
+    // A task named by the address (from an alert), until it is opened.
+    const [wantedTask, setWantedTask] = useState<number | null>(() => taskIdFromHash(window.location.hash))
     const [popup, setPopup] = useState(false)
     const [view, setViewState] = useState<'board' | 'list'>(storedView)
     const [query, setQuery] = useState('')
@@ -108,6 +121,104 @@ export default function Tasks() {
         }
     }, [notify])
 
+    useEffect(() => {
+        const follow = () => {
+            const id = taskIdFromHash(window.location.hash)
+            if (id !== null) setWantedTask(id)
+        }
+        window.addEventListener('popstate', follow)
+        return () => window.removeEventListener('popstate', follow)
+    }, [])
+
+    // Live: ask often whether anything changed (one small request), and reload only when it did.
+    useEffect(() => {
+        let alive = true
+        let timer: number | undefined
+        let busy = false
+        let delay = LIVE_POLL_MS
+
+        const check = async () => {
+            window.clearTimeout(timer)
+            if (busy) return
+            if (!document.hidden) {
+                busy = true
+                try {
+                    const { version } = await tasksApi.version()
+                    if (shownVersion.current !== null && version !== shownVersion.current) {
+                        const response = await tasksApi.load()
+                        if (alive) {
+                            setData(response)
+                            setSelection((current) =>
+                                current.filter((id) => response.items.some((item) => item.id === id)),
+                            )
+                        }
+                    }
+                    delay = LIVE_POLL_MS
+                } catch {
+                    // The server may be restarting: try less often, and say nothing.
+                    delay = Math.min(delay * 2, LIVE_POLL_MAX_MS)
+                } finally {
+                    busy = false
+                }
+            }
+            if (alive) timer = window.setTimeout(() => void check(), delay)
+        }
+
+        const now = () => void check()
+        timer = window.setTimeout(now, LIVE_POLL_MS)
+        window.addEventListener('focus', now)
+        document.addEventListener('visibilitychange', now)
+        return () => {
+            alive = false
+            window.clearTimeout(timer)
+            window.removeEventListener('focus', now)
+            document.removeEventListener('visibilitychange', now)
+        }
+    }, [])
+
+    if (wantedTask !== null && data?.items.some((item) => item.id === wantedTask)) {
+        setPanel({ kind: 'task', id: wantedTask })
+        setWantedTask(null)
+    }
+
+    useEffect(() => {
+        shownVersion.current = data?.version ?? null
+    }, [data])
+
+    // Opened or gone: clear the address, so the same alert can open it again.
+    useEffect(() => {
+        if (wantedTask === null && taskIdFromHash(window.location.hash) !== null) {
+            window.history.replaceState(null, '', '#/tools/tasks')
+        }
+    }, [wantedTask])
+
+    // Not in this project: the alert may be from another. Switching project reloads this page.
+    useEffect(() => {
+        if (wantedTask === null || !data || data.items.some((item) => item.id === wantedTask)) return
+        let active = true
+        tasksApi
+            .project(wantedTask)
+            .then(({ project }) => {
+                if (!active) return
+                if (project !== currentProject()) {
+                    setCurrentProject(project)
+                } else {
+                    // Listed as another project's, or just deleted.
+                    setWantedTask(null)
+                }
+            })
+            .catch((cause: unknown) => {
+                if (!active) return
+                setWantedTask(null)
+                notify.warning(cause instanceof Error ? cause.message : 'That task cannot be opened.', {
+                    title: 'Task not opened',
+                })
+            })
+        return () => {
+            active = false
+        }
+    }, [wantedTask, data, notify])
+
     // A task deleted elsewhere closes its panel.
     const selected = panel?.kind === 'task' ? data?.items.find((item) => item.id === panel.id) ?? null : null
 
@@ -119,7 +230,7 @@ export default function Tasks() {
         return data.items.filter((task) => {
             if (typeFilter && task.type !== typeFilter) return false
             if (severityFilter && (task.severity ?? 'medium') !== severityFilter) return false
-            if (groupFilter && !task.group_ids.includes(groupFilter)) return false
+            if (groupFilter === NO_GROUP ? task.group_ids.length > 0 : groupFilter && !task.group_ids.includes(groupFilter)) return false
             if (assigneeFilter === '__me' && task.assignee?.toLowerCase() !== data.username.toLowerCase()) return false
             if (assigneeFilter === '__none' && task.assignee) return false
             if (assigneeFilter && !assigneeFilter.startsWith('__') && task.assignee !== assigneeFilter) return false
@@ -146,7 +257,8 @@ export default function Tasks() {
         const group = groupsById.get(groupId)
         if (!group) return
         try {
-            await tasksApi.updateGroup(groupId, { add_task_ids: selection })
+            // The endpoint takes 1000 per request.
+            for (const part of inChunks(selection, 1000)) await tasksApi.updateGroup(groupId, { add_task_ids: part })
             notify.success(`${selection.length} task${selection.length === 1 ? '' : 's'} added to “${group.name}”.`, { title: 'Grouped' })
             setSelection([])
             await refresh()
@@ -200,7 +312,8 @@ export default function Tasks() {
             {task.reminder_at && <span title={`Reminder ${localDate(task.reminder_at)}`}><Bell size={13} /></span>}
             {task.due_date && (
                 <span className={isOverdue(task) ? 'task-overdue' : ''} title={isOverdue(task) ? 'Overdue' : 'Due date'}>
-                    <CalendarClock size={13} /> {task.due_date}
+                    <CalendarClock size={13} /> {task.due_date}{task.due_time ? ` ${task.due_time}` : ''}
+                    {task.due_repeat && <Repeat size={12} aria-label={`Repeats ${task.due_repeat}`} />}
                 </span>
             )}
         </span>
@@ -250,6 +363,7 @@ export default function Tasks() {
                     </select>
                     <select value={groupFilter ?? ''} onChange={(event) => setGroupFilter(event.target.value ? Number(event.target.value) : null)} aria-label="Filter by group">
                         <option value="">All groups</option>
+                        <option value={NO_GROUP}>No group</option>
                         {data.groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
                     </select>
                     <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} aria-label="Filter by assignee">
@@ -341,6 +455,16 @@ export default function Tasks() {
                                     <button className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => setSelection([])}>Clear</button>
                                 </div>
                             )}
+                            <SelectionBar
+                                noun="tasks"
+                                pageCount={shown.length}
+                                total={visible.length}
+                                pageSelected={shown.filter((task) => selection.includes(task.id)).length}
+                                selectedCount={selection.length}
+                                onSelectPage={() => setSelection(shown.map((task) => task.id))}
+                                onSelectAll={() => setSelection(visible.map((task) => task.id))}
+                                onClear={() => setSelection([])}
+                            />
                             <div className="tasks-list" role="table" aria-label="Project tasks">
                                 <div className="tasks-list-row tasks-list-head" role="row">
                                     <input type="checkbox" aria-label="Select all tasks on this page" checked={allSelected} onChange={() => setSelection((current) => allSelected ? current.filter((id) => !shown.some((task) => task.id === id)) : [...new Set([...current, ...shown.map((task) => task.id)])])} />
@@ -369,7 +493,7 @@ export default function Tasks() {
                 {panel?.kind === 'create' && (
                     <CreatePanel
                         data={data}
-                        initialGroup={groupFilter}
+                        initialGroup={groupFilter === NO_GROUP ? null : groupFilter}
                         onClose={() => setPanel(null)}
                         onCreated={(task, another) => {
                             void refresh()
@@ -402,7 +526,7 @@ export default function Tasks() {
                 {panel?.kind === 'settings' && <SettingsPanel data={data} onClose={() => setPanel(null)} onChanged={refresh} />}
                 {panel?.kind === 'import' && <ImportPanel onClose={() => setPanel(null)} onImported={refresh} />}
                 {panel?.kind === 'report' && (
-                    <ReportPanel data={data} selection={selection} groupFilter={groupFilter} onClose={() => setPanel(null)} onPickTasks={() => setView('list')} />
+                    <ReportPanel data={data} selection={selection} groupFilter={groupFilter === NO_GROUP ? null : groupFilter} onClose={() => setPanel(null)} onPickTasks={() => setView('list')} />
                 )}
             </div>
         </div>

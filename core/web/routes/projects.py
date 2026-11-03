@@ -5,7 +5,7 @@ which nodes they may run on.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -29,6 +29,7 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: str = Field(default="", max_length=120)
     description: str = Field(default="", max_length=1000)
+    vision_activity: Optional[bool] = None
 
 
 class Member(BaseModel):
@@ -116,7 +117,7 @@ def update_project(
     _, _, user = record
     require(request, user, "projects.manage")
     _project(request, key)
-    return projects(request).update(key, payload.name, payload.description)
+    return projects(request).update(key, payload.name, payload.description, payload.vision_activity)
 
 
 @router.delete("/{key}", dependencies=[Depends(verify_csrf)])

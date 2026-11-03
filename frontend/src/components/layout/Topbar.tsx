@@ -23,28 +23,16 @@ import type { AppNotification } from '../../api/notifications.api'
 import type { Profile } from '../../api/profile.api'
 import { requestCreate } from '../../features/quickCreate'
 import { openRun } from '../../features/runs/navigation'
+import { openTask } from '../../features/tools/tasks/navigation'
 import Avatar from '../../features/settings/Avatar'
 import type { PageId } from '../../types/navigation'
 import FloatingMenu from './FloatingMenu'
 import ProjectSwitcher from './ProjectSwitcher'
+import { relativeTime } from './relativeTime'
+import Vision from './Vision'
 import { useDismiss } from './useDismiss'
 
 export type TopbarNotification = AppNotification
-
-/** "just now", "5 min ago", "3 h ago", then a date. */
-function relativeTime(value: string): string {
-    const time = new Date(value).getTime()
-
-    if (Number.isNaN(time)) return ''
-
-    const minutes = Math.round((Date.now() - time) / 60_000)
-
-    if (minutes < 1) return 'just now'
-    if (minutes < 60) return `${minutes} min ago`
-    if (minutes < 24 * 60) return `${Math.round(minutes / 60)} h ago`
-
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(time)
-}
 
 interface TopbarProps {
     profile: Pick<Profile, 'username' | 'full_name' | 'avatar_url'>
@@ -60,6 +48,10 @@ interface TopbarProps {
     onManageProjects?: () => void
     /** Entries of the "+" menu, already filtered by permission. */
     quickCreate: { target: string; label: string; icon: LucideIcon; onSelect: () => void }[]
+    /** The first notifications answer has arrived (Vision flashes only newer ones). */
+    notificationsLoaded: boolean
+    /** Read notifications now: Vision asks while runs are active. */
+    onRefreshNotifications: () => void
     pageTitle: string
     /** Section the page belongs to, e.g. Administration for Users. */
     parentTitle?: string
@@ -85,6 +77,8 @@ export default function Topbar({
     shellOpen,
     onManageProjects,
     quickCreate,
+    notificationsLoaded,
+    onRefreshNotifications,
     pageTitle,
     parentTitle,
     onParentClick,
@@ -137,6 +131,7 @@ export default function Topbar({
             </div>
 
             <div className="topbar-actions">
+                <Vision username={profile.username} notifications={notifications} loaded={notificationsLoaded} onMarkRead={onMarkNotificationRead} onRefreshNotifications={onRefreshNotifications} />
                 {quickCreate.length > 0 && (
                     <>
                         <button
@@ -329,6 +324,20 @@ export default function Topbar({
                                                         }}
                                                     >
                                                         Open run
+                                                    </button>
+                                                )}
+
+                                                {notification.source?.startsWith('task:') && (
+                                                    <button
+                                                        type="button"
+                                                        className="notification-link"
+                                                        onClick={() => {
+                                                            setNotificationsOpen(false)
+                                                            openTask(Number(notification.source?.slice(5)))
+                                                            if (!notification.read) onMarkNotificationRead(notification.id)
+                                                        }}
+                                                    >
+                                                        Open task
                                                     </button>
                                                 )}
 

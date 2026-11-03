@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
     Archive,
-    Blocks,
+    Puzzle,
     LoaderCircle,
     PlayCircle,
     RefreshCw,
@@ -32,9 +32,11 @@ import { openRun, runsTabFromHash } from './navigation'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
 import Pagination from '../../components/layout/Pagination'
+import SelectionBar from '../../components/layout/SelectionBar'
 import SortHeader from '../../components/layout/SortHeader'
 import { usePageSize } from '../../components/layout/usePagination'
 import { useSortState } from '../../components/layout/useSort'
+import { inChunks } from '../../services/chunks'
 
 const RUN_SORTS: RunSortField[] = ['id', 'run', 'status', 'user', 'node', 'started', 'duration']
 
@@ -50,6 +52,11 @@ const TAB_LABELS: { id: RunTab; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'archived', label: 'Archived' },
 ]
+
+/** What the runs list and bulk endpoints accept per request. */
+const RUNS_PER_REQUEST = 200
+const BULK_LIMIT = 500
+const MAX_SELECTED_RUNS = 5000
 
 export default function Runs() {
     const { notify, modal } = useFeedback()
@@ -68,7 +75,8 @@ export default function Runs() {
     const [stopping, setStopping] = useState<number | null>(null)
     const [housekeepingOpen, setHousekeepingOpen] = useState(false)
     const [purgeOpen, setPurgeOpen] = useState(false)
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set())
+    // Across pages, with each run, as the other pages' runs are not loaded.
+    const [selected, setSelected] = useState<Map<number, Run>>(() => new Map())
     const [bulkBusy, setBulkBusy] = useState(false)
     const [now, setNow] = useState(() => Date.now())
     const searchRef = useRef<HTMLInputElement>(null)
@@ -84,7 +92,7 @@ export default function Runs() {
                 pickedTab.current = true
                 setTab(next)
                 setPage(0)
-                setSelectedIds(new Set())
+                setSelected(new Map())
             }
         }
         window.addEventListener('popstate', follow)
@@ -111,7 +119,14 @@ export default function Runs() {
             }
 
             setData(response)
-            setSelectedIds((current) => new Set([...current].filter((id) => response.items.some((run) => run.id === id))))
+            // Keep what is selected on other pages; refresh what is shown here.
+            setSelected((current) => {
+                const shown = response.items.filter((run) => current.has(run.id))
+                if (!shown.length) return current
+                const next = new Map(current)
+                shown.forEach((run) => next.set(run.id, run))
+                return next
+            })
             setError(null)
         } catch (cause) {
             setError(errorMessage(cause, 'Unable to load runs.'))
@@ -175,17 +190,18 @@ export default function Runs() {
     })
 
     const items = data?.items ?? []
-    const selectedRuns = items.filter((run) => selectedIds.has(run.id))
+    const selectedRuns = [...selected.values()]
+    const pageSelected = items.filter((run) => selected.has(run.id)).length
     const selectedFinishedRuns = selectedRuns.filter(
         (run) => run.state === 'completed' || run.state === 'failed' || run.state === 'cancelled',
     )
-    const allVisibleSelected = items.length > 0 && items.every((run) => selectedIds.has(run.id))
+    const allVisibleSelected = items.length > 0 && pageSelected === items.length
     const total = data?.total ?? 0
     const pages = Math.max(1, Math.ceil(total / pageSize))
     const changeSort = (field: RunSortField) => {
         toggle(field)
         setPage(0)
-        setSelectedIds(new Set())
+        setSelected(new Map())
     }
 
     const changeTab = (next: RunTab) => {
@@ -194,27 +210,60 @@ export default function Runs() {
         window.history.replaceState(null, '', `#/runs?tab=${next}`)
         setTab(next)
         setPage(0)
-        setSelectedIds(new Set())
+        setSelected(new Map())
         setLoading(true)
     }
 
     const toggleVisibleSelection = (checked: boolean) => {
-        setSelectedIds((current) => {
-            const next = new Set(current)
-            items.forEach((run) => (checked ? next.add(run.id) : next.delete(run.id)))
+        setSelected((current) => {
+            const next = new Map(current)
+            items.forEach((run) => (checked ? next.set(run.id, run) : next.delete(run.id)))
             return next
         })
+    }
+
+    /** Every run matching the tab and search, page by page, up to MAX_SELECTED_RUNS. */
+    const selectAllRuns = async () => {
+        try {
+            const everything = new Map<number, Run>()
+            for (let offset = 0; offset < MAX_SELECTED_RUNS; offset += RUNS_PER_REQUEST) {
+                const response = await runsApi.list({
+                    tab,
+                    search: search.trim(),
+                    limit: RUNS_PER_REQUEST,
+                    offset,
+                    sort: sort.field,
+                    order: sort.order,
+                })
+                response.items.forEach((run) => everything.set(run.id, run))
+                if (offset + RUNS_PER_REQUEST >= response.total) break
+            }
+            setSelected(everything)
+            if (total > MAX_SELECTED_RUNS) {
+                notify.warning(
+                    `Selected the first ${MAX_SELECTED_RUNS.toLocaleString()} of ${total.toLocaleString()} runs. ` +
+                        'Run this again for the rest, or use housekeeping for rules across all runs.',
+                    { title: 'Large selection' },
+                )
+            }
+        } catch (cause) {
+            notify.error(errorMessage(cause, 'Unable to select all runs.'), { title: 'Not selected' })
+        }
     }
 
     const archiveSelected = async () => {
         if (!selectedFinishedRuns.length) return
         setBulkBusy(true)
         try {
-            const result = await runsApi.archiveSelected(selectedFinishedRuns.map((run) => run.id))
-            notify.success(`${result.result.jobs} finished run${result.result.jobs === 1 ? '' : 's'} archived.`, {
+            // The server takes BULK_LIMIT ids per request.
+            let jobs = 0
+            for (const part of inChunks(selectedFinishedRuns.map((run) => run.id), BULK_LIMIT)) {
+                jobs += (await runsApi.archiveSelected(part)).result.jobs
+            }
+            notify.success(`${jobs} finished run${jobs === 1 ? '' : 's'} archived.`, {
                 title: 'Runs archived',
             })
-            setSelectedIds(new Set())
+            setSelected(new Map())
             void load()
         } catch (cause) {
             notify.error(errorMessage(cause, 'Unable to archive selected runs.'), { title: 'Archive failed' })
@@ -238,12 +287,17 @@ export default function Runs() {
         if (!confirmed) return
         setBulkBusy(true)
         try {
-            if (downloadFirst) await runsApi.exportSelected(ids)
-            const result = await runsApi.purgeSelected(ids)
-            notify.success(`${result.purged_jobs} archived run${result.purged_jobs === 1 ? '' : 's'} purged.`, {
+            // The server takes BULK_LIMIT ids per request, so a large selection downloads several files;
+            // each part is purged only after its own download has started.
+            let purged = 0
+            for (const part of inChunks(ids, BULK_LIMIT)) {
+                if (downloadFirst) await runsApi.exportSelected(part)
+                purged += (await runsApi.purgeSelected(part)).purged_jobs
+            }
+            notify.success(`${purged} archived run${purged === 1 ? '' : 's'} purged.`, {
                 title: downloadFirst ? 'Download started and runs purged' : 'Runs purged',
             })
-            setSelectedIds(new Set())
+            setSelected(new Map())
             void load()
         } catch (cause) {
             notify.error(errorMessage(cause, 'Unable to purge selected runs.'), { title: 'Purge failed' })
@@ -321,7 +375,7 @@ export default function Runs() {
                             onChange={(event) => {
                                 setSearch(event.target.value)
                                 setPage(0)
-                                setSelectedIds(new Set())
+                                setSelected(new Map())
                             }}
                             placeholder="Search by workflow, plugin or #run…"
                             aria-label="Search runs"
@@ -332,7 +386,7 @@ export default function Runs() {
                                 aria-label="Clear search"
                                 onClick={() => {
                                     setSearch('')
-                                    setSelectedIds(new Set())
+                                    setSelected(new Map())
                                 }}
                             >
                                 <X size={15} />
@@ -378,13 +432,25 @@ export default function Runs() {
                         <button
                             type="button"
                             className="entropy-button entropy-button-ghost entropy-button-sm"
-                            onClick={() => setSelectedIds(new Set())}
+                            onClick={() => setSelected(new Map())}
                             disabled={bulkBusy}
                         >
                             Clear selection
                         </button>
                     </div>
                 )}
+
+                <SelectionBar
+                    noun="runs"
+                    pageCount={items.length}
+                    total={total}
+                    pageSelected={pageSelected}
+                    selectedCount={selected.size}
+                    onSelectPage={() => setSelected(new Map(items.map((run) => [run.id, run])))}
+                    onSelectAll={selectAllRuns}
+                    onClear={() => setSelected(new Map())}
+                    disabled={bulkBusy}
+                />
 
                 <div className="list-table-wrap">
                     <table className="list-table runs-table">
@@ -394,7 +460,7 @@ export default function Runs() {
                                     <input
                                         type="checkbox"
                                         checked={allVisibleSelected}
-                                        aria-label="Select all runs on this page"
+                                        aria-label="Select the runs on this page"
                                         aria-checked={allVisibleSelected ? true : selectedRuns.length > 0 ? 'mixed' : false}
                                         onChange={(event) => toggleVisibleSelection(event.target.checked)}
                                     />
@@ -447,13 +513,13 @@ export default function Runs() {
                                         <td className="runs-select-cell" onClick={(event) => event.stopPropagation()}>
                                             <input
                                                 type="checkbox"
-                                                checked={selectedIds.has(run.id)}
+                                                checked={selected.has(run.id)}
                                                 aria-label={`Select run ${run.id}`}
                                                 onKeyDown={(event) => event.stopPropagation()}
                                                 onChange={(event) => {
-                                                    setSelectedIds((current) => {
-                                                        const next = new Set(current)
-                                                        if (event.target.checked) next.add(run.id)
+                                                    setSelected((current) => {
+                                                        const next = new Map(current)
+                                                        if (event.target.checked) next.set(run.id, run)
                                                         else next.delete(run.id)
                                                         return next
                                                     })
@@ -464,7 +530,7 @@ export default function Runs() {
                                             <div className="list-name">
                                                 <span className="list-name-icon" aria-hidden="true">
                                                     {run.kind === 'plugin' ? (
-                                                        <Blocks size={16} />
+                                                        <Puzzle size={16} />
                                                     ) : (
                                                         <WorkflowIcon size={16} />
                                                     )}
@@ -539,12 +605,8 @@ export default function Runs() {
                         pageSize,
                         total,
                         pageItems: items,
-                        setPage: (next) => {
-                            setSelectedIds(new Set())
-                            setPage(next - 1)
-                        },
+                        setPage: (next) => setPage(next - 1),
                         setPageSize: (size) => {
-                            setSelectedIds(new Set())
                             setPageSize(size)
                             setPage(0)
                         },

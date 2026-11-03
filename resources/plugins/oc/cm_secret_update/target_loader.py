@@ -63,9 +63,13 @@ class ConfigMapSecretTargetLoader:
     def load_directory(
         self,
         directory: Path,
+        *,
+        recursive: bool = False,
     ) -> list[TargetResource]:
         """
-        Load ConfigMap and Secret resources from a directory.
+        Load ConfigMap and Secret resources from a directory. With `recursive`,
+        also from its sub-folders (a repository from oc.sync_yamls), where other
+        kinds of resource are expected and left alone.
         """
 
         if not self._filesystem.exists(
@@ -86,9 +90,21 @@ class ConfigMapSecretTargetLoader:
 
         resources: list[TargetResource] = []
 
-        for path in self._filesystem.listdir(
-            directory,
-        ):
+        paths = (
+            sorted(
+                self._filesystem.find(
+                    directory,
+                    pattern="*",
+                    recursive=True,
+                ),
+            )
+            if recursive
+            else self._filesystem.listdir(
+                directory,
+            )
+        )
+
+        for path in paths:
 
             if not self._filesystem.is_file(
                 path,
@@ -101,6 +117,7 @@ class ConfigMapSecretTargetLoader:
             resources.extend(
                 self.load_file(
                     path,
+                    skip_other_kinds=recursive,
                 ),
             )
 
@@ -117,6 +134,8 @@ class ConfigMapSecretTargetLoader:
     def load_file(
         self,
         path: Path,
+        *,
+        skip_other_kinds: bool = False,
     ) -> list[TargetResource]:
         """
         Load all ConfigMap and Secret resources
@@ -167,6 +186,13 @@ class ConfigMapSecretTargetLoader:
         ):
 
             if document is None:
+                continue
+
+            if (
+                skip_other_kinds
+                and isinstance(document, dict)
+                and str(document.get("kind")).casefold() not in ("configmap", "secret")
+            ):
                 continue
 
             resources.append(

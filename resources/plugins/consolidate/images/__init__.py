@@ -1,0 +1,1 @@
+"""consolidate.images plugin package."""

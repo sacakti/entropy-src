@@ -1,7 +1,7 @@
 {
     "name": "cm_secret_update",
     "namespace": "oc",
-    "version": "2.0.8",
+    "version": "2.0.9",
     "description": "Update Kubernetes ConfigMap and Secret YAML resources.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
@@ -52,6 +52,20 @@
             "required": false,
             "default": false,
             "description": "Replace the data of existing targets instead of merging into them."
+        },
+        {
+            "name": "recursive",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Folder mode: also look for targets in sub-folders of target, for a repository from oc.sync_yamls (configmaps/, secrets/)."
+        },
+        {
+            "name": "allow_empty",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Folder mode: succeed without changes when source has no YAML files, instead of failing."
         }
     ],
     "outputs": [

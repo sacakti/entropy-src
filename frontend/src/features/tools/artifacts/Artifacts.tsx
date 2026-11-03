@@ -4,12 +4,14 @@ import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import FileViewer from '../../../components/files/FileViewer'
 import Dialog from '../../../components/layout/Dialog'
 import Pagination from '../../../components/layout/Pagination'
+import SelectionBar from '../../../components/layout/SelectionBar'
 import { usePagination } from '../../../components/layout/usePagination'
 import { apiRequest, downloadFile, PROJECT_HEADER } from '../../../services/api'
 import { currentProject } from '../../../services/project'
 import './artifacts.css'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../../components/feedback/useToast'
+import { inChunks } from '../../../services/chunks'
 
 type Artifact = {
     id: number; name: string; source: 'upload' | 'server_path'; classification: 'added' | 'generated'; origin: string | null; run_id: string | null; path: string
@@ -185,7 +187,11 @@ export default function Artifacts() {
         const confirmed = await modal.confirm({ title: 'Remove selected artifacts?', message: `Remove ${selectedVisibleIds.length} selected artifacts? Uploaded data is deleted; server files are left in place.`, confirmText: 'Remove selected', destructive: true })
         if (!confirmed) return
         try {
-            const result = await apiRequest<{ deleted: number }>('/api/artifacts/bulk-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artifact_ids: selectedVisibleIds }) })
+            const result = { deleted: 0 }
+            // The server takes 500 per request.
+            for (const part of inChunks(selectedVisibleIds, 500)) {
+                result.deleted += (await apiRequest<{ deleted: number }>('/api/artifacts/bulk-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artifact_ids: part }) })).deleted
+            }
             setSelectedIds(new Set()); await refresh()
             notify.success(`${result.deleted} artifact${result.deleted === 1 ? '' : 's'} removed.`, { title: 'Artifacts removed' })
         } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to remove artifacts' }) }
@@ -194,7 +200,8 @@ export default function Artifacts() {
     const downloadSelected = async () => {
         if (!selectedVisibleIds.length) return
         try {
-            await downloadFile('/api/artifacts/bulk-download', { artifact_ids: selectedVisibleIds }, 'entropy-artifacts.zip')
+            // The server takes 500 per request, so a large selection downloads several files.
+            for (const part of inChunks(selectedVisibleIds, 500)) await downloadFile('/api/artifacts/bulk-download', { artifact_ids: part }, 'entropy-artifacts.zip')
             notify.success('Selected artifacts downloaded.', { title: 'Download ready' })
         } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to download artifacts' }) }
     }
@@ -273,7 +280,7 @@ export default function Artifacts() {
                 {data.permissions['artifacts.write'] && <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setHousekeepingOpen(true)}><House size={15} /> Housekeeping</button>}
             </div>
             {activeTag && <button type="button" className="artifacts-tag-filter" onClick={() => setActiveTag(null)}>Filtered by <strong>{activeTag}</strong><X size={14} /></button>}
-            <div className="artifacts-bulkbar"><label><input type="checkbox" checked={visibleItems.length > 0 && selectedVisibleIds.length === visibleItems.length} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); visibleItems.forEach((item) => event.target.checked ? next.add(item.id) : next.delete(item.id)); return next })} /> Select visible ({visibleItems.length})</label>{selectedVisibleIds.length > 0 && <><span>{selectedVisibleIds.length} selected</span><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void downloadSelected()}><Download size={15} /> Download selected</button>{data.permissions['artifacts.write'] && <button type="button" className="entropy-button entropy-button-danger entropy-button-sm" onClick={() => void removeSelected()}><Trash2 size={15} /> Delete selected</button>}</>}</div>
+            <div className="artifacts-bulkbar"><SelectionBar noun="artifacts" pageCount={paging.pageItems.length} total={visibleItems.length} pageSelected={paging.pageItems.filter((item) => selectedIds.has(item.id)).length} selectedCount={selectedVisibleIds.length} onSelectPage={() => setSelectedIds(new Set(paging.pageItems.map((item) => item.id)))} onSelectAll={() => setSelectedIds(new Set(visibleItems.map((item) => item.id)))} onClear={() => setSelectedIds(new Set())} />{selectedVisibleIds.length > 0 && <><span>{selectedVisibleIds.length} selected</span><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void downloadSelected()}><Download size={15} /> Download selected</button>{data.permissions['artifacts.write'] && <button type="button" className="entropy-button entropy-button-danger entropy-button-sm" onClick={() => void removeSelected()}><Trash2 size={15} /> Delete selected</button>}</>}</div>
             {visibleItems.length ? <div className="artifacts-list">{generatedGroups.map((group) => <section className="artifact-run-group" key={group.key || 'added'}>{group.label && <h4>{group.label} <span>{group.items.length} file{group.items.length === 1 ? '' : 's'}</span></h4>}{group.items.map(renderArtifact)}</section>)}<Pagination state={paging} noun="artifacts" /></div> : query.trim() || activeTag ? <div className="artifacts-empty"><Search size={25} /><strong>No matching artifacts</strong><span>Try a different filename or tag.</span></div> : <div className="artifacts-empty"><Archive size={27} /><strong>{classification === 'added' ? 'No added artifacts yet' : 'No generated artifacts yet'}</strong><span>{classification === 'added' ? 'Upload a package or register its path on the Entropy server.' : 'Files declared by workflow or plugin runs will appear here.'}</span></div>}
         </>}
         {housekeepingOpen && <Dialog title="Artifact housekeeping" subtitle={`Delete older ${classification} artifacts using a retention rule. Uploaded files are removed from Entropy; registered server files remain on disk.`} icon={<House size={18} />} onClose={() => setHousekeepingOpen(false)} footer={<><button type="button" className="entropy-button entropy-button-secondary" onClick={() => setHousekeepingOpen(false)}>Cancel</button><button type="submit" form="artifact-housekeeping-form" className="entropy-button entropy-button-danger" disabled={busy || !Number(housekeepingDays)}>{busy ? 'Deleting…' : 'Delete matching artifacts'}</button></>}>

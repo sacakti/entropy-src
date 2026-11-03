@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     ArrowRightLeft,
     BellRing,
-    Blocks,
+    Puzzle,
     CalendarClock,
     LoaderCircle,
     Pencil,
@@ -31,9 +31,11 @@ import { usePermissions } from '../administration/usePermissions'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
 import Pagination from '../../components/layout/Pagination'
+import SelectionBar from '../../components/layout/SelectionBar'
 import SortHeader from '../../components/layout/SortHeader'
 import { usePagination } from '../../components/layout/usePagination'
 import { compareText, compareValue, useSort, type Comparators } from '../../components/layout/useSort'
+import { inChunks } from '../../services/chunks'
 
 type ScheduleSortField = 'name' | 'target' | 'cron' | 'next' | 'last' | 'status'
 const SCHEDULE_COMPARE: Comparators<ScheduleSortField, Schedule> = {
@@ -107,6 +109,9 @@ function SelectAll({
         />
     )
 }
+
+/** What the schedule endpoints accept per request. */
+const BULK_LIMIT = 500
 
 export default function Schedules() {
     const permissions = usePermissions()
@@ -201,7 +206,10 @@ export default function Schedules() {
 
         setBusy('delete')
         try {
-            const result = await schedulesApi.remove(ids)
+            const result = { deleted: 0 }
+            for (const part of inChunks(ids, BULK_LIMIT)) {
+                result.deleted += (await schedulesApi.remove(part)).deleted
+            }
             notify.success(`${result.deleted} schedule${result.deleted === 1 ? '' : 's'} deleted.`)
             setSelected(new Set())
             void load()
@@ -254,7 +262,10 @@ export default function Schedules() {
         if (!ids.length) return
         setBusy('retry')
         try {
-            const result = await schedulesApi.retry(ids)
+            const result: Awaited<ReturnType<typeof schedulesApi.retry>> = { runs: [] }
+            for (const part of inChunks(ids, BULK_LIMIT)) {
+                result.runs.push(...(await schedulesApi.retry(part)).runs)
+            }
             const started = result.runs.filter((run) => run.job_id).length
             const failedToStart = result.runs.length - started
             if (started) notify.success(`${started} run${started === 1 ? '' : 's'} retriggered.`)
@@ -280,7 +291,7 @@ export default function Schedules() {
 
         setBusy('dismiss')
         try {
-            await schedulesApi.dismiss(ids)
+            for (const part of inChunks(ids, BULK_LIMIT)) await schedulesApi.dismiss(part)
             setSelectedRuns(new Set())
             void load()
         } catch (cause) {
@@ -430,6 +441,33 @@ export default function Schedules() {
                     )}
                 </div>
 
+                {!loading && tab === 'schedules' && (
+                    <SelectionBar
+                        noun="schedules"
+                        pageCount={schedulePages.pageItems.length}
+                        total={filtered.length}
+                        pageSelected={schedulePages.pageItems.filter((item) => selected.has(item.id)).length}
+                        selectedCount={selected.size}
+                        onSelectPage={() => setSelected(new Set(schedulePages.pageItems.map((item) => item.id)))}
+                        onSelectAll={() => setSelected(new Set(filtered.map((item) => item.id)))}
+                        onClear={() => setSelected(new Set())}
+                        disabled={busy !== null}
+                    />
+                )}
+                {!loading && tab !== 'schedules' && (
+                    <SelectionBar
+                        noun="failed runs"
+                        pageCount={failurePages.pageItems.length}
+                        total={failed.length}
+                        pageSelected={failurePages.pageItems.filter((item) => selectedRuns.has(item.id)).length}
+                        selectedCount={selectedRuns.size}
+                        onSelectPage={() => setSelectedRuns(new Set(failurePages.pageItems.map((item) => item.id)))}
+                        onSelectAll={() => setSelectedRuns(new Set(failed.map((item) => item.id)))}
+                        onClear={() => setSelectedRuns(new Set())}
+                        disabled={busy !== null}
+                    />
+                )}
+
                 <div className="list-table-wrap">
                     {tab === 'schedules' ? (
                         <table className="list-table schedules-table">
@@ -437,11 +475,17 @@ export default function Schedules() {
                                 <tr>
                                     <th scope="col" className="list-check-cell">
                                         <SelectAll
-                                            label="Select all schedules"
-                                            total={filtered.length}
-                                            selected={filtered.filter((item) => selected.has(item.id)).length}
+                                            label="Select the schedules on this page"
+                                            total={schedulePages.pageItems.length}
+                                            selected={schedulePages.pageItems.filter((item) => selected.has(item.id)).length}
                                             onChange={(all) =>
-                                                setSelected(all ? new Set(filtered.map((item) => item.id)) : new Set())
+                                                setSelected((current) => {
+                                                    const next = new Set(current)
+                                                    schedulePages.pageItems.forEach((item) =>
+                                                        all ? next.add(item.id) : next.delete(item.id),
+                                                    )
+                                                    return next
+                                                })
                                             }
                                         />
                                     </th>
@@ -497,7 +541,7 @@ export default function Schedules() {
                                             </td>
                                             <td>
                                                 <span className="schedule-target">
-                                                    {schedule.kind === 'plugin' ? <Blocks size={14} /> : <WorkflowIcon size={14} />}
+                                                    {schedule.kind === 'plugin' ? <Puzzle size={14} /> : <WorkflowIcon size={14} />}
                                                     {schedule.target}
                                                 </span>
                                             </td>
@@ -597,11 +641,17 @@ export default function Schedules() {
                                 <tr>
                                     <th scope="col" className="list-check-cell">
                                         <SelectAll
-                                            label="Select all failed runs"
-                                            total={failed.length}
-                                            selected={selectedRuns.size}
+                                            label="Select the failed runs on this page"
+                                            total={failurePages.pageItems.length}
+                                            selected={failurePages.pageItems.filter((item) => selectedRuns.has(item.id)).length}
                                             onChange={(all) =>
-                                                setSelectedRuns(all ? new Set(failed.map((item) => item.id)) : new Set())
+                                                setSelectedRuns((current) => {
+                                                    const next = new Set(current)
+                                                    failurePages.pageItems.forEach((item) =>
+                                                        all ? next.add(item.id) : next.delete(item.id),
+                                                    )
+                                                    return next
+                                                })
                                             }
                                         />
                                     </th>

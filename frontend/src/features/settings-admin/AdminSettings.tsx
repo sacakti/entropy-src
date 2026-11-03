@@ -16,6 +16,7 @@ import {
     ShieldCheck,
     Trash2,
     Users,
+    Megaphone,
     Zap,
 } from 'lucide-react'
 
@@ -38,10 +39,11 @@ import { apiRequest } from '../../services/api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import '../../styles/admin-settings.css'
 import DatabasePanel from './DatabasePanel'
+import VisionBroadcasts from './VisionBroadcasts'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
 
-type Tab = 'general' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database' | 'migration' | 'cache' | 'queue'
+type Tab = 'general' | 'vision' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database' | 'migration' | 'cache' | 'queue'
 
 const TABS: { id: Tab; label: string; icon: typeof Mail; hint: string }[] = [
     { id: 'smtp', label: 'E-mail', icon: Mail, hint: 'SMTP server for alerts and messages' },
@@ -53,6 +55,7 @@ const TABS: { id: Tab; label: string; icon: typeof Mail; hint: string }[] = [
     { id: 'cache', label: 'Cache', icon: Zap, hint: 'Redis server' },
     { id: 'queue', label: 'Message queue', icon: MessagesSquare, hint: 'ActiveMQ, RabbitMQ, MQTT, Kafka' },
     { id: 'general', label: 'Address', icon: Globe, hint: 'Where people open Entropy' },
+    { id: 'vision', label: 'Vision', icon: Megaphone, hint: 'Live status, and messages to everyone' },
 ]
 
 const ENGINE_PORTS: Record<DatabaseTargetSettings['engine'], number> = { postgresql: 5432, oracle: 1521 }
@@ -248,11 +251,16 @@ export default function AdminSettings() {
     const [ldapTest, setLdapTest] = useState({ username: '', password: '' })
     const [ldapResult, setLdapResult] = useState<LdapTestResult | null>(null)
     const [busy, setBusy] = useState<string | null>(null)
+    // What the server holds decides whether a message can be sent, not an unsaved toggle.
+    const [visionSaved, setVisionSaved] = useState(true)
 
     useEffect(() => {
         settingsApi
             .all()
-            .then(setSettings)
+            .then((loaded) => {
+                setSettings(loaded)
+                setVisionSaved(loaded.vision.enabled)
+            })
             .catch((cause: unknown) => setError(message(cause, 'Unable to load the settings.')))
         apiRequest<{ items: { name: string }[] }>('/api/admin/groups')
             .then((result) => setGroups(result.items.map((item) => item.name)))
@@ -278,6 +286,7 @@ export default function AdminSettings() {
             }
             const saved = await settingsApi.save(section, values)
             setSettings((current) => (current ? { ...current, [section]: saved } : current))
+            if (section === 'vision') setVisionSaved(Boolean((saved as { enabled?: boolean }).enabled))
             setSecrets((current) =>
                 Object.fromEntries(Object.entries(current).filter(([key]) => !key.startsWith(`${section}.`))),
             )
@@ -921,6 +930,23 @@ export default function AdminSettings() {
                             )}
                         </div>
                         <ConnectionTest section="queue" label="Message queue" />
+                    </>
+                )}
+                {tab === 'vision' && (
+                    <>
+                        <header className="settings-admin-head">
+                            <div>
+                                <h2>Vision</h2>
+                                <p>The live island in the topbar: what is running, what needs someone, and new messages.</p>
+                            </div>
+                            {saveButton('vision')}
+                        </header>
+                        <div className="settings-grid">
+                            <Toggle checked={settings.vision.enabled} onChange={(enabled) => update('vision', { enabled })}>
+                                Show Vision to everyone
+                            </Toggle>
+                        </div>
+                        <VisionBroadcasts enabled={visionSaved} />
                     </>
                 )}
                 {tab === 'general' && (

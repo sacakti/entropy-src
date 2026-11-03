@@ -114,6 +114,8 @@ execution mode.
 | `configmaps` | Yes for `deployments`* | `list` | `[]` | ConfigMap resources from release context. |
 | `secrets` | Yes for `deployments`* | `list` | `[]` | Secret resources from release context. |
 | `replace` | No | `boolean` | `false` | Controls complete replacement behavior for native resources. |
+| `recursive` | No | `boolean` | `false` | `folder` mode: also look for targets in sub-folders of `target`, for a repository from `oc.sync_yamls`. |
+| `allow_empty` | No | `boolean` | `false` | `folder` mode: succeed without changes when `source` has no YAML files, as `consolidate.cm_secret` output can. |
 
 \* `configmaps` and `secrets` are individually optional from the
 argument parser's perspective and default to empty lists. At least one

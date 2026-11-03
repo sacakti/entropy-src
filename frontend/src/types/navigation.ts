@@ -2,7 +2,7 @@ import {
     Activity,
     ArrowUpCircle,
     BadgeCheck,
-    Blocks,
+    Puzzle,
     FolderKanban,
     KeyRound,
     LayoutDashboard,
@@ -43,7 +43,7 @@ export type PageId =
 
 export const navigation: NavigationItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'plugins', label: 'Plugins', icon: Blocks },
+    { id: 'plugins', label: 'Plugins', icon: Puzzle },
     { id: 'extensions', label: 'Extensions', icon: Package },
     { id: 'workflows', label: 'Workflows', icon: Workflow },
     { id: 'runs', label: 'Runs', icon: PlayCircle },

@@ -1,12 +1,15 @@
 {
     "name": "sync_yamls",
     "namespace": "oc",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Aravinthan Selvaraj",
     "author": "",
     "entropy": ">=1.0.0",
 
     "dependencies": [],
+    "system_requirements": [
+        {"name": "oc", "note": "OpenShift command line client."}
+    ],
 
     "arguments": [
         {"name": "kubeconfig", "type": "path", "path": "file", "required": true, "description": "Existing kubeconfig file with an authenticated OpenShift context, passed to oc through KUBECONFIG.", "example": "/home/user/.kube/config"},

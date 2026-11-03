@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Archive, ArrowUpRight, Clipboard, Download, FileJson2, FileSpreadsheet, Layers, Link2, ListPlus, MapPin, PackageCheck, Play, Plus, RefreshCw, Search, Settings2, Upload, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { Archive, ArrowUpRight, Trash2, Clipboard, Download, FileJson2, FileSpreadsheet, Layers, Link2, ListPlus, MapPin, PackageCheck, Play, Plus, RefreshCw, Search, Settings2, Upload, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { currentProject } from '../../../services/project'
 import { copyRich, outlookReport, releaseLabel, releaseRows, taskRows, taskStatus } from './outlook'
 import { apiRequest } from '../../../services/api'
@@ -13,6 +13,7 @@ import type { Run, RunOptions } from '../../../api/runs.api'
 import { GROUP_KINDS, tasksApi, type Task, type TaskData } from '../tasks/model'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import Pagination from '../../../components/layout/Pagination'
+import SelectionBar from '../../../components/layout/SelectionBar'
 import { usePagination } from '../../../components/layout/usePagination'
 
 type Stage = 'workflow_queue' | 'workflow_done' | 'task_queue' | 'completed'
@@ -36,7 +37,7 @@ export type Promotion = {
 type Data = {
     items: Release[]; promotions: Promotion[]; workflows: Workflow[]
     environments: string[]; housekeeping_rules: HousekeepingRule[]
-    permissions: { 'releases.create': boolean; 'releases.manage': boolean; 'releases.promote': boolean; 'workflows.execute': boolean; 'tasks.create': boolean; 'artifacts.read': boolean }
+    permissions: { 'releases.create': boolean; 'releases.manage': boolean; 'releases.promote': boolean; 'releases.delete': boolean; 'workflows.execute': boolean; 'tasks.create': boolean; 'artifacts.read': boolean }
 }
 type HousekeepingRule = { entity: 'release' | 'promotion'; older_than_days: number; statuses: string[] }
 type Artifact = { id: number; name: string; size_bytes: number }
@@ -93,8 +94,30 @@ function PromotionRunNote({ promotion, releases }: { promotion: Promotion; relea
     </>
 }
 
+function BulkToolbar({ count, noun, pageCount, pageSelected, onSelectPage, onSelectAll, onClear, selected, busy, onArchive, onDelete }: {
+    count: number
+    noun: string
+    pageCount: number
+    pageSelected: number
+    onSelectPage: () => void
+    onSelectAll: () => void
+    onClear: () => void
+    selected: number
+    busy: boolean
+    onArchive?: () => void
+    onDelete?: () => void
+}) {
+    return <div className="release-bulk-toolbar">
+        <SelectionBar noun={noun} pageCount={pageCount} total={count} pageSelected={pageSelected} selectedCount={selected} onSelectPage={onSelectPage} onSelectAll={onSelectAll} onClear={onClear} disabled={busy} />
+        <span>{selected} selected</span>
+        {onArchive && <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!selected || busy} onClick={onArchive}><Archive size={15} /> Archive selected</button>}
+        {onDelete && <button type="button" className="entropy-button entropy-button-danger entropy-button-sm" disabled={!selected || busy} onClick={onDelete}><Trash2 size={15} /> Delete selected</button>}
+        <small>{[onArchive && 'Archiving keeps everything', onDelete && 'deleting cannot be undone'].filter(Boolean).join('; ')}.</small>
+    </div>
+}
+
 export default function ReleaseManager() {
-    const { notify } = useFeedback()
+    const { notify, modal } = useFeedback()
     const notifyErrorRef = useRef(notify.error)
     const [data, setData] = useState<Data | null>(null)
     const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -182,6 +205,14 @@ export default function ReleaseManager() {
     const historyPages = usePagination(historyPromotions, 'release-promotion-history')
     const setReleaseField = (key: keyof ReleaseDraft, value: string) => setDraft((current) => ({ ...current, [key]: value }))
 
+    // Only what is on screen counts: a search, tab or archive switch must not leave
+    // hidden rows selected for a delete.
+    const chosenReleases = visibleReleases.filter((item) => selectedReleaseIds.has(item.id))
+    const promotionRows = tab === 'promotions' ? queuedPromotions : historyPromotions
+    const chosenPromotions = promotionRows.filter((item) => selectedPromotionIds.has(item.id))
+    const canArchive = Boolean(data?.permissions['releases.manage'] && !showArchived)
+    const canDelete = Boolean(data?.permissions['releases.delete'])
+
     const toggleArchiveSelection = (id: number, kind: 'release' | 'promotion') => {
         const update = kind === 'release' ? setSelectedReleaseIds : setSelectedPromotionIds
         update((current) => {
@@ -193,8 +224,8 @@ export default function ReleaseManager() {
     }
 
     const archiveSelected = async (kind: 'release' | 'promotion') => {
-        const releaseIds = kind === 'release' ? [...selectedReleaseIds] : []
-        const promotionIds = kind === 'promotion' ? [...selectedPromotionIds] : []
+        const releaseIds = kind === 'release' ? chosenReleases.map((item) => item.id) : []
+        const promotionIds = kind === 'promotion' ? chosenPromotions.map((item) => item.id) : []
         if (!releaseIds.length && !promotionIds.length) return
         setBusy(true)
         try {
@@ -210,6 +241,42 @@ export default function ReleaseManager() {
             notify.success(`${count} record${count === 1 ? '' : 's'} archived. No data was deleted.`, { title: 'Archive complete' })
         } catch (reason) {
             notify.error((reason as Error).message, { title: 'Unable to archive records' })
+        } finally { setBusy(false) }
+    }
+
+    const deleteSelected = async (kind: 'release' | 'promotion') => {
+        const names = kind === 'release'
+            ? chosenReleases.map((item) => item.name)
+            : chosenPromotions.map((item) => item.promotion_number)
+        if (!names.length) return
+        const shown = names.slice(0, 5).join(', ') + (names.length > 5 ? ` and ${names.length - 5} more` : '')
+        const confirmed = await modal.confirm({
+            title: `Delete ${names.length} ${kind}${names.length === 1 ? '' : 's'}?`,
+            message: kind === 'release'
+                ? `${shown} will be permanently deleted and removed from their promotions. A promotion left with no release is deleted too, along with its history. Linked tasks, artifacts and workflow runs are kept. This cannot be undone.`
+                : `${shown} will be permanently deleted, with their promotion history. The releases and workflow runs are kept. This cannot be undone.`,
+            confirmText: 'Delete',
+            destructive: true,
+        })
+        if (!confirmed) return
+        const releaseIds = kind === 'release' ? chosenReleases.map((item) => item.id) : []
+        setBusy(true)
+        try {
+            const result = await apiRequest<{ deleted_releases: number; deleted_promotions: number }>('/api/releases/delete', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ release_ids: releaseIds, promotion_ids: kind === 'promotion' ? chosenPromotions.map((item) => item.id) : [] }),
+            })
+            setSelectedReleaseIds(new Set())
+            setSelectedPromotionIds(new Set())
+            if (releaseIds.includes(selectedId ?? -1)) setSelectedId(null)
+            await refresh()
+            const parts = [
+                result.deleted_releases ? `${result.deleted_releases} release${result.deleted_releases === 1 ? '' : 's'}` : '',
+                result.deleted_promotions ? `${result.deleted_promotions} promotion${result.deleted_promotions === 1 ? '' : 's'}` : '',
+            ].filter(Boolean)
+            notify.success(`${parts.join(' and ') || 'Nothing'} deleted.`, { title: 'Delete complete' })
+        } catch (reason) {
+            notify.error((reason as Error).message, { title: 'Unable to delete records' })
         } finally { setBusy(false) }
     }
 
@@ -494,10 +561,10 @@ export default function ReleaseManager() {
 
             {tab === 'releases' && <>
                 <div className="release-list-toolbar"><label className="release-search"><Search size={16} /><input value={releaseSearch} onChange={(event) => setReleaseSearch(event.target.value)} placeholder="Search releases by name, tag, environment…" aria-label="Search releases" /></label><select aria-label="Sort releases" value={releaseSort} onChange={(event) => setReleaseSort(event.target.value as typeof releaseSort)}><option value="newest">Newest first</option><option value="updated">Recently updated</option><option value="name">Name A–Z</option><option value="environment">Environment</option></select></div>
-                {data.permissions['releases.manage'] && !showArchived && visibleReleases.length > 0 && <div className="release-bulk-toolbar"><label><input type="checkbox" checked={visibleReleases.every((item) => selectedReleaseIds.has(item.id))} onChange={(event) => setSelectedReleaseIds(event.target.checked ? new Set(visibleReleases.map((item) => item.id)) : new Set())} /> Select all {visibleReleases.length} releases</label><span>{selectedReleaseIds.size} selected</span><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!selectedReleaseIds.size || busy} onClick={() => void archiveSelected('release')}><Archive size={15} /> Archive selected</button><small>Archiving keeps all release data; it does not delete anything.</small></div>}
+                {(canArchive || canDelete) && visibleReleases.length > 0 && <BulkToolbar count={visibleReleases.length} noun="releases" pageCount={releasePages.pageItems.length} pageSelected={releasePages.pageItems.filter((item) => selectedReleaseIds.has(item.id)).length} onSelectPage={() => setSelectedReleaseIds(new Set(releasePages.pageItems.map((item) => item.id)))} onSelectAll={() => setSelectedReleaseIds(new Set(visibleReleases.map((item) => item.id)))} onClear={() => setSelectedReleaseIds(new Set())} selected={chosenReleases.length} busy={busy} onArchive={canArchive ? () => void archiveSelected('release') : undefined} onDelete={canDelete ? () => void deleteSelected('release') : undefined} />}
                 {visibleReleases.length ? <div className="release-list">
                     {releasePages.pageItems.map((release) => <article className={`release-row${selectedId === release.id ? ' selected' : ''}`} key={release.id}>
-                        {data.permissions['releases.manage'] && !showArchived && <label className="release-select-checkbox" aria-label={`Select release ${release.name}`}><input type="checkbox" checked={selectedReleaseIds.has(release.id)} onChange={() => toggleArchiveSelection(release.id, 'release')} /></label>}
+                        {(canArchive || canDelete) && <label className="release-select-checkbox" aria-label={`Select release ${release.name}`}><input type="checkbox" checked={selectedReleaseIds.has(release.id)} onChange={() => toggleArchiveSelection(release.id, 'release')} /></label>}
                         <button className="release-main" onClick={() => setSelectedId(release.id)}>
                             <span className="release-title">{release.name}{release.version && <small>{release.version}</small>}</span>
                             <span className="release-subtitle"><WorkflowIcon size={14} /> {release.workflow_name}</span>
@@ -519,15 +586,17 @@ export default function ReleaseManager() {
                     <div className="promotion-environments"><MapPin size={14} /><span>Environments:</span>{data.environments.length ? data.environments.map((environment) => <span className="release-env-chip" key={environment}>{environment}</span>) : <small>None yet</small>}<input value={newEnvironment} onChange={(event) => setNewEnvironment(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void addEnvironment() }} placeholder="New environment" aria-label="New environment" maxLength={100} /><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!newEnvironment.trim()} onClick={() => void addEnvironment()}><Plus size={14} /> Add</button></div>
                     <div className="promotion-release-picker">{completed.map((release) => <label key={release.id}><input type="checkbox" checked={promotionReleaseIds.has(release.id)} onChange={() => togglePromotionRelease(release.id)} /><span><strong>{release.name}{release.version ? ` ${release.version}` : ''}</strong><small>{release.environment || 'No environment'} · {release.tasks.length} tasks</small></span></label>)}{!completed.length && <small>No completed releases are available to promote.</small>}</div>
                 </section>}
-                {queuedPromotions.length ? <div className="promotion-list">{queuedPages.pageItems.map((promotion) => <article key={promotion.id}>
+                {canDelete && queuedPromotions.length > 0 && <BulkToolbar count={queuedPromotions.length} noun="queued promotions" pageCount={queuedPages.pageItems.length} pageSelected={queuedPages.pageItems.filter((item) => selectedPromotionIds.has(item.id)).length} onSelectPage={() => setSelectedPromotionIds(new Set(queuedPages.pageItems.map((item) => item.id)))} onSelectAll={() => setSelectedPromotionIds(new Set(queuedPromotions.map((item) => item.id)))} onClear={() => setSelectedPromotionIds(new Set())} selected={chosenPromotions.length} busy={busy} onDelete={() => void deleteSelected('promotion')} />}
+                {queuedPromotions.length ? <div className="promotion-list">{queuedPages.pageItems.map((promotion) => <article className={canDelete ? 'promotion-history-row' : undefined} key={promotion.id}>
+                    {canDelete && <label className="release-select-checkbox" aria-label={`Select promotion ${promotion.promotion_number}`}><input type="checkbox" checked={selectedPromotionIds.has(promotion.id)} onChange={() => toggleArchiveSelection(promotion.id, 'promotion')} /></label>}
                     <div><strong>{promotion.promotion_number} · {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'} → {promotion.target_environment}</strong><span>Created by {promotion.created_by} · {new Date(promotion.created_at).toLocaleString()}</span></div><div className="promotion-release-names">{promotion.releases.map((release) => `${release.name}${release.version ? ` ${release.version}` : ''}`).join(', ')}</div><div className="promotion-run-controls"><select aria-label={`Promotion workflow for ${promotion.promotion_number}`} value={workflowFor(promotion)} onChange={(event) => { const value = event.target.value; setRunWorkflows((current) => ({ ...current, [promotion.id]: value })) }}><option value="">Choose promotion workflow</option>{data.workflows.map((workflow) => <option key={workflow.name} value={workflow.name}>{workflow.name}</option>)}</select><button type="button" className="entropy-button entropy-button-primary entropy-button-sm" disabled={!workflowFor(promotion) || busy || !data.permissions['workflows.execute']} title={data.permissions['workflows.execute'] ? undefined : 'You may not run workflows'} onClick={() => setRunTarget({ kind: 'promotion', promotion, workflow: workflowFor(promotion) })}><Play size={14} /> Run promotion</button></div>
                 </article>)}<Pagination state={queuedPages} noun="promotions" /></div> : <div className="release-empty"><ArrowUpRight size={25} /><strong>No queued promotions</strong><span>Select completed releases to create a promotion.</span></div>}
             </>}
 
             {tab === 'history' && <>
-                {data.permissions['releases.manage'] && !showArchived && historyPromotions.length > 0 && <div className="release-bulk-toolbar"><label><input type="checkbox" checked={historyPromotions.every((item) => selectedPromotionIds.has(item.id))} onChange={(event) => setSelectedPromotionIds(event.target.checked ? new Set(historyPromotions.map((item) => item.id)) : new Set())} /> Select all {historyPromotions.length} promotion records</label><span>{selectedPromotionIds.size} selected</span><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={!selectedPromotionIds.size || busy} onClick={() => void archiveSelected('promotion')}><Archive size={15} /> Archive selected</button><small>Archiving keeps all promotion history; it does not delete anything.</small></div>}
+                {(canArchive || canDelete) && historyPromotions.length > 0 && <BulkToolbar count={historyPromotions.length} noun="promotion records" pageCount={historyPages.pageItems.length} pageSelected={historyPages.pageItems.filter((item) => selectedPromotionIds.has(item.id)).length} onSelectPage={() => setSelectedPromotionIds(new Set(historyPages.pageItems.map((item) => item.id)))} onSelectAll={() => setSelectedPromotionIds(new Set(historyPromotions.map((item) => item.id)))} onClear={() => setSelectedPromotionIds(new Set())} selected={chosenPromotions.length} busy={busy} onArchive={canArchive ? () => void archiveSelected('promotion') : undefined} onDelete={canDelete ? () => void deleteSelected('promotion') : undefined} />}
                 {historyPromotions.length ? <div className="promotion-list">{historyPages.pageItems.map((promotion) => <article className="promotion-history-row" key={promotion.id}>
-                {data.permissions['releases.manage'] && !showArchived && <label className="release-select-checkbox" aria-label={`Select promotion ${promotion.promotion_number}`}><input type="checkbox" checked={selectedPromotionIds.has(promotion.id)} onChange={() => toggleArchiveSelection(promotion.id, 'promotion')} /></label>}
+                {(canArchive || canDelete) && <label className="release-select-checkbox" aria-label={`Select promotion ${promotion.promotion_number}`}><input type="checkbox" checked={selectedPromotionIds.has(promotion.id)} onChange={() => toggleArchiveSelection(promotion.id, 'promotion')} /></label>}
                 <div><strong>{promotion.promotion_number} · {promotion.releases.length} release{promotion.releases.length === 1 ? '' : 's'} → {promotion.target_environment}</strong><span>Promotion workflow: {promotion.workflow_name || 'Not chosen'}{promotion.workflow_job_id ? <> · <a href={`#/runs/${promotion.workflow_job_id}`}>run #{promotion.workflow_job_id}</a></> : null}</span></div><div className="promotion-release-names">{promotion.releases.map((release) => `${release.name}${release.version ? ` ${release.version}` : ''}`).join(', ')}</div><span className={`promotion-status status-${promotion.status}`}>{readable(promotion.workflow_state ?? promotion.status)}</span>
             </article>)}<Pagination state={historyPages} noun="promotions" /></div> : <div className="release-empty"><ArrowUpRight size={25} /><strong>No promotion history</strong><span>Completed and failed promotion runs will appear here.</span></div>}
             </>}

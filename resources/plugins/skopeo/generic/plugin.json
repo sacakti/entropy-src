@@ -1,12 +1,16 @@
 {
     "name": "generic",
     "namespace": "skopeo",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "display_name": "Image Tags and Checksums",
     "description": "Full image (registry, repository, tag) and checksum (digest) of OpenShift workloads, from the running pods or skopeo inspect; select workloads by name, tag or container patterns.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
     "dependencies": [],
+    "system_requirements": [
+        {"name": "skopeo", "note": "Inspects images in a registry."},
+        {"name": "oc", "optional": true, "note": "Only to read workloads from OpenShift; not for images given directly."}
+    ],
     "required_plugins": [
         {
             "name": "oc.generic",

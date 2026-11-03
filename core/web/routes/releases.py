@@ -15,11 +15,13 @@ from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.runs import StartRunRequest
 from core.web.routes.tasks import (
     TaskCreate,
-    _notify_mentions,
+    _notify_new_task,
+    _notify_watchers,
     _validate_assignee,
     _validate_due,
     _validate_groups,
     _validate_reminder,
+    _validate_schedule,
     _validate_severity,
     _validate_type,
 )
@@ -28,6 +30,7 @@ from lib.models.session import Session
 from lib.models.users import User
 from lib.releases.store import RELEASE_STAGES, ReleaseStore
 from lib.runs.service import RunError, RunService
+from lib.runs.store import ACTIVE_STATES
 from lib.tasks.store import REOPENED, STATUSES, TaskStore
 
 router = APIRouter(prefix="/api/releases", tags=["releases"])
@@ -73,8 +76,9 @@ class ArtifactIds(BaseModel):
 
 
 class ArchiveSelection(BaseModel):
-    release_ids: List[int] = Field(default_factory=list, max_length=500)
-    promotion_ids: List[int] = Field(default_factory=list, max_length=500)
+    # "Select all" sends whole lists; a delete is all or nothing, so one request.
+    release_ids: List[int] = Field(default_factory=list, max_length=5000)
+    promotion_ids: List[int] = Field(default_factory=list, max_length=5000)
 
 
 class PromotionCreate(BaseModel):
@@ -278,7 +282,7 @@ def list_releases(request: Request, response: Response, include_archived: bool =
         "archived_promotions": [item for item in store.promotions(project["id"], True) if item.get("archived_at")],
         "workflows": workflows,
         "permissions": {name: request.app.state.entropy_context.authorization.has_permission(user.id, name, project["id"])
-                        for name in ("releases.create", "releases.manage", "releases.promote", "workflows.execute", "tasks.create", "artifacts.read")},
+                        for name in ("releases.create", "releases.manage", "releases.promote", "releases.delete", "workflows.execute", "tasks.create", "artifacts.read")},
     }
 
 
@@ -394,6 +398,52 @@ def archive_selected(payload: ArchiveSelection, request: Request,
             )
             archived_promotions = max(0, cursor.rowcount)
     return {"archived_releases": archived_releases, "archived_promotions": archived_promotions}
+
+
+def _run_is_active(request: Request, job_id: Optional[int]) -> bool:
+    if not job_id:
+        return False
+    run = RunService(request.app.state.entropy_context).store.get(int(job_id))
+    return bool(run and run["state"] in ACTIVE_STATES)
+
+
+@router.post("/delete", dependencies=[Depends(verify_csrf)])
+def delete_selected(payload: ArchiveSelection, request: Request,
+                    record: SessionRecord = Depends(_current_session)) -> Dict[str, int]:
+    """Permanently delete releases and promotions; refused while one of them is running."""
+
+    _, _, user = record
+    project = _project(request, user, "releases.delete")
+    release_ids = list(dict.fromkeys(payload.release_ids))
+    promotion_ids = list(dict.fromkeys(payload.promotion_ids))
+    if not release_ids and not promotion_ids:
+        raise HTTPException(
+            status_code=422,
+            detail="Select at least one release or promotion record to delete.",
+        )
+
+    store = _store(request)
+    # A finished run would otherwise update what was deleted, and nothing could report it.
+    running = []
+    chosen_releases = set(release_ids)
+    for promotion in store.promotions(project["id"], include_archived=True):
+        chosen = promotion["id"] in promotion_ids or any(
+            item["id"] in chosen_releases for item in promotion["releases"]
+        )
+        if chosen and _run_is_active(request, promotion.get("workflow_job_id")):
+            running.append(f"promotion {promotion['promotion_number']}")
+    for release in store.list(project["id"], include_archived=True):
+        job_id = release.get("workflow_job_id")
+        if release["id"] in chosen_releases and _run_is_active(request, job_id):
+            running.append(f"release {release['name']}")
+    if running:
+        raise HTTPException(
+            status_code=409,
+            detail="Nothing was deleted, because a workflow is still running for: "
+            + ", ".join(running) + ". Wait for it to finish or cancel it first.",
+        )
+
+    return store.delete_records(project["id"], release_ids, promotion_ids)
 
 
 @router.post("", status_code=201, dependencies=[Depends(verify_csrf)])
@@ -568,6 +618,8 @@ def _validate_task(request: Request, user: User, project_id: int, payload: Relea
     _validate_severity(payload.severity)
     _validate_groups(store, project_id, payload.group_ids)
     _validate_due(payload.due_date)
+    _validate_schedule(payload.due_date, payload.due_time, payload.due_repeat,
+                       payload.reminder_at, payload.reminder_repeat)
     if payload.status not in STATUSES or payload.status == REOPENED:
         raise HTTPException(status_code=422, detail="Choose a valid task status.")
     title = payload.title.strip()
@@ -589,8 +641,11 @@ def _add_task(request: Request, user: User, release: Dict[str, Any], payload: Re
                                         external_ref=(payload.external_ref or "").strip() or None,
                                         status=payload.status, group_ids=payload.group_ids,
                                         due_date=_validate_due(payload.due_date),
-                                        severity=payload.severity)
-    _notify_mentions(request, task, user, payload.description)
+                                        severity=payload.severity,
+                                        due_time=payload.due_time or None,
+                                        due_repeat=payload.due_repeat or None,
+                                        reminder_repeat=payload.reminder_repeat or None)
+    _notify_new_task(request, task, user, payload.description)
     _store(request).link_task(release["id"], int(task["id"]))
     if release["stage"] == "workflow_done":
         _store(request).update(release["id"], {"stage": "task_queue"})
@@ -654,8 +709,12 @@ def link_release_tasks(release_id: int, payload: TaskIds, request: Request,
         _store(request).link_task(release_id, task_id)
     if tasks and release["stage"] == "workflow_done":
         _store(request).update(release_id, {"stage": "task_queue"})
-    linked = len([task_id for task_id in tasks if task_id not in already])
-    return {"release": _store(request).get(release_id), "linked": linked}
+    newly = [task_id for task_id in tasks if task_id not in already]
+    for task_id in newly:
+        task = task_store.get(task_id)
+        if task:
+            _notify_watchers(request, task, user.id, f"{user.username} linked it to release {release['name']}.")
+    return {"release": _store(request).get(release_id), "linked": len(newly)}
 
 
 @router.delete("/{release_id}/tasks/{task_id}", status_code=204, dependencies=[Depends(verify_csrf)])
@@ -669,6 +728,9 @@ def unlink_release_task(release_id: int, task_id: int, request: Request,
     if task_id not in linked:
         raise HTTPException(status_code=404, detail="Task is not linked to this release.")
     _store(request).unlink_task(release_id, task_id)
+    task = TaskStore(request.app.state.entropy_context.database_manager.connection).get(task_id)
+    if task:
+        _notify_watchers(request, task, user.id, f"{user.username} unlinked it from release {release['name']}.")
     return Response(status_code=204)
 
 

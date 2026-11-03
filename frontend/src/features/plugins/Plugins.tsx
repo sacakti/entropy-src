@@ -1,5 +1,11 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import {
+    LayoutGrid,
+    List,
+    Power,
+    PowerOff,
+    AlertTriangle,
+    Terminal,
     Activity,
     Boxes,
     Puzzle,
@@ -46,14 +52,42 @@ import StartRunDialog from '../runs/StartRunDialog'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
 import Pagination from '../../components/layout/Pagination'
+import SelectionBar from '../../components/layout/SelectionBar'
 import { usePageSize } from '../../components/layout/usePagination'
 
 // Monaco is large; load the editor only when a plugin is opened.
+import PluginIconPicker from './PluginIconPicker'
+
 const PluginEditor = lazy(() => import('./editor/PluginEditor'))
 const PluginHelp = lazy(() => import('./PluginHelp'))
 
 type PluginStatusFilter = 'all' | 'enabled' | 'disabled' | 'draft'
 type PluginSortField = NonNullable<PluginListParams['sort_by']>
+type PluginView = 'list' | 'gallery'
+
+const VIEW_STORAGE_KEY = 'entropy.plugins.view'
+
+/** A confirmation stays readable when a whole list is selected. */
+function namesInBrief(names: string[]): string {
+    return names.length > 8 ? `${names.slice(0, 8).join(', ')} and ${names.length - 8} more` : names.join(', ')
+}
+
+function storedView(): PluginView {
+    try {
+        return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'gallery' ? 'gallery' : 'list'
+    } catch {
+        return 'list'
+    }
+}
+
+/** The gallery has no column headers to sort by. */
+const GALLERY_SORTS: { field: PluginSortField; label: string }[] = [
+    { field: 'name', label: 'Name' },
+    { field: 'namespace', label: 'Namespace' },
+    { field: 'version', label: 'Version' },
+    { field: 'enabled', label: 'Status' },
+    { field: 'installed_at', label: 'Installed' },
+]
 type SortOrder = 'asc' | 'desc'
 
 // Pickers that search plugins need only the first few matches.
@@ -74,29 +108,50 @@ function formatDate(value: string | null): string {
 
 const DEPENDENCY_CHIP_LIMIT = 3
 
-/** Plugins it requires, then the Python libraries it needs, from plugin.json. */
+/** What a plugin needs, tools first (it cannot run without them), from plugin.json. */
 function DependencyChips({ dependencies }: { dependencies?: PluginDependencies }) {
     const items = [
-        ...(dependencies?.plugins ?? []).map((item) => ({ ...item, kind: 'plugin' as const })),
-        ...(dependencies?.extensions ?? []).map((item) => ({ ...item, kind: 'library' as const })),
+        ...(dependencies?.tools ?? []).map((item) => ({
+            key: `tool:${item.name}`,
+            label: `${item.name}${item.optional ? ' (optional)' : ''}`,
+            className: item.available ? 'plugins-dep-tool' : 'plugins-dep-missing',
+            icon: item.available ? Terminal : AlertTriangle,
+            title: `Command line tool: ${item.name}.${item.note ? ` ${item.note}` : ''} ${
+                item.available
+                    ? 'Found on the Entropy server.'
+                    : 'Not found on the Entropy server; it must be installed where the plugin runs.'
+            }`,
+        })),
+        ...(dependencies?.plugins ?? []).map((item) => ({
+            key: `plugin:${item.name}`,
+            label: `${item.name}${item.version ? ` ${item.version}` : ''}`,
+            className: 'plugins-dep-plugin',
+            icon: Puzzle,
+            title: `Plugin: ${item.name}${item.version ? ` ${item.version}` : ''}`,
+        })),
+        ...(dependencies?.extensions ?? []).map((item) => ({
+            key: `library:${item.name}`,
+            label: `${item.name}${item.version ? ` ${item.version}` : ''}`,
+            className: 'plugins-dep-library',
+            icon: Boxes,
+            title: `Python library: ${item.name}${item.version ? ` ${item.version}` : ''}`,
+        })),
     ]
 
     if (items.length === 0) return <span className="list-cell-text plugins-deps-none">None</span>
 
-    const label = (item: (typeof items)[number]) => `${item.name}${item.version ? ` ${item.version}` : ''}`
-    const describe = (item: (typeof items)[number]) => `${item.kind === 'plugin' ? 'Plugin' : 'Python library'}: ${label(item)}`
     const hidden = items.slice(DEPENDENCY_CHIP_LIMIT)
 
     return (
         <span className="plugins-deps">
             {items.slice(0, DEPENDENCY_CHIP_LIMIT).map((item) => (
-                <span key={`${item.kind}:${item.name}`} className={`list-chip plugins-dep-${item.kind}`} title={describe(item)}>
-                    {item.kind === 'plugin' ? <Puzzle size={11} aria-hidden="true" /> : <Boxes size={11} aria-hidden="true" />}
-                    {label(item)}
+                <span key={item.key} className={`list-chip ${item.className}`} title={item.title}>
+                    <item.icon size={11} aria-hidden="true" />
+                    {item.label}
                 </span>
             ))}
             {hidden.length > 0 && (
-                <span className="list-chip" title={hidden.map(describe).join('\n')}>
+                <span className="list-chip" title={hidden.map((item) => item.title).join('\n')}>
                     +{hidden.length}
                 </span>
             )}
@@ -171,6 +226,230 @@ function SortButton({
     )
 }
 
+type PluginActionProps = {
+    plugin: PluginItem
+    /** Why each action is unavailable (null when allowed). */
+    reasons: { run: string | null; install: string | null; edit: string | null; delete: string | null }
+    /** The user may read the source but not change it. */
+    viewOnly: boolean
+    deleting: boolean
+    onRun: (plugin: PluginItem) => void
+    onInstall: (plugin: PluginItem) => void
+    onCopy: (value: string) => void
+    onViewDetails: (plugin: PluginItem) => void
+    onEdit: (plugin: PluginItem) => void
+    onDelete: (plugin: PluginItem) => void
+    onToggleEnabled: (plugin: PluginItem) => void
+}
+
+type PluginItemProps = PluginActionProps & {
+    selected: boolean
+    checked: boolean
+    onCheck: (plugin: PluginItem) => void
+    onSelect: (plugin: PluginItem) => void
+    canChangeIcon: boolean
+    onIconChanged: (qualifiedName: string, icon: string | null) => void
+}
+
+/** What can be done with a plugin: the same in the list and the gallery. */
+function PluginActions({
+    plugin,
+    reasons,
+    viewOnly,
+    deleting,
+    onRun,
+    onInstall,
+    onCopy,
+    onViewDetails,
+    onEdit,
+    onDelete,
+    onToggleEnabled,
+}: PluginActionProps) {
+    const [menuOpen, setMenuOpen] = useState(false)
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const closeMenu = useCallback(() => setMenuOpen(false), [])
+
+    return (
+        <div className="list-operations">
+            {plugin.draft ? (
+                <button
+                    type="button"
+                    className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
+                    aria-label={`Install ${plugin.qualified_name}`}
+                    title={reasons.install ?? 'Install'}
+                    aria-disabled={reasons.install ? true : undefined}
+                    onClick={() => {
+                        if (!reasons.install) onInstall(plugin)
+                    }}
+                    disabled={deleting}
+                >
+                    <PackageCheck size={15} />
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
+                    aria-label={`Test run ${plugin.qualified_name}`}
+                    title={reasons.run ?? 'Test run'}
+                    aria-disabled={reasons.run ? true : undefined}
+                    onClick={() => {
+                        if (!reasons.run) onRun(plugin)
+                    }}
+                    disabled={deleting || !plugin.enabled}
+                >
+                    <Play size={15} />
+                </button>
+            )}
+            <button
+                type="button"
+                className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                aria-label={`${viewOnly ? 'View' : 'Edit'} ${plugin.qualified_name}`}
+                title={viewOnly ? 'View (read only)' : reasons.edit ?? 'Edit'}
+                aria-disabled={reasons.edit && !viewOnly ? true : undefined}
+                onClick={() => {
+                    if (!reasons.edit || viewOnly) onEdit(plugin)
+                }}
+                disabled={deleting}
+            >
+                {viewOnly ? <Eye size={15} /> : <Pencil size={15} />}
+            </button>
+            {!plugin.draft && (
+                <button
+                    type="button"
+                    className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                    aria-label={`${plugin.enabled ? 'Disable' : 'Enable'} ${plugin.qualified_name}`}
+                    aria-pressed={plugin.enabled}
+                    title={reasons.edit ?? (plugin.enabled ? 'Disable' : 'Enable')}
+                    aria-disabled={reasons.edit ? true : undefined}
+                    onClick={() => {
+                        if (!reasons.edit) onToggleEnabled(plugin)
+                    }}
+                    disabled={deleting}
+                >
+                    {plugin.enabled ? <PowerOff size={15} /> : <Power size={15} />}
+                </button>
+            )}
+            <button
+                type="button"
+                className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
+                aria-label={`Delete ${plugin.qualified_name}`}
+                title={reasons.delete ?? 'Delete'}
+                aria-disabled={reasons.delete ? true : undefined}
+                onClick={() => {
+                    if (!reasons.delete) onDelete(plugin)
+                }}
+                disabled={deleting}
+            >
+                {deleting ? (
+                    <LoaderCircle size={15} className="entropy-spin" />
+                ) : (
+                    <Trash2 size={15} />
+                )}
+            </button>
+            <button
+                ref={triggerRef}
+                type="button"
+                className="entropy-button entropy-button-secondary entropy-button-sm plugins-operation-trigger"
+                aria-label={`Operations for ${plugin.name}`}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((open) => !open)}
+            >
+                <MoreHorizontal size={18} />
+                <ChevronDown size={13} />
+            </button>
+
+            <FloatingMenu
+                anchorRef={triggerRef}
+                open={menuOpen}
+                onClose={closeMenu}
+                className="plugins-operation-menu"
+            >
+                <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                        onViewDetails(plugin)
+                        setMenuOpen(false)
+                    }}
+                >
+                    <Activity size={15} />
+                    View details
+                </button>
+
+                <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                        onCopy(plugin.qualified_name)
+                        setMenuOpen(false)
+                    }}
+                >
+                    <Copy size={15} />
+                    Copy qualified name
+                </button>
+            </FloatingMenu>
+        </div>
+    )
+}
+
+/** A plugin in the gallery; its actions appear on hover or keyboard focus. */
+function PluginCard({
+    plugin,
+    selected,
+    checked,
+    onCheck,
+    onSelect,
+    canChangeIcon,
+    onIconChanged,
+    ...actions
+}: PluginItemProps) {
+    return (
+        <article
+            className={`plugin-card${selected ? ' is-selected' : ''}${checked ? ' is-checked' : ''}`}
+            onClick={() => onSelect(plugin)}
+        >
+            <input
+                type="checkbox"
+                className="list-check plugin-card-check"
+                aria-label={`Select ${plugin.qualified_name}`}
+                checked={checked}
+                onClick={(event) => event.stopPropagation()}
+                onChange={() => onCheck(plugin)}
+            />
+            <header className="plugin-card-head">
+                <PluginIconPicker plugin={plugin} canEdit={canChangeIcon} onChanged={onIconChanged} />
+                <StatusBadge enabled={plugin.enabled} draft={plugin.draft} />
+            </header>
+            <button
+                type="button"
+                className="plugin-card-name"
+                title={plugin.qualified_name}
+                onClick={(event) => {
+                    event.stopPropagation()
+                    onSelect(plugin)
+                }}
+            >
+                <strong>{plugin.name}</strong>
+                <span>{plugin.qualified_name}</span>
+            </button>
+            <div className="plugin-card-deps">
+                <DependencyChips dependencies={plugin.depends_on} />
+            </div>
+            <footer className="plugin-card-foot">
+                <div className="plugin-card-meta">
+                    <span className="list-version">{plugin.version}</span>
+                    <span className="list-cell-text">{formatDate(plugin.installed_at)}</span>
+                </div>
+                {/* Buttons do their own thing; they must not also open the details. */}
+                <div className="plugin-card-actions" onClick={(event) => event.stopPropagation()}>
+                    <PluginActions plugin={plugin} {...actions} />
+                </div>
+            </footer>
+        </article>
+    )
+}
+
 function PluginRow({
     plugin,
     deleting,
@@ -186,28 +465,10 @@ function PluginRow({
     onDelete,
     reasons,
     viewOnly,
-}: {
-    plugin: PluginItem
-    /** Why each action is unavailable (null when allowed). */
-    reasons: { run: string | null; install: string | null; edit: string | null; delete: string | null }
-    /** The user may read the source but not change it. */
-    viewOnly: boolean
-    deleting: boolean
-    selected: boolean
-    checked: boolean
-    onCheck: (plugin: PluginItem) => void
-    onRun: (plugin: PluginItem) => void
-    onInstall: (plugin: PluginItem) => void
-    onSelect: (plugin: PluginItem) => void
-    onCopy: (value: string) => void
-    onViewDetails: (plugin: PluginItem) => void
-    onEdit: (plugin: PluginItem) => void
-    onDelete: (plugin: PluginItem) => void
-}) {
-    const [menuOpen, setMenuOpen] = useState(false)
-    const triggerRef = useRef<HTMLButtonElement>(null)
-    const closeMenu = useCallback(() => setMenuOpen(false), [])
-
+    canChangeIcon,
+    onIconChanged,
+    onToggleEnabled,
+}: PluginItemProps) {
     return (
         <tr
             className={selected ? 'is-selected' : undefined}
@@ -225,9 +486,7 @@ function PluginRow({
             </td>
             <td>
                 <div className="list-name">
-                    <span className="list-name-icon" aria-hidden="true">
-                        <Package size={17} />
-                    </span>
+                    <PluginIconPicker plugin={plugin} canEdit={canChangeIcon} onChanged={onIconChanged} />
                     <div className="list-name-content">
                         <strong title={plugin.name}>{plugin.name}</strong>
                         <span title={plugin.qualified_name}>
@@ -264,110 +523,19 @@ function PluginRow({
             {/* Buttons here (and the menu, a portal of this cell) do their own
                 thing; they must not also open the plugin's details. */}
             <td className="list-operations-cell" onClick={(event) => event.stopPropagation()}>
-                <div className="list-operations">
-                    {plugin.draft ? (
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
-                            aria-label={`Install ${plugin.qualified_name}`}
-                            title={reasons.install ?? 'Install'}
-                            aria-disabled={reasons.install ? true : undefined}
-                            onClick={() => {
-                                if (!reasons.install) onInstall(plugin)
-                            }}
-                            disabled={deleting}
-                        >
-                            <PackageCheck size={15} />
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            className="entropy-button entropy-button-primary entropy-button-icon entropy-button-sm"
-                            aria-label={`Test run ${plugin.qualified_name}`}
-                            title={reasons.run ?? 'Test run'}
-                            aria-disabled={reasons.run ? true : undefined}
-                            onClick={() => {
-                                if (!reasons.run) onRun(plugin)
-                            }}
-                            disabled={deleting || !plugin.enabled}
-                        >
-                            <Play size={15} />
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
-                        aria-label={`${viewOnly ? 'View' : 'Edit'} ${plugin.qualified_name}`}
-                        title={viewOnly ? 'View (read only)' : reasons.edit ?? 'Edit'}
-                        aria-disabled={reasons.edit && !viewOnly ? true : undefined}
-                        onClick={() => {
-                            if (!reasons.edit || viewOnly) onEdit(plugin)
-                        }}
-                        disabled={deleting}
-                    >
-                        {viewOnly ? <Eye size={15} /> : <Pencil size={15} />}
-                    </button>
-                    <button
-                        type="button"
-                        className="entropy-button entropy-button-danger-quiet entropy-button-icon entropy-button-sm"
-                        aria-label={`Delete ${plugin.qualified_name}`}
-                        title={reasons.delete ?? 'Delete'}
-                        aria-disabled={reasons.delete ? true : undefined}
-                        onClick={() => {
-                            if (!reasons.delete) onDelete(plugin)
-                        }}
-                        disabled={deleting}
-                    >
-                        {deleting ? (
-                            <LoaderCircle size={15} className="entropy-spin" />
-                        ) : (
-                            <Trash2 size={15} />
-                        )}
-                    </button>
-                    <button
-                        ref={triggerRef}
-                        type="button"
-                        className="entropy-button entropy-button-secondary entropy-button-sm plugins-operation-trigger"
-                        aria-label={`Operations for ${plugin.name}`}
-                        aria-haspopup="menu"
-                        aria-expanded={menuOpen}
-                        onClick={() => setMenuOpen((open) => !open)}
-                    >
-                        <MoreHorizontal size={18} />
-                        <ChevronDown size={13} />
-                    </button>
-
-                    <FloatingMenu
-                        anchorRef={triggerRef}
-                        open={menuOpen}
-                        onClose={closeMenu}
-                        className="plugins-operation-menu"
-                    >
-                        <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                                onViewDetails(plugin)
-                                setMenuOpen(false)
-                            }}
-                        >
-                            <Activity size={15} />
-                            View details
-                        </button>
-
-                        <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                                onCopy(plugin.qualified_name)
-                                setMenuOpen(false)
-                            }}
-                        >
-                            <Copy size={15} />
-                            Copy qualified name
-                        </button>
-                    </FloatingMenu>
-                </div>
+                <PluginActions
+                    plugin={plugin}
+                    reasons={reasons}
+                    viewOnly={viewOnly}
+                    deleting={deleting}
+                    onRun={onRun}
+                    onInstall={onInstall}
+                    onCopy={onCopy}
+                    onViewDetails={onViewDetails}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onToggleEnabled={onToggleEnabled}
+                />
             </td>
         </tr>
     )
@@ -396,6 +564,15 @@ export default function Plugins() {
         useState<PluginStatusFilter>('all')
     const [namespaceFilter, setNamespaceFilter] = useState('')
     const [namespaces, setNamespaces] = useState<string[]>([])
+    const [view, setStoredView] = useState<PluginView>(storedView)
+    const setView = (next: PluginView) => {
+        setStoredView(next)
+        try {
+            window.localStorage.setItem(VIEW_STORAGE_KEY, next)
+        } catch {
+            // Storage may be unavailable (private mode); the choice lasts this visit.
+        }
+    }
     const [sortBy, setSortBy] = useState<PluginSortField>('name')
     const [order, setOrder] = useState<SortOrder>('asc')
     const [page, setPage] = useState(1)
@@ -429,6 +606,19 @@ export default function Plugins() {
     const requestInProgress = useRef(false)
     const hasLoaded = useRef(false)
 
+    const listFilters = useCallback(
+        () => ({
+            q: search || undefined,
+            namespace: namespaceFilter || undefined,
+            enabled:
+                statusFilter === 'all' || statusFilter === 'draft' ? undefined : statusFilter === 'enabled',
+            draft: statusFilter === 'draft' ? true : undefined,
+            sort_by: sortBy,
+            order,
+        }),
+        [search, namespaceFilter, statusFilter, sortBy, order],
+    )
+
     const loadPlugins = useCallback(async () => {
         if (requestInProgress.current) return
 
@@ -436,19 +626,7 @@ export default function Plugins() {
         requestInProgress.current = true
 
         try {
-            const result = await listPlugins({
-                q: search || undefined,
-                namespace: namespaceFilter || undefined,
-                enabled:
-                    statusFilter === 'all' || statusFilter === 'draft'
-                        ? undefined
-                        : statusFilter === 'enabled',
-                draft: statusFilter === 'draft' ? true : undefined,
-                sort_by: sortBy,
-                order,
-                page,
-                page_size: pageSize,
-            })
+            const result = await listPlugins({ ...listFilters(), page, page_size: pageSize })
 
             setPlugins(result.items)
             setSummaryTotal(result.summary?.total ?? result.pagination.total)
@@ -465,7 +643,7 @@ export default function Plugins() {
             setRefreshing(false)
             requestInProgress.current = false
         }
-    }, [search, statusFilter, namespaceFilter, sortBy, order, page, pageSize])
+    }, [listFilters, page, pageSize])
 
     useEffect(() => {
         void loadPlugins()
@@ -640,7 +818,101 @@ export default function Plugins() {
         }
     }
 
-    const bulk = async (action: 'delete' | 'export' | 'install') => {
+    /** Every plugin matching the filters, page by page (the server sends at most 200 at once). */
+    const selectAllPlugins = async () => {
+        try {
+            const everything = new Map<string, PluginItem>()
+            for (let next = 1, pages = 1; next <= pages; next += 1) {
+                const result = await listPlugins({ ...listFilters(), page: next, page_size: 200 })
+                result.items.forEach((item) => everything.set(item.qualified_name, item))
+                pages = result.pagination.total_pages
+            }
+            setChecked(everything)
+        } catch (cause) {
+            notify.error(cause instanceof Error ? cause.message : 'Unable to select all plugins.', {
+                title: 'Not selected',
+            })
+        }
+    }
+
+    const selectPageCheckbox = (
+        <input
+                type="checkbox"
+                className="list-check"
+                aria-label="Select all plugins on this page"
+                checked={plugins.length > 0 && pageChecked === plugins.length}
+                ref={(element) => {
+                    if (element) {
+                        element.indeterminate = pageChecked > 0 && pageChecked < plugins.length
+                    }
+                }}
+                onChange={(event) =>
+                    setChecked((current) => {
+                        const next = new Map(current)
+                        plugins.forEach((item) => {
+                            if (event.target.checked) next.set(item.qualified_name, item)
+                            else next.delete(item.qualified_name)
+                        })
+                        return next
+                    })
+                }
+                disabled={plugins.length === 0}
+            />
+    )
+
+    const itemProps = (plugin: PluginItem): PluginItemProps => ({
+        plugin,
+        checked: checked.has(plugin.qualified_name),
+        onCheck: toggleChecked,
+        onRun: (item) => setRunning(item.qualified_name),
+        onInstall: (item) => void installPlugin(item),
+        deleting: deletingName === plugin.qualified_name,
+        selected: selectedName === plugin.qualified_name,
+        onSelect: (item) => {
+            setSelectedName(item.qualified_name)
+            setHelpFor(item)
+        },
+        onCopy: (value) => void handleCopy(value),
+        onViewDetails: setHelpFor,
+        onEdit: setEditingPlugin,
+        onDelete: (item) => void handleDelete(item),
+        canChangeIcon: !editReason,
+        onToggleEnabled: (item) => void toggleEnabled(item),
+        onIconChanged: (name, icon) =>
+            setPlugins((current) =>
+                current.map((item) => (item.qualified_name === name ? { ...item, icon } : item)),
+            ),
+        reasons: rowReasons,
+        viewOnly,
+    })
+
+    const confirmDisable = (names: string[]) =>
+        modal.confirm({
+            title: `Disable ${names.length === 1 ? names[0] : `${names.length} plugins`}?`,
+            message:
+                `${names.length === 1 ? 'It' : namesInBrief(names) + ' — they'} can no longer be run, ` +
+                'and workflow steps and schedules that use a disabled plugin will fail until it is enabled again. ' +
+                'Nothing is uninstalled.',
+            confirmText: 'Disable',
+            cancelText: 'Cancel',
+            destructive: true,
+        })
+
+    const toggleEnabled = async (plugin: PluginItem) => {
+        const enabled = !plugin.enabled
+        if (!enabled && !(await confirmDisable([plugin.qualified_name]))) return
+        try {
+            await pluginsApi.setEnabled(plugin.qualified_name, enabled)
+            refreshPlugins()
+            notify.success(`${plugin.qualified_name} ${enabled ? 'enabled' : 'disabled'}.`)
+        } catch (cause) {
+            notify.error(cause instanceof Error ? cause.message : 'The plugin was not changed.', {
+                title: `Unable to ${enabled ? 'enable' : 'disable'} the plugin`,
+            })
+        }
+    }
+
+    const bulk = async (action: 'delete' | 'export' | 'install' | 'enable' | 'disable') => {
         const items = [...checked.values()]
         if (!items.length) return
 
@@ -658,12 +930,20 @@ export default function Plugins() {
             return
         }
 
-        const targets = action === 'install' ? items.filter((item) => item.draft) : items
+        const targets =
+            action === 'install'
+                ? items.filter((item) => item.draft)
+                : action === 'enable'
+                  ? items.filter((item) => !item.draft && !item.enabled)
+                  : action === 'disable'
+                    ? items.filter((item) => !item.draft && item.enabled)
+                    : items
+        if (action === 'disable' && !(await confirmDisable(targets.map((item) => item.qualified_name)))) return
         if (action === 'delete') {
             const confirmed = await modal.confirm({
                 title: `Delete ${targets.length} plugin${targets.length === 1 ? '' : 's'}?`,
                 message:
-                    `${targets.map((item) => item.qualified_name).join(', ')} will be removed. ` +
+                    `${namesInBrief(targets.map((item) => item.qualified_name))} will be removed. ` +
                     'Installed plugins are uninstalled; workflows that reference them will fail.',
                 confirmText: targets.length === 1 ? 'Delete plugin' : `Delete ${targets.length} plugins`,
                 cancelText: 'Cancel',
@@ -677,7 +957,9 @@ export default function Plugins() {
         for (const item of targets) {
             try {
                 if (action === 'delete') await pluginsApi.delete(item.qualified_name)
-                else if (await ensureExtensions(item.qualified_name)) await pluginsApi.install(item.qualified_name)
+                else if (action === 'enable' || action === 'disable') {
+                    await pluginsApi.setEnabled(item.qualified_name, action === 'enable')
+                } else if (await ensureExtensions(item.qualified_name)) await pluginsApi.install(item.qualified_name)
                 else failed.push(`${item.qualified_name}: libraries missing`)
             } catch (cause) {
                 failed.push(`${item.qualified_name}: ${cause instanceof Error ? cause.message : 'failed'}`)
@@ -690,7 +972,7 @@ export default function Plugins() {
         const done = targets.length - failed.length
         if (done) {
             notify.success(
-                `${done} plugin${done === 1 ? '' : 's'} ${action === 'delete' ? 'deleted' : 'installed'}.`,
+                `${done} plugin${done === 1 ? '' : 's'} ${{ delete: 'deleted', install: 'installed', enable: 'enabled', disable: 'disabled' }[action]}.`,
             )
         }
         if (failed.length) notify.error(failed.join('\n'), { title: 'Some plugins were not changed' })
@@ -766,6 +1048,23 @@ export default function Plugins() {
 
     const hasFilters =
         searchInput.trim() !== '' || statusFilter !== 'all' || namespaceFilter !== ''
+
+    const emptyState = (
+        <EmptyState
+                    title={
+                        error
+                            ? 'Plugin list unavailable'
+                            : 'No plugins found'
+                    }
+                    message={
+                        error
+                            ? 'Retry the request to load the plugin list.'
+                            : hasFilters
+                              ? 'Try changing your search or status filter.'
+                              : 'Installed plugins will appear here.'
+                    }
+                />
+    )
 
     return (
         <section className="list-page">
@@ -859,6 +1158,24 @@ export default function Plugins() {
                     </div>
 
                     <div className="list-toolbar-actions">
+                        <div className="plugins-view-switch" role="group" aria-label="Plugin view">
+                            <button
+                                type="button"
+                                aria-pressed={view === 'list'}
+                                title="List view"
+                                onClick={() => setView('list')}
+                            >
+                                <List size={15} aria-hidden="true" /> List
+                            </button>
+                            <button
+                                type="button"
+                                aria-pressed={view === 'gallery'}
+                                title="Gallery view"
+                                onClick={() => setView('gallery')}
+                            >
+                                <LayoutGrid size={15} aria-hidden="true" /> Gallery
+                            </button>
+                        </div>
                         <label className="list-filter">
                             <span>Namespace</span>
                             <select
@@ -937,6 +1254,34 @@ export default function Plugins() {
                                     <PackageCheck size={14} /> Install drafts
                                 </button>
                             )}
+                            {[...checked.values()].some((item) => !item.draft && !item.enabled) && (
+                                <button
+                                    type="button"
+                                    className="entropy-button entropy-button-secondary entropy-button-sm"
+                                    onClick={() => {
+                                        if (!editReason) void bulk('enable')
+                                    }}
+                                    disabled={bulkBusy}
+                                    aria-disabled={editReason ? true : undefined}
+                                    title={editReason ?? undefined}
+                                >
+                                    <Power size={14} /> Enable
+                                </button>
+                            )}
+                            {[...checked.values()].some((item) => !item.draft && item.enabled) && (
+                                <button
+                                    type="button"
+                                    className="entropy-button entropy-button-secondary entropy-button-sm"
+                                    onClick={() => {
+                                        if (!editReason) void bulk('disable')
+                                    }}
+                                    disabled={bulkBusy}
+                                    aria-disabled={editReason ? true : undefined}
+                                    title={editReason ?? undefined}
+                                >
+                                    <PowerOff size={14} /> Disable
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 className="entropy-button entropy-button-danger-quiet entropy-button-sm"
@@ -961,33 +1306,71 @@ export default function Plugins() {
                     )}
                 </div>
 
+                <SelectionBar
+                    noun="plugins"
+                    pageCount={plugins.length}
+                    total={total}
+                    pageSelected={pageChecked}
+                    selectedCount={checked.size}
+                    onSelectPage={() =>
+                        setChecked(new Map(plugins.map((item) => [item.qualified_name, item])))
+                    }
+                    onSelectAll={selectAllPlugins}
+                    onClear={() => setChecked(new Map())}
+                    disabled={bulkBusy}
+                />
+
+                {view === 'gallery' ? (
+                    <>
+                        <div className="plugin-gallery-bar">
+                            <label className="list-filter">
+                                <span>Sort by</span>
+                                <select
+                                    className="entropy-select"
+                                    value={sortBy}
+                                    aria-label="Sort plugins by"
+                                    onChange={(event) => {
+                                        setSortBy(event.target.value as PluginSortField)
+                                        setPage(1)
+                                    }}
+                                >
+                                    {GALLERY_SORTS.map((item) => (
+                                        <option key={item.field} value={item.field}>{item.label}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <button
+                                type="button"
+                                className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+                                aria-label={order === 'asc' ? 'Ascending; switch to descending' : 'Descending; switch to ascending'}
+                                title={order === 'asc' ? 'Ascending' : 'Descending'}
+                                onClick={() => {
+                                    setOrder((current) => (current === 'asc' ? 'desc' : 'asc'))
+                                    setPage(1)
+                                }}
+                            >
+                                {order === 'asc' ? <ArrowUp size={15} /> : <ArrowDown size={15} />}
+                            </button>
+                        </div>
+                        {loading && plugins.length === 0 ? (
+                            <EntropyLoader label="Loading plugins…" />
+                        ) : plugins.length > 0 ? (
+                            <div className="plugin-gallery">
+                                {plugins.map((plugin) => (
+                                    <PluginCard key={plugin.qualified_name} {...itemProps(plugin)} />
+                                ))}
+                            </div>
+                        ) : (
+                            emptyState
+                        )}
+                    </>
+                ) : (
                 <div className="list-table-wrap">
                     <table className="list-table">
                         <thead>
                             <tr>
                                 <th scope="col" className="list-check-cell">
-                                    <input
-                                        type="checkbox"
-                                        className="list-check"
-                                        aria-label="Select all plugins on this page"
-                                        checked={plugins.length > 0 && pageChecked === plugins.length}
-                                        ref={(element) => {
-                                            if (element) {
-                                                element.indeterminate = pageChecked > 0 && pageChecked < plugins.length
-                                            }
-                                        }}
-                                        onChange={(event) =>
-                                            setChecked((current) => {
-                                                const next = new Map(current)
-                                                plugins.forEach((item) => {
-                                                    if (event.target.checked) next.set(item.qualified_name, item)
-                                                    else next.delete(item.qualified_name)
-                                                })
-                                                return next
-                                            })
-                                        }
-                                        disabled={plugins.length === 0}
-                                    />
+                                    {selectPageCheckbox}
                                 </th>
                                 <th scope="col">
                                     <SortButton
@@ -1016,7 +1399,7 @@ export default function Plugins() {
                                         onSort={handleSort}
                                     />
                                 </th>
-                                <th scope="col" title="Plugins it requires (puzzle icon) and Python libraries it needs (boxes icon), from plugin.json">Dependencies</th>
+                                <th scope="col" title="Command line tools it runs (terminal icon, amber when not found on this server), plugins it requires (puzzle icon) and Python libraries it needs (boxes icon), from plugin.json">Dependencies</th>
                                 <th scope="col">
                                     <SortButton
                                         label="Status"
@@ -1052,50 +1435,19 @@ export default function Plugins() {
                                 </tr>
                             ) : plugins.length > 0 ? (
                                 plugins.map((plugin) => (
-                                    <PluginRow
-                                        key={plugin.qualified_name}
-                                        plugin={plugin}
-                                        checked={checked.has(plugin.qualified_name)}
-                                        onCheck={toggleChecked}
-                                        onRun={(item) => setRunning(item.qualified_name)}
-                                        onInstall={(item) => void installPlugin(item)}
-                                        deleting={deletingName === plugin.qualified_name}
-                                        selected={selectedName === plugin.qualified_name}
-                                        onSelect={(item) => {
-                                            setSelectedName(item.qualified_name)
-                                            setHelpFor(item)
-                                        }}
-                                        onCopy={(value) => void handleCopy(value)}
-                                        onViewDetails={setHelpFor}
-                                        onEdit={setEditingPlugin}
-                                        onDelete={(item) => void handleDelete(item)}
-                                        reasons={rowReasons}
-                                        viewOnly={viewOnly}
-                                    />
+                                    <PluginRow key={plugin.qualified_name} {...itemProps(plugin)} />
                                 ))
                             ) : (
                                 <tr>
                                     <td colSpan={8}>
-                                        <EmptyState
-                                            title={
-                                                error
-                                                    ? 'Plugin list unavailable'
-                                                    : 'No plugins found'
-                                            }
-                                            message={
-                                                error
-                                                    ? 'Retry the request to load the plugin list.'
-                                                    : hasFilters
-                                                      ? 'Try changing your search or status filter.'
-                                                      : 'Installed plugins will appear here.'
-                                            }
-                                        />
+                                        {emptyState}
                                     </td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
+                )}
 
                 <Pagination
                     noun="plugins"

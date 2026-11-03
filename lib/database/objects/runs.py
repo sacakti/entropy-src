@@ -121,7 +121,8 @@ class SchedulesTable(DatabaseObject):
             CREATE TABLE IF NOT EXISTS schedules
             (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                name             TEXT NOT NULL UNIQUE,
+                project_id       INTEGER NOT NULL,
+                name             TEXT NOT NULL,
                 description      TEXT NOT NULL DEFAULT '',
                 kind             TEXT NOT NULL
                     CHECK (kind IN ('workflow', 'plugin')),
@@ -136,7 +137,8 @@ class SchedulesTable(DatabaseObject):
                 created_at       TEXT NOT NULL,
                 updated_at       TEXT NOT NULL,
                 next_run_at      TEXT,
-                last_run_at      TEXT
+                last_run_at      TEXT,
+                UNIQUE (project_id, name)
             )
             """)
 

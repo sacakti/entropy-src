@@ -51,6 +51,7 @@ PROJECT_PERMISSIONS = frozenset(
         "releases.create",
         "releases.manage",
         "releases.promote",
+        "releases.delete",
         "artifacts.read",
         "artifacts.write",
         "vault.namespace.read",
@@ -82,7 +83,7 @@ _DEVELOPER = _OPERATOR + (
     "vault.read", "vault.add", "vault.modify",
 )
 _MAINTAINER = _DEVELOPER + (
-    "workflows.delete", "schedules.delete", "projects.members", "tasks.manage",
+    "workflows.delete", "schedules.delete", "projects.members", "tasks.manage", "releases.delete",
     "vault.delete", "vault.namespace.create", "vault.namespace.modify", "vault.namespace.delete",
 )
 
@@ -242,6 +243,8 @@ def ensure_projects_schema(connection: DatabaseConnection) -> None:
                 value  TEXT NOT NULL
             )
             """)
+        # Whether Vision shows members each other's runs here, or only their own.
+        _add_column(connection, "projects", "vision_activity", "INTEGER NOT NULL DEFAULT 1")
         _add_column(connection, "roles", "scope", "TEXT NOT NULL DEFAULT 'global'")
         _add_column(connection, "roles", "builtin", "INTEGER NOT NULL DEFAULT 0")
         _add_column(connection, "roles", "title", "TEXT")
@@ -493,6 +496,7 @@ def project_payload(row: Any) -> Dict[str, Any]:
         "created_by": row["created_by"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
+        "vision_activity": bool(row["vision_activity"]),
     }
 
 
@@ -538,12 +542,21 @@ class Projects:
         assert created is not None
         return created
 
-    def update(self, key: str, name: str, description: str) -> Dict[str, Any]:
+    def update(
+        self, key: str, name: str, description: str, vision_activity: Optional[bool] = None
+    ) -> Dict[str, Any]:
+        """Change a project; `vision_activity` stays as it is when not given."""
+
         with self.connection.transaction():
             self.connection.execute(
                 "UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE key = ?",
                 (name.strip() or key, description.strip(), _now(), key),
             )
+            if vision_activity is not None:
+                self.connection.execute(
+                    "UPDATE projects SET vision_activity = ? WHERE key = ?",
+                    (int(vision_activity), key),
+                )
         updated = self.get(key)
         if updated is None:
             raise LookupError(f"Project '{key}' not found.")
@@ -603,7 +616,7 @@ class Projects:
             JOIN roles r ON r.id = pm.role_id
             LEFT JOIN users u ON u.id = pm.user_id
             LEFT JOIN groups g ON g.id = pm.group_id
-            WHERE pm.project_id = ?
+            WHERE pm.project_id = ? AND (u.id IS NOT NULL OR g.id IS NOT NULL)
             ORDER BY pm.group_id IS NOT NULL, COALESCE(u.username, g.name), r.name
             """,
             (project_id,),

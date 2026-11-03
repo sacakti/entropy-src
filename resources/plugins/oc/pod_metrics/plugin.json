@@ -1,0 +1,66 @@
+{
+    "name": "pod_metrics",
+    "namespace": "oc",
+    "version": "1.0.1",
+    "description": "App plugin: live CPU, memory, status and restarts of the pods in an OpenShift namespace, compared with their limits. Read-only.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+    "dependencies": [],
+    "system_requirements": [
+        {"name": "oc", "note": "OpenShift command line client."}
+    ],
+    "arguments": [
+        {"name": "environment", "type": "string", "required": true, "description": "OpenShift environment whose oc.generic login session is used (log in with oc.generic first).", "example": "SIT"},
+        {"name": "namespace", "type": "string", "required": false, "description": "OpenShift project to watch; the session's current project when empty. It can be changed on the live page.", "example": "my-project"},
+        {"name": "max_rows", "type": "integer", "required": false, "default": 500, "description": "Most pods shown in the table."}
+    ],
+    "outputs": [
+        {"name": "namespace", "type": "string", "description": "Namespace read on the last refresh."},
+        {"name": "pod_count", "type": "integer", "description": "Pods in the namespace."},
+        {"name": "attention_count", "type": "integer", "description": "Pods not finished and not fully running and ready."},
+        {"name": "cpu_millicores", "type": "number", "description": "CPU used by the namespace's pods, in millicores."},
+        {"name": "memory_mib", "type": "number", "description": "Memory used by the namespace's pods, in MiB."},
+        {"name": "metrics_available", "type": "boolean", "description": "False when the metrics API could not be read, so usage is missing."},
+        {"name": "pods", "type": "list", "description": "One entry per pod: status, ready, restarts, node, age, and CPU and memory with limits."}
+    ],
+    "app": {
+        "title": "Pod metrics",
+        "description": "Pods of an OpenShift namespace, refreshed live. Usage comes from the metrics API, so it is a recent sample rather than this instant.",
+        "refresh_seconds": 5,
+        "inputs": [
+            {"name": "namespace", "type": "text", "label": "Namespace", "placeholder": "Blank: the argument, else the session's project", "default": ""},
+            {"name": "filter", "type": "text", "label": "Filter", "placeholder": "Pod name or status", "default": ""},
+            {"name": "sort", "type": "select", "label": "Sort by", "choices": ["CPU", "Memory", "CPU % of limit", "Memory % of limit", "Restarts", "Name"], "default": "CPU"},
+            {"name": "only_attention", "type": "toggle", "label": "Only pods needing attention", "default": false},
+            {"name": "details", "type": "button", "label": "Container details", "target": "pods"}
+        ],
+        "views": [
+            {"name": "summary", "type": "stats", "title": "Summary"},
+            {"name": "source", "type": "keyvalue", "title": "Source"},
+            {
+                "name": "pods",
+                "type": "table",
+                "title": "Pods",
+                "row_key": "pod",
+                "selectable": true,
+                "columns": [
+                    {"key": "pod", "label": "Pod"},
+                    {"key": "status", "label": "Status"},
+                    {"key": "ready", "label": "Ready"},
+                    {"key": "restarts", "label": "Restarts"},
+                    {"key": "cpu", "label": "CPU (m)"},
+                    {"key": "cpu_limit", "label": "CPU limit (m)"},
+                    {"key": "cpu_percent", "label": "CPU % of limit"},
+                    {"key": "memory", "label": "Memory (MiB)"},
+                    {"key": "memory_limit", "label": "Memory limit (MiB)"},
+                    {"key": "memory_percent", "label": "Memory % of limit"},
+                    {"key": "node", "label": "Node"},
+                    {"key": "age", "label": "Age"}
+                ]
+            },
+            {"name": "activity", "type": "log", "title": "Activity", "max_lines": 200}
+        ]
+    },
+    "tags": ["app", "monitoring", "openshift"],
+    "license": ""
+}

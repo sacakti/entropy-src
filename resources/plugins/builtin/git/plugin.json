@@ -1,11 +1,14 @@
 {
     "name": "git",
     "namespace": "builtin",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
     "dependencies": [],
+    "system_requirements": [
+        {"name": "git", "note": "Git command line client."}
+    ],
     "arguments": [
         {
             "name": "operation",

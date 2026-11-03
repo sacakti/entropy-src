@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from lib.database.connection import DatabaseConnection
 
@@ -209,6 +209,67 @@ class ReleaseStore:
             )]
             result.append(promotion)
         return result
+
+    def delete_records(self, project_id: int, release_ids: List[int],
+                       promotion_ids: List[int]) -> Dict[str, int]:
+        """
+        Permanently delete this project's releases and promotions; ids of other projects
+        are ignored. Linked tasks, artifacts and workflow runs stay: only the links go.
+
+        A deleted release leaves the promotions that included it, and a promotion left
+        with no release is deleted too. Deleting a promotion leaves its releases.
+        """
+
+        releases = self._in_project("releases", project_id, release_ids)
+        promotions = self._in_project("release_promotions", project_id, promotion_ids)
+        deleted_promotions = 0
+
+        with self.connection.transaction():
+            # Foreign keys are not enforced: remove dependents explicitly.
+            if promotions:
+                marks = ",".join("?" for _ in promotions)
+                self.connection.execute(
+                    "DELETE FROM release_promotion_items"
+                    f" WHERE promotion_id IN ({marks})",  # nosec B608
+                    promotions,
+                )
+                deleted_promotions += self.connection.execute(
+                    f"DELETE FROM release_promotions WHERE id IN ({marks})",  # nosec B608
+                    promotions,
+                ).rowcount
+            if releases:
+                marks = ",".join("?" for _ in releases)
+                affected = [row["promotion_id"] for row in self.connection.fetchall(
+                    "SELECT DISTINCT promotion_id FROM release_promotion_items"
+                    f" WHERE release_id IN ({marks})",  # nosec B608
+                    releases,
+                )]
+                for table in ("release_promotion_items", "release_tasks", "release_artifacts"):
+                    self.connection.execute(
+                        f"DELETE FROM {table} WHERE release_id IN ({marks})",  # nosec B608
+                        releases,
+                    )
+                self.connection.execute(
+                    f"DELETE FROM releases WHERE id IN ({marks})",  # nosec B608
+                    releases,
+                )
+                for promotion_id in affected:
+                    deleted_promotions += self.connection.execute(
+                        "DELETE FROM release_promotions WHERE id = ? AND NOT EXISTS"
+                        " (SELECT 1 FROM release_promotion_items i WHERE i.promotion_id = ?)",
+                        (promotion_id, promotion_id),
+                    ).rowcount
+
+        return {"deleted_releases": len(releases), "deleted_promotions": deleted_promotions}
+
+    def _in_project(self, table: str, project_id: int, ids: List[int]) -> Tuple[int, ...]:
+        if not ids:
+            return ()
+        marks = ",".join("?" for _ in ids)
+        return tuple(row["id"] for row in self.connection.fetchall(
+            f"SELECT id FROM {table} WHERE project_id = ? AND id IN ({marks})",  # nosec B608
+            (project_id, *ids),
+        ))
 
     def _full(self, row: Any) -> Dict[str, Any]:
         release = dict(row)

@@ -855,3 +855,123 @@
         transform: none;
     }
 }
+
+/* ----------------------------------------------------------
+   Database compare
+   ---------------------------------------------------------- */
+
+.entropy-app .tools-db-compare {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+
+.entropy-app .tools-db-sides {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 14px;
+}
+
+.entropy-app .tools-db-side {
+    min-width: 0;
+    margin: 0;
+    padding: 14px;
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .tools-db-side legend {
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Same height as the inputs beside them, as in .settings-grid. */
+.entropy-app .tools-db-side .entropy-select {
+    width: 100%;
+    min-height: 40px;
+}
+
+/* One line with the checkboxes and the button: the label sits beside the input. */
+.entropy-app .tools-db-actions .tools-db-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.entropy-app .tools-db-actions .tools-db-filter input {
+    width: 220px;
+}
+
+.entropy-app .tools-db-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+}
+
+.entropy-app .tools-db-actions .entropy-button {
+    margin-left: auto;
+}
+
+.entropy-app .tools-db-note {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+.entropy-app .tools-db-scroll {
+    max-height: 420px;
+    overflow: auto;
+    border: 1px solid var(--app-line);
+    border-radius: 12px;
+}
+
+.entropy-app .tools-db-scroll table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.entropy-app .tools-db-scroll th,
+.entropy-app .tools-db-scroll td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--app-line);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.entropy-app .tools-db-scroll th {
+    position: sticky;
+    top: 0;
+    background: var(--app-surface);
+}
+
+.entropy-app .tools-db-rows {
+    display: grid;
+    gap: 6px;
+}
+
+.entropy-app .tools-db-rows h4 {
+    margin: 0;
+    font-size: 13px;
+}
+
+.entropy-app .tools-db-link {
+    padding: 0;
+    color: var(--app-accent-fg);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+}
+
+.entropy-app .tools-db-status {
+    font-weight: 600;
+}
+
+.entropy-app .tools-db-status.is-same {
+    color: var(--app-muted);
+}

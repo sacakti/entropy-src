@@ -1,0 +1,368 @@
+/*
+ * ==========================================================
+ * Vision: the live island in the topbar
+ * ==========================================================
+ */
+
+.entropy-app .vision {
+    display: inline-flex;
+    flex: 0 1 auto;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    max-width: 150px;
+    height: 32px;
+    padding: 0 12px;
+    overflow: hidden;
+    color: var(--app-muted);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+        max-width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+        color 160ms ease,
+        border-color 160ms ease;
+}
+
+.entropy-app .vision svg {
+    flex: none;
+}
+
+.entropy-app .vision:hover {
+    color: var(--app-text);
+}
+
+.entropy-app .vision:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+}
+
+.entropy-app .vision-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .vision-text strong {
+    font-weight: 600;
+}
+
+.entropy-app .vision.is-running {
+    max-width: min(380px, 36vw);
+    color: var(--app-text);
+    border-color: var(--app-accent-border);
+}
+
+.entropy-app .vision.is-waiting {
+    max-width: min(340px, 34vw);
+    color: var(--app-text);
+    border-color: var(--app-warning);
+}
+
+.entropy-app .vision.is-waiting svg {
+    color: var(--app-warning);
+}
+
+/* Someone else's run: there for transparency, so quieter than one's own. */
+.entropy-app .vision.is-others {
+    max-width: 280px;
+    color: var(--app-muted);
+}
+
+.entropy-app .vision.is-others .vision-mark {
+    color: var(--app-muted);
+}
+
+.entropy-app .vision.is-waiting-others {
+    max-width: min(340px, 34vw);
+    color: var(--app-text);
+    border-color: var(--app-warning);
+    border-style: dashed;
+}
+
+.entropy-app .vision.is-waiting-others svg {
+    color: var(--app-warning);
+}
+
+/* A message opens the island wide, then it settles back. */
+.entropy-app .vision.is-flash {
+    max-width: min(420px, 38vw);
+    color: var(--app-text);
+    border-color: var(--app-accent-border);
+    background: var(--app-accent-soft);
+}
+
+.entropy-app .vision.is-flash.is-success svg,
+.entropy-app .vision-level.is-success {
+    color: var(--app-success);
+}
+
+.entropy-app .vision.is-flash.is-warning svg,
+.entropy-app .vision-level.is-warning {
+    color: var(--app-warning);
+}
+
+.entropy-app .vision.is-flash.is-error svg,
+.entropy-app .vision-level.is-error {
+    color: var(--app-danger);
+}
+
+.entropy-app .vision.is-flash.is-warning {
+    border-color: var(--app-warning);
+}
+
+.entropy-app .vision.is-flash.is-error {
+    border-color: var(--app-danger);
+}
+
+.entropy-app .vision-announce {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* Rows take their look from .topbar-create-menu; these add the second line. */
+.entropy-app .vision-menu {
+    width: min(360px, calc(100vw - 24px));
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
+}
+
+.entropy-app .vision-menu button {
+    align-items: flex-start;
+    width: 100%;
+}
+
+.entropy-app .vision-menu button > svg {
+    flex: none;
+    margin-top: 2px;
+}
+
+.entropy-app .vision-item {
+    display: grid;
+    flex: 1;
+    gap: 2px;
+    min-width: 0;
+    text-align: left;
+}
+
+.entropy-app .vision-item strong {
+    overflow: hidden;
+    color: var(--app-text);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entropy-app .vision-item small {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--app-muted);
+    font-size: 11px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.entropy-app .vision-item time {
+    color: var(--app-subtle);
+    font-size: 10.5px;
+}
+
+.entropy-app .vision-menu button.is-read .vision-item strong {
+    color: var(--app-muted);
+    font-weight: 500;
+}
+
+.entropy-app .vision-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.entropy-app .vision-menu .vision-section .vision-clear {
+    width: auto;
+    padding: 2px 8px;
+    color: var(--app-accent-fg);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.entropy-app .vision-broadcast-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 9px;
+    margin: 0 4px 6px;
+    padding: 8px 10px;
+    color: var(--app-text);
+    background: var(--app-accent-soft);
+    border: 1px solid var(--app-accent-border);
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.entropy-app .vision-broadcast-row.is-warning {
+    border-color: var(--app-warning);
+}
+
+.entropy-app .vision-broadcast-row.is-error {
+    border-color: var(--app-danger);
+}
+
+.entropy-app .vision-broadcast-row p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .vision-broadcast-row small {
+    color: var(--app-muted);
+    font-size: 11px;
+}
+
+.entropy-app .vision-menu .vision-broadcast-row button {
+    width: auto;
+    margin-top: 2px;
+    padding: 2px 8px;
+    color: var(--app-accent-fg);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.entropy-app .vision-owner {
+    color: var(--app-accent-fg);
+    font-weight: 600;
+}
+
+.entropy-app .vision-empty {
+    margin: 0;
+    padding: 2px 10px 8px;
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.entropy-app .vision-mark {
+    color: var(--app-accent-fg);
+}
+
+.entropy-app .vision-mark.is-live .vision-mark-live {
+    transform-origin: 18px 18px;
+    animation: vision-live 1.4s ease-in-out infinite;
+}
+
+@keyframes vision-live {
+    50% {
+        opacity: 0.45;
+        transform: scale(0.72);
+    }
+}
+
+/* Administration: a project's Vision setting */
+.entropy-app .project-vision-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+    cursor: pointer;
+}
+
+.entropy-app .project-vision-toggle input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .project-vision-toggle span {
+    display: grid;
+    gap: 3px;
+    font-size: 13px;
+}
+
+.entropy-app .project-vision-toggle small {
+    color: var(--app-muted);
+    font-size: 11.5px;
+}
+
+/* Administration: message everyone */
+.entropy-app .vision-broadcast {
+    display: grid;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--app-line);
+}
+
+.entropy-app .vision-broadcast h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.entropy-app .vision-broadcast-hint {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+.entropy-app .vision-broadcast-templates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.entropy-app .vision-broadcast-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entropy-app .vision-broadcast-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--app-line);
+    border-radius: 9px;
+}
+
+.entropy-app .vision-broadcast-list li > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.entropy-app .vision-broadcast-list small {
+    color: var(--app-muted);
+    font-size: 11.5px;
+}
+
+@media (max-width: 640px) {
+    .entropy-app .vision:not(.is-flash) .vision-text {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .vision {
+        transition: none;
+    }
+
+    .entropy-app .vision-mark.is-live .vision-mark-live {
+        animation: none;
+    }
+}

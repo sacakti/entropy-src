@@ -1,0 +1,39 @@
+{
+    "name": "pod_metrics",
+    "version": "1.0.0",
+    "description": "Example workflow for oc.pod_metrics: log in, then watch a namespace. Run it in interactive mode to get the live App tab.",
+    "variables": {
+        "environment": "SIT",
+        "api_url": "https://api.cluster.example.com:6443",
+        "username": "${entv:name}",
+        "password": "${entv:name}",
+        "namespace": "my-project"
+    },
+    "steps": [
+        {
+            "name": "Login",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["openshift"],
+            "arguments": {
+                "environment": "${environment}",
+                "operation": "login",
+                "api_url": "${api_url}",
+                "username": "${username}",
+                "password": "${password}"
+            }
+        },
+        {
+            "name": "Pod metrics",
+            "plugin": "oc.pod_metrics",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["app", "openshift"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}"
+            }
+        }
+    ]
+}

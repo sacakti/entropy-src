@@ -13,6 +13,7 @@ import {
 
 import { apiRequest } from '../../../services/api'
 import { currentProject } from '../../../services/project'
+import { isPastDue } from './schedule'
 
 export type Status = 'todo' | 'in_progress' | 'done' | 'reopened'
 export type Severity = 'critical' | 'high' | 'medium' | 'low'
@@ -41,6 +42,10 @@ export type Task = {
     creator: string
     reminder_at: string | null
     due_date: string | null
+    /** Optional, "HH:MM" as entered. */
+    due_time: string | null
+    due_repeat: string | null
+    reminder_repeat: string | null
     created_at: string
     updated_at: string
     comments: Comment[]
@@ -63,6 +68,8 @@ export type Group = {
 export type Member = { username: string; full_name: string | null }
 export type TaskSettings = { prefix: string; next_key: string; types: string[]; custom_types: string[] }
 export type TaskData = {
+    /** Grows whenever the project's tasks change. */
+    version: number
     items: Task[]
     groups: Group[]
     settings: TaskSettings
@@ -107,8 +114,7 @@ export function nextStatuses(current: Status | null): Status[] {
     return current === 'reopened' ? ['reopened', ...open] : open
 }
 
-export const isOverdue = (task: Task) =>
-    Boolean(task.due_date) && task.status !== 'done' && task.due_date! < new Date().toLocaleDateString('en-CA')
+export const isOverdue = (task: Task) => task.status !== 'done' && isPastDue(task.due_date, task.due_time)
 
 export type ReportScope = 'all' | 'selected' | 'group'
 
@@ -180,6 +186,8 @@ const json = (method: string, body: unknown) => ({
 
 export const tasksApi = {
     load: () => apiRequest<TaskData>('/api/tasks'),
+    version: () => apiRequest<{ version: number }>('/api/tasks/version'),
+    project: (id: number) => apiRequest<{ project: string }>(`/api/tasks/${id}/project`),
     create: (body: Record<string, unknown>) => apiRequest<Task>('/api/tasks', json('POST', body)),
     update: (id: number, body: Record<string, unknown>) => apiRequest<Task>(`/api/tasks/${id}`, json('PATCH', body)),
     remove: (id: number) => apiRequest<void>(`/api/tasks/${id}`, { method: 'DELETE' }),

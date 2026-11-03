@@ -1,7 +1,10 @@
 {
     "name": "clean",
     "namespace": "docker",
-    "version": "1.0.1",
+    "version": "1.0.2",
+    "system_requirements": [
+        {"name": "docker", "note": "Docker command line client and a running daemon."}
+    ],
     "display_name": "Docker Clean",
     "description": "Clean Docker storage using controlled cleanup policies.",
     "author": "Aravinthan Selvaraj",

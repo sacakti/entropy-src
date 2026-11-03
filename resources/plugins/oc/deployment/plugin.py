@@ -83,7 +83,16 @@ class DeploymentPlugin(BasePlugin):
                 f"Target path '{target}' is not a directory.",
             )
 
-        definitions = DeploymentUpdateLoader(self.filesystem).load_directory(source)
+        loader = DeploymentUpdateLoader(self.filesystem)
+
+        if self.arguments.boolean("allow_empty", False) and not any(
+            self.filesystem.is_file(path) and path.suffix.lower() in loader.EXTENSIONS
+            for path in self.filesystem.listdir(source)
+        ):
+            self.message.info(f"No update definitions in '{source}'; nothing to do.")
+            return self._result(0, 0, 0, [])
+
+        definitions = loader.load_directory(source)
         target_loader = DeploymentTargetLoader(self.filesystem)
         engine = DeploymentUpdateEngine()
 

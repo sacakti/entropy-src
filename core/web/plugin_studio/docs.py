@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from xml.etree import ElementTree
 
+from lib.plugins.requirements import system_requirements
+
 from .contract import plugin_contract
 
 MANUAL_FILES = ("MAN.md", "README.md")
@@ -161,6 +163,7 @@ def plugin_docs(plugin: Any, workflows: Any) -> Dict[str, Any]:
         "license": metadata.get("license"),
         "tags": [str(tag) for tag in metadata.get("tags") or []],
         "dependencies": [str(item) for item in metadata.get("dependencies") or []],
+        "system_requirements": system_requirements(metadata),
         "entropy": metadata.get("entropy"),
         "arguments": contract.get("arguments", []),
         "outputs": contract.get("outputs", []),

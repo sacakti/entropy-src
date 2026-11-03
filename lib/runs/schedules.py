@@ -210,10 +210,13 @@ class ScheduleStore:
             "enabled": bool(data.get("enabled", True)),
         }
 
-    def _name_taken(self, name: str, exclude: Optional[int] = None) -> bool:
+    def name_taken(self, name: str, project_id: int, exclude: Optional[int] = None) -> bool:
+        """Whether the project has a schedule of this name (names are per project)."""
+
         row = self.connection.fetchone(
-            "SELECT id FROM schedules WHERE name = ? COLLATE NOCASE AND id IS NOT ?",
-            (name, exclude),
+            "SELECT id FROM schedules"
+            " WHERE name = ? COLLATE NOCASE AND IFNULL(project_id, ?) = ? AND id IS NOT ?",
+            (name, self._default_project(), project_id, exclude),
         )
         return row is not None
 
@@ -225,7 +228,9 @@ class ScheduleStore:
         project_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         values = self.validate(data)
-        if self._name_taken(values["name"]):
+        if project_id is None:
+            project_id = self._default_project()
+        if self.name_taken(values["name"], project_id):
             raise ScheduleError(f"A schedule named '{values['name']}' already exists.", 409)
 
         now = datetime.now(timezone.utc)
@@ -267,7 +272,7 @@ class ScheduleStore:
             raise ScheduleError("Schedule not found.", 404)
 
         values = self.validate({**current, **data})
-        if self._name_taken(values["name"], schedule_id):
+        if self.name_taken(values["name"], self.project_of(current), exclude=schedule_id):
             raise ScheduleError(f"A schedule named '{values['name']}' already exists.", 409)
 
         now = datetime.now(timezone.utc)

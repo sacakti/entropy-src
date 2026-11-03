@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -109,6 +109,7 @@ class RunsBackground:
             self._safely("outcomes", self.report_outcomes)
             if self._due("task-reminders", TASK_REMINDERS_SECONDS):
                 self._safely("task-reminders", self.send_task_reminders)
+                self._safely("task-due-dates", self.send_task_due_alerts)
             if self._due("metrics", METRICS_SECONDS):
                 self._safely("metrics", self.sample_metrics)
             if self._due("housekeeping", HOUSEKEEPING_SECONDS):
@@ -195,27 +196,64 @@ class RunsBackground:
             LOGGER.info("Bundled plugins: %d new or newer plugin(s) announced.", count)
 
     def send_task_reminders(self) -> None:
-        """Deliver due task reminders through the configured SMTP service."""
+        """
+        Deliver due task reminders: in Entropy to the assignee and followers, and by
+        e-mail to the assignee when SMTP is configured. Each reminder is sent once.
+        """
         from lib.system.mailer import MailError, send_mail
         from lib.system.settings import settings_for
-        from lib.tasks.store import TaskStore
+        from lib.tasks.store import CLOSED, TaskStore
 
         smtp = settings_for(self._context).values("smtp")
-        if not smtp.get("enabled"):
-            return
         store = TaskStore(self._connection)
         for task in store.due_reminders():
-            address = task.get("assignee_email")
-            if not address:
-                continue
-            try:
-                send_mail(smtp, [address], f"Task reminder: {task['title']}",
-                          f"This is a reminder for task: {task['title']}\n\n{task['description']}\n\n"
-                          f"Open Entropy to review this task in project {task['project_id']}.")
-            except MailError:
-                LOGGER.exception("Could not send reminder for task %s.", task["id"])
-                continue
-            store.mark_reminder_sent(task["id"])
+            # A reminder about finished work is not worth anyone's attention.
+            if task["status"] != CLOSED:
+                for user_id in store.alert_recipients(task):
+                    self._notify(
+                        user_id,
+                        f"Task reminder: {_task_label(task)}",
+                        task["description"] or "",
+                        "info",
+                        f"task:{task['id']}",
+                    )
+                address = task.get("assignee_email")
+                if smtp.get("enabled") and address:
+                    try:
+                        send_mail(smtp, [address], f"Task reminder: {task['title']}",
+                                  f"This is a reminder for task: {task['title']}\n\n{task['description']}\n\n"
+                                  f"Open Entropy to review this task in project {task['project_id']}.")
+                    except MailError:
+                        LOGGER.exception("Could not send reminder for task %s.", task["id"])
+            # A repeating reminder of open work comes round again; others are done.
+            if task.get("reminder_repeat") and task["status"] != CLOSED:
+                store.advance_reminder(
+                    task["id"], task["reminder_repeat"], datetime.now(timezone.utc)
+                )
+            else:
+                store.mark_reminder_sent(task["id"])
+
+    def send_task_due_alerts(self) -> None:
+        """Tell assignees and followers once each that a task is due tomorrow, today or overdue."""
+        from lib.tasks.store import TaskStore
+
+        titles = {
+            "tomorrow": ("Task due tomorrow", "info"),
+            "today": ("Task due today", "warning"),
+            "overdue": ("Task overdue", "warning"),
+        }
+        store = TaskStore(self._connection)
+        for task in store.due_alerts(date.today()):
+            title, level = titles[task["due_stage"]]
+            for user_id in store.alert_recipients(task):
+                self._notify(
+                    user_id,
+                    f"{title}: {_task_label(task)}",
+                    f"Due date: {str(task['due_date'])[:10]}",
+                    level,
+                    f"task:{task['id']}",
+                )
+            store.mark_due_alert(task["id"], task["due_alert_key"])
 
     def _notify(
         self, user_id: int, title: str, message: str, level: str, source: str = "schedules"
@@ -223,6 +261,10 @@ class RunsBackground:
         from lib.database.repositories.notifications import notify_user
 
         notify_user(self._context, user_id, title, message, level, source)
+
+
+def _task_label(task: Dict[str, Any]) -> str:
+    return f"{task['task_key']} {task['title']}" if task.get("task_key") else task["title"]
 
 
 def fire(

@@ -17,6 +17,8 @@ export default function FloatingMenu({
     onClose,
     className,
     align = 'end',
+    role = 'menu',
+    ariaLabel,
     children,
 }: {
     anchorRef: RefObject<HTMLElement | null>
@@ -24,6 +26,9 @@ export default function FloatingMenu({
     onClose: () => void
     className?: string
     align?: 'start' | 'end'
+    /** 'dialog' for a panel with its own controls, not a list of actions. */
+    role?: 'menu' | 'dialog'
+    ariaLabel?: string
     children: ReactNode
 }) {
     const menuRef = useRef<HTMLDivElement>(null)
@@ -55,12 +60,16 @@ export default function FloatingMenu({
 
         // Close rather than chase the anchor; the row may scroll out of view.
         const close = () => onClose()
+        const onScroll = (event: Event) => {
+            // A long menu scrolls itself; that does not move its anchor.
+            if (!menuRef.current?.contains(event.target as Node)) onClose()
+        }
         window.addEventListener('resize', close)
-        window.addEventListener('scroll', close, true)
+        window.addEventListener('scroll', onScroll, true)
 
         return () => {
             window.removeEventListener('resize', close)
-            window.removeEventListener('scroll', close, true)
+            window.removeEventListener('scroll', onScroll, true)
         }
     }, [open, onClose])
 
@@ -71,7 +80,8 @@ export default function FloatingMenu({
             <div
                 ref={menuRef}
                 className={['entropy-floating-menu', className].filter(Boolean).join(' ')}
-                role="menu"
+                role={role}
+                aria-label={ariaLabel}
                 style={{
                     top: position?.top ?? 0,
                     left: position?.left ?? 0,

@@ -10,6 +10,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+
+import { publishVision } from '../../features/vision/bus'
 import {
   CheckCircle2,
   Info,
@@ -148,6 +150,13 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       options?: Omit<NotificationOptions, 'message'>,
     ) => {
       const id = ++nextId.current
+
+      // Every module reports through here, so Vision hears all of them.
+      publishVision({
+        level: type,
+        title: options?.title ?? message,
+        message: options?.title ? message : '',
+      })
 
       setNotifications((current) => [
         ...current.slice(-4),
