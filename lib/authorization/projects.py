@@ -317,25 +317,50 @@ def _permission_ids(connection: DatabaseConnection, names: Optional[Sequence[str
 def seed_builtin_roles(connection: DatabaseConnection) -> None:
     """Create the built-in roles and keep their permissions exactly as defined."""
 
+    # Read once and write only differences: this runs on every start, and on a
+    # database across a network each statement is a round trip.
     now = _now()
+    roles = {
+        row["name"]: row
+        for row in connection.fetchall(
+            "SELECT id, name, title, scope, builtin, description FROM roles"
+        )
+    }
+    permission_ids = {
+        row["name"]: row["id"] for row in connection.fetchall("SELECT id, name FROM permissions")
+    }
+    grants: Dict[int, Set[int]] = {}
+    for row in connection.fetchall("SELECT role_id, permission_id FROM role_permissions"):
+        grants.setdefault(row["role_id"], set()).add(row["permission_id"])
+
     for name, (title, scope, description, permissions) in BUILTIN_ROLES.items():
-        connection.execute(
-            "INSERT OR IGNORE INTO roles (name, description, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?)",
-            (name, description, now, now),
-        )
-        connection.execute(
-            "UPDATE roles SET title = ?, scope = ?, builtin = 1, description = ? WHERE name = ?",
-            (title, scope, description, name),
-        )
-        role_id = connection.fetchone("SELECT id FROM roles WHERE name = ?", (name,))["id"]
-        wanted = _permission_ids(connection, permissions)
-        current = {
-            row["permission_id"]
-            for row in connection.fetchall(
-                "SELECT permission_id FROM role_permissions WHERE role_id = ?", (role_id,)
+        role = roles.get(name)
+        if role is None:
+            connection.execute(
+                "INSERT OR IGNORE INTO roles (name, description, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?)",
+                (name, description, now, now),
             )
-        }
+        if role is None or (role["title"], role["scope"], role["builtin"], role["description"]) != (
+            title,
+            scope,
+            1,
+            description,
+        ):
+            connection.execute(
+                "UPDATE roles SET title = ?, scope = ?, builtin = 1, description = ? WHERE name = ?",
+                (title, scope, description, name),
+            )
+        role_id = (
+            role["id"]
+            if role is not None
+            else connection.fetchone("SELECT id FROM roles WHERE name = ?", (name,))["id"]
+        )
+        if permissions is None:
+            wanted = set(permission_ids.values())
+        else:
+            wanted = {permission_ids[item] for item in permissions if item in permission_ids}
+        current = grants.get(role_id, set())
         for permission_id in wanted - current:
             connection.execute(
                 "INSERT OR IGNORE INTO role_permissions (role_id, permission_id, created_at)"

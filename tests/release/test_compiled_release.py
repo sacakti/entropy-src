@@ -7,8 +7,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from lib.install.application import _ignore_caches
 from lib.nodes.packaging import _files
+from scripts import release
 from scripts.release import compile_application, keeps_source
 
 
@@ -76,3 +79,49 @@ def test_keep_source_rules() -> None:
     assert keeps_source("lib/remote_cli/commands.py")
     assert not keeps_source("lib/install/installer.py")
     assert not keeps_source("core/web/application.py")
+
+
+def _fake_host(monkeypatch, cache: Path, version: str) -> Path:
+    """A cached build host Python of `version`, on a build running another Python."""
+
+    monkeypatch.setattr(release.sys, "version_info", (3, 8, 0))
+    monkeypatch.setattr("platform.system", lambda: "Linux")
+    monkeypatch.setattr("platform.machine", lambda: "x86_64")
+    python = cache / "host-python" / "x86_64-unknown-linux-gnu" / "python" / "bin" / "python3"
+    python.parent.mkdir(parents=True)
+    python.write_text(version)
+    monkeypatch.setattr(release, "python_version_of", lambda path: Path(path).read_text())
+    return python
+
+
+def test_a_cached_host_python_of_the_release_version_is_reused(tmp_path, monkeypatch) -> None:
+    python = _fake_host(monkeypatch, tmp_path, release.PYTHON_VERSION)
+
+    assert release.resolver_python(tmp_path) == str(python)
+
+
+def test_a_cached_host_python_of_another_version_is_replaced(tmp_path, monkeypatch) -> None:
+    python = _fake_host(monkeypatch, tmp_path, "3.9")
+    fetched = []
+
+    def fetch(_cache, _triple):
+        fetched.append(python.exists())
+        raise release.PackagingError("stop before the download")
+
+    monkeypatch.setattr(release, "cpython_archive_for", fetch)
+
+    with pytest.raises(release.ReleaseError, match="stop before the download"):
+        release.resolver_python(tmp_path)
+
+    assert fetched == [False]
+
+
+def test_byte_code_of_another_python_stops_the_build(tmp_path, monkeypatch) -> None:
+    application = _tree(tmp_path)
+    monkeypatch.setattr(release, "python_version_of", lambda path: "3.9")
+
+    with pytest.raises(release.ReleaseError, match="must be compiled with Python"):
+        compile_application(application, "python-3.9")
+
+    assert (application / "lib" / "__init__.py").exists()
+    assert not list(application.rglob("*.pyc"))

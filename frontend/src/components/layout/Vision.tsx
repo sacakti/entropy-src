@@ -3,10 +3,10 @@ import { AlertTriangle, Bell, CheckCircle2, CircleX, LoaderCircle, Megaphone, ty
 
 import type { AppNotification, NotificationLevel } from '../../api/notifications.api'
 import { runsApi, type Run } from '../../api/runs.api'
-import { visionApi, type VisionBroadcast } from '../../api/vision.api'
+import { databaseSwitchDetail, databaseSwitchLabel, visionApi, type DatabaseSwitch, type VisionBroadcast } from '../../api/vision.api'
 import { openRun, runIdFromHash } from '../../features/runs/navigation'
 import { openTask } from '../../features/tools/tasks/navigation'
-import { subscribeVision } from '../../features/vision/bus'
+import { subscribeVision, VISION_REFRESH_EVENT } from '../../features/vision/bus'
 import { summarizeRuns, type RunsLevel } from '../../features/vision/runs'
 import { PROJECT_CHANGED_EVENT, PROJECTS_UPDATED_EVENT } from '../../services/project'
 import FloatingMenu from './FloatingMenu'
@@ -21,6 +21,7 @@ const FLASH_MS = 6_000
 const MAX_QUEUED_FLASHES = 3
 const MAX_ACTIVITIES = 25
 const STATUS_POLL_MS = 10_000
+const SWITCH_POLL_MS = 1_000
 
 const LEVEL_ICONS: Record<NotificationLevel, LucideIcon> = {
     info: Bell,
@@ -166,11 +167,12 @@ function goToWaitingRun(id: number): void {
 }
 
 /** Whether Vision is on, and the messages for everyone; during an outage the last ones stay. */
-function useVisionStatus(): { enabled: boolean | null; broadcasts: VisionBroadcast[]; project_activity: boolean } {
+function useVisionStatus(): { enabled: boolean | null; broadcasts: VisionBroadcast[]; database_switch?: DatabaseSwitch | null; project_activity: boolean } {
     const [status, setStatus] = useState<{
         enabled: boolean | null
         broadcasts: VisionBroadcast[]
         project_activity: boolean
+        database_switch?: DatabaseSwitch | null
     }>({
         enabled: null,
         broadcasts: [],
@@ -198,14 +200,24 @@ function useVisionStatus(): { enabled: boolean | null; broadcasts: VisionBroadca
         // Another project may share less, or more: know before showing its runs.
         window.addEventListener(PROJECT_CHANGED_EVENT, load)
         window.addEventListener(PROJECTS_UPDATED_EVENT, load)
+        window.addEventListener(VISION_REFRESH_EVENT, load)
         return () => {
             alive = false
             window.clearInterval(timer)
+            window.removeEventListener(VISION_REFRESH_EVENT, load)
             window.removeEventListener('focus', load)
             window.removeEventListener(PROJECT_CHANGED_EVENT, load)
             window.removeEventListener(PROJECTS_UPDATED_EVENT, load)
         }
     }, [])
+
+    // A switch moves quickly and concerns everyone: follow it closely while it lasts.
+    const switching = Boolean(status.database_switch)
+    useEffect(() => {
+        if (!switching) return
+        const timer = window.setInterval(() => window.dispatchEvent(new Event(VISION_REFRESH_EVENT)), SWITCH_POLL_MS)
+        return () => window.clearInterval(timer)
+    }, [switching])
 
     return status
 }
@@ -220,8 +232,9 @@ type VisionProps = {
 
 /** Nothing at all while an administrator has Vision turned off. */
 export default function Vision(props: VisionProps) {
-    const { enabled, broadcasts, project_activity: projectActivity } = useVisionStatus()
-    return enabled ? <VisionIsland {...props} broadcasts={broadcasts} projectActivity={projectActivity} /> : null
+    const { enabled, broadcasts, database_switch: databaseSwitch, project_activity: projectActivity } = useVisionStatus()
+    return enabled ? <VisionIsland {...props} broadcasts={broadcasts}
+            databaseSwitch={databaseSwitch ?? null} projectActivity={projectActivity} /> : null
 }
 
 /**
@@ -236,8 +249,9 @@ function VisionIsland({
     onMarkRead,
     onRefreshNotifications,
     broadcasts,
+    databaseSwitch,
     projectActivity,
-}: VisionProps & { broadcasts: VisionBroadcast[]; projectActivity: boolean }) {
+}: VisionProps & { broadcasts: VisionBroadcast[]; databaseSwitch: DatabaseSwitch | null; projectActivity: boolean }) {
     const runs = useActiveRuns(onRefreshNotifications)
     const activity = summarizeRuns(runs, username, projectActivity)
     const [open, setOpen] = useState(false)
@@ -307,9 +321,11 @@ function VisionIsland({
         ? 'info'
         : flash
           ? flash.level
-          : announcement
-            ? announcement.level
-            : activity.level
+          : databaseSwitch
+            ? 'running'
+            : announcement
+              ? announcement.level
+              : activity.level
     const FlashIcon = flash ? LEVEL_ICONS[flash.level] : Bell
 
     const onClick = () => {
@@ -405,6 +421,11 @@ function VisionIsland({
                         <FlashIcon size={14} aria-hidden="true" />
                         <span className="vision-text"><strong>{flash.title}</strong></span>
                     </>
+                ) : databaseSwitch ? (
+                    <>
+                        <LoaderCircle size={14} className="entropy-spin" aria-hidden="true" />
+                        <span className="vision-text"><strong>{databaseSwitchLabel(databaseSwitch)}</strong></span>
+                    </>
                 ) : announcement ? (
                     <>
                         <Megaphone size={14} aria-hidden="true" />
@@ -436,6 +457,18 @@ function VisionIsland({
             </span>
 
             <FloatingMenu anchorRef={triggerRef} open={open} onClose={() => setOpen(false)} className="topbar-create-menu vision-menu">
+                {databaseSwitch && (
+                    <>
+                        <span className="topbar-create-label">Database</span>
+                        <div className="vision-broadcast-row is-info">
+                            <LoaderCircle size={15} className="entropy-spin" aria-hidden="true" />
+                            <div>
+                                <p>{databaseSwitchLabel(databaseSwitch)}</p>
+                                <small>{databaseSwitchDetail(databaseSwitch)}</small>
+                            </div>
+                        </div>
+                    </>
+                )}
                 {announcements.length > 0 && <span className="topbar-create-label">For everyone</span>}
                 {announcements.map((item) => (
                     <div key={item.id} className={`vision-broadcast-row is-${item.level}`}>

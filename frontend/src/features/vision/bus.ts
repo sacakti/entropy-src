@@ -7,6 +7,9 @@ export interface VisionEvent {
     message: string
 }
 
+/** Ask Vision to read its status now, instead of at its next poll. */
+export const VISION_REFRESH_EVENT = 'entropy:vision-refresh'
+
 type Listener = (event: VisionEvent) => void
 
 const listeners = new Set<Listener>()

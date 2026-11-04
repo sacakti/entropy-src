@@ -285,7 +285,7 @@ class TaskStore:
         with self.connection.transaction():
             self.connection.execute(
                 "INSERT INTO task_versions (project_id, version) VALUES (?, 1)"
-                " ON CONFLICT (project_id) DO UPDATE SET version = version + 1",
+                " ON CONFLICT (project_id) DO UPDATE SET version = task_versions.version + 1",
                 (project_id,),
             )
 

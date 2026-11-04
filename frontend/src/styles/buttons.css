@@ -89,6 +89,18 @@
     opacity: var(--button-disabled-opacity);
 }
 
+/* Working, not unavailable: the button keeps its look so its spinner and words stay readable. */
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button[aria-busy="true"]:is(:disabled, [aria-disabled="true"]) {
+    color: var(--button-secondary-text);
+    cursor: progress;
+}
+
+:is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary[aria-busy="true"]:is(:disabled, [aria-disabled="true"]) {
+    color: var(--button-primary-text);
+    background: var(--button-primary-bg);
+    border-color: var(--button-primary-bg);
+}
+
 /* Primary actions: Save, Apply, Confirm */
 :is(.entropy-app, .entropy-modal, .entropy-toast-container, .login-page) .entropy-button-primary {
     color: var(--button-primary-text);

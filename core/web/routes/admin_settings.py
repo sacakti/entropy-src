@@ -1,7 +1,7 @@
 """
 Administration -> Settings: e-mail (SMTP), sign-in (LDAP, single sign-on),
 the public address, data retention and purging, and the connections for a
-database migration target, a Redis cache and a message queue.
+database to switch to, a Redis cache and a message queue.
 """
 
 from __future__ import annotations

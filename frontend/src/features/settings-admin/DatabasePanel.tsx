@@ -4,6 +4,7 @@ import { CheckCircle2, Database, Download, LoaderCircle, Save, ShieldAlert, Shie
 import { apiRequest } from '../../services/api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
+import DatabaseEngine, { type EngineInfo } from './DatabaseEngine'
 import { useErrorToast } from '../../components/feedback/useToast'
 
 interface Backup {
@@ -13,6 +14,7 @@ interface Backup {
 }
 
 interface DatabaseStatus {
+    engine: EngineInfo
     database: string
     size: number
     guarded: boolean
@@ -54,6 +56,7 @@ export default function DatabasePanel() {
 
     const apply = (next: DatabaseStatus) => {
         setStatus(next)
+        if (next.engine.engine !== 'sqlite') return
         setForm({
             backup_dir: next.settings.backup_dir,
             interval_hours: String(next.settings.interval_hours),
@@ -89,6 +92,10 @@ export default function DatabasePanel() {
         return (
             <EntropyLoader />
         )
+    }
+
+    if (status.engine.engine !== 'sqlite') {
+        return <DatabaseEngine info={status.engine} />
     }
 
     return (
@@ -254,6 +261,8 @@ export default function DatabasePanel() {
                 <code>ent database restore &lt;name&gt;</code>. The current file is kept beside it. A damaged database is replaced by
                 the newest good backup automatically when the server starts.
             </p>
+
+            <DatabaseEngine info={status.engine} />
         </>
     )
 }

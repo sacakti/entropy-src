@@ -193,7 +193,8 @@ details and history and offers **Roll back**.
 5. **Finalize** with the *new* code (`python -m lib.system.finalize`):
    back up the database (`entropy.before-<version>.db`, SQLite online
    backup), migrate, reconcile built-in permissions. A migration that
-   fails restores the backup itself.
+   fails restores the backup itself. An installation switched to PostgreSQL
+   has no such backup: back the database up with the server's own tools first.
 6. **Restart** the web server (`ent upgrade` restarts a running server;
    the UI re-executes its own process in place, keeping the pid).
 

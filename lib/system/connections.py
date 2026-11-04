@@ -1,5 +1,5 @@
 """
-Connection checks for the database migration target, the Redis cache and the
+Connection checks for the database to switch to, the Redis cache and the
 message queue, using only the standard library (no drivers).
 
 Each check goes as far as the protocol allows without a client library and
@@ -19,6 +19,7 @@ from __future__ import annotations
 import socket
 import ssl
 import struct
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 TIMEOUT_SECONDS = 6.0
@@ -99,7 +100,7 @@ def _guard(check: Check) -> Check:
 
 
 # ----------------------------------------------------------------------
-# Database migration target
+# Database to switch to
 # ----------------------------------------------------------------------
 
 
@@ -111,10 +112,7 @@ def check_database(values: Dict[str, Any]) -> Dict[str, Any]:
             pass
         return _result(
             f"The Oracle listener at {target} accepts connections.",
-            [
-                "The service name and credentials are checked when a migration runs"
-                " (needs the Oracle driver)."
-            ],
+            ["The service name and credentials are not checked: Oracle is not supported yet."],
         )
     with _connect(values, False) as sock:
         # SSLRequest: every PostgreSQL server answers it with S or N.
@@ -127,11 +125,24 @@ def check_database(values: Dict[str, Any]) -> Dict[str, Any]:
         raise ConnectionCheckError(
             f"PostgreSQL at {target} does not offer TLS, but TLS is required here."
         )
-    details.append(
-        "The database name and credentials are checked when a migration runs"
-        " (needs the PostgreSQL driver)."
-    )
+    details.append(_sign_in(values))
     return _result(f"PostgreSQL is answering at {target}.", details)
+
+
+def _sign_in(values: Dict[str, Any]) -> str:
+    """Sign in with the saved database name and credentials."""
+
+    from lib.database.postgres import PostgresConnection
+
+    connection = None
+    try:
+        connection = PostgresConnection(values, Path(""))
+        return f"Signed in to {values['database']}, PostgreSQL {connection.server_version()}."
+    except Exception as error:  # noqa: BLE001 - every failure is the answer to this test
+        raise ConnectionCheckError(f"PostgreSQL refused the connection: {error}") from None
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 # ----------------------------------------------------------------------

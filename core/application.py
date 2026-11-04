@@ -50,6 +50,24 @@ class Application:
 
         self._recover_upgrade()
 
+    def switch_to_sqlite_if_asked(self, argv: list[str]) -> bool:
+        """
+        Handle `ent database switch sqlite` before anything connects to the database:
+        this is the way back when the current one cannot be reached.
+        """
+
+        from lib.database import engine
+
+        if not engine.asks_for_sqlite(argv):
+            return False
+
+        self._factory.runtime()
+        engine.switch_to_sqlite(
+            self.context.paths.database.file,
+            assume_yes="--yes" in argv or "-y" in argv,
+        )
+        return True
+
     def parse(
         self,
     ) -> tuple[Namespace, list[str]]:

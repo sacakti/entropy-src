@@ -5,7 +5,7 @@ and sending or ending those messages (system.settings).
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -35,6 +35,17 @@ def _connection(request: Request) -> Any:
 def _enabled(request: Request) -> bool:
     # Only a plain value is read, so no vault key is needed (every open page polls this).
     return bool(SystemSettings(_connection(request)).get("vision")["enabled"])
+
+
+def _database_switch() -> Optional[Dict[str, Any]]:
+    """A database switch under way, which everyone must know about: no changes are saved."""
+
+    from lib.database.switch import ACTIVE_STATES, PROGRESS
+
+    progress = PROGRESS.snapshot()
+    if progress["state"] not in ACTIVE_STATES:
+        return None
+    return {key: value for key, value in progress.items() if key != "error"}
 
 
 def _public(broadcast: Dict[str, Any]) -> Dict[str, Any]:
@@ -67,6 +78,7 @@ def vision_status(
         "enabled": True,
         "project_activity": _project_activity(request, record[2]),
         "broadcasts": [_public(item) for item in BroadcastStore(_connection(request)).active()],
+        "database_switch": _database_switch(),
     }
 
 

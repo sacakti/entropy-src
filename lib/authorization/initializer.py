@@ -89,6 +89,9 @@ class AuthorizationInitializer:
         self,
     ) -> None:
 
+        if self._connection.fetchone("SELECT 1 FROM roles WHERE name = ?", (ADMIN_ROLE,)):
+            return
+
         self._connection.execute(
             """
             INSERT OR IGNORE INTO roles

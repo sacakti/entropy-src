@@ -324,8 +324,36 @@ both).
 
 # Database safety
 
-Everything Entropy knows lives in `entropy.db` (SQLite). See
-*Administration → Settings → Database* and `ent database`.
+Entropy runs on SQLite by default, and everything it knows lives in `entropy.db`.
+See *Administration → Settings → Database* and `ent database`.
+
+The same page can switch to PostgreSQL. The switch needs an empty database and no
+active runs. It copies every table and index in one transaction, checks each row
+count, records the connection in `database-engine.json` beside `entropy.db`
+(password encrypted with the vault key, readable by its owner only) and restarts the
+server. The copy runs in the background: the server keeps answering and Vision shows
+everyone the progress, but `entropy.db` is read-only meanwhile, so changes cannot be
+saved until it finishes. The file stays in place. A failure
+leaves the target empty and Entropy on SQLite. Switching back resumes that file as
+it was: nothing is copied back. The application's SQL stays written for SQLite and
+`lib/database/dialect.py` translates it. Foreign keys are not created, because
+Entropy never enforces them on SQLite.
+
+From a terminal, with the web server stopped:
+
+```sh
+ent database status
+ent database switch postgresql --host db.example --name entropy --user entropy --ssl
+ent database switch postgresql --use-existing   # the saved connection, nothing copied
+ent database switch sqlite                      # works even if PostgreSQL is unreachable
+```
+
+The password is asked for, or read from `ENTROPY_DB_PASSWORD`; it is never an argument.
+A server holds a lock on any engine, so these commands refuse while one runs.
+
+The rest of this section applies to SQLite: on another engine the guard, the lock,
+file backups, recovery and `ent database` do not apply, and the server's own tools
+take their place.
 
 - **One server per database.** The web server holds an exclusive lock on
   `entropy.db.lock`; a second server on the same database refuses to start.

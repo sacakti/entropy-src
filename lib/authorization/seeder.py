@@ -58,7 +58,14 @@ class AuthorizationSeeder:
         self,
     ) -> None:
 
+        # Read once and write what is missing: this runs on every start, and on a
+        # database across a network each statement is a round trip.
+        known = {row["name"] for row in self._connection.fetchall("SELECT name FROM modules")}
+
         for module in MODULES:
+
+            if module.name in known:
+                continue
 
             self._connection.execute(
                 """
@@ -87,49 +94,59 @@ class AuthorizationSeeder:
         self,
     ) -> None:
 
+        stored = {
+            row["name"]: (row["permission_type"], row["description"])
+            for row in self._connection.fetchall(
+                "SELECT name, permission_type, description FROM permissions"
+            )
+        }
+
         for permission in PERMISSIONS:
 
-            self._connection.execute(
-                """
-                INSERT OR IGNORE INTO permissions
-                (
-                    module_id,
-                    name,
-                    description,
-                    permission_type
+            current = stored.get(permission.name)
+
+            if current is None:
+
+                self._connection.execute(
+                    """
+                    INSERT OR IGNORE INTO permissions
+                    (
+                        module_id,
+                        name,
+                        description,
+                        permission_type
+                    )
+                    SELECT
+                        id,
+                        ?,
+                        ?,
+                        ?
+                    FROM modules
+                    WHERE name = ?
+                    """,
+                    (
+                        permission.name,
+                        permission.description,
+                        permission.permission_type,
+                        permission.module,
+                    ),
                 )
-                SELECT
-                    id,
-                    ?,
-                    ?,
-                    ?
-                FROM modules
-                WHERE name = ?
-                """,
-                (
-                    permission.name,
-                    permission.description,
-                    permission.permission_type,
-                    permission.module,
-                ),
-            )
 
             # Built-in permissions may change type or wording between releases.
-            self._connection.execute(
-                """
-                UPDATE permissions
-                SET permission_type = ?, description = ?
-                WHERE name = ?
-                  AND (permission_type != ? OR description != ?)
-                """,
-                (
-                    permission.permission_type,
-                    permission.description,
-                    permission.name,
-                    permission.permission_type,
-                    permission.description,
-                ),
-            )
+            elif current != (permission.permission_type, permission.description):
+
+                self._connection.execute(
+                    """
+                    UPDATE permissions
+                    SET permission_type = ?, description = ?
+                    WHERE name = ?
+                    """,
+                    (
+                        permission.permission_type,
+                        permission.description,
+                        permission.name,
+                    ),
+                )
 
     # ------------------------------------------------------------------
     # Renamed and split permissions

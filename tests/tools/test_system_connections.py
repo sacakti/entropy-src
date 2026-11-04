@@ -51,14 +51,32 @@ def _recv(connection: socket.socket, received: List[bytes]) -> bytes:
     return data
 
 
-def test_postgres_answers_ssl_request(server: Any) -> None:
+def test_postgres_that_refuses_the_sign_in_fails_the_check(server: Any, monkeypatch: Any) -> None:
+    pytest.importorskip("psycopg")
+
     def reply(connection: socket.socket, received: List[bytes]) -> None:
         _recv(connection, received)
         connection.sendall(b"N")
 
+    def refuse(self: Any) -> str:
+        raise ValueError("password authentication failed")
+
+    monkeypatch.setattr("lib.database.postgres.PostgresConnection.server_version", refuse)
+    values = server(reply)
+    with pytest.raises(ConnectionCheckError, match="password authentication failed"):
+        check_database({**values, "engine": "postgresql", "ssl": False, "database": "d"})
+
+
+def test_postgres_answers_ssl_request(server: Any, monkeypatch: Any) -> None:
+    def reply(connection: socket.socket, received: List[bytes]) -> None:
+        _recv(connection, received)
+        connection.sendall(b"N")
+
+    monkeypatch.setattr("lib.system.connections._sign_in", lambda _values: "Signed in.")
     values = server(reply)
     result = check_database({**values, "engine": "postgresql", "ssl": False})
     assert "PostgreSQL is answering" in result["summary"]
+    assert "Signed in." in result["details"]
     assert values["received"][0] == struct.pack("!ii", 8, 80877103)
 
     values = server(reply)

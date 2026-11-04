@@ -146,10 +146,10 @@ def checkout_assigned_repositories(context: Any, plugin_name: str) -> Dict[str, 
     workflow = getattr(context.execution, "workflow", None)
     workflow_name = getattr(workflow, "name", None) if workflow is not None else None
     rows = connection.fetchall(
-        "SELECT DISTINCT r.* FROM entropy_git_repositories r "
-        "JOIN entropy_git_repository_assignments a ON a.repository_id = r.id "
-        "WHERE a.project_id = ? AND ((a.target_type = 'plugin' AND a.target_key = ?) "
-        "OR (a.target_type = 'workflow' AND a.target_key = ?)) "
+        "SELECT r.* FROM entropy_git_repositories r WHERE EXISTS ("
+        "SELECT 1 FROM entropy_git_repository_assignments a WHERE a.repository_id = r.id "
+        "AND a.project_id = ? AND ((a.target_type = 'plugin' AND a.target_key = ?) "
+        "OR (a.target_type = 'workflow' AND a.target_key = ?))) "
         "AND (r.scope = 'project' OR r.owner_user_id = ?) ORDER BY r.name COLLATE NOCASE",
         (project_id, plugin_name, workflow_name or "", user_id),
     )

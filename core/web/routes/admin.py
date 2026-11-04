@@ -257,12 +257,15 @@ def summary(
         }
         for row in connection.fetchall(
             """
-            SELECT r.name,
-                   (SELECT COUNT(*) FROM user_roles ur WHERE ur.role_id = r.id) AS users,
-                   (SELECT COUNT(*) FROM group_roles gr WHERE gr.role_id = r.id) AS groups,
-                   (SELECT COUNT(*) FROM role_permissions rp WHERE rp.role_id = r.id) AS permissions
-            FROM roles r
-            ORDER BY users + groups DESC, permissions DESC, r.name
+            SELECT * FROM (
+                SELECT r.name,
+                       (SELECT COUNT(*) FROM user_roles ur WHERE ur.role_id = r.id) AS users,
+                       (SELECT COUNT(*) FROM group_roles gr WHERE gr.role_id = r.id) AS groups,
+                       (SELECT COUNT(*) FROM role_permissions rp WHERE rp.role_id = r.id)
+                           AS permissions
+                FROM roles r
+            ) AS counted
+            ORDER BY users + groups DESC, permissions DESC, name
             LIMIT 8
             """
         )
@@ -280,11 +283,11 @@ def summary(
         for row in connection.fetchall(
             """
             SELECT m.name,
-                   SUM(p.permission_type = 'read') AS read,
-                   SUM(p.permission_type = 'write') AS write,
-                   SUM(p.permission_type = 'execute') AS execute,
-                   SUM(p.permission_type = 'delete') AS delete_count,
-                   SUM(p.permission_type = 'full') AS full_count
+                   SUM(CASE WHEN p.permission_type = 'read' THEN 1 ELSE 0 END) AS read,
+                   SUM(CASE WHEN p.permission_type = 'write' THEN 1 ELSE 0 END) AS write,
+                   SUM(CASE WHEN p.permission_type = 'execute' THEN 1 ELSE 0 END) AS execute,
+                   SUM(CASE WHEN p.permission_type = 'delete' THEN 1 ELSE 0 END) AS delete_count,
+                   SUM(CASE WHEN p.permission_type = 'full' THEN 1 ELSE 0 END) AS full_count
             FROM modules m JOIN permissions p ON p.module_id = m.id
             GROUP BY m.id
             ORDER BY COUNT(p.id) DESC, m.name

@@ -395,6 +395,22 @@
     margin: 16px 0 22px;
 }
 
+.entropy-app .database-switch {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.entropy-app .database-switch progress {
+    width: 100%;
+    height: 6px;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .database-switch small {
+    color: var(--app-subtle);
+}
+
 .entropy-app .database-subhead {
     margin: 0 0 8px;
     font-size: 14px;
@@ -436,7 +452,7 @@
     font-size: 12.5px;
 }
 
-/* Connection test result (migration target, cache, queue) */
+/* Connection test result (database, cache, queue) */
 .entropy-app .settings-connection-result { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--app-success, #2e9d5b) 40%, var(--app-line)); border-radius: 10px; background: color-mix(in srgb, var(--app-success, #2e9d5b) 10%, var(--app-surface)); }
 .entropy-app .settings-connection-result > svg { flex: none; margin-top: 2px; color: var(--app-success, #2e9d5b); }
 .entropy-app .settings-connection-result > span { display: grid; gap: 3px; }

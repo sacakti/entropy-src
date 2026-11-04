@@ -46,7 +46,8 @@ def main(argv=None) -> int:
 
         database = Path(context.paths.database.file)
         backup = database.with_name(f"{database.stem}.before-{tag}.db")
-        if database.exists():
+        # Another engine is backed up by its own server, not through this file.
+        if context.database_manager.safety is not None and database.exists():
             _backup(database, backup)
         else:
             backup = None

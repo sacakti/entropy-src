@@ -89,7 +89,15 @@ def _start_database_safety(context: EntropyContext):
     manager = getattr(context, "database_manager", None)
     safety = getattr(manager, "safety", None)
     if safety is None:
-        return None
+        # Another engine has no file to guard, but `ent database switch` must still
+        # be able to tell that a server is running.
+        if getattr(manager, "engine", "sqlite") == "sqlite":
+            return None
+        from lib.database.safety import DatabaseSafety
+
+        guard = DatabaseSafety(manager.database)
+        guard.acquire_server_lock()
+        return guard
 
     connection = manager.connection
     restored = safety.server_start(reopen=connection.open, close=connection.close)

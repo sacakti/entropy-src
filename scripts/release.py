@@ -149,6 +149,22 @@ def build_frontend(skip: bool) -> Path:
     return dist
 
 
+def python_version_of(python: Path | str) -> str | None:
+    """The major.minor version of an interpreter; None if it does not run."""
+
+    try:
+        result = subprocess.run(
+            [str(python), "-c", "import sys; print('%d.%d' % sys.version_info[:2])"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except OSError:
+        return None
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
 def resolver_python(cache: Path) -> str:
     """A CPython of the release's version that runs on the build host (wheels, byte code)."""
 
@@ -163,6 +179,10 @@ def resolver_python(cache: Path) -> str:
 
     root = cache / "host-python" / triple
     python = root / "python" / ("python.exe" if host.system() == "Windows" else "bin/python3")
+    # The cache outlives a change of the release's Python: never reuse another version.
+    if python.exists() and python_version_of(python) != PYTHON_VERSION:
+        log(f"Replacing the cached build host Python: it is not {PYTHON_VERSION}")
+        shutil.rmtree(root)
     if not python.exists():
         log(f"Fetching CPython {CPYTHON_FULL_VERSION} for the build host")
         try:
@@ -317,6 +337,12 @@ def compile_application(application: Path, python: str) -> int:
     a source). `python` must be the release's Python version (PYTHON_VERSION): byte
     code is specific to it. Returns how many modules were compiled.
     """
+
+    found = python_version_of(python)
+    if found != PYTHON_VERSION:
+        raise ReleaseError(
+            f"Byte code must be compiled with Python {PYTHON_VERSION}; {python} is {found}."
+        )
 
     targets = [str(application / item) for item in COMPILED_ITEMS]
     subprocess.run(

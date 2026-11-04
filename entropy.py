@@ -15,6 +15,9 @@ def main():
 
     app.bootstrap()
 
+    if app.switch_to_sqlite_if_asked(argv):
+        return
+
     app.initialize(
         global_args,
     )

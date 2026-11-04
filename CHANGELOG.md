@@ -4,12 +4,12 @@
 
 ### New
 
+- Run Entropy on PostgreSQL instead of SQLite: switch in Settings -> Database or with `ent database switch`, and the data is copied once
 - Vision: a live activity bar for running plugins and workflows, with broadcast messages from Administration
-- Download any run as an HTML or PDF report that looks like the run page
+- Download any run as an HTML or PDF report that looks like the run page, and task reports as real PDF files with images
 - Run again for plugin runs, with the earlier inputs filled in
 - Task descriptions with headings, bold, italic, strikethrough, checklists and tables, and a preview
 - Recurring due dates and reminders, with a calendar and time picker
-- Task reports download as real PDF files, with images included
 - Gallery view and custom icons for plugins and workflows
 - Clash can compare two Oracle databases, both structure and data
 - Consolidation of images, configuration and database scripts across releases, as one workflow
@@ -30,6 +30,8 @@
 
 ### Fixed
 
+- Release builds always compile with Python 3.13, never a cached older Python
+- sqlplus.analyse declares its path argument, and says clearly when it is missing
 - Text no longer shows through menus and panels with Liquid Glass on
 - Creating a task no longer fails with a server error when it has no assignee
 - People assigned or mentioned on a task are notified, and notifications open that task

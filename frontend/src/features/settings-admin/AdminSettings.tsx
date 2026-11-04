@@ -3,7 +3,6 @@ import {
     Archive,
     CheckCircle2,
     Database,
-    DatabaseZap,
     Globe,
     KeyRound,
     LoaderCircle,
@@ -26,7 +25,6 @@ import {
     type Broker,
     type ConnectionSection,
     type ConnectionTestResult,
-    type DatabaseTargetSettings,
     type GroupMapping,
     type LdapSettings,
     type LdapTestResult,
@@ -43,22 +41,20 @@ import VisionBroadcasts from './VisionBroadcasts'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
 
-type Tab = 'general' | 'vision' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database' | 'migration' | 'cache' | 'queue'
+type Tab = 'general' | 'vision' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database' | 'cache' | 'queue'
 
 const TABS: { id: Tab; label: string; icon: typeof Mail; hint: string }[] = [
     { id: 'smtp', label: 'E-mail', icon: Mail, hint: 'SMTP server for alerts and messages' },
     { id: 'ldap', label: 'LDAP / Active Directory', icon: Users, hint: 'Sign in with directory accounts' },
     { id: 'oidc', label: 'Single sign-on', icon: KeyRound, hint: 'OpenID Connect (Keycloak, Azure AD, Okta)' },
     { id: 'retention', label: 'Data retention', icon: Archive, hint: 'Archive and purge old runs' },
-    { id: 'database', label: 'Database', icon: Database, hint: 'Backups, checks and recovery' },
-    { id: 'migration', label: 'Database migration', icon: DatabaseZap, hint: 'PostgreSQL or Oracle target' },
+    { id: 'database', label: 'Database', icon: Database, hint: 'SQLite, PostgreSQL, backups' },
     { id: 'cache', label: 'Cache', icon: Zap, hint: 'Redis server' },
     { id: 'queue', label: 'Message queue', icon: MessagesSquare, hint: 'ActiveMQ, RabbitMQ, MQTT, Kafka' },
     { id: 'general', label: 'Address', icon: Globe, hint: 'Where people open Entropy' },
     { id: 'vision', label: 'Vision', icon: Megaphone, hint: 'Live status, and messages to everyone' },
 ]
 
-const ENGINE_PORTS: Record<DatabaseTargetSettings['engine'], number> = { postgresql: 5432, oracle: 1521 }
 const BROKERS: { id: Broker; label: string; port: number; tlsPort: number; hint: string }[] = [
     { id: 'activemq', label: 'ActiveMQ (STOMP)', port: 61613, tlsPort: 61614, hint: 'STOMP connector, usually 61613 (61614 with TLS). OpenWire on 61616 is not used.' },
     { id: 'rabbitmq', label: 'RabbitMQ (AMQP 0-9-1)', port: 5672, tlsPort: 5671, hint: 'AMQP on 5672 (5671 with TLS).' },
@@ -431,7 +427,6 @@ export default function AdminSettings() {
                         {id === 'smtp' && smtp.enabled && <span className="settings-on">On</span>}
                         {id === 'ldap' && ldap.enabled && <span className="settings-on">On</span>}
                         {id === 'oidc' && oidc.enabled && <span className="settings-on">On</span>}
-                        {id === 'migration' && settings.database_target.enabled && <span className="settings-on">On</span>}
                         {id === 'cache' && settings.cache.enabled && <span className="settings-on">On</span>}
                         {id === 'queue' && settings.queue.enabled && <span className="settings-on">On</span>}
                     </button>
@@ -752,64 +747,6 @@ export default function AdminSettings() {
                     </>
                 )}
 
-                {tab === 'migration' && (
-                    <>
-                        <header className="settings-admin-head">
-                            <div>
-                                <h2>Database migration</h2>
-                                <p>
-                                    The PostgreSQL or Oracle database Entropy's data would move to. Entropy keeps running on
-                                    its SQLite database; saving these settings does not move or copy anything.
-                                </p>
-                            </div>
-                            {saveButton('database_target')}
-                        </header>
-                        <div className="settings-grid">
-                            <Toggle checked={settings.database_target.enabled} onChange={(enabled) => update('database_target', { enabled })}>
-                                Migration target configured
-                            </Toggle>
-                            <Field label="Database">
-                                <select
-                                    className="entropy-select"
-                                    value={settings.database_target.engine}
-                                    onChange={(event) => {
-                                        const engine = event.target.value as DatabaseTargetSettings['engine']
-                                        update('database_target', { engine, port: ENGINE_PORTS[engine] })
-                                    }}
-                                >
-                                    <option value="postgresql">PostgreSQL</option>
-                                    <option value="oracle">Oracle</option>
-                                </select>
-                            </Field>
-                            <Field label="Host">
-                                <input value={settings.database_target.host} onChange={(event) => update('database_target', { host: event.target.value })} placeholder="db.example.com" />
-                            </Field>
-                            <Field label="Port">
-                                <input type="number" min={1} max={65535} value={settings.database_target.port} onChange={(event) => update('database_target', { port: Number(event.target.value) })} />
-                            </Field>
-                            <Field label={settings.database_target.engine === 'oracle' ? 'Service name' : 'Database name'} hint={settings.database_target.engine === 'oracle' ? 'For example ORCLPDB1.' : 'For example entropy.'}>
-                                <input value={settings.database_target.database} onChange={(event) => update('database_target', { database: event.target.value })} />
-                            </Field>
-                            <Field label="Schema" hint="Optional. PostgreSQL defaults to public; Oracle to the user's schema.">
-                                <input value={settings.database_target.schema} onChange={(event) => update('database_target', { schema: event.target.value })} />
-                            </Field>
-                            <Field label="User name">
-                                <input value={settings.database_target.username} autoComplete="off" onChange={(event) => update('database_target', { username: event.target.value })} />
-                            </Field>
-                            <SecretField
-                                label="Password"
-                                isSet={settings.database_target.password_set && secrets['database_target.password'] !== ''}
-                                value={secretValue('database_target.password')}
-                                onChange={(value) => setSecrets((current) => ({ ...current, 'database_target.password': value }))}
-                                onClear={() => setSecrets((current) => ({ ...current, 'database_target.password': '' }))}
-                            />
-                            <Toggle checked={settings.database_target.ssl} onChange={(ssl) => update('database_target', { ssl })}>
-                                {settings.database_target.engine === 'oracle' ? 'Use TCPS (TLS)' : 'Require TLS (sslmode=require)'}
-                            </Toggle>
-                        </div>
-                        <ConnectionTest section="database_target" label="Database migration" />
-                    </>
-                )}
                 {tab === 'cache' && (
                     <>
                         <header className="settings-admin-head">

@@ -61,14 +61,16 @@
     background: transparent;
 }
 
-:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-primary {
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-primary:not(:disabled, [aria-disabled="true"], [aria-busy="true"]),
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-primary[aria-busy="true"] {
     background:
         linear-gradient(180deg, rgb(255 255 255 / 34%), rgb(255 255 255 / 0%) 55%),
         color-mix(in srgb, var(--app-accent) 82%, transparent);
     border-color: color-mix(in srgb, var(--app-accent) 60%, white);
 }
 
-:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-danger {
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-danger:not(:disabled, [aria-disabled="true"], [aria-busy="true"]),
+:root[data-glass="on"] :is(.entropy-app, .entropy-modal, .entropy-toast-container) .entropy-button-danger[aria-busy="true"] {
     background:
         linear-gradient(180deg, rgb(255 255 255 / 28%), rgb(255 255 255 / 0%) 55%),
         rgb(220 38 38 / 82%);

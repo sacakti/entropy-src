@@ -47,6 +47,12 @@ class AnalyseResolver:
         Resolve the analysis path.
         """
 
+        if value is None or value == "":
+            raise AnalysePluginException(
+                "'path' is required: give the directory that holds the "
+                "application subdirectories.",
+            )
+
         if not isinstance(
             value,
             (str, Path),

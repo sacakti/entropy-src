@@ -2,10 +2,10 @@
 Entropy-wide settings made in the administration panel: e-mail (SMTP),
 sign-in with LDAP / Active Directory and OpenID Connect, the address
 people use to reach Entropy (for links in e-mails), and the connections
-for a database migration target, a Redis cache and a message queue.
+for another database to switch to, a Redis cache and a message queue.
 
-The connection sections are stored and can be tested; Entropy itself still
-runs on SQLite and does not use the cache or the queue yet.
+The connection sections are stored and can be tested. Entropy does not use
+the cache or the queue yet; Settings -> Database switches to the database.
 
 Each section is one JSON value in the `settings` table. Secrets (passwords,
 client secrets) are encrypted with the vault's master key and never sent

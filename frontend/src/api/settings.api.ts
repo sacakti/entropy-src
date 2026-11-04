@@ -68,7 +68,7 @@ export interface RetentionSettings {
     defaults: { archive_after_days: number; purge_archive_after_days: number; notifications_keep_days: number }
 }
 
-/** Where a later migration would move Entropy's data; Entropy still runs on SQLite. */
+/** The database Settings -> Database can switch Entropy to; SQLite is the default. */
 export interface DatabaseTargetSettings {
     enabled: boolean
     engine: 'postgresql' | 'oracle'

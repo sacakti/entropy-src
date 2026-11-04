@@ -120,7 +120,7 @@ def _current_session(
     return record
 
 @router.get("/csrf")
-async def csrf_token(request: Request, response: Response) -> dict:
+def csrf_token(request: Request, response: Response) -> dict:
     """Issue or reuse a CSRF token for the current browser."""
 
     record = request.app.state.web_session_store.get(
@@ -169,7 +169,7 @@ def verify_csrf(request: Request) -> None:
         )
 
 @router.post("/login")
-async def login(
+def login(
     payload: LoginRequest,
     request: Request,
     response: Response,
@@ -224,7 +224,7 @@ async def login(
 
 
 @router.get("/me")
-async def me(
+def me(
     request: Request,
     response: Response,
     record: Tuple[Session, str, User] = Depends(_current_session),
@@ -289,7 +289,7 @@ async def me(
 
 
 @router.get("/session")
-async def session_status(
+def session_status(
     request: Request,
     response: Response,
     record: Tuple[Session, str, User] = Depends(_current_session),
@@ -301,7 +301,7 @@ async def session_status(
 
 
 @router.post("/keepalive", dependencies=[Depends(verify_csrf)])
-async def keepalive(
+def keepalive(
     request: Request,
     response: Response,
     record: Tuple[Session, str, User] = Depends(_current_session),
@@ -315,7 +315,7 @@ async def keepalive(
 
 
 @router.post("/tour", dependencies=[Depends(verify_csrf)])
-async def finish_tour(
+def finish_tour(
     request: Request,
     record: Tuple[Session, str, User] = Depends(_current_session),
 ) -> dict:
@@ -328,7 +328,7 @@ async def finish_tour(
 
 
 @router.post("/logout")
-async def logout(
+def logout(
     request: Request,
     response: Response,
     _: None = Depends(verify_csrf),
@@ -347,7 +347,7 @@ async def logout(
 
 
 @router.post("/change-password")
-async def change_password(
+def change_password(
     payload: ChangePasswordRequest,
     request: Request,
     _: None = Depends(verify_csrf),
@@ -414,7 +414,7 @@ def _token_payload(session: Session) -> dict:
 
 
 @router.post("/token")
-async def create_token(payload: TokenRequest, request: Request, response: Response) -> dict:
+def create_token(payload: TokenRequest, request: Request, response: Response) -> dict:
     """Exchange a username and password for a command line token (`ent login`)."""
 
     store = request.app.state.web_session_store
@@ -440,7 +440,7 @@ async def create_token(payload: TokenRequest, request: Request, response: Respon
 
 
 @router.post("/cli-token", dependencies=[Depends(verify_csrf)])
-async def create_cli_token(
+def create_cli_token(
     request: Request,
     response: Response,
     record: Tuple[Session, str, User] = Depends(_current_session),
@@ -456,7 +456,7 @@ async def create_cli_token(
 
 
 @router.delete("/token")
-async def revoke_token(request: Request, response: Response) -> dict:
+def revoke_token(request: Request, response: Response) -> dict:
     """Revoke the bearer token of this request (`ent logout`)."""
 
     token = bearer_token(request)
