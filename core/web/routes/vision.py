@@ -15,6 +15,7 @@ from core.web.routes.auth import _current_session, verify_csrf
 from lib.models.session import Session
 from lib.models.users import User
 from lib.system.settings import SystemSettings
+from lib.tools.clash.jobs import JOBS as CLASH_JOBS
 from lib.vision.broadcasts import BroadcastError, BroadcastStore
 
 router = APIRouter(prefix="/api/vision", tags=["vision"])
@@ -52,15 +53,21 @@ def _public(broadcast: Dict[str, Any]) -> Dict[str, Any]:
     return {key: value for key, value in broadcast.items() if key != "ended_at"}
 
 
-def _project_activity(request: Request, user: User) -> bool:
-    """Whether the current project shows its members each other's runs."""
-
+def _project(request: Request, user: User) -> Optional[Dict[str, Any]]:
     try:
-        project = current_project(request, user)
+        return current_project(request, user)
     except HTTPException:
         # No access to the project asked for: nothing of it to show anyway.
-        return False
-    return bool(project and project.get("vision_activity", True))
+        return None
+
+
+def _clash_compare(project: Optional[Dict[str, Any]], user: User) -> Optional[Dict[str, Any]]:
+    """This person's database comparison under way in the project."""
+
+    if not project or project.get("id") is None:
+        return None
+    job = CLASH_JOBS.current(int(user.id or 0), int(project["id"]))
+    return job.brief() if job and job.active else None
 
 
 @router.get("")
@@ -74,9 +81,13 @@ def vision_status(
     response.headers["Cache-Control"] = "no-store"
     if not _enabled(request):
         return {"enabled": False, "broadcasts": [], "project_activity": False}
+    user = record[2]
+    project = _project(request, user)
     return {
         "enabled": True,
-        "project_activity": _project_activity(request, record[2]),
+        # Whether the project shows its members each other's runs.
+        "project_activity": bool(project and project.get("vision_activity", True)),
+        "clash_compare": _clash_compare(project, user),
         "broadcasts": [_public(item) for item in BroadcastStore(_connection(request)).active()],
         "database_switch": _database_switch(),
     }

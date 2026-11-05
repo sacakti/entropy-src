@@ -915,6 +915,71 @@
     margin-left: auto;
 }
 
+.entropy-app .tools-db-types {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+}
+
+.entropy-app .tools-db-types legend {
+    padding: 0 6px;
+    color: var(--app-muted);
+    font-size: 13px;
+}
+
+.entropy-app .tools-db-types[disabled] {
+    opacity: 0.55;
+}
+
+.entropy-app .tools-db-types-list,
+.entropy-app .tools-db-types-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+}
+
+.entropy-app .tools-db-types-actions {
+    margin-top: 8px;
+    font-size: 13px;
+}
+
+.entropy-app .tools-db-progress,
+.entropy-app .tools-db-consent {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+}
+
+.entropy-app .tools-db-consent {
+    border-color: var(--app-warning);
+}
+
+.entropy-app .tools-db-progress-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.entropy-app .tools-db-progress-heading .entropy-button {
+    margin-left: auto;
+}
+
+.entropy-app .tools-db-progress progress {
+    width: 100%;
+    accent-color: var(--app-accent);
+}
+
+.entropy-app .tools-db-consent-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .entropy-app .tools-db-note {
     margin: 0;
     color: var(--app-muted);

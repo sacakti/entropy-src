@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Database, LoaderCircle, Play, ShieldCheck, X } from 'lucide-react'
+import { AlertCircle, Database, FileDown, LoaderCircle, Play, ShieldCheck, Square, X } from 'lucide-react'
 
 import {
     clashApi,
+    compareLabel,
+    isCompareActive,
+    type ClashCompareJob,
     type ClashDatabaseResult,
     type ClashDatabaseSide,
     type ClashDataItem,
@@ -11,6 +14,8 @@ import {
     type ClashStatus,
 } from '../../api/clash.api'
 import { vaultApi, type VaultNamespace } from '../../api/vault.api'
+import { ApiError } from '../../services/api'
+import { VISION_REFRESH_EVENT } from '../vision/bus'
 import DiffPanel from './DiffPanel'
 import type { LanguageId } from './files'
 
@@ -24,6 +29,39 @@ const STATUS_LABELS: Record<ClashStatus, string> = {
 }
 
 const EMPTY_SIDE: ClashDatabaseSide = { host: '', port: 1521, sid: '', schema_name: '', namespace: '', key: '' }
+
+/** The server's OBJECT_TYPES, in the order people think of them. */
+const OBJECT_TYPES: { id: string; label: string }[] = [
+    { id: 'TABLE', label: 'Tables' },
+    { id: 'VIEW', label: 'Views' },
+    { id: 'MATERIALIZED VIEW', label: 'Materialized views' },
+    { id: 'INDEX', label: 'Indexes' },
+    { id: 'SEQUENCE', label: 'Sequences' },
+    { id: 'TRIGGER', label: 'Triggers' },
+    { id: 'SYNONYM', label: 'Synonyms' },
+    { id: 'PROCEDURE', label: 'Procedures' },
+    { id: 'FUNCTION', label: 'Functions' },
+    { id: 'PACKAGE', label: 'Packages' },
+    { id: 'PACKAGE BODY', label: 'Package bodies' },
+    { id: 'TYPE', label: 'Types' },
+    { id: 'TYPE BODY', label: 'Type bodies' },
+]
+const ALL_OBJECT_TYPES = OBJECT_TYPES.map((item) => item.id)
+
+const POLL_MS = 1_500
+/** Quiet this long, and the page says what that can mean. */
+const QUIET_NOTICE_SECONDS = 60
+
+function tellVision(): void {
+    window.dispatchEvent(new Event(VISION_REFRESH_EVENT))
+}
+
+function duration(seconds: number): string {
+    const minutes = Math.floor(seconds / 60)
+    if (minutes === 0) return `${seconds}s`
+    const hours = Math.floor(minutes / 60)
+    return hours === 0 ? `${minutes}m ${seconds % 60}s` : `${hours}h ${minutes % 60}m`
+}
 
 function sideIsComplete(side: ClashDatabaseSide): boolean {
     return Boolean(side.host.trim() && side.sid.trim() && side.schema_name.trim() && side.namespace && side.key)
@@ -128,6 +166,119 @@ function SideForm({
                 </label>
             </div>
         </fieldset>
+    )
+}
+
+function CompareProgressPanel({
+    job,
+    unreachable,
+    onStop,
+}: {
+    job: ClashCompareJob
+    unreachable: boolean
+    onStop: () => void
+}) {
+    const measured = job.phase !== 'analyze' && job.total > 0
+
+    return (
+        <div className="tools-db-progress" role="status">
+            <div className="tools-db-progress-heading">
+                <LoaderCircle size={16} className="entropy-spin" aria-hidden="true" />
+                <strong>{compareLabel(job)}</strong>
+                <span className="tools-db-note">{duration(job.elapsed_seconds)}</span>
+                <button
+                    type="button"
+                    className="entropy-button entropy-button-secondary entropy-button-sm"
+                    disabled={job.stopping}
+                    onClick={onStop}
+                >
+                    <Square size={13} />
+                    Stop
+                </button>
+            </div>
+            {measured ? (
+                <progress max={job.total} value={job.done} aria-label="Comparison progress" />
+            ) : (
+                <progress aria-label="Comparison progress" />
+            )}
+            <p className="tools-db-note">
+                {job.left} and {job.right}
+                {job.current ? `. Now on ${job.current}` : ''}
+                {job.phase === 'data' && job.rows_total > 0
+                    ? `. About ${job.rows_done.toLocaleString()} of ${job.rows_total.toLocaleString()} rows.`
+                    : '.'}
+            </p>
+            {job.stopping && <p className="tools-db-note">Stopping once the step under way finishes. A large table can take a while.</p>}
+            {unreachable && <p className="tools-db-note">Can not reach the server just now. Trying again.</p>}
+            {!job.stopping && job.quiet_seconds >= QUIET_NOTICE_SECONDS && (
+                <p className="tools-db-note">
+                    No step has finished for {duration(job.quiet_seconds)}. A large table can take this long; one step
+                    stops by itself after 30 minutes. You can leave this page: Vision keeps showing the progress.
+                </p>
+            )}
+        </div>
+    )
+}
+
+function ConsentPanel({
+    job,
+    busy,
+    onConfirm,
+    onCancel,
+}: {
+    job: ClashCompareJob
+    busy: boolean
+    onConfirm: (skipLarge: boolean) => void
+    onCancel: () => void
+}) {
+    const estimate = job.estimate
+    if (!estimate) return null
+    const skippable = estimate.large_count + estimate.unknown_count
+
+    return (
+        <div className="tools-db-consent" role="alertdialog" aria-labelledby="tools-db-consent-title">
+            <strong id="tools-db-consent-title">This data comparison may take a long time</strong>
+            <p className="tools-db-note">
+                It reads every row of {estimate.tables.toLocaleString()} tables on both databases: about{' '}
+                {estimate.rows.toLocaleString()} rows a side, according to Oracle's statistics, which can be out of date.
+                {estimate.unknown_count > 0 &&
+                    ` ${estimate.unknown_count.toLocaleString()} more tables have no statistics, so their size is unknown.`}{' '}
+                Nothing has been compared yet.
+            </p>
+            {estimate.largest.length > 0 && (
+                <div className="tools-db-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Largest tables</th>
+                                <th>Estimated rows</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {estimate.largest.map((item) => (
+                                <tr key={item.table}>
+                                    <td>{item.table}</td>
+                                    <td>{item.rows.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+            <div className="tools-db-consent-actions">
+                <button type="button" className="entropy-button entropy-button-primary" disabled={busy} onClick={() => onConfirm(false)}>
+                    Compare everything
+                </button>
+                {skippable > 0 && (
+                    <button type="button" className="entropy-button entropy-button-secondary" disabled={busy} onClick={() => onConfirm(true)}>
+                        Skip {skippable.toLocaleString()} large or unknown {skippable === 1 ? 'table' : 'tables'}
+                    </button>
+                )}
+                <button type="button" className="entropy-button entropy-button-ghost" disabled={busy} onClick={onCancel}>
+                    Cancel
+                </button>
+            </div>
+        </div>
     )
 }
 
@@ -295,11 +446,14 @@ export default function DatabaseCompare() {
     const [ddl, setDdl] = useState(true)
     const [data, setData] = useState(true)
     const [nameFilter, setNameFilter] = useState('')
-    const [running, setRunning] = useState(false)
+    const [objectTypes, setObjectTypes] = useState<string[]>(ALL_OBJECT_TYPES)
+    const [job, setJob] = useState<ClashCompareJob | null>(null)
+    const [starting, setStarting] = useState(false)
+    const [answering, setAnswering] = useState(false)
+    const [exporting, setExporting] = useState(false)
+    const [unreachable, setUnreachable] = useState(false)
     const [error, setError] = useState('')
     const [result, setResult] = useState<ClashDatabaseResult | null>(null)
-    // The sides the result was made with: the form may have changed since.
-    const [compared, setCompared] = useState<{ left: ClashDatabaseSide; right: ClashDatabaseSide } | null>(null)
     const [view, setView] = useState<'ddl' | 'data'>('ddl')
     const [differencesOnly, setDifferencesOnly] = useState(true)
     const [selectedDdl, setSelectedDdl] = useState<ClashDdlItem | null>(null)
@@ -324,30 +478,141 @@ export default function DatabaseCompare() {
         }
     }, [])
 
-    const ready = sideIsComplete(left) && sideIsComplete(right) && (ddl || data) && !running
+    // Pick up what this person has under way, or last finished, in this project.
+    useEffect(() => {
+        let active = true
+        clashApi
+            .current()
+            .then(({ job: current }) => {
+                if (!active || !current) return
+                setJob((existing) => existing ?? current)
+                setLeft(current.sides.left)
+                setRight(current.sides.right)
+                setDdl(current.ddl)
+                setData(current.data)
+                setNameFilter(current.name_filter ?? '')
+                setObjectTypes(current.object_types ?? ALL_OBJECT_TYPES)
+            })
+            .catch(() => undefined)
+        return () => {
+            active = false
+        }
+    }, [])
+
+    const jobId = job?.id ?? null
+    const jobActive = job !== null && isCompareActive(job)
+
+    useEffect(() => {
+        if (!jobId || !jobActive) return
+        let alive = true
+        let timer: number | undefined
+
+        const tick = async () => {
+            if (!document.hidden) {
+                try {
+                    const next = await clashApi.job(jobId)
+                    if (!alive) return
+                    setUnreachable(false)
+                    setJob(next)
+                    if (!isCompareActive(next)) return
+                } catch (caught) {
+                    if (!alive) return
+                    if (caught instanceof ApiError && caught.status === 404) {
+                        setJob(null)
+                        setError('The comparison is gone: the Entropy server may have restarted. Start it again.')
+                        return
+                    }
+                    setUnreachable(true)
+                }
+            }
+            timer = window.setTimeout(() => void tick(), POLL_MS)
+        }
+
+        timer = window.setTimeout(() => void tick(), POLL_MS)
+        return () => {
+            alive = false
+            window.clearTimeout(timer)
+        }
+    }, [jobId, jobActive])
+
+    const finishedId = job?.state === 'done' ? job.id : null
+
+    useEffect(() => {
+        if (!finishedId) return
+        let alive = true
+        clashApi
+            .result(finishedId)
+            .then((response) => {
+                if (!alive) return
+                setResult(response)
+                setView(response.ddl ? 'ddl' : 'data')
+            })
+            .catch((caught: unknown) => {
+                if (alive) setError(messageOf(caught))
+            })
+        return () => {
+            alive = false
+        }
+    }, [finishedId])
+
+    const hasTables = objectTypes.includes('TABLE')
+    const compareData = data && hasTables
+    const ready =
+        sideIsComplete(left) &&
+        sideIsComplete(right) &&
+        (ddl ? objectTypes.length > 0 : compareData) &&
+        !jobActive &&
+        !starting
+
+    const toggleType = (id: string, on: boolean) =>
+        setObjectTypes((current) => ALL_OBJECT_TYPES.filter((item) => (item === id ? on : current.includes(item))))
 
     const run = async () => {
-        setRunning(true)
+        setStarting(true)
         setError('')
         setResult(null)
         setSelectedDdl(null)
         setSelectedTable(null)
         setRows(null)
         try {
-            const response = await clashApi.compare({
+            const started = await clashApi.compare({
                 left,
                 right,
                 ddl,
-                data,
+                data: compareData,
                 name_filter: nameFilter.trim() || null,
+                object_types: ddl && objectTypes.length < ALL_OBJECT_TYPES.length ? objectTypes : null,
             })
-            setResult(response)
-            setCompared({ left, right })
-            setView(response.ddl ? 'ddl' : 'data')
+            setJob(started)
+            tellVision()
         } catch (caught) {
             setError(messageOf(caught))
         } finally {
-            setRunning(false)
+            setStarting(false)
+        }
+    }
+
+    const answer = async (action: () => Promise<ClashCompareJob>) => {
+        setAnswering(true)
+        try {
+            setJob(await action())
+            tellVision()
+        } catch (caught) {
+            setError(messageOf(caught))
+        } finally {
+            setAnswering(false)
+        }
+    }
+
+    const exportReport = async () => {
+        if (!job) return
+        setExporting(true)
+        try {
+            await clashApi.downloadReport(job)
+        } catch (caught) {
+            setError(messageOf(caught))
+        } finally {
+            setExporting(false)
         }
     }
 
@@ -355,10 +620,11 @@ export default function DatabaseCompare() {
         setSelectedTable(item)
         setRows(null)
         setRowsError('')
-        if (item.status !== 'different' || !compared) return
+        if (item.status !== 'different' || !job) return
         setRowsLoading(true)
         try {
-            setRows(await clashApi.rows({ ...compared, table: item.table }))
+            // The sides the result was made with: the form may have changed since.
+            setRows(await clashApi.rows({ ...job.sides, table: item.table }))
         } catch (caught) {
             setRowsError(messageOf(caught))
         } finally {
@@ -395,8 +661,14 @@ export default function DatabaseCompare() {
                 <label className="tools-check">
                     <input type="checkbox" checked={ddl} onChange={(event) => setDdl(event.target.checked)} /> DDL
                 </label>
-                <label className="tools-check">
-                    <input type="checkbox" checked={data} onChange={(event) => setData(event.target.checked)} /> Data
+                <label className="tools-check" title={hasTables ? undefined : 'Data is compared for tables: choose Tables below.'}>
+                    <input
+                        type="checkbox"
+                        checked={compareData}
+                        disabled={!hasTables}
+                        onChange={(event) => setData(event.target.checked)}
+                    />{' '}
+                    Data
                 </label>
                 <label className="admin-field tools-db-filter">
                     <span>Names like</span>
@@ -408,15 +680,63 @@ export default function DatabaseCompare() {
                     />
                 </label>
                 <button type="button" className="entropy-button entropy-button-primary" disabled={!ready} onClick={() => void run()}>
-                    {running ? <LoaderCircle size={15} className="entropy-spin" /> : <Play size={15} />}
-                    {running ? 'Comparing…' : 'Compare'}
+                    {jobActive || starting ? <LoaderCircle size={15} className="entropy-spin" /> : <Play size={15} />}
+                    {jobActive || starting ? 'Comparing…' : 'Compare'}
                 </button>
             </div>
 
-            {running && data && (
+            <fieldset className="tools-db-types" disabled={!ddl}>
+                <legend>Object types</legend>
+                <div className="tools-db-types-list">
+                    {OBJECT_TYPES.map((item) => (
+                        <label key={item.id} className="tools-check">
+                            <input
+                                type="checkbox"
+                                checked={objectTypes.includes(item.id)}
+                                onChange={(event) => toggleType(item.id, event.target.checked)}
+                            />{' '}
+                            {item.label}
+                        </label>
+                    ))}
+                </div>
+                <div className="tools-db-types-actions">
+                    <button type="button" className="tools-db-link" onClick={() => setObjectTypes(ALL_OBJECT_TYPES)}>
+                        All
+                    </button>
+                    <button type="button" className="tools-db-link" onClick={() => setObjectTypes([])}>
+                        None
+                    </button>
+                </div>
+            </fieldset>
+
+            {job && job.state === 'waiting' && (
+                <ConsentPanel
+                    job={job}
+                    busy={answering}
+                    onConfirm={(skipLarge) => void answer(() => clashApi.confirm(job.id, skipLarge))}
+                    onCancel={() => void answer(() => clashApi.stop(job.id))}
+                />
+            )}
+
+            {job && (job.state === 'analyzing' || job.state === 'running') && (
+                <CompareProgressPanel
+                    job={job}
+                    unreachable={unreachable}
+                    onStop={() => void answer(() => clashApi.stop(job.id))}
+                />
+            )}
+
+            {job?.state === 'stopped' && (
                 <p className="tools-db-note" role="status">
-                    Hashing every table can take a while on large schemas. Use a name filter to compare fewer.
+                    {job.error ?? 'The comparison was stopped.'}
                 </p>
+            )}
+
+            {job?.state === 'failed' && (
+                <div className="entropy-alert entropy-alert-error" role="alert">
+                    <AlertCircle size={16} />
+                    <span>{job.error}</span>
+                </div>
             )}
 
             {error && (
@@ -426,7 +746,7 @@ export default function DatabaseCompare() {
                 </div>
             )}
 
-            {!result && !running && !error && (
+            {!result && !job && !starting && !error && (
                 <div className="tools-empty">
                     <Database size={22} aria-hidden="true" />
                     <strong>Choose two schemas to compare</strong>
@@ -441,6 +761,15 @@ export default function DatabaseCompare() {
                             items={view === 'ddl' ? result.ddl ?? [] : result.data ?? []}
                             label={view === 'ddl' ? 'objects' : 'tables'}
                         />
+                        <button
+                            type="button"
+                            className="entropy-button entropy-button-secondary entropy-button-sm"
+                            disabled={exporting || !job}
+                            onClick={() => void exportReport()}
+                        >
+                            {exporting ? <LoaderCircle size={14} className="entropy-spin" /> : <FileDown size={14} />}
+                            Export report (HTML)
+                        </button>
                         <div className="tools-segmented" role="group" aria-label="Show">
                             {result.ddl && result.data && (
                                 <>

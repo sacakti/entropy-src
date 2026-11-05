@@ -4,14 +4,18 @@ Clash: compare one schema in two Oracle databases.
 Credentials come from the project's Vault, as JSON with username and password (the form
 sqlplus.generic takes), and need vault.read there: whoever may compare could already sign
 in to those databases with those credentials. A vault value never goes back to the browser.
+
+A comparison runs in the background (lib/tools/clash/jobs.py): starting one answers at once,
+and only the person who started it can follow it, in the project it started in.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+import re
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from core.web.projects import current_project
@@ -21,9 +25,11 @@ from lib.models.users import User
 from lib.tools.clash.database import (
     DatabaseCompareError,
     Endpoint,
-    compare,
+    check_options,
     compare_rows,
 )
+from lib.tools.clash.jobs import JOBS, CompareBusy, CompareJob
+from lib.tools.clash.report import render_report
 from lib.vault.exceptions import VaultError
 
 router = APIRouter(prefix="/api/clash/database", tags=["clash"])
@@ -46,6 +52,11 @@ class CompareRequest(BaseModel):
     ddl: bool = True
     data: bool = True
     name_filter: Optional[str] = Field(default=None, max_length=128)
+    object_types: Optional[List[str]] = Field(default=None, max_length=32)
+
+
+class ConfirmRequest(BaseModel):
+    skip_large: bool = False
 
 
 class RowsRequest(BaseModel):
@@ -98,13 +109,33 @@ def _project_id(request: Request, user: User) -> int:
     return int(current_project(request, user)["id"])
 
 
-@router.post("/compare", dependencies=[Depends(verify_csrf)])
-def compare_schemas(
+def _job(request: Request, user: User, job_id: str) -> CompareJob:
+    """This person's comparison in the current project; anyone else's does not exist."""
+
+    job = JOBS.current(int(user.id or 0), _project_id(request, user))
+    if job is None or job.id != job_id:
+        raise HTTPException(status_code=404, detail="That comparison is no longer available.")
+    return job
+
+
+def _notifier(request: Request) -> Any:
+    from lib.database.repositories.notifications import notify_user
+
+    context = request.app.state.entropy_context
+
+    def notify(user_id: int, title: str, message: str, level: str, source: str) -> None:
+        notify_user(context, user_id, title, message, level, source)
+
+    return notify
+
+
+@router.post("/compare", status_code=202, dependencies=[Depends(verify_csrf)])
+def start_compare(
     payload: CompareRequest,
     request: Request,
     record: SessionRecord = Depends(_current_session),  # noqa: B008
 ) -> Dict[str, Any]:
-    """Compare DDL and table data: counts and hashes only, no rows."""
+    """Start comparing DDL and table data (counts and hashes only, no rows) in the background."""
 
     _, _, user = record
     project_id = _project_id(request, user)
@@ -113,15 +144,127 @@ def compare_schemas(
         raise HTTPException(status_code=422, detail="Choose DDL, data or both.")
 
     try:
-        return compare(
-            _endpoint(request, user, project_id, payload.left),
-            _endpoint(request, user, project_id, payload.right),
+        check_options(
+            include_data=payload.data,
+            name_filter=payload.name_filter or None,
+            object_types=payload.object_types,
+        )
+        job = JOBS.start(
+            user_id=int(user.id or 0),
+            project_id=project_id,
+            left=_endpoint(request, user, project_id, payload.left),
+            right=_endpoint(request, user, project_id, payload.right),
+            sides={"left": payload.left.model_dump(), "right": payload.right.model_dump()},
             include_ddl=payload.ddl,
             include_data=payload.data,
             name_filter=payload.name_filter or None,
+            object_types=payload.object_types,
+            notify=_notifier(request),
         )
+    except CompareBusy as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     except DatabaseCompareError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
+
+    return job.snapshot()
+
+
+@router.get("/compare/current")
+def current_compare(
+    request: Request,
+    record: SessionRecord = Depends(_current_session),  # noqa: B008
+) -> Dict[str, Any]:
+    """This person's latest comparison in this project, so a page can pick it up again."""
+
+    _, _, user = record
+    job = JOBS.current(int(user.id or 0), _project_id(request, user))
+    return {"job": job.snapshot() if job else None}
+
+
+@router.get("/compare/{job_id}")
+def compare_status(
+    job_id: str,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),  # noqa: B008
+) -> Dict[str, Any]:
+    """How far a comparison has come."""
+
+    return _job(request, record[2], job_id).snapshot()
+
+
+@router.post("/compare/{job_id}/confirm", dependencies=[Depends(verify_csrf)])
+def confirm_compare(
+    job_id: str,
+    payload: ConfirmRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),  # noqa: B008
+) -> Dict[str, Any]:
+    """Go ahead with a comparison that waits for consent, with or without its large tables."""
+
+    job = _job(request, record[2], job_id)
+    try:
+        job.confirm(payload.skip_large)
+    except DatabaseCompareError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    return job.snapshot()
+
+
+@router.post("/compare/{job_id}/stop", dependencies=[Depends(verify_csrf)])
+def stop_compare(
+    job_id: str,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),  # noqa: B008
+) -> Dict[str, Any]:
+    """Stop a comparison: at once if it is waiting, otherwise after the current batch."""
+
+    job = _job(request, record[2], job_id)
+    job.stop()
+    return job.snapshot()
+
+
+def _finished(request: Request, user: User, job_id: str) -> CompareJob:
+    job = _job(request, user, job_id)
+    if job.result is None:
+        raise HTTPException(status_code=409, detail="This comparison has no result yet.")
+    return job
+
+
+@router.get("/compare/{job_id}/result")
+def compare_result(
+    job_id: str,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),  # noqa: B008
+) -> Dict[str, Any]:
+    """The result of a finished comparison."""
+
+    result = _finished(request, record[2], job_id).result
+    assert result is not None  # nosec B101 - _finished checked it
+    return result
+
+
+@router.get("/compare/{job_id}/report")
+def compare_report(
+    job_id: str,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),  # noqa: B008
+) -> Response:
+    """The result as a self-contained HTML file."""
+
+    job = _finished(request, record[2], job_id)
+    assert job.result is not None  # nosec B101 - _finished checked it
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", f"database-compare-{job.left_label}-{job.right_label}")
+    return Response(
+        content=render_report(
+            job.result,
+            name_filter=job.name_filter,
+            object_types=job.object_types,
+        ),
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}.html"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.post("/rows", dependencies=[Depends(verify_csrf)])
