@@ -1,6 +1,7 @@
-import { lazy, Suspense, useState, type ComponentType, type LazyExoticComponent } from 'react'
+import { lazy, Suspense, useEffect, useState, type ComponentType, type LazyExoticComponent } from 'react'
 import { Database, FileDiff, FolderTree, GitCompareArrows } from 'lucide-react'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { isDatabaseCompareHash } from './clashNavigation'
 
 type CompareMode = 'text' | 'file' | 'folder' | 'database'
 const MODES: { id: CompareMode; label: string; icon: typeof GitCompareArrows; component: LazyExoticComponent<ComponentType> }[] = [
@@ -11,9 +12,18 @@ const MODES: { id: CompareMode; label: string; icon: typeof GitCompareArrows; co
 ]
 
 export default function Clash() {
-    const [mode, setMode] = useState<CompareMode>('text')
+    const [mode, setMode] = useState<CompareMode>(() => (isDatabaseCompareHash(window.location.hash) ? 'database' : 'text'))
     const activeMode = MODES.find((item) => item.id === mode) ?? MODES[0]
     const CompareTool = activeMode.component
+
+    // Vision and the bell point here while Clash may already be open on another mode.
+    useEffect(() => {
+        const follow = () => {
+            if (isDatabaseCompareHash(window.location.hash)) setMode('database')
+        }
+        window.addEventListener('popstate', follow)
+        return () => window.removeEventListener('popstate', follow)
+    }, [])
 
     return <section className="tools-clash">
         <div className="tools-clash-tabs" role="tablist" aria-label="Compare type">

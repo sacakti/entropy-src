@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Bell, CheckCircle2, CircleX, LoaderCircle, Megaphone, type LucideIcon } from 'lucide-react'
 
 import type { AppNotification, NotificationLevel } from '../../api/notifications.api'
+import { compareLabel, type ClashCompareBrief } from '../../api/clash.api'
 import { runsApi, type Run } from '../../api/runs.api'
 import { databaseSwitchDetail, databaseSwitchLabel, visionApi, type DatabaseSwitch, type VisionBroadcast } from '../../api/vision.api'
 import { openRun, runIdFromHash } from '../../features/runs/navigation'
+import { openDatabaseCompare } from '../../features/tools/clashNavigation'
 import { openTask } from '../../features/tools/tasks/navigation'
 import { subscribeVision, VISION_REFRESH_EVENT } from '../../features/vision/bus'
 import { summarizeRuns, type RunsLevel } from '../../features/vision/runs'
@@ -22,6 +24,7 @@ const MAX_QUEUED_FLASHES = 3
 const MAX_ACTIVITIES = 25
 const STATUS_POLL_MS = 10_000
 const SWITCH_POLL_MS = 1_000
+const COMPARE_POLL_MS = 2_000
 
 const LEVEL_ICONS: Record<NotificationLevel, LucideIcon> = {
     info: Bell,
@@ -136,10 +139,15 @@ function storedClearedUpTo(username: string): number {
 function follow(notification: AppNotification): void {
     if (notification.source?.startsWith('run:')) openRun(Number(notification.source.slice(4)))
     else if (notification.source?.startsWith('task:')) openTask(Number(notification.source.slice(5)))
+    else if (notification.source?.startsWith('clash:')) openDatabaseCompare()
 }
 
 function canFollow(notification: AppNotification): boolean {
-    return Boolean(notification.source?.startsWith('run:') || notification.source?.startsWith('task:'))
+    return Boolean(
+        notification.source?.startsWith('run:') ||
+            notification.source?.startsWith('task:') ||
+            notification.source?.startsWith('clash:'),
+    )
 }
 
 function dismissedStorageKey(username: string): string {
@@ -167,12 +175,13 @@ function goToWaitingRun(id: number): void {
 }
 
 /** Whether Vision is on, and the messages for everyone; during an outage the last ones stay. */
-function useVisionStatus(): { enabled: boolean | null; broadcasts: VisionBroadcast[]; database_switch?: DatabaseSwitch | null; project_activity: boolean } {
+function useVisionStatus(): { enabled: boolean | null; broadcasts: VisionBroadcast[]; database_switch?: DatabaseSwitch | null; clash_compare?: ClashCompareBrief | null; project_activity: boolean } {
     const [status, setStatus] = useState<{
         enabled: boolean | null
         broadcasts: VisionBroadcast[]
         project_activity: boolean
         database_switch?: DatabaseSwitch | null
+        clash_compare?: ClashCompareBrief | null
     }>({
         enabled: null,
         broadcasts: [],
@@ -219,6 +228,14 @@ function useVisionStatus(): { enabled: boolean | null; broadcasts: VisionBroadca
         return () => window.clearInterval(timer)
     }, [switching])
 
+    // No poll of its own: a comparison under way only makes this status read more often.
+    const comparing = status.clash_compare?.state === 'analyzing' || status.clash_compare?.state === 'running'
+    useEffect(() => {
+        if (!comparing) return
+        const timer = window.setInterval(() => window.dispatchEvent(new Event(VISION_REFRESH_EVENT)), COMPARE_POLL_MS)
+        return () => window.clearInterval(timer)
+    }, [comparing])
+
     return status
 }
 
@@ -232,9 +249,9 @@ type VisionProps = {
 
 /** Nothing at all while an administrator has Vision turned off. */
 export default function Vision(props: VisionProps) {
-    const { enabled, broadcasts, database_switch: databaseSwitch, project_activity: projectActivity } = useVisionStatus()
+    const { enabled, broadcasts, database_switch: databaseSwitch, clash_compare: compare, project_activity: projectActivity } = useVisionStatus()
     return enabled ? <VisionIsland {...props} broadcasts={broadcasts}
-            databaseSwitch={databaseSwitch ?? null} projectActivity={projectActivity} /> : null
+            databaseSwitch={databaseSwitch ?? null} compare={compare ?? null} projectActivity={projectActivity} /> : null
 }
 
 /**
@@ -250,8 +267,9 @@ function VisionIsland({
     onRefreshNotifications,
     broadcasts,
     databaseSwitch,
+    compare,
     projectActivity,
-}: VisionProps & { broadcasts: VisionBroadcast[]; databaseSwitch: DatabaseSwitch | null; projectActivity: boolean }) {
+}: VisionProps & { broadcasts: VisionBroadcast[]; databaseSwitch: DatabaseSwitch | null; compare: ClashCompareBrief | null; projectActivity: boolean }) {
     const runs = useActiveRuns(onRefreshNotifications)
     const activity = summarizeRuns(runs, username, projectActivity)
     const [open, setOpen] = useState(false)
@@ -263,6 +281,14 @@ function VisionIsland({
     // What modules reported on this page (their toasts); gone on reload, like the toasts.
     const [reported, setReported] = useState<AppNotification[]>([])
     const [reportedFlashes, setReportedFlashes] = useState<AppNotification[]>([])
+
+    // A comparison that just ended has left a message: show it now, not at the next poll.
+    const comparing = compare !== null
+    const wasComparing = useRef(comparing)
+    useEffect(() => {
+        if (wasComparing.current && !comparing) onRefreshNotifications()
+        wasComparing.current = comparing
+    }, [comparing, onRefreshNotifications])
 
     useEffect(() => {
         let nextId = 0
@@ -316,6 +342,9 @@ function VisionIsland({
     const announcements = broadcasts.filter((item) => !dismissed.includes(item.id))
     const announcement = announcements[0] ?? null
     const flashing = summary || flash !== null
+    // What waits on this person's own run still comes first.
+    const showCompare = compare !== null && activity.level !== 'waiting'
+    const compareWaiting = showCompare && compare.state === 'waiting'
     // A message passes; what everyone must know comes next; then what needs this person.
     const level: NotificationLevel | RunsLevel = summary
         ? 'info'
@@ -325,7 +354,11 @@ function VisionIsland({
             ? 'running'
             : announcement
               ? announcement.level
-              : activity.level
+              : compareWaiting
+                ? 'waiting'
+                : showCompare
+                  ? 'running'
+                  : activity.level
     const FlashIcon = flash ? LEVEL_ICONS[flash.level] : Bell
 
     const onClick = () => {
@@ -338,6 +371,9 @@ function VisionIsland({
         }
         if (flashKey !== null) {
             endFlash(serverEnd, reportedEnd)
+        } else if (!announcement && compareWaiting) {
+            openDatabaseCompare()
+            return
         } else if (!announcement && activity.open !== null) {
             goToWaitingRun(activity.open)
             return
@@ -431,6 +467,16 @@ function VisionIsland({
                         <Megaphone size={14} aria-hidden="true" />
                         <span className="vision-text"><strong>{announcement.message}</strong></span>
                     </>
+                ) : compareWaiting ? (
+                    <>
+                        <AlertTriangle size={14} aria-hidden="true" />
+                        <span className="vision-text"><strong>{compareLabel(compare)}</strong></span>
+                    </>
+                ) : showCompare ? (
+                    <>
+                        <VisionMark live />
+                        <span className="vision-text"><strong>{compareLabel(compare)}</strong></span>
+                    </>
                 ) : activity.level === 'waiting' || activity.level === 'waiting-others' ? (
                     <>
                         <AlertTriangle size={14} aria-hidden="true" />
@@ -453,7 +499,9 @@ function VisionIsland({
             <span className="vision-announce" role="status" aria-live="polite">
                 {summary
                     ? `${queued} new messages`
-                    : flash?.title ?? announcement?.message ?? (activity.level.startsWith('waiting') ? activity.label : '')}
+                    : flash?.title ??
+                      announcement?.message ??
+                      (compareWaiting ? compareLabel(compare) : activity.level.startsWith('waiting') ? activity.label : '')}
             </span>
 
             <FloatingMenu anchorRef={triggerRef} open={open} onClose={() => setOpen(false)} className="topbar-create-menu vision-menu">
@@ -482,6 +530,33 @@ function VisionIsland({
                         </div>
                     </div>
                 ))}
+
+                {compare && (
+                    <>
+                        <span className="topbar-create-label">Database compare</span>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                                setOpen(false)
+                                openDatabaseCompare()
+                            }}
+                        >
+                            {compare.state === 'waiting' ? (
+                                <AlertTriangle size={15} className="vision-level is-warning" aria-hidden="true" />
+                            ) : (
+                                <LoaderCircle size={15} className="entropy-spin" aria-hidden="true" />
+                            )}
+                            <span className="vision-item">
+                                <strong>{compareLabel(compare)}</strong>
+                                <small>
+                                    {compare.left} and {compare.right}
+                                    {compare.current ? ` · ${compare.current}` : ''}
+                                </small>
+                            </span>
+                        </button>
+                    </>
+                )}
 
                 <span className="topbar-create-label">Your runs</span>
                 {activity.mine.length ? (

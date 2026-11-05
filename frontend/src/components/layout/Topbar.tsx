@@ -23,6 +23,7 @@ import type { AppNotification } from '../../api/notifications.api'
 import type { Profile } from '../../api/profile.api'
 import { requestCreate } from '../../features/quickCreate'
 import { openRun } from '../../features/runs/navigation'
+import { openDatabaseCompare } from '../../features/tools/clashNavigation'
 import { openTask } from '../../features/tools/tasks/navigation'
 import Avatar from '../../features/settings/Avatar'
 import type { PageId } from '../../types/navigation'
@@ -324,6 +325,20 @@ export default function Topbar({
                                                         }}
                                                     >
                                                         Open run
+                                                    </button>
+                                                )}
+
+                                                {notification.source?.startsWith('clash:') && (
+                                                    <button
+                                                        type="button"
+                                                        className="notification-link"
+                                                        onClick={() => {
+                                                            setNotificationsOpen(false)
+                                                            openDatabaseCompare()
+                                                            if (!notification.read) onMarkNotificationRead(notification.id)
+                                                        }}
+                                                    >
+                                                        Open comparison
                                                     </button>
                                                 )}
 

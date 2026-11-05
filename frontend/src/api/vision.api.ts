@@ -1,4 +1,5 @@
 import { apiRequest } from '../services/api'
+import type { ClashCompareBrief } from './clash.api'
 
 export type BroadcastLevel = 'info' | 'warning' | 'error'
 
@@ -50,6 +51,8 @@ export interface VisionStatus {
     /** The current project shows its members each other's runs, not only their own. */
     project_activity: boolean
     database_switch?: DatabaseSwitch | null
+    /** This person's database comparison under way in this project. */
+    clash_compare?: ClashCompareBrief | null
 }
 
 const BASE = '/api/vision'

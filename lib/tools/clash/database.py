@@ -6,6 +6,11 @@ system-generated constraint name is not reported as a difference. Data is compar
 a row count and a hash per table, so no row leaves the database until someone opens a
 table; `compare_rows` then reads up to MAX_ROWS rows from each side.
 
+Work runs in small batches, each with its own SQL*Plus connection and time limit, so
+progress can be reported and stopping takes effect between batches. Each batch has its own
+read-only snapshot. `estimate_data` reads the optimizer's row statistics, without touching
+a table, so someone can decide before a long comparison starts.
+
 Everything sent to SQL*Plus is generated here and only reads. The password goes through
 stdin, never the command line. Names and passwords are checked first, because a script
 is plain text.
@@ -67,7 +72,18 @@ COMPARABLE_TYPES = (
 MAX_HASHED_COLUMNS = 360
 MAX_ROWS = 5000
 MAX_REPORTED_ROWS = 500
+# For one batch, on one side.
 TIMEOUT_SECONDS = 1800
+
+DDL_BATCH_OBJECTS = 100
+HASH_BATCH_TABLES = 25
+# A table this size, or one with no statistics, is hashed alone so progress keeps moving.
+HASH_BATCH_ROWS = 1_000_000
+
+# Past this, or with tables of unknown size, someone agrees before data is compared.
+CONSENT_ROWS = 1_000_000
+LARGE_TABLE_ROWS = 1_000_000
+MAX_LISTED_TABLES = 20
 
 _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_$#]{0,127}$")
 _HOST = re.compile(r"^[A-Za-z0-9._:\[\]-]{1,255}$")
@@ -75,12 +91,32 @@ _SID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 _FILTER = re.compile(r"^[A-Za-z0-9_$#%]{1,128}$")
 _ERROR_START = re.compile(r"^(ERROR( at line \d+)?:|ORA-\d+:|SP2-\d+:)")
 _ERROR_LINE = re.compile(r"^(ORA-\d+:|SP2-\d+:).*$", re.MULTILINE)
+# A statement Oracle refuses to parse: SQL*Plus prints its line, a "*", then the error.
+_ECHOED_ERROR = re.compile(r"^\s*\*\s*\nERROR at line \d+:\s*\n(ORA-\d+:.*)$", re.MULTILINE)
+_HASH_VALUE = re.compile(r"^V\|(\d+)\|(\S*)\s*$", re.MULTILINE)
 _SYSTEM_NAME = re.compile(r'"SYS_(C|IL|LOB|NC|FK)[0-9A-Z$_]*"')
 _SEQUENCE_START = re.compile(r"\s+START WITH \d+")
 
 
 class DatabaseCompareError(EntropyException):
     """The comparison could not run; the message is safe to show."""
+
+
+class CompareStopped(DatabaseCompareError):
+    """Someone stopped the comparison."""
+
+
+class CompareProgress:
+    """Told how a comparison moves; `step` may raise CompareStopped. By default, nothing."""
+
+    def begin(self, phase: str, total: int, rows_total: int = 0) -> None:
+        """A phase starts with this many items (and estimated rows)."""
+
+    def step(self, current: str) -> None:
+        """The next batch starts, named by `current`."""
+
+    def advance(self, items: int, rows: int = 0) -> None:
+        """A batch finished."""
 
 
 @dataclass(frozen=True)
@@ -216,6 +252,9 @@ def _sections(output: str, marker: str) -> Iterable[Tuple[str, str]]:
 def _section_error(text: str) -> Optional[str]:
     """The error of a section that failed, which starts with the error."""
 
+    echoed = _ECHOED_ERROR.search(text)
+    if echoed:
+        return echoed.group(1)
     stripped = text.strip()
     if not _ERROR_START.match(stripped):
         return None
@@ -247,10 +286,13 @@ def normalize_ddl(text: str, owner: str, object_type: str = "") -> str:
 
 
 def list_objects(
-    endpoint: Endpoint, name_filter: Optional[str], run: Runner
+    endpoint: Endpoint,
+    name_filter: Optional[str],
+    run: Runner,
+    object_types: Optional[Sequence[str]] = None,
 ) -> List[Tuple[str, str]]:
     marker = f"#{secrets.token_hex(8)}#"
-    types = ", ".join(_literal(item) for item in OBJECT_TYPES)
+    types = ", ".join(_literal(item) for item in (object_types or OBJECT_TYPES))
     pattern = f" AND object_name LIKE {_literal(name_filter.upper())}" if name_filter else ""
     output = run(
         endpoint,
@@ -308,21 +350,57 @@ def read_ddl(
     return result
 
 
-def compare_ddl(
-    left: Endpoint, right: Endpoint, name_filter: Optional[str], run: Runner
-) -> List[Dict[str, Any]]:
-    left_objects, right_objects = _on_both(
-        left, right, lambda side: list_objects(side, name_filter, run)
-    )
-    left_ddl, right_ddl = _on_both(
+def _read_ddl_batch(
+    left: Endpoint,
+    right: Endpoint,
+    wanted_left: Sequence[Tuple[str, str]],
+    wanted_right: Sequence[Tuple[str, str]],
+    run: Runner,
+) -> Tuple[Any, Any]:
+    return _on_both(
         left,
         right,
-        lambda side: read_ddl(side, left_objects if side is left else right_objects, run),
+        lambda side: read_ddl(side, wanted_left if side is left else wanted_right, run),
     )
+
+
+def compare_ddl(
+    left: Endpoint,
+    right: Endpoint,
+    name_filter: Optional[str],
+    run: Runner,
+    object_types: Optional[Sequence[str]] = None,
+    progress: Optional[CompareProgress] = None,
+) -> List[Dict[str, Any]]:
+    progress = progress or CompareProgress()
+    listed_left, listed_right = _on_both(
+        left, right, lambda side: list_objects(side, name_filter, run, object_types)
+    )
+    left_objects, right_objects = set(listed_left), set(listed_right)
+    keys = sorted(left_objects | right_objects)
+    left_ddl: Dict[Tuple[str, str], Dict[str, str]] = {}
+    right_ddl: Dict[Tuple[str, str], Dict[str, str]] = {}
+
+    progress.begin("ddl", len(keys))
+
+    for start in range(0, len(keys), DDL_BATCH_OBJECTS):
+        batch = keys[start : start + DDL_BATCH_OBJECTS]
+        progress.step(batch[0][1])
+        wanted_left = [key for key in batch if key in left_objects]
+        wanted_right = [key for key in batch if key in right_objects]
+        try:
+            one, other = _read_ddl_batch(left, right, wanted_left, wanted_right, run)
+        except DatabaseCompareError as exc:
+            # Say which objects were not read, and carry on with the others.
+            one = {key: {"error": str(exc)} for key in wanted_left}
+            other = {key: {"error": str(exc)} for key in wanted_right}
+        left_ddl.update(one)
+        right_ddl.update(other)
+        progress.advance(len(batch))
 
     items: List[Dict[str, Any]] = []
 
-    for key in sorted(set(left_objects) | set(right_objects)):
+    for key in keys:
         one, other = left_ddl.get(key), right_ddl.get(key)
         item: Dict[str, Any] = {"type": key[0], "name": key[1]}
 
@@ -357,7 +435,10 @@ def _is_comparable(data_type: str) -> bool:
 def read_tables(
     endpoint: Endpoint, name_filter: Optional[str], run: Runner
 ) -> Dict[str, Dict[str, Any]]:
-    """Each table's columns ({name: type}) and primary key columns, in order."""
+    """
+    Each table's columns ({name: type}), primary key columns in order, and the row count
+    from its optimizer statistics (None without any; it may be out of date).
+    """
 
     marker = f"#{secrets.token_hex(8)}#"
     owner = _literal(endpoint.owner)
@@ -374,7 +455,10 @@ SELECT {_literal(marker)} || 'K|' || k.table_name || '|' || k.column_name
 FROM all_constraints p JOIN all_cons_columns k
   ON k.owner = p.owner AND k.constraint_name = p.constraint_name
 WHERE p.owner = {owner} AND p.constraint_type = 'P'
-ORDER BY k.table_name, k.position;""",
+ORDER BY k.table_name, k.position;
+SELECT {_literal(marker)} || 'R|' || t.table_name || '|' || t.num_rows
+FROM all_tables t
+WHERE t.owner = {owner}{pattern};""",
     )
 
     tables: Dict[str, Dict[str, Any]] = {}
@@ -384,10 +468,12 @@ ORDER BY k.table_name, k.position;""",
             continue
         fields = line[len(marker) :].strip().split("|")
         if fields[0] == "C" and len(fields) == 4:
-            table = tables.setdefault(fields[1], {"columns": {}, "key": []})
+            table = tables.setdefault(fields[1], {"columns": {}, "key": [], "rows": None})
             table["columns"][fields[2]] = fields[3]
         elif fields[0] == "K" and len(fields) == 3 and fields[1] in tables:
             tables[fields[1]]["key"].append(fields[2])
+        elif fields[0] == "R" and len(fields) == 3 and fields[1] in tables and fields[2]:
+            tables[fields[1]]["rows"] = int(fields[2])
 
     return tables
 
@@ -432,19 +518,86 @@ def read_hashes(
         if error:
             result[table] = {"error": error}
             continue
-        _, _, values = text.strip().partition("V|")
-        count, _, digest = values.partition("|")
-        result[table] = {"rows": int(count), "hash": digest.strip()}
+        found = _HASH_VALUE.search(text)
+        if not found:
+            result[table] = {"error": "The table could not be read."}
+            continue
+        result[table] = {"rows": int(found.group(1)), "hash": found.group(2)}
 
     return result
 
 
+def _estimated_rows(one: Dict[str, Any], other: Dict[str, Any]) -> Optional[int]:
+    """The larger side's statistics, or None if either side has none."""
+
+    first, second = one.get("rows"), other.get("rows")
+    return None if first is None or second is None else max(int(first), int(second))
+
+
+def estimate_data(
+    left_tables: Dict[str, Dict[str, Any]], right_tables: Dict[str, Dict[str, Any]]
+) -> Dict[str, Any]:
+    """How much hashing the tables on both sides would mean, from their statistics."""
+
+    estimates = {
+        name: _estimated_rows(left_tables[name], right_tables[name])
+        for name in sorted(set(left_tables) & set(right_tables))
+    }
+    known = {name: rows for name, rows in estimates.items() if rows is not None}
+    unknown = [name for name, rows in estimates.items() if rows is None]
+    total = sum(known.values())
+    large = [name for name, rows in known.items() if rows >= LARGE_TABLE_ROWS]
+    largest = sorted(known.items(), key=lambda item: (-item[1], item[0]))[:MAX_LISTED_TABLES]
+
+    return {
+        "tables": len(estimates),
+        "rows": total,
+        "largest": [{"table": name, "rows": rows} for name, rows in largest],
+        "unknown": unknown[:MAX_LISTED_TABLES],
+        "unknown_count": len(unknown),
+        "large_count": len(large),
+        "skippable": large + unknown,
+        "needs_consent": total >= CONSENT_ROWS or bool(unknown),
+    }
+
+
+def _read_hash_batch(
+    left: Endpoint, right: Endpoint, wanted: Dict[str, List[str]], run: Runner
+) -> Tuple[Any, Any]:
+    return _on_both(left, right, lambda side: read_hashes(side, wanted, run))
+
+
+def _batches(weights: Dict[str, int]) -> Iterable[List[str]]:
+    """Names in order, grouped so no batch is much more than HASH_BATCH_ROWS rows."""
+
+    batch: List[str] = []
+    rows = 0
+
+    for name, weight in weights.items():
+        if batch and (len(batch) >= HASH_BATCH_TABLES or rows + weight > HASH_BATCH_ROWS):
+            yield batch
+            batch, rows = [], 0
+        batch.append(name)
+        rows += weight
+
+    if batch:
+        yield batch
+
+
 def compare_data(
-    left: Endpoint, right: Endpoint, name_filter: Optional[str], run: Runner
+    left: Endpoint,
+    right: Endpoint,
+    name_filter: Optional[str],
+    run: Runner,
+    tables: Optional[Tuple[Dict[str, Any], Dict[str, Any]]] = None,
+    skip_tables: Sequence[str] = (),
+    progress: Optional[CompareProgress] = None,
 ) -> List[Dict[str, Any]]:
-    left_tables, right_tables = _on_both(
+    progress = progress or CompareProgress()
+    left_tables, right_tables = tables or _on_both(
         left, right, lambda side: read_tables(side, name_filter, run)
     )
+    skipped = set(skip_tables)
 
     items: Dict[str, Dict[str, Any]] = {}
     hashed: Dict[str, List[str]] = {}
@@ -477,7 +630,11 @@ def compare_data(
             ],
         }
 
-        if not shared:
+        if name in skipped:
+            estimate = _estimated_rows(left_tables[name], right_tables[name])
+            size = "unknown size" if estimate is None else f"about {estimate:,} rows"
+            items[name].update(status="not_compared", error=f"Skipped: {size}.")
+        elif not shared:
             items[name].update(status="not_compared", error="No column can be compared.")
         elif len(shared) > MAX_HASHED_COLUMNS:
             items[name].update(
@@ -487,7 +644,27 @@ def compare_data(
         else:
             hashed[name] = shared
 
-    left_hashes, right_hashes = _on_both(left, right, lambda side: read_hashes(side, hashed, run))
+    estimates = {name: _estimated_rows(left_tables[name], right_tables[name]) for name in hashed}
+    weights = {
+        name: HASH_BATCH_ROWS if estimate is None else estimate
+        for name, estimate in estimates.items()
+    }
+    left_hashes: Dict[str, Dict[str, Any]] = {}
+    right_hashes: Dict[str, Dict[str, Any]] = {}
+
+    progress.begin("data", len(hashed), sum(rows or 0 for rows in estimates.values()))
+
+    for batch in _batches(weights):
+        progress.step(batch[0])
+        wanted = {name: hashed[name] for name in batch}
+        try:
+            one, other = _read_hash_batch(left, right, wanted, run)
+        except DatabaseCompareError as exc:
+            # A table that ran out of time does not lose the others' results.
+            one = other = {name: {"error": str(exc)} for name in batch}
+        left_hashes.update(one)
+        right_hashes.update(other)
+        progress.advance(len(batch), sum(estimates[name] or 0 for name in batch))
 
     for name in hashed:
         one, other = left_hashes.get(name, {}), right_hashes.get(name, {})
@@ -666,6 +843,33 @@ def compare_rows(
 # ----------------------------------------------------------------------
 
 
+def check_options(
+    *,
+    include_data: bool = True,
+    name_filter: Optional[str] = None,
+    object_types: Optional[Sequence[str]] = None,
+) -> None:
+    """Refuse options that would change a script, or that can not mean anything."""
+
+    if name_filter and not _FILTER.match(name_filter):
+        raise DatabaseCompareError(
+            "The name filter can use letters, digits, '_', '$', '#' and '%'.",
+        )
+
+    if object_types is None:
+        return
+
+    if not object_types:
+        raise DatabaseCompareError("Choose at least one object type.")
+
+    unknown = [item for item in object_types if item not in OBJECT_TYPES]
+    if unknown:
+        raise DatabaseCompareError(f"Unknown object type: {', '.join(unknown)}.")
+
+    if include_data and "TABLE" not in object_types:
+        raise DatabaseCompareError("Comparing data needs the TABLE object type.")
+
+
 def compare(
     left: Endpoint,
     right: Endpoint,
@@ -673,18 +877,27 @@ def compare(
     include_ddl: bool = True,
     include_data: bool = True,
     name_filter: Optional[str] = None,
+    object_types: Optional[Sequence[str]] = None,
     run: Runner = run_sqlplus,
+    tables: Optional[Tuple[Dict[str, Any], Dict[str, Any]]] = None,
+    skip_tables: Sequence[str] = (),
+    progress: Optional[CompareProgress] = None,
 ) -> Dict[str, Any]:
     """Compare the two schemas' DDL and table data."""
 
-    if name_filter and not _FILTER.match(name_filter):
-        raise DatabaseCompareError(
-            "The name filter can use letters, digits, '_', '$', '#' and '%'.",
-        )
+    check_options(include_data=include_data, name_filter=name_filter, object_types=object_types)
 
     return {
         "left": left.label,
         "right": right.label,
-        "ddl": compare_ddl(left, right, name_filter, run) if include_ddl else None,
-        "data": compare_data(left, right, name_filter, run) if include_data else None,
+        "ddl": (
+            compare_ddl(left, right, name_filter, run, object_types, progress)
+            if include_ddl
+            else None
+        ),
+        "data": (
+            compare_data(left, right, name_filter, run, tables, skip_tables, progress)
+            if include_data
+            else None
+        ),
     }
