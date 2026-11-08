@@ -24,7 +24,7 @@ NOTES_FILE = ROOT / "resources" / "release_notes.json"
 CHANGELOG = ROOT / "CHANGELOG.md"
 
 # Notes start at this version; every later one is kept.
-FIRST_VERSION = (3, 3, 0)
+FIRST_VERSION = (3, 0, 0)
 MAX_ITEMS_PER_SECTION = 10
 
 SECTIONS = ("Security", "New", "Improved", "Fixed")

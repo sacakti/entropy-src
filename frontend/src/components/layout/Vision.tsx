@@ -118,23 +118,6 @@ function useActiveRuns(onFastTick: () => void): Run[] {
     return runs
 }
 
-/**
- * Messages up to this id are cleared from Vision, for this user in this browser.
- * Clearing only tidies Vision: the bell keeps its history.
- */
-function clearedStorageKey(username: string): string {
-    return `entropy.vision.clearedUpTo.${username}`
-}
-
-function storedClearedUpTo(username: string): number {
-    try {
-        const value = Number(window.localStorage.getItem(clearedStorageKey(username)))
-        return Number.isFinite(value) ? value : 0
-    } catch {
-        return 0
-    }
-}
-
 /** Go where a message points, if anywhere. */
 function follow(notification: AppNotification): void {
     if (notification.source?.startsWith('run:')) openRun(Number(notification.source.slice(4)))
@@ -276,9 +259,8 @@ function VisionIsland({
     const triggerRef = useRef<HTMLButtonElement>(null)
     // Messages up to this id have been flashed, or were there when the page opened.
     const [cursor, setCursor] = useState<number | null>(null)
-    const [clearedUpTo, setClearedUpTo] = useState(() => storedClearedUpTo(username))
     const [dismissed, setDismissed] = useState(() => storedDismissed(username))
-    // What modules reported on this page (their toasts); gone on reload, like the toasts.
+    // What modules reported on this page; gone on reload. The bell keeps server messages.
     const [reported, setReported] = useState<AppNotification[]>([])
     const [reportedFlashes, setReportedFlashes] = useState<AppNotification[]>([])
 
@@ -305,10 +287,8 @@ function VisionIsland({
                 created_at: new Date().toISOString(),
             }
             setReported((current) => [entry, ...current].slice(0, MAX_ACTIVITIES))
-            // A saved form needs no spotlight; a problem does.
-            if (event.level === 'warning' || event.level === 'error') {
-                setReportedFlashes((current) => [...current, entry])
-            }
+            // Vision replaces the toast here; when a toast shows it, one is enough.
+            if (event.flash) setReportedFlashes((current) => [...current, entry])
         })
     }, [])
 
@@ -360,6 +340,9 @@ function VisionIsland({
                   ? 'running'
                   : activity.level
     const FlashIcon = flash ? LEVEL_ICONS[flash.level] : Bell
+    // Nothing to say: the island shows only its mark.
+    const idle =
+        !summary && !flash && !databaseSwitch && !announcement && !showCompare && activity.level === 'idle'
 
     const onClick = () => {
         if (flash && canFollow(flash)) {
@@ -391,24 +374,17 @@ function VisionIsland({
         }
     }
 
-    // Newest first; the bell keeps the rest of the server's messages.
-    const activities = [...notifications.filter((item) => item.id > clearedUpTo), ...reported]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, MAX_ACTIVITIES)
+    // Newest first. Only this page's messages: the bell is the one lasting history.
+    const activities = reported
 
     const clearActivities = () => {
-        const highest = notifications.reduce((value, item) => Math.max(value, item.id), clearedUpTo)
-        setClearedUpTo(highest)
         setReported([])
         // Nothing just cleared should still flash.
-        setCursor((current) => Math.max(current ?? 0, highest))
         setReportedFlashes([])
-        try {
-            window.localStorage.setItem(clearedStorageKey(username), String(highest))
-        } catch {
-            // Storage may be unavailable (private mode); it stays cleared until reload.
-        }
     }
+
+    // The whole message, for the tooltip and screen readers; the island shows one line.
+    const flashText = flash ? [flash.title, flash.message].filter(Boolean).join(': ') : ''
 
     const runRow = (run: Run, mine: boolean) => (
         <button
@@ -441,11 +417,18 @@ function VisionIsland({
             <button
                 ref={triggerRef}
                 type="button"
-                className={`vision is-${level}${flashing || announcement ? ' is-flash' : ''}`}
+                className={`vision is-${level}${flashing || announcement ? ' is-flash' : ''}${idle ? ' is-idle' : ''}`}
                 onClick={onClick}
                 aria-haspopup="menu"
                 aria-expanded={open}
-                title={announcement && !flashing ? announcement.message : 'Vision: what is running, and new messages'}
+                aria-label={idle ? 'Vision' : undefined}
+                title={
+                    flash
+                        ? flashText
+                        : announcement && !flashing
+                          ? announcement.message
+                          : 'Vision: what is running, and new messages'
+                }
             >
                 {summary ? (
                     <>
@@ -488,10 +471,8 @@ function VisionIsland({
                         <span className="vision-text"><strong>{activity.label}</strong></span>
                     </>
                 ) : (
-                    <>
-                        <VisionMark live={false} />
-                        <span className="vision-text vision-name">Vision</span>
-                    </>
+                    // Idle: the mark alone; its name is for screen readers.
+                    <VisionMark live={false} />
                 )}
             </button>
 
@@ -499,9 +480,16 @@ function VisionIsland({
             <span className="vision-announce" role="status" aria-live="polite">
                 {summary
                     ? `${queued} new messages`
-                    : flash?.title ??
-                      announcement?.message ??
-                      (compareWaiting ? compareLabel(compare) : activity.level.startsWith('waiting') ? activity.label : '')}
+                    : flash
+                      ? flash.level === 'error'
+                          ? ''
+                          : flashText
+                      : announcement?.message ??
+                        (compareWaiting ? compareLabel(compare) : activity.level.startsWith('waiting') ? activity.label : '')}
+            </span>
+            {/* Errors interrupt, as the error toasts did. */}
+            <span className="vision-announce" role="alert" aria-live="assertive">
+                {!summary && flash?.level === 'error' ? flashText : ''}
             </span>
 
             <FloatingMenu anchorRef={triggerRef} open={open} onClose={() => setOpen(false)} className="topbar-create-menu vision-menu">
@@ -573,7 +561,7 @@ function VisionIsland({
                 )}
 
                 <div className="vision-section">
-                    <span className="topbar-create-label">Recent activity</span>
+                    <span className="topbar-create-label">This session</span>
                     {activities.length > 0 && (
                         <button type="button" className="vision-clear" onClick={clearActivities}>
                             Clear
@@ -605,7 +593,7 @@ function VisionIsland({
                         )
                     })
                 ) : (
-                    <p className="vision-empty">No recent activity.</p>
+                    <p className="vision-empty">No messages yet. Notifications stay under the bell.</p>
                 )}
             </FloatingMenu>
         </>

@@ -53,6 +53,12 @@ def current_project(request: Request, user: User) -> Dict[str, Any]:
         if visible is not None and project["id"] not in visible:
             raise HTTPException(status_code=403, detail=f"You are not a member of '{wanted}'.")
         return project
+    return fallback_project(store, visible)
+
+
+def fallback_project(store: Projects, visible: Optional[Set[int]]) -> Dict[str, Any]:
+    """The project used when none (or none the user may see) was asked for."""
+
     default = store.get(DEFAULT_PROJECT)
     if default is not None and (visible is None or default["id"] in visible):
         return default

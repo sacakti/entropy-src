@@ -1,7 +1,7 @@
 {
     "name": "pod_metrics",
     "namespace": "oc",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "description": "App plugin: live CPU, memory, status and restarts of the pods in an OpenShift namespace, compared with their limits. Read-only.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
@@ -25,7 +25,7 @@
     ],
     "app": {
         "title": "Pod metrics",
-        "description": "Pods of an OpenShift namespace, refreshed live. Usage comes from the metrics API, so it is a recent sample rather than this instant.",
+        "description": "Pods of an OpenShift namespace, refreshed live. Red rows are failing, yellow rows have restarted, a green Ready is healthy. Usage comes from the metrics API, so it is a recent sample rather than this instant.",
         "refresh_seconds": 5,
         "inputs": [
             {"name": "namespace", "type": "text", "label": "Namespace", "placeholder": "Blank: the argument, else the session's project", "default": ""},
@@ -56,6 +56,22 @@
                     {"key": "memory_percent", "label": "Memory % of limit"},
                     {"key": "node", "label": "Node"},
                     {"key": "age", "label": "Age"}
+                ]
+            },
+            {
+                "name": "usage",
+                "type": "chart",
+                "title": "Graph",
+                "description": "Usage over the last 10 minutes of this page. Pick a metric, filter pods, or write a query such as: sum(memory) where pod ~ api",
+                "tab_of": "pods",
+                "series_label": "pod",
+                "max_points": 120,
+                "metrics": [
+                    {"key": "cpu", "label": "CPU (m)"},
+                    {"key": "memory", "label": "Memory (MiB)"},
+                    {"key": "cpu_percent", "label": "CPU % of limit"},
+                    {"key": "memory_percent", "label": "Memory % of limit"},
+                    {"key": "restarts", "label": "Restarts"}
                 ]
             },
             {"name": "activity", "type": "log", "title": "Activity", "max_lines": 200}

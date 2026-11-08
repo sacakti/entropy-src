@@ -69,8 +69,16 @@ def _zip(path: Path, files: Dict[str, str]) -> Path:
         ({"applications": {"A": "x"}}, "must be a mapping"),
         ({"applications": {"A": {"calling_script": "a.sql"}}}, "schema is missing"),
         ({"applications": {"A": {"schema": "S"}}}, "calling script is missing"),
-        ({"applications": {"../up": {"schema": "S", "calling_script": "a.sql"}}}, "folder name"),
-        ({"applications": {"..": {"schema": "S", "calling_script": "a.sql"}}}, "folder name"),
+        ({"applications": {"../up": {"schema": "S", "calling_script": "a.sql"}}}, "folder under"),
+        ({"applications": {"..": {"schema": "S", "calling_script": "a.sql"}}}, "folder under"),
+        (
+            {"applications": {"H01/../up": {"schema": "S", "calling_script": "a.sql"}}},
+            "folder under",
+        ),
+        (
+            {"applications": {"/H01/App1": {"schema": "S", "calling_script": "a.sql"}}},
+            "folder under",
+        ),
     ],
 )
 def test_malformed_plans_name_their_release(value: Any, message: str) -> None:
@@ -93,6 +101,21 @@ def test_a_plan_keeps_its_order_and_other_fields() -> None:
 
     assert [entry.application for entry in entries] == ["H1__B", "H1__A"]
     assert entries[0].definition() == {"note": "n", "schema": "S2", "calling_script": "b.sql"}
+
+
+def test_grouped_applications_get_one_flat_folder_each() -> None:
+    entries = parse_plan(
+        {
+            "applications": {
+                "H01/App1": {"schema": "S1", "calling_script": "c.sql"},
+                "H02\\App1": {"schema": "S2", "calling_script": "c.sql"},
+            }
+        },
+        "R1",
+    )
+
+    assert [entry.source_application for entry in entries] == ["H01/App1", "H02/App1"]
+    assert [entry.application for entry in entries] == ["R1__H01__App1", "R1__H02__App1"]
 
 
 # ----------------------------------------------------------------------
@@ -252,6 +275,69 @@ class TestPlugin:
         assert self._order() == ["H1__App1"]
         assert not (self.output / "DBScripts" / "H1__App2").exists()
         assert any("DBScripts/App2 is not in the" in warning for warning in result.warnings)
+
+    def test_grouped_applications_are_consolidated_and_resolved(self) -> None:
+        _folder(
+            self.releases / "R1",
+            {
+                "DBScripts/execution_plan.yaml": yaml.safe_dump(
+                    {
+                        "applications": {
+                            "H01/App1": {"schema": "S1", "calling_script": "call.sql"},
+                            "H02/App1": {"schema": "S2", "calling_script": "call.sql"},
+                        }
+                    },
+                    sort_keys=False,
+                ),
+                "DBScripts/H01/App1/call.sql": "@child.sql\n",
+                "DBScripts/H01/App1/child.sql": "select 1 from dual;\n",
+                "DBScripts/H02/App1/call.sql": "select 2 from dual;\n",
+                "DBScripts/H02/App3/call.sql": "select 3 from dual;\n",
+                "DBScripts/H03/App4/call.sql": "select 4 from dual;\n",
+            },
+        )
+
+        result = self._run()
+
+        assert result.success
+        assert self._order() == ["R1__H01__App1", "R1__H02__App1"]
+        assert (self.output / "DBScripts" / "R1__H01__App1" / "child.sql").is_file()
+
+        # The group folders themselves are not reported, only what the plan misses.
+        unplanned = [warning for warning in result.warnings if "is not in the" in warning]
+        assert len(unplanned) == 2
+        assert any("DBScripts/H02/App3 is not in the" in warning for warning in unplanned)
+        assert any("DBScripts/H03 is not in the" in warning for warning in unplanned)
+
+        database = self.context.outputs["database"]
+        executions = SqlPlusResolver().resolve_plan(
+            connection={"IP": "h", "PORT": 1521, "SID": "s"},
+            schemas={name: {"username": name, "password": "p"} for name in ("S1", "S2")},
+            execution_plan=database["execution_plan"],
+            scripts=database["scripts"],
+        )
+
+        assert [(item.application, item.schema) for item in executions] == [
+            ("R1__H01__App1", "S1"),
+            ("R1__H02__App1", "S2"),
+        ]
+        assert executions[1].script.read_text() == "select 2 from dual;\n"
+
+    def test_a_missing_grouped_calling_script_names_its_folder(self) -> None:
+        _folder(
+            self.releases / "R1",
+            {
+                "DBScripts/execution_plan.yaml": yaml.safe_dump(
+                    {"applications": {"H01/App1": {"schema": "S1", "calling_script": "c.sql"}}}
+                ),
+                "DBScripts/H01/App1/other.sql": "select 1 from dual;\n",
+            },
+        )
+
+        result = self._run()
+
+        assert not result.success
+        assert "DBScripts/H01/App1" in result.errors[0]["message"]
 
     def test_scripts_without_a_plan_are_left_out_with_a_warning(self) -> None:
         _folder(self.releases / "H1", {"DBScripts/App1/a.sql": "select 1 from dual;\n"})

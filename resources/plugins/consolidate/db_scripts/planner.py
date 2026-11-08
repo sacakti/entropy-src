@@ -6,7 +6,9 @@ database, so every script of every release runs, in release order, and none is
 merged, skipped or edited.
 
 Each execution of a release becomes one plan entry with its own folder,
-<release>__<application>. sqlplus.generic runs a calling script from its folder
+<release>__<application>. An application may be grouped (DBScripts/H01/App1,
+plan key 'H01/App1'); its folder is then <release>__H01__App1, so the
+consolidated package stays one level deep. sqlplus.generic runs a calling script from its folder
 in a new session under its plan's schema, so a script behaves as in its own
 release: `@file` and `@@file` find the same files, and an `exit` ends only that
 script. The plan keeps the order, including across applications.
@@ -43,7 +45,7 @@ class Entry:
 
     @property
     def application(self) -> str:
-        return f"{self.release}{SEPARATOR}{self.source_application}"
+        return SEPARATOR.join([self.release, *self.source_application.split("/")])
 
     def definition(self) -> Dict[str, Any]:
         return {**self.extra, "schema": self.schema, "calling_script": self.calling_script}
@@ -94,15 +96,21 @@ def parse_plan(plan: Any, release: str) -> List[Entry]:
 def _entry(application: Any, definition: Any, release: str) -> Entry:
     where = f"Release '{release}'"
 
+    # A folder under DBScripts: 'App1', or 'H01/App1' when applications are grouped.
+    parts = (
+        [part.strip() for part in application.replace("\\", "/").split("/")]
+        if isinstance(application, str)
+        else []
+    )
+
     if (
-        not isinstance(application, str)
-        or not application.strip()
-        or application in (".", "..")
-        or "/" in application
-        or "\\" in application
+        not parts
+        or application.startswith(("/", "\\"))
+        or any(part in ("", ".", "..") for part in parts)
     ):
         raise ConsolidationDefinitionError(
-            f"{where}: application name '{application}' must be a plain folder name."
+            f"{where}: application name '{application}' must be a folder under "
+            "DBScripts, such as 'App1' or 'H01/App1'."
         )
 
     if not isinstance(definition, dict):
@@ -124,7 +132,7 @@ def _entry(application: Any, definition: Any, release: str) -> Entry:
 
     return Entry(
         release=release,
-        source_application=str(application),
+        source_application="/".join(parts),
         schema=str(schema).strip(),
         # sqlplus.generic finds a calling script by file name in its application's folder.
         calling_script=PurePosixPath(calling_script.strip()).name,

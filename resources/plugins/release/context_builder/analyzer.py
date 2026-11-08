@@ -1753,6 +1753,11 @@ class ReleaseAnalyzer:
             scripts.append(
                 {
                     "application": path.parent.name,
+                    # Folder under DBScripts: "App1", or "H01/App1" when
+                    # applications are grouped; plan keys match this.
+                    "directory": path.parent.relative_to(
+                        database_root,
+                    ).as_posix(),
                     "script": str(path),
                 },
             )

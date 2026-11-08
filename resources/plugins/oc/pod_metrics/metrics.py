@@ -158,6 +158,8 @@ def pod_rows(
                 "pod": str(metadata.get("name")),
                 "status": phase,
                 "ready": f"{ready}/{len(containers)}",
+                "ready_count": ready,
+                "container_count": len(containers),
                 "restarts": sum(int(item.get("restartCount") or 0) for item in statuses),
                 "cpu": None if cpu is None else round(cpu, 1),
                 "cpu_limit": None if cpu_limit is None else round(cpu_limit, 1),
@@ -182,11 +184,62 @@ def pod_rows(
     return rows
 
 
+INTERNAL_KEYS = ("attention", "containers", "ready_count", "container_count")
+
+# What a container waits or stopped on when it is failing, as `oc get pods` shows it.
+FAILURE_STATUSES = {
+    "CrashLoopBackOff",
+    "Error",
+    "OOMKilled",
+    "ImagePullBackOff",
+    "ErrImagePull",
+    "CreateContainerConfigError",
+    "CreateContainerError",
+    "InvalidImageName",
+    "RunContainerError",
+}
+
+
+def pod_tone(row: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """
+    How the table marks a pod:
+    - danger (the row): failing, or not ready and it has restarted;
+    - warning (the row): ready, but it has restarted;
+    - success (only the Ready cell): ready and never restarted.
+    Anything else (starting, finished) is left plain.
+    """
+
+    total = row["container_count"]
+    ready = total > 0 and row["ready_count"] == total
+    if row["status"] in FAILURE_STATUSES or (not ready and row["restarts"] > 0):
+        return {"_tone": "danger"}
+    if ready and row["restarts"] > 0:
+        return {"_tone": "warning"}
+    if ready and row["status"] == "Running":
+        return {"_tone": "success", "_tone_column": "ready"}
+    return None
+
+
 def display_row(row: Dict[str, Any]) -> Dict[str, Any]:
     """A row for the table: no internals, and a dash where there is no value."""
 
     return {
         key: ("—" if value is None else value)
         for key, value in row.items()
-        if key not in ("attention", "containers")
+        if key not in INTERNAL_KEYS
     }
+
+
+def table_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """A table row, marked by its pod's health (see pod_tone)."""
+
+    return {**display_row(row), **(pod_tone(row) or {})}
+
+
+CHART_METRICS = ("cpu", "memory", "cpu_percent", "memory_percent", "restarts")
+
+
+def chart_values(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """One chart sample: each pod's numbers (no value where the metrics API had none)."""
+
+    return {row["pod"]: {key: row[key] for key in CHART_METRICS} for row in rows}

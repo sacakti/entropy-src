@@ -280,6 +280,35 @@ execution.execution_plan
 
 to construct actual SQLPlus executions.
 
+#### Grouped applications
+
+Applications may sit one or more folders deep under `DBScripts`. Key them in
+the execution plan by their path under `DBScripts`:
+
+```text
+DBScripts/
+    execution_plan.yaml
+    H01/App1/calling_script.sql
+    H02/App1/calling_script.sql
+```
+
+```yaml
+applications:
+  H01/App1:
+    schema: APP1
+    calling_script: calling_script.sql
+  H02/App1:
+    schema: APP1
+    calling_script: calling_script.sql
+```
+
+Each script entry carries a `directory` (its folder under `DBScripts`, e.g.
+`H01/App1`), and a plan key matches that folder exactly, so `H01/App1` and
+`H02/App1` never mix. The flat layout (`App1`) works as before; contexts
+without `directory` match on `application`. Keys must stay inside `DBScripts`
+(no `..` and no leading `/`). In spool names, `%application` uses `_` in
+place of `/` (`H01_App1`).
+
 ---
 
 ### `executions`

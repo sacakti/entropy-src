@@ -32,6 +32,23 @@ export function setCurrentProject(key: string | null): void {
     window.dispatchEvent(new Event(PROJECT_CHANGED_EVENT))
 }
 
+const OWNER_KEY = 'entropy.project.owner'
+
+/**
+ * Called once the signed-in user is known. A project chosen by someone else
+ * in this browser is dropped, so this user starts in one they can see.
+ */
+export function claimProjectFor(username: string): void {
+    let owner: string | null
+    try {
+        owner = window.localStorage.getItem(OWNER_KEY)
+        window.localStorage.setItem(OWNER_KEY, username)
+    } catch {
+        owner = null
+    }
+    if (owner !== username) setCurrentProject(null)
+}
+
 /** Dispatched on `window` after projects are created, renamed or removed. */
 export const PROJECTS_UPDATED_EVENT = 'entropy:projects-updated'
 

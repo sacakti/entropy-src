@@ -233,10 +233,13 @@ export default function StartRunDialog({
                               mode,
                           })
                     : await runsApi.startPlugin(target, node, parsed.values, debug, mode)
-            notify.success(`Run #${run.id} started on ${run.node}.`, { title: `${target} started` })
             onClose()
+            // A caller that takes over reports the start itself: one message, not two.
             if (onStarted) onStarted(run)
-            else openRun(run.id)
+            else {
+                notify.success(`Run #${run.id} started on ${run.node}.`, { title: `${target} started` })
+                openRun(run.id)
+            }
         } catch (cause) {
             setError(errorMessage(cause, 'Unable to start the run.'))
         } finally {

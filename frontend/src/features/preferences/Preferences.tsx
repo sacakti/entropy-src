@@ -33,6 +33,7 @@ import WallpaperViewer from './WallpaperViewer'
 import Memories from './Memories'
 import WallpaperPicker from './WallpaperPicker'
 import { useNotificationCenter } from '../notifications/context'
+import { messageStyle, setMessageStyle, type MessageStyle } from '../vision/bus'
 import '../../styles/Preferences.css'
 import { useErrorToast } from '../../components/feedback/useToast'
 
@@ -123,6 +124,7 @@ export default function Preferences({
     // Progress of a multi-file upload; the drop zone stays locked until done.
     const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
     const notifyCenter = useNotificationCenter()
+    const [messages, setMessages] = useState<MessageStyle>(messageStyle)
     const uploadInputRef = useRef<HTMLInputElement>(null)
     const { notify, modal } = useFeedback()
     const previewClickTimer = useRef<number | null>(null)
@@ -711,6 +713,50 @@ export default function Preferences({
                             <strong>{option.title}</strong>
                             <small>{option.text}</small>
                             {glass === option.value && <Check className="theme-check" size={16} />}
+                        </button>
+                    ))}
+                </div>
+            </section>
+
+            {/* Where short messages appear */}
+            <section className="settings-section glass-section">
+                <div className="settings-section-heading">
+                    <h3>Messages</h3>
+                    <p>
+                        Choose where results like &ldquo;Saved&rdquo; or an error appear. The bell keeps
+                        notifications either way.
+                    </p>
+                </div>
+
+                <div className="glass-options" role="radiogroup" aria-label="Messages">
+                    {([
+                        {
+                            value: 'vision',
+                            title: 'Vision',
+                            text: 'In the island at the top. Toasts appear only while a dialog is open.',
+                        },
+                        { value: 'toasts', title: 'Classic toasts', text: 'In the corner of the screen.' },
+                    ] as const).map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={messages === option.value}
+                            className={`glass-option ${messages === option.value ? 'selected' : ''}`}
+                            onClick={() => {
+                                if (messages === option.value) return
+                                setMessageStyle(option.value)
+                                setMessages(option.value)
+                                notify.success(
+                                    option.value === 'vision'
+                                        ? 'Messages now appear in Vision.'
+                                        : 'Messages now appear as toasts.',
+                                )
+                            }}
+                        >
+                            <strong>{option.title}</strong>
+                            <small>{option.text}</small>
+                            {messages === option.value && <Check className="theme-check" size={16} />}
                         </button>
                     ))}
                 </div>

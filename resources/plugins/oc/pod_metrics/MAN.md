@@ -36,6 +36,34 @@ pass and report it in the outputs.
 
 If a refresh fails, the page keeps its last rows and says why in Activity.
 
+### List: health marks
+
+| Mark | When |
+|---|---|
+| Red row | Failing: `CrashLoopBackOff`, `Error`, `OOMKilled`, an image pull or container config error, or not ready and it has restarted. |
+| Yellow row | Ready, but it has restarted. |
+| Green Ready | Running, ready and never restarted (only the Ready cell is marked). |
+| No mark | Anything else, such as a pod starting up or a finished job. |
+
+### Graph
+
+The Pods panel's **Graph** tab plots usage over the last 10 minutes of the page (120
+refreshes; another namespace starts it again). Pick a metric, combine pods, filter by name
+and limit the lines, or type a query and press **Run**:
+
+```
+[sum|avg|max|min](metric) [where condition [and condition]...] [top|bottom N]
+```
+
+- Metrics: `cpu`, `memory`, `cpu_percent`, `memory_percent`, `restarts`.
+- Conditions: `pod ~ api` / `pod !~ job` (case-insensitive patterns), `pod = web-1`, or a
+  metric's latest value, such as `memory_percent > 80` or `restarts > 0`.
+- `top`/`bottom N` rank pods by the charted metric's latest value; at most 8 lines show.
+
+Examples: `cpu top 5`, `memory where pod ~ "^api-" and restarts > 0`,
+`sum(memory) where pod !~ job`. Press a legend entry to hide or show its line; hover the
+graph (or focus it and use the arrow keys) to read the values.
+
 ## Reading the numbers
 
 - Usage is the metrics API's latest sample, usually 15 to 60 seconds old, not this instant.
@@ -56,6 +84,10 @@ If a refresh fails, the page keeps its last rows and says why in Activity.
 | pods | list | One entry per pod. |
 
 ## Releases
+
+### 1.1.0
+- Health marks on the list: red failing rows, yellow restarted rows, a green Ready.
+- A Graph tab with usage over time, filters and a query.
 
 ### 1.0.0
 - First release.

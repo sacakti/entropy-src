@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { login, getCurrentUser, logout, type AuthUser } from './services/auth'
 import { SESSION_EXPIRED_EVENT } from './services/api'
+import { claimProjectFor } from './services/project'
 import EntropyShell from './EntropyShell'
 import Login, { type EndedSession } from './features/login/Login'
 import EntropyLogo from './components/layout/EntropyLogo'
@@ -41,7 +42,9 @@ function App() {
     async function restoreSession() {
       try {
         const result = await getCurrentUser()
-        if (active) setUser(result.user)
+        if (!active) return
+        claimProjectFor(result.user.username)
+        setUser(result.user)
       } catch {
         if (active) setUser(null)
       } finally {
@@ -82,6 +85,7 @@ function App() {
     try { window.sessionStorage.removeItem(ENDED_SESSION_KEY) } catch { /* ignore */ }
     setEndedSession(null)
     setJustSignedIn(true)
+    claimProjectFor(result.user.username)
     setUser(result.user)
   }
 

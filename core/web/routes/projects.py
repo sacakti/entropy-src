@@ -10,7 +10,13 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from core.web.projects import authorization, current_project, projects, require
+from core.web.projects import (
+    authorization,
+    current_project,
+    fallback_project,
+    projects,
+    require,
+)
 from core.web.routes.auth import _current_session, verify_csrf
 from lib.models.session import Session
 from lib.models.users import User
@@ -72,7 +78,15 @@ def list_projects(
     roles: Dict[str, List[str]] = {}
     for membership in store.memberships(user.id):
         roles.setdefault(membership["key"], []).append(membership["role_title"])
-    current = current_project(request, user)
+    try:
+        current = current_project(request, user)
+    except HTTPException as exc:
+        # The browser may still name a project this user cannot see (another
+        # user signed in before, or access was removed): list theirs anyway so
+        # the switcher can move them to one.
+        if exc.status_code not in (403, 404):
+            raise
+        current = fallback_project(store, visible)
     items = []
     for project in store.list(visible):
         items.append(

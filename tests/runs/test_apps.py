@@ -177,3 +177,93 @@ def test_misuse_is_reported(connection) -> None:
         app.table("nodes", [])
     with pytest.raises(PluginAppError, match="is a stats"):
         app.table("summary", [])
+
+
+# ----------------------------------------------------------------------
+# Charts and row tones
+# ----------------------------------------------------------------------
+
+CHART_APP = {
+    "views": [
+        {"name": "pods", "type": "table", "row_key": "name"},
+        {
+            "name": "usage",
+            "type": "chart",
+            "tab_of": "pods",
+            "series_label": "pod",
+            "max_points": 2,
+            "metrics": ["cpu", {"key": "memory", "label": "Memory (MiB)"}],
+        },
+    ],
+}
+
+
+def test_a_chart_view_is_normalized() -> None:
+    usage = normalize_app(CHART_APP)["views"][1]
+
+    assert usage["tab_of"] == "pods" and usage["series_label"] == "pod"
+    assert usage["max_points"] == 2
+    assert usage["metrics"] == [
+        {"key": "cpu", "label": "Cpu"},
+        {"key": "memory", "label": "Memory (MiB)"},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("view", "problem"),
+    [
+        ({"name": "usage", "type": "chart"}, "a chart needs metrics"),
+        ({"name": "usage", "type": "chart", "metrics": ["cpu"], "tab_of": "nope"}, "not another"),
+        ({"name": "usage", "type": "chart", "metrics": ["cpu"], "tab_of": "usage"}, "not another"),
+    ],
+)
+def test_bad_charts_are_refused(view, problem) -> None:
+    with pytest.raises(ContractError, match=problem):
+        normalize_app({"views": [{"name": "pods", "type": "table"}, view]})
+
+
+def test_tabs_are_one_level_deep() -> None:
+    views = [
+        {"name": "pods", "type": "table"},
+        {"name": "usage", "type": "chart", "metrics": ["cpu"], "tab_of": "pods"},
+        {"name": "more", "type": "chart", "metrics": ["cpu"], "tab_of": "usage"},
+    ]
+    with pytest.raises(ContractError, match="itself a tab"):
+        normalize_app({"views": views})
+
+
+def test_chart_keeps_the_newest_samples_and_clears_on_request(connection, monkeypatch) -> None:
+    monkeypatch.setenv(RUN_MODE_ENV, "automated")
+    app = PluginApp(_context(connection), normalize_app(CHART_APP), "k8s.monitor")
+
+    app.chart("usage", {"web-1": {"cpu": 1, "memory": 10}})
+    app.chart("usage", {"web-1": {"cpu": 2, "memory": None}})
+    app.chart("usage", {"web-1": {"cpu": 3.456, "memory": True, "other": 9}})
+
+    [page] = AppStore(connection).list([7])
+    usage = page["views"]["usage"]
+    assert usage["series_label"] == "pod"
+    # max_points 2; non-numbers are gaps; undeclared metrics are dropped.
+    assert [sample["values"] for sample in usage["samples"]] == [
+        {"web-1": [2.0, None]},
+        {"web-1": [3.46, None]},
+    ]
+
+    app.chart("usage", {"api-1": {"cpu": 5}}, clear=True)
+    [page] = AppStore(connection).list([7])
+    assert [sample["values"] for sample in page["views"]["usage"]["samples"]] == [
+        {"api-1": [5.0, None]}
+    ]
+
+
+def test_table_rows_carry_tones_but_not_as_columns(connection, monkeypatch) -> None:
+    monkeypatch.setenv(RUN_MODE_ENV, "automated")
+    app = PluginApp(_context(connection), normalize_app(CHART_APP), "k8s.monitor")
+
+    app.table("pods", [{"name": "web-1", "_tone": "success", "_tone_column": "name"}])
+
+    [page] = AppStore(connection).list([7])
+    assert page["views"]["pods"]["columns"] == [{"key": "name", "label": "Name"}]
+    assert page["views"]["pods"]["rows"][0]["_tone"] == "success"
+    with pytest.raises(PluginAppError, match="_tone must be one of"):
+        app.table("pods", [{"name": "web-1", "_tone": "red"}])

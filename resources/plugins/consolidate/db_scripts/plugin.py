@@ -5,7 +5,7 @@ consolidate.db_scripts: one execution plan for the database scripts of several r
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
@@ -163,6 +163,7 @@ class ConsolidateDbScriptsPlugin(
             scripts = [
                 {
                     "application": path.parent.name,
+                    "directory": path.parent.relative_to(database).as_posix(),
                     "script": str(path),
                 }
                 for path in packages.files(database, (".sql",))
@@ -243,12 +244,6 @@ class ConsolidateDbScriptsPlugin(
             None,
         )
 
-        applications = [
-            path.name
-            for path in self.filesystem.listdir(folder)
-            if self.filesystem.is_directory(path) and not path.name.startswith((".", "__MACOSX"))
-        ]
-
         if plan_file is None:
 
             if packages.files(folder, (".sql",)):
@@ -265,16 +260,15 @@ class ConsolidateDbScriptsPlugin(
             release,
         )
 
-        planned = {entry.source_application for entry in entries}
+        for application in self._unplanned_folders(
+            folder,
+            {entry.source_application for entry in entries},
+        ):
 
-        for application in applications:
-
-            if application not in planned:
-
-                warnings.append(
-                    f"Release '{release}': {self.DATABASE_FOLDER}/{application} is not in the "
-                    "execution plan; it is not included, as sqlplus.generic would not run it.",
-                )
+            warnings.append(
+                f"Release '{release}': {self.DATABASE_FOLDER}/{application} is not in the "
+                "execution plan; it is not included, as sqlplus.generic would not run it.",
+            )
 
         for entry in entries:
 
@@ -296,6 +290,47 @@ class ConsolidateDbScriptsPlugin(
                 )
 
         return entries
+
+    def _unplanned_folders(
+        self,
+        folder: Path,
+        planned: Set[str],
+        prefix: str = "",
+    ) -> List[str]:
+        """
+        Folders under DBScripts the plan never reaches. A group folder (H01 for
+        a planned 'H01/App1') is looked into rather than reported.
+        """
+
+        unplanned: List[str] = []
+
+        for path in self.filesystem.listdir(folder):
+
+            if not self.filesystem.is_directory(path) or path.name.startswith((".", "__MACOSX")):
+                continue
+
+            name = f"{prefix}{path.name}"
+
+            if name in planned:
+                continue
+
+            if any(application.startswith(f"{name}/") for application in planned):
+
+                unplanned.extend(
+                    self._unplanned_folders(
+                        path,
+                        planned,
+                        f"{name}/",
+                    )
+                )
+
+                continue
+
+            unplanned.append(
+                name,
+            )
+
+        return unplanned
 
     def _read_plan(
         self,

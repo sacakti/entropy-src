@@ -84,7 +84,11 @@ class SqlPlusResolver:
 
         result: list[SqlPlusExecution] = []
 
-        for application, definition in applications.items():
+        for key, definition in applications.items():
+
+            application = self._application_key(
+                key,
+            )
 
             schema = definition.get(
                 "schema",
@@ -286,6 +290,19 @@ class SqlPlusResolver:
                     "Execution-plan application name must be " "a non-empty string.",
                 )
 
+            normalized = application.replace("\\", "/")
+            parts = normalized.split("/")
+
+            if (
+                normalized.startswith("/")
+                or ".." in parts
+                or not SqlPlusResolver._application_key(application)
+            ):
+                raise GenericPluginError(
+                    f"Execution-plan application '{application}' must be a folder "
+                    "under DBScripts, such as 'App1' or 'H01/App1'.",
+                )
+
             if not isinstance(definition, dict):
                 raise GenericPluginError(
                     f"Execution-plan entry for '{application}' " "must be an object.",
@@ -361,15 +378,26 @@ class SqlPlusResolver:
 
         for entry in scripts:
 
-            entry_application = entry.get(
-                "application",
+            # 'directory' is the script's folder under DBScripts ("App1",
+            # "H01/App1"); older contexts only carry the folder name.
+            location = entry.get(
+                "directory",
             )
+
+            if not isinstance(location, str) or not location:
+                location = entry.get(
+                    "application",
+                )
 
             entry_script = entry.get(
                 "script",
             )
 
-            if entry_application != application or not isinstance(entry_script, str):
+            if (
+                not isinstance(location, str)
+                or SqlPlusResolver._application_key(location) != application
+                or not isinstance(entry_script, str)
+            ):
                 continue
 
             path = Path(
@@ -380,6 +408,21 @@ class SqlPlusResolver:
                 return path
 
         return None
+
+    @staticmethod
+    def _application_key(
+        value: str,
+    ) -> str:
+        """
+        An application's folder under DBScripts as a relative POSIX path:
+        'App1', or 'H01/App1' for grouped layouts.
+        """
+
+        return "/".join(
+            part.strip()
+            for part in value.replace("\\", "/").split("/")
+            if part.strip() not in ("", ".")
+        )
 
     # ------------------------------------------------------------------
     # Direct execution
@@ -447,7 +490,7 @@ class SqlPlusResolver:
                 f"{context}: SQL script does not exist: " f"{script_path}",
             )
 
-        application=script_path.stem
+        application = script_path.stem
 
         return SqlPlusExecution(
             ip=ip.strip(),

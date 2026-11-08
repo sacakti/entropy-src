@@ -19,7 +19,7 @@ from lib.models.plugin import PluginResult
 from lib.plugins.base import BasePlugin
 
 from .exceptions import PodMetricsException
-from .metrics import display_row, pod_rows
+from .metrics import chart_values, display_row, pod_rows, table_row
 
 NAMESPACE = re.compile(r"^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$")
 ENVIRONMENT = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -86,6 +86,7 @@ class PodMetricsPlugin(
         session_project: Optional[str] = None
         shown_error: Optional[str] = None
         shown_warning: Optional[str] = None
+        charted: Optional[str] = None
         rows: List[Dict[str, Any]] = []
 
         if self.app.interactive:
@@ -118,6 +119,9 @@ class PodMetricsPlugin(
                     self.app.log("activity", warning or "Metrics are available again.")
                     shown_warning = warning
                 self._publish(namespace, rows, warning, max_rows)
+                # The graph follows one namespace; another one starts it again.
+                self.app.chart("usage", chart_values(rows), clear=namespace != charted)
+                charted = namespace
                 self._report(namespace, rows, warning)
 
             for press in self.app.events("details"):
@@ -167,7 +171,7 @@ class PodMetricsPlugin(
                 "Updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
             },
         )
-        self.app.table("pods", [display_row(row) for row in shown[:max_rows]])
+        self.app.table("pods", [table_row(row) for row in shown[:max_rows]])
 
     def _report(
         self,

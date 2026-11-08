@@ -8,9 +8,19 @@ import SelectionBar from '../../components/layout/SelectionBar'
 import SortHeader from '../../components/layout/SortHeader'
 import { usePagination } from '../../components/layout/usePagination'
 import { compareText, compareValue, type SortState } from '../../components/layout/useSort'
+import AppChart from './AppChart'
 import { errorMessage, formatDateTime } from './format'
 
 const TEXT_DELAY_MS = 400
+
+/** Row marks a plugin may set (`_tone`, and `_tone_column` for one cell only). */
+const TONES = ['success', 'warning', 'danger', 'info']
+const TONE_TITLES: Record<string, string> = {
+    success: 'Healthy',
+    warning: 'Needs a look',
+    danger: 'Failing',
+    info: 'Note',
+}
 
 const display = (value: unknown): string => {
     if (value === null || value === undefined) return ''
@@ -162,11 +172,12 @@ function RunAppPage({ runId, app, live, onChanged }: { runId: number; app: RunAp
             )}
 
             <div className="run-app-views">
-                {definition.views.map((view) => (
+                {definition.views.filter((view) => !view.tab_of).map((view) => (
                     <AppViewPanel
                         key={view.name}
                         view={view}
-                        data={app.views[view.name]}
+                        tabs={definition.views.filter((item) => item.tab_of === view.name)}
+                        views={app.views}
                         selected={selections[view.name] ?? new Set()}
                         onSelect={(next) => setSelections((current) => ({ ...current, [view.name]: next }))}
                         selectable={state === 'live'}
@@ -214,21 +225,40 @@ function AppField({ input, value, disabled, onChange }: {
     )
 }
 
-function AppViewPanel({ view, data, selected, onSelect, selectable }: {
+/** A view's panel; views declared `tab_of` it show as tabs (List / Graph). */
+function AppViewPanel({ view: host, tabs, views, selected, onSelect, selectable }: {
     view: RunAppView
-    data: RunAppViewData | undefined
+    tabs: RunAppView[]
+    views: Record<string, RunAppViewData>
     selected: Set<string>
     onSelect: (next: Set<string>) => void
     selectable: boolean
 }) {
+    const [active, setActive] = useState(host.name)
+    const view = tabs.find((item) => item.name === active) ?? host
+    const data = views[view.name]
+    const tabLabel = (item: RunAppView) => (item === host && host.type === 'table' ? 'List' : item.title || item.label)
     return (
-        <article className={`run-app-view is-${view.type}`}>
-            <h5>{view.title || view.label}</h5>
+        <article className={`run-app-view is-${host.type}`}>
+            <div className="run-app-view-head">
+                <h5>{host.title || host.label}</h5>
+                {tabs.length > 0 && (
+                    <div className="seg-control" role="tablist" aria-label={`${host.title || host.label} views`}>
+                        {[host, ...tabs].map((item) => (
+                            <button key={item.name} type="button" role="tab" aria-selected={item.name === view.name} className={item.name === view.name ? 'is-active' : ''} onClick={() => setActive(item.name)}>
+                                {tabLabel(item)}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
             {view.description && <p className="run-app-muted">{view.description}</p>}
             {!data ? (
                 <p className="run-app-muted">Waiting for data…</p>
             ) : view.type === 'table' ? (
                 <AppTable view={view} data={data} selected={selected} onSelect={onSelect} selectable={selectable} />
+            ) : view.type === 'chart' ? (
+                <AppChart view={view} data={data} />
             ) : view.type === 'stats' ? (
                 <div className="run-app-stats">
                     {(data.items ?? []).map((item) => (
@@ -390,15 +420,24 @@ function AppTable({ view, data, selected, onSelect, selectable }: {
                         ) : (
                             pages.pageItems.map((row, index) => {
                                 const key = keyOf(row, index)
+                                const tone = TONES.includes(row._tone as string) ? (row._tone as string) : null
+                                const toneColumn = tone && typeof row._tone_column === 'string' ? row._tone_column : null
+                                const rowTone = tone && !toneColumn ? ` is-tone-${tone}` : ''
                                 return (
-                                    <tr key={key} className={selected.has(key) ? 'is-selected' : undefined}>
+                                    <tr key={key} className={`${selected.has(key) ? 'is-selected' : ''}${rowTone}`.trim() || undefined} title={rowTone ? TONE_TITLES[tone as string] : undefined}>
                                         {view.selectable && (
                                             <td className="list-check-cell">
                                                 <input type="checkbox" className="list-check" aria-label={`Select ${key}`} checked={selected.has(key)} disabled={!selectable} onChange={() => toggle(key)} />
                                             </td>
                                         )}
                                         {columns.map((column) => (
-                                            <td key={column.key}>{display(row[column.key])}</td>
+                                            <td key={column.key}>
+                                                {toneColumn === column.key ? (
+                                                    <span className={`run-app-cell-tone is-tone-${tone}`}>{display(row[column.key])}</span>
+                                                ) : (
+                                                    display(row[column.key])
+                                                )}
+                                            </td>
                                         ))}
                                     </tr>
                                 )

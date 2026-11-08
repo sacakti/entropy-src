@@ -151,22 +151,28 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     ) => {
       const id = ++nextId.current
 
-      // Every module reports through here, so Vision hears all of them.
-      publishVision({
-        level: type,
-        title: options?.title ?? message,
-        message: options?.title ? message : '',
-      })
+      // Decide on the next frame: a dialog closing as it reports ("saved") is gone
+      // by then, so the message goes to Vision rather than to a toast.
+      window.requestAnimationFrame(() => {
+        // Every module reports through here, so Vision hears all of them. When
+        // Vision shows the message, no toast repeats it (see features/vision/bus.ts).
+        const shownByVision = publishVision({
+          level: type,
+          title: options?.title ?? message,
+          message: options?.title ? message : '',
+        })
+        if (shownByVision) return
 
-      setNotifications((current) => [
-        ...current.slice(-4),
-        {
-          id,
-          type,
-          message,
-          ...options,
-        },
-      ])
+        setNotifications((current) => [
+          ...current.slice(-4),
+          {
+            id,
+            type,
+            message,
+            ...options,
+          },
+        ])
+      })
     },
     [],
   )

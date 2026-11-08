@@ -10,6 +10,7 @@ plugin runs a loop with `self.app`:
         wanted = self.app.input("filter", "")
         self.app.table("pods", [pod for pod in pods if wanted in pod["name"]])
         self.app.stats("summary", {"Pods": len(pods)})
+        self.app.chart("usage", {pod["name"]: {"cpu": pod["cpu"]} for pod in pods})
         for press in self.app.events("restart"):
             self._restart(press.selection)
         self.app.wait()
@@ -24,6 +25,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence
 
 from lib.plugins.contract import NAME, ContractError
@@ -32,7 +34,7 @@ if TYPE_CHECKING:
     from lib.plugins.context import PluginContext
 
 INPUT_TYPES = ("text", "number", "select", "toggle", "button")
-VIEW_TYPES = ("table", "stats", "log", "keyvalue", "text")
+VIEW_TYPES = ("table", "stats", "log", "keyvalue", "text", "chart")
 INPUT_KEYS = {"name", "type", "label", "description", "placeholder", "default", "choices", "target"}
 VIEW_KEYS = {
     "name",
@@ -44,11 +46,22 @@ VIEW_KEYS = {
     "selectable",
     "filter",
     "max_lines",
+    "metrics",
+    "series_label",
+    "max_points",
+    "tab_of",
 }
 APP_KEYS = {"title", "description", "refresh_seconds", "inputs", "views"}
 DEFAULT_REFRESH = 2.0
 MAX_TABLE_ROWS = 5000
 DEFAULT_LOG_LINES = 500
+DEFAULT_CHART_POINTS = 120
+MAX_CHART_POINTS = 1000
+MAX_CHART_SERIES = 200
+# A table row may carry these keys: the row (or one cell) is coloured, never shown as a column.
+ROW_TONE = "_tone"
+ROW_TONE_COLUMN = "_tone_column"
+ROW_TONES = ("success", "warning", "danger", "info")
 
 
 # ----------------------------------------------------------------------
@@ -140,7 +153,41 @@ def normalize_app(data: Any) -> Dict[str, Any]:
             entry["max_lines"] = (
                 lines if isinstance(lines, int) and 1 <= lines <= 5000 else DEFAULT_LOG_LINES
             )
+        if entry["type"] == "chart":
+            metrics = _columns(item.get("metrics"))
+            if not metrics:
+                problems.append(
+                    f"app view '{entry['name']}': a chart needs metrics, "
+                    "as names or {key, label} objects"
+                )
+                metrics = []
+            entry["metrics"] = metrics
+            label = item.get("series_label", "series")
+            entry["series_label"] = label if isinstance(label, str) and label else "series"
+            points = item.get("max_points", DEFAULT_CHART_POINTS)
+            entry["max_points"] = (
+                points
+                if isinstance(points, int)
+                and not isinstance(points, bool)
+                and 2 <= points <= MAX_CHART_POINTS
+                else DEFAULT_CHART_POINTS
+            )
+        if isinstance(item.get("tab_of"), str):
+            entry["tab_of"] = item["tab_of"]
         views.append(entry)
+
+    # A view may show as a tab of another (a table's graph); one level only.
+    by_name = {entry["name"]: entry for entry in views}
+    for entry in views:
+        host = entry.get("tab_of")
+        if host is None:
+            continue
+        if host == entry["name"] or host not in by_name:
+            problems.append(f"app view '{entry['name']}': tab_of '{host}' is not another view")
+        elif "tab_of" in by_name[host]:
+            problems.append(
+                f"app view '{entry['name']}': tab_of '{host}' is itself a tab of another view"
+            )
 
     for entry in inputs:
         target = entry.get("target")
@@ -230,8 +277,8 @@ class PluginApp:
     The live page of an app plugin (`self.app`).
 
     Read inputs with `input()`/`inputs`, publish views with `table()`,
-    `stats()`, `log()`, `keyvalue()` and `text()`, handle buttons with
-    `events()`, and pace the loop with `wait()`.
+    `stats()`, `log()`, `keyvalue()`, `text()` and `chart()`, handle buttons
+    with `events()`, and pace the loop with `wait()`.
     """
 
     def __init__(
@@ -361,10 +408,21 @@ class PluginApp:
     def table(
         self, name: str, rows: Sequence[Dict[str, Any]], columns: Optional[Sequence[Any]] = None
     ) -> None:
-        """Rows (dicts) for a table view; columns default to the declared or first row's keys."""
+        """
+        Rows (dicts) for a table view; columns default to the declared or first row's keys.
+
+        A row may set `_tone` (success, warning, danger or info) to colour it, and
+        `_tone_column` to colour only that cell instead of the whole row.
+        """
 
         view = self._view(name, "table")
         rows = [dict(row) for row in list(rows)[:MAX_TABLE_ROWS]]
+        for row in rows:
+            tone = row.get(ROW_TONE)
+            if tone is not None and tone not in ROW_TONES:
+                raise PluginAppError(
+                    f"Table '{name}': {ROW_TONE} must be one of {', '.join(ROW_TONES)}."
+                )
         if columns is not None:
             parsed = _columns(list(columns))
             if parsed is None:
@@ -375,6 +433,7 @@ class PluginApp:
             parsed = view.get("columns") or [
                 {"key": key, "label": key.replace("_", " ").capitalize()}
                 for key in (rows[0] if rows else {})
+                if not key.startswith("_")
             ]
         self._publish(name, {"columns": parsed, "rows": rows, "total": len(rows)})
 
@@ -450,10 +509,52 @@ class PluginApp:
                 return item
         raise PluginAppError(f"App view '{name}' is not declared in plugin.json.")
 
+    def chart(
+        self,
+        name: str,
+        values: Dict[str, Dict[str, Any]],
+        *,
+        clear: bool = False,
+        at: Optional[datetime] = None,
+    ) -> None:
+        """
+        Add one sample to a chart view: {series: {metric: number}}, e.g.
+        {"web-1": {"cpu": 12.5, "memory": 300}}. The chart keeps the newest
+        max_points samples of at most MAX_CHART_SERIES series; `clear` starts
+        again (say, another namespace). A value that is not a number is a gap.
+
+        Published as {"metrics", "series_label", "samples": [{"at", "values":
+        {series: [value per metric, in declared order]}}]}.
+        """
+
+        view = self._view(name, "chart")
+        metrics = [item["key"] for item in view["metrics"]]
+        # Compact: one list per series, in the order of the declared metrics.
+        sample: Dict[str, List[Optional[float]]] = {}
+        for series, numbers in list(values.items())[:MAX_CHART_SERIES]:
+            sample[str(series)] = [_number(numbers.get(metric)) for metric in metrics]
+        moment = (at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        kept_samples = [] if clear else list(self._views.get(name, {}).get("samples", []))
+        kept_samples.append({"at": moment.isoformat(timespec="seconds"), "values": sample})
+        self._publish(
+            name,
+            {
+                "metrics": view["metrics"],
+                "series_label": view["series_label"],
+                "samples": kept_samples[-view["max_points"] :],
+            },
+        )
+
     def _publish(self, name: str, data: Dict[str, Any]) -> None:
         self._views[name] = data
         if self._app_id is not None:
             self._store.set_views(self._app_id, self._views)
+
+
+def _number(value: Any) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return round(float(value), 2)
 
 
 class _NoStore:

@@ -533,6 +533,9 @@ def _apps(apps: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         ]
         views = []
         for view in definition.get("views") or []:
+            # Charts are explored on the live page; the report keeps their tables.
+            if view.get("type") == "chart":
+                continue
             data = (app.get("views") or {}).get(view.get("name")) or {}
             rows = data.get("rows") or []
             columns = (

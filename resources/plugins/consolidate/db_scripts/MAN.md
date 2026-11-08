@@ -53,6 +53,11 @@ release:
 - two releases may use different schemas for one application;
 - the order is kept across applications, so H010's App2 runs before H011's App1.
 
+Grouped applications (`DBScripts/H01/App1`, plan key `H01/App1`) are supported
+too. Each gets one flat folder, `<release>__H01__App1`, so the consolidated
+package stays one level deep. A group folder such as `H01` is only reported as
+left out when none of its applications are in the plan.
+
 Files are copied unchanged. Only what earlier runs left behind (`.entropy`) and
 packaging files (`__MACOSX`, `.DS_Store`, `._*`) are left out.
 

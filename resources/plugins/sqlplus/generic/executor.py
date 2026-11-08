@@ -153,7 +153,8 @@ class SqlPlusExecutor:
                 settings.name_placeholder,
                 execution_path=execution_path,
                 release=release,
-                application=execution.application,
+                # 'H01/App1' becomes 'H01_App1' so it stays one file name.
+                application=execution.application.replace("/", "_"),
                 schema=execution.schema,
             )
 
@@ -189,7 +190,7 @@ class SqlPlusExecutor:
 
                     wrapper = wrapper_directory / (
                         f"{execution.script.stem}_"
-                        f"{execution.application}_"
+                        f"{execution.application.replace('/', '_')}_"
                         f"{execution.schema}_spool.sql"
                     )
 

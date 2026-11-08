@@ -183,7 +183,7 @@ export interface RunAppInput {
 /** A view the plugin keeps up to date (plugin.json "app.views"). */
 export interface RunAppView {
     name: string
-    type: 'table' | 'stats' | 'log' | 'keyvalue' | 'text'
+    type: 'table' | 'stats' | 'log' | 'keyvalue' | 'text' | 'chart'
     label: string
     title?: string
     description?: string
@@ -192,6 +192,12 @@ export interface RunAppView {
     selectable?: boolean
     filter?: boolean
     max_lines?: number
+    /** Chart: what it can plot, what one line is called, and how many samples it keeps. */
+    metrics?: { key: string; label: string }[]
+    series_label?: string
+    max_points?: number
+    /** Shown as a tab of that view (a table's graph) instead of a panel of its own. */
+    tab_of?: string
 }
 
 export interface RunAppDefinition {
@@ -210,6 +216,10 @@ export interface RunAppViewData {
     items?: { label?: string; key?: string; value: unknown }[]
     lines?: string[]
     text?: string
+    /** Chart samples: one value per metric for each series, in `metrics` order. */
+    metrics?: { key: string; label: string }[]
+    series_label?: string
+    samples?: { at: string; values: Record<string, (number | null)[]> }[]
 }
 
 /** The live page of an app plugin step. */

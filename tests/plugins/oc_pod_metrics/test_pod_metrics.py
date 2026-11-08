@@ -25,6 +25,7 @@ from resources.plugins.oc.pod_metrics.metrics import (
     format_age,
     memory_mib,
     pod_rows,
+    pod_tone,
 )
 from resources.plugins.oc.pod_metrics.plugin import PodMetricsPlugin
 
@@ -434,3 +435,69 @@ def _stop_after(store: AppStore, refreshes: int) -> Any:
                     store.request_stop(page["id"])
 
     return sleep
+
+
+# ----------------------------------------------------------------------
+# Health marks and the graph
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("pod", "tone"),
+    [
+        # Ready 1/1, never restarted: only the Ready cell is green.
+        (_pod("ok"), {"_tone": "success", "_tone_column": "ready"}),
+        # Ready 1/1 but restarted: the row is yellow.
+        (_pod("restarted", restarts=2), {"_tone": "warning"}),
+        # Not ready and restarted: the row is red.
+        (_pod("flapping", ready=False, restarts=1), {"_tone": "danger"}),
+        # CrashLoopBackOff is red even before a restart is counted.
+        (_pod("crash", ready=False, waiting="CrashLoopBackOff"), {"_tone": "danger"}),
+        # Starting up, or finished: left plain.
+        (_pod("starting", ready=False, waiting="ContainerCreating"), None),
+        (_pod("job", phase="Succeeded", ready=False), None),
+    ],
+)
+def test_pods_are_marked_by_health(pod, tone) -> None:
+    [row] = pod_rows({"items": [pod]}, None, datetime(2026, 1, 2, tzinfo=timezone.utc))
+
+    assert pod_tone(row) == tone
+
+
+def test_the_live_page_marks_rows_and_draws_the_graph(tmp_path, monkeypatch) -> None:
+    plugin, store, _, _ = _plugin(tmp_path, monkeypatch, "interactive", namespace="shop")
+
+    assert plugin.execute().success
+
+    [page] = store.list([5])
+    tones = {row["pod"]: row.get("_tone") for row in page["views"]["pods"]["rows"]}
+    assert tones == {"web": "success", "api": "warning", "crash": "danger"}
+    usage = page["views"]["usage"]
+    assert [metric["key"] for metric in usage["metrics"]][:2] == ["cpu", "memory"]
+    latest = usage["samples"][-1]["values"]
+    assert latest["web"][:2] == [100.0, 256.0]
+    # No metrics sample for the crashing pod: a gap, not a zero.
+    assert latest["crash"][:2] == [None, None]
+    # Outputs stay as before: no table marks.
+    assert "_tone" not in plugin.outputs["pods"][0]
+
+
+def test_another_namespace_starts_the_graph_again(tmp_path, monkeypatch) -> None:
+    plugin, store, _, _ = _plugin(tmp_path, monkeypatch, "interactive", namespace="shop")
+    real_wait = plugin.app.wait
+    passes = {"count": 0}
+
+    def wait(seconds=None) -> None:
+        passes["count"] += 1
+        if passes["count"] == 2:
+            store.set_inputs(store.list([5])[0]["id"], {"namespace": "other"})
+        real_wait(seconds)
+
+    plugin.app.wait = wait
+    plugin._entropy_app_session._sleep = _stop_after(store, 4)
+
+    assert plugin.execute().success
+
+    [page] = store.list([5])
+    # Two passes in "shop", then "other" cleared them.
+    assert len(page["views"]["usage"]["samples"]) < passes["count"]
