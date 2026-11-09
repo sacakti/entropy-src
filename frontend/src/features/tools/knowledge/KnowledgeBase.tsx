@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import {
     BookOpen,
     CalendarDays,
@@ -10,6 +10,10 @@ import {
     ImagePlus,
     LoaderCircle,
     MapPin,
+    Maximize2,
+    Minimize2,
+    PanelLeftClose,
+    PanelLeftOpen,
     Paperclip,
     Pencil,
     Plus,
@@ -34,11 +38,15 @@ import {
 } from '../../../api/knowledge.api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { PROJECT_CHANGED_EVENT } from '../../../services/project'
+import AppPortal from '../../../components/layout/AppPortal'
+import AttachmentViewer from '../tasks/AttachmentViewer'
 import MarkupView from '../tasks/MarkupView'
 import RichEditor, { type RichEditorHandle } from '../tasks/RichEditor'
-import { formatSize, memberName, type Member } from '../tasks/model'
+import { formatSize, memberName, previewKind, type Attachment, type Member } from '../tasks/model'
 import type { PlacedAttachment } from '../tasks/richText'
 import { entryIdFromHash, openKnowledgeEntry } from './navigation'
+// The editor, markup view and image figures are the Tasks components; their styles live there.
+import '../tasks/tasks.css'
 import './knowledge.css'
 
 const SEARCH_DELAY_MS = 300
@@ -202,6 +210,21 @@ function ChipInput({ label, icon, values, onChange, suggestions, display, placeh
  * like a note (the task description editor), with screenshots and files in place, every
  * earlier version kept, and found again by words, tags, place, people and dates.
  */
+const LIST_KEY = 'entropy.knowledge.list'
+
+function storedListCollapsed() {
+    try {
+        return window.localStorage.getItem(LIST_KEY) === 'collapsed'
+    } catch {
+        return false
+    }
+}
+
+// The Tasks attachment viewer reads Task attachments; knowledge files have no Jira link.
+function asViewable(attachments: KnowledgeAttachment[]): Attachment[] {
+    return attachments.map((attachment) => ({ ...attachment, url: null }))
+}
+
 export default function KnowledgeBase() {
     const { notify } = useFeedback()
     const [data, setData] = useState<KnowledgeList | null>(null)
@@ -217,6 +240,35 @@ export default function KnowledgeBase() {
     const [busy, setBusy] = useState<'save' | 'upload' | 'delete' | 'export' | 'import' | 'restore' | null>(null)
     const editor = useRef<RichEditorHandle>(null)
     const importInput = useRef<HTMLInputElement>(null)
+    const [viewing, setViewing] = useState<number | null>(null)
+    const [fullscreen, setFullscreen] = useState(false)
+    const [listCollapsed, setListCollapsed] = useState(storedListCollapsed)
+
+    const toggleList = () => {
+        setListCollapsed((current) => {
+            try {
+                window.localStorage.setItem(LIST_KEY, current ? 'full' : 'collapsed')
+            } catch {
+                // Private mode: the choice lasts until the page is reloaded.
+            }
+            return !current
+        })
+    }
+
+    // Esc leaves full screen, unless something above it (the image viewer, a dialog)
+    // or the field being typed in handles the key.
+    useEffect(() => {
+        if (!fullscreen) return
+        const onKey = (event: globalThis.KeyboardEvent) => {
+            if (event.key !== 'Escape' || event.defaultPrevented) return
+            if (document.querySelector('.task-viewer, .entropy-modal-backdrop, .entropy-dialog-backdrop')) return
+            const target = event.target as HTMLElement | null
+            if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+            setFullscreen(false)
+        }
+        document.addEventListener('keydown', onKey)
+        return () => document.removeEventListener('keydown', onKey)
+    }, [fullscreen])
 
     const members: Member[] = useMemo(() => data?.members ?? [], [data])
     const canWrite = Boolean(data?.permissions['knowledge.write'])
@@ -288,10 +340,14 @@ export default function KnowledgeBase() {
             if (!window.confirm('Leave without saving your changes?')) return
         }
         setMode({ kind: 'view' })
+        setFullscreen(false)
+        setViewing(null)
         openKnowledgeEntry(id)
     }
 
     const startNew = () => {
+        setFullscreen(false)
+        setViewing(null)
         setEntry(null)
         setSelectedId(null)
         const fresh = blankDraft()
@@ -352,6 +408,8 @@ export default function KnowledgeBase() {
         try {
             await knowledgeApi.remove(entry.id)
             notify.success(`"${entry.title}" deleted.`)
+            setFullscreen(false)
+            setViewing(null)
             setEntry(null)
             setSelectedId(null)
             setMode({ kind: 'view' })
@@ -459,6 +517,14 @@ export default function KnowledgeBase() {
         return { src: isImage(attachment) ? knowledgeApi.attachmentUrl(target.id, id) : null, label }
     }
 
+    // A plain click views the file in place; Ctrl/Cmd-click or middle-click still opens a tab.
+    const viewInPlace = (attachment: KnowledgeAttachment) => (event: ReactMouseEvent<HTMLAnchorElement>) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+        if (!previewKind({ ...attachment, url: null })) return
+        event.preventDefault()
+        setViewing(attachment.id)
+    }
+
     const renderAttachment = (target: KnowledgeEntry) => (id: number, caption: string) => {
         const attachment = target.attachments.find((item) => item.id === id)
         const label = caption || attachment?.filename || 'attachment'
@@ -466,7 +532,7 @@ export default function KnowledgeBase() {
         const url = knowledgeApi.attachmentUrl(target.id, id)
         return isImage(attachment) ? (
             <figure key={`${id}-${caption}`} className="task-description-image">
-                <a href={url} target="_blank" rel="noreferrer" title={`Open ${attachment.filename}`}>
+                <a href={url} target="_blank" rel="noreferrer" title={`View ${attachment.filename}`} onClick={viewInPlace(attachment)}>
                     <img src={url} alt={label} loading="lazy" />
                 </a>
                 <figcaption>{label}</figcaption>
@@ -646,7 +712,7 @@ export default function KnowledgeBase() {
                 <ul className="kb-files">
                     {target.attachments.map((attachment) => (
                         <li key={attachment.id}>
-                            <a href={knowledgeApi.attachmentUrl(target.id, attachment.id)} target="_blank" rel="noreferrer">{attachment.filename}</a>
+                            <a href={knowledgeApi.attachmentUrl(target.id, attachment.id)} target="_blank" rel="noreferrer" onClick={viewInPlace(attachment)}>{attachment.filename}</a>
                             <small>{formatSize(attachment.size_bytes)} · {personName(attachment.uploaded_by)}</small>
                             {canWrite && (attachment.uploaded_by.toLowerCase() === data?.username.toLowerCase() || canDelete) && (
                                 <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm" aria-label={`Remove ${attachment.filename}`} onClick={() => void detach(attachment)}>
@@ -659,6 +725,19 @@ export default function KnowledgeBase() {
             </section>
         )
 
+    const fullscreenButton = (
+        <button
+            type="button"
+            className="entropy-button entropy-button-secondary entropy-button-icon entropy-button-sm"
+            onClick={() => setFullscreen((current) => !current)}
+            aria-label={fullscreen ? 'Exit full screen' : 'View in full screen'}
+            title={fullscreen ? 'Exit full screen (Esc)' : 'View in full screen'}
+            aria-pressed={fullscreen}
+        >
+            {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
+    )
+
     const detail = () => {
         if (editing) return editorForm
         if (mode.kind === 'revision' && entry) {
@@ -669,6 +748,7 @@ export default function KnowledgeBase() {
                         <History size={14} /> {revision.version ? `Version ${revision.version}, ` : 'An earlier version, '}saved by{' '}
                         {personName(revision.edited_by)} on {revision.edited_at} UTC.
                         <span className="kb-revision-actions">
+                            {fullscreenButton}
                             <ExportMenu busy={busy === 'export'} onExport={(format) => void exportEntry(format, revision)} />
                             {canWrite && (
                                 <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" disabled={busy !== null} onClick={() => void restore(revision)}>
@@ -709,6 +789,7 @@ export default function KnowledgeBase() {
                 <header className="kb-article-head">
                     <h3 className="kb-article-title">{entry.title}</h3>
                     <span className="kb-article-tools">
+                        {fullscreenButton}
                         <ExportMenu busy={busy === 'export'} onExport={(format) => void exportEntry(format)} />
                         {canWrite && (
                             <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={startEdit}>
@@ -819,15 +900,30 @@ export default function KnowledgeBase() {
                 </span>
             </div>
 
-            <div className="kb-layout">
+            <div className={`kb-layout${listCollapsed ? ' is-list-collapsed' : ''}`}>
+                {listCollapsed ? (
+                    <nav className="kb-list kb-list-rail" aria-label="Entries">
+                        <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm" onClick={toggleList} aria-label="Show the entry list" title="Show the entry list">
+                            <PanelLeftOpen size={16} />
+                        </button>
+                        {data && <span className="kb-list-rail-count" title={`${data.items.length} entries`}>{data.items.length}</span>}
+                    </nav>
+                ) : (
                 <nav className="kb-list" aria-label="Entries">
+                    <div className="kb-list-head">
+                        <small className="kb-list-note">
+                            {data?.items.length ? `${data.items.length} ${data.items.length === 1 ? 'entry' : 'entries'}` : 'Entries'}
+                        </small>
+                        <button type="button" className="entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm" onClick={toggleList} aria-label="Hide the entry list" title="Hide the entry list">
+                            <PanelLeftClose size={15} />
+                        </button>
+                    </div>
                     {loading && !data ? (
                         <p className="kb-list-note"><LoaderCircle size={14} className="entropy-spin" /> Loading…</p>
                     ) : !data?.items.length ? (
                         <p className="kb-list-note">{filtering ? 'Nothing matches.' : 'No entries yet.'}</p>
                     ) : (
                         <>
-                            <small className="kb-list-note">{data.items.length} {data.items.length === 1 ? 'entry' : 'entries'}</small>
                             <ul>
                                 {data.items.map((item) => (
                                     <li key={item.id}>
@@ -852,8 +948,46 @@ export default function KnowledgeBase() {
                         </>
                     )}
                 </nav>
-                <section className="kb-detail">{detail()}</section>
+                )}
+                {fullscreen && entry ? (
+                    <section className="kb-detail kb-detail-away">
+                        <Maximize2 size={18} />
+                        <span>{entry.title} is open in full screen.</span>
+                        <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setFullscreen(false)}>
+                            <Minimize2 size={14} /> Exit full screen
+                        </button>
+                    </section>
+                ) : (
+                    <section className="kb-detail">{detail()}</section>
+                )}
             </div>
+
+            {fullscreen && entry && (
+                <AppPortal>
+                    <div className="kb-fullscreen" role="dialog" aria-modal="true" aria-label={`${entry.title} — full screen`}>
+                        <header className="kb-fullscreen-bar">
+                            <BookOpen size={16} />
+                            <strong>{entry.title}</strong>
+                            <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setFullscreen(false)} title="Exit full screen (Esc)">
+                                <X size={14} /> Close
+                            </button>
+                        </header>
+                        <div className="kb-fullscreen-body">
+                            <section className="kb-detail">{detail()}</section>
+                        </div>
+                    </div>
+                </AppPortal>
+            )}
+
+            {viewing !== null && entry?.attachments.some((attachment) => attachment.id === viewing) && (
+                <AttachmentViewer
+                    taskId={entry.id}
+                    attachments={asViewable(entry.attachments)}
+                    initial={viewing}
+                    onClose={() => setViewing(null)}
+                    attachmentUrl={(id) => knowledgeApi.attachmentUrl(entry.id, id)}
+                />
+            )}
         </div>
     )
 }

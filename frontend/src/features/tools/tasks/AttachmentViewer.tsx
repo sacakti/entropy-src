@@ -18,7 +18,7 @@ function blobType(kind: PreviewKind, attachment: Attachment, received: string) {
 
 type Loaded = { id: number; source?: string; text?: string; truncated?: boolean; error?: string }
 
-export default function AttachmentViewer({ taskId, attachments, initial, onClose, onAttach, onReplace, canReplace, onRename }: {
+export default function AttachmentViewer({ taskId, attachments, initial, onClose, onAttach, onReplace, canReplace, onRename, attachmentUrl }: {
     taskId: number
     attachments: Attachment[]
     initial: number
@@ -30,6 +30,8 @@ export default function AttachmentViewer({ taskId, attachments, initial, onClose
     // The same people who may replace an attachment may rename it.
     canReplace?: (attachment: Attachment) => boolean
     onRename?: (attachment: Attachment, name: string) => Promise<boolean>
+    // Where an attachment's file is, for viewers outside Tasks (the knowledge base).
+    attachmentUrl?: (id: number) => string
 }) {
     const items = attachments.filter((attachment) => previewKind(attachment))
     // Followed by id: replacing an image removes it from the list.
@@ -54,7 +56,7 @@ export default function AttachmentViewer({ taskId, attachments, initial, onClose
     }, [marking])
     const current = items[index]
     const kind = current ? previewKind(current) : null
-    const url = current ? tasksApi.attachmentUrl(taskId, current.id) : ''
+    const url = current ? (attachmentUrl ? attachmentUrl(current.id) : tasksApi.attachmentUrl(taskId, current.id)) : ''
 
     useEffect(() => {
         if (!current || !kind) return
