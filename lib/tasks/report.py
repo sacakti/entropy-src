@@ -57,6 +57,8 @@ def _inline(text: str) -> str:
             html = f"<code>{html}</code>"
         if run.get("strike"):
             html = f"<s>{html}</s>"
+        if run.get("underline"):
+            html = f"<u>{html}</u>"
         if run.get("italic"):
             html = f"<em>{html}</em>"
         if run.get("bold"):
@@ -380,6 +382,8 @@ border:1px solid var(--line);border-radius:4px;padding:1px 5px;word-break:break-
 .md-h1{font-size:18px;font-weight:700;margin:14px 0 6px}
 .md-h2{font-size:16px;font-weight:700;margin:12px 0 4px}
 .md-h3{font-size:14px;font-weight:700;color:var(--muted);margin:10px 0 3px}
+.md-h4{font-size:13px;font-weight:700;margin:8px 0 2px}
+.md-h5{font-size:12px;font-weight:700;color:var(--muted);margin:8px 0 2px}
 .md-list{margin:0 0 8px;padding-left:22px}
 .md-list li.check{display:flex;gap:7px;list-style:none;margin-left:-22px}
 .md-list li.check input{margin-top:5px}.md-list li.is-done span{color:var(--muted);text-decoration:line-through}

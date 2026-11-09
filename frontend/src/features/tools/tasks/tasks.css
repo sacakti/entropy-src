@@ -313,6 +313,8 @@
 .entropy-app .task-description .task-md-h1 { margin: 16px 0 8px; font-size: 1.28rem; font-weight: 700; }
 .entropy-app .task-description .task-md-h2 { margin: 14px 0 6px; font-size: 1.1rem; font-weight: 700; }
 .entropy-app .task-description .task-md-h3 { margin: 12px 0 4px; color: var(--app-muted); font-size: .95rem; font-weight: 700; }
+.entropy-app .task-description .task-md-h4 { margin: 10px 0 4px; font-size: .92rem; font-weight: 700; }
+.entropy-app .task-description .task-md-h5 { margin: 10px 0 4px; color: var(--app-muted); font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .entropy-app .task-md-p { margin: 0 0 10px; }
 .entropy-app .task-md-list { margin: 0 0 10px; padding-left: 22px; white-space: normal; }
 .entropy-app .task-md-list.is-checklist { padding-left: 0; list-style: none; }
@@ -341,3 +343,39 @@
 .entropy-app .task-editor-table-grid { display: grid; gap: 3px; }
 .entropy-app .task-editor-table-grid button { width: 20px; height: 20px; padding: 0; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 3px; cursor: pointer; }
 .entropy-app .task-editor-table-grid button.is-active { background: var(--app-accent-soft); border-color: var(--app-accent); }
+
+/* The description editor: formatted text, written like a note. */
+.entropy-app .task-rich-frame { position: relative; min-width: 0; }
+.entropy-app .task-rich-body { max-height: min(60vh, 640px); padding: 12px 14px; overflow: auto; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 9px; outline: none; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; cursor: text; }
+.entropy-app .task-rich-body:focus { border-color: var(--app-accent-border); box-shadow: 0 0 0 3px var(--app-accent-soft); }
+.entropy-app .task-rich-body.is-empty::before { content: attr(data-placeholder); position: absolute; color: var(--app-subtle); pointer-events: none; }
+.entropy-app .task-rich-body > :first-child { margin-top: 0; }
+.entropy-app .task-rich-body p { margin: 0 0 8px; }
+.entropy-app .task-rich-body h1 { margin: 16px 0 8px; font-size: 1.28rem; font-weight: 700; }
+.entropy-app .task-rich-body h2 { margin: 14px 0 6px; font-size: 1.1rem; font-weight: 700; }
+.entropy-app .task-rich-body h3 { margin: 12px 0 4px; color: var(--app-muted); font-size: .95rem; font-weight: 700; }
+.entropy-app .task-rich-body h4 { margin: 10px 0 4px; font-size: .92rem; font-weight: 700; }
+.entropy-app .task-rich-body :is(h5, h6) { margin: 10px 0 4px; color: var(--app-muted); font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.entropy-app .task-rich-body :is(ul, ol) { margin: 0 0 8px; padding-left: 24px; }
+.entropy-app .task-rich-body li { margin: 2px 0; }
+.entropy-app .task-rich-body li[data-indent="1"] { margin-left: 20px; }
+.entropy-app .task-rich-body li[data-indent="2"] { margin-left: 40px; }
+.entropy-app .task-rich-body li[data-indent="3"] { margin-left: 60px; }
+.entropy-app .task-rich-body [data-checklist="true"] { padding-left: 4px; list-style: none; }
+.entropy-app .task-rich-body [data-checklist="true"] > li { position: relative; padding-left: 26px; }
+.entropy-app .task-rich-body [data-checklist="true"] > li::before { content: ''; position: absolute; left: 0; top: .2em; width: 16px; height: 16px; border: 1.5px solid var(--app-muted); border-radius: 50%; cursor: pointer; }
+.entropy-app .task-rich-body [data-checklist="true"] > li[data-checked="true"]::before { background: var(--app-accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='%23090b0f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat; border-color: var(--app-accent); }
+.entropy-app .task-rich-body [data-checklist="true"] > li[data-checked="true"] { color: var(--app-muted); text-decoration: line-through; }
+.entropy-app .task-rich-body table { width: 100%; margin: 4px 0 10px; border-collapse: collapse; font-size: .9rem; }
+.entropy-app .task-rich-body :is(th, td) { min-width: 60px; padding: 6px 10px; border: 1px solid var(--app-line); text-align: left; vertical-align: top; }
+.entropy-app .task-rich-body th { font-weight: 650; background: var(--app-surface); }
+.entropy-app .task-rich-body :is(th, td):focus-within { outline: 2px solid var(--app-accent-border); outline-offset: -2px; }
+.entropy-app .task-rich-body pre { margin: 0 0 8px; padding: 10px 12px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; font: .82em/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+.entropy-app .task-rich-body code { padding: 1px 4px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 4px; font: .85em ui-monospace, SFMono-Regular, Menlo, monospace; }
+.entropy-app .task-rich-attachment { display: grid; gap: 4px; justify-items: start; margin: 8px 0; padding: 6px; background: var(--app-surface); border: 1px dashed var(--app-line); border-radius: 8px; user-select: none; }
+.entropy-app .task-rich-attachment img { max-width: 100%; max-height: 260px; border-radius: 6px; }
+.entropy-app .task-rich-attachment figcaption { color: var(--app-muted); font-size: .78rem; }
+.entropy-app .task-rich-mentions { top: auto; }
+.entropy-app .task-rich .task-editor-toolbar { position: sticky; top: 0; z-index: 2; }
+.entropy-app .task-editor-table-menu small { color: var(--app-muted); font-size: .75rem; }
+

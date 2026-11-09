@@ -12,6 +12,7 @@ function Inline({ text, members }: { text: string; members: Member[] }) {
             <MentionText text={run.text} members={members} />
         )
         if (run.strike) node = <s>{node}</s>
+        if (run.underline) node = <u>{node}</u>
         if (run.italic) node = <em>{node}</em>
         if (run.bold) node = <strong>{node}</strong>
         return <span key={index}>{node}</span>
@@ -26,7 +27,8 @@ function BlockView({ block, members, onToggle, attachment }: {
 }) {
     switch (block.type) {
         case 'heading': {
-            const Tag = `h${block.level + 2}` as 'h3' | 'h4' | 'h5'
+            // Inside a task panel whose own headings are h2-h3: levels 1-5 read as h3-h6.
+            const Tag = (['h3', 'h4', 'h5', 'h6', 'h6'] as const)[block.level - 1]
             return <Tag className={`task-md-h${block.level}`}><Inline text={block.text} members={members} /></Tag>
         }
         case 'paragraph':

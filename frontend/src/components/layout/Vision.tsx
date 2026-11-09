@@ -7,11 +7,14 @@ import { runsApi, type Run } from '../../api/runs.api'
 import { databaseSwitchDetail, databaseSwitchLabel, visionApi, type DatabaseSwitch, type VisionBroadcast } from '../../api/vision.api'
 import { openRun, runIdFromHash } from '../../features/runs/navigation'
 import { openDatabaseCompare } from '../../features/tools/clashNavigation'
+import { openKnowledgeEntry } from '../../features/tools/knowledge/navigation'
 import { openTask } from '../../features/tools/tasks/navigation'
 import { subscribeVision, VISION_REFRESH_EVENT } from '../../features/vision/bus'
+import { clockParts, formatClock, formatDay, greeting, useNow, useVisionLook } from '../../features/vision/clock'
 import { summarizeRuns, type RunsLevel } from '../../features/vision/runs'
 import { PROJECT_CHANGED_EVENT, PROJECTS_UPDATED_EVENT } from '../../services/project'
 import FloatingMenu from './FloatingMenu'
+import VisionClockFace from './VisionClock'
 import { relativeTime } from './relativeTime'
 
 const ACTIVE_POLL_MS = 1_000
@@ -123,13 +126,15 @@ function follow(notification: AppNotification): void {
     if (notification.source?.startsWith('run:')) openRun(Number(notification.source.slice(4)))
     else if (notification.source?.startsWith('task:')) openTask(Number(notification.source.slice(5)))
     else if (notification.source?.startsWith('clash:')) openDatabaseCompare()
+    else if (notification.source?.startsWith('knowledge:')) openKnowledgeEntry(Number(notification.source.slice(10)))
 }
 
 function canFollow(notification: AppNotification): boolean {
     return Boolean(
         notification.source?.startsWith('run:') ||
             notification.source?.startsWith('task:') ||
-            notification.source?.startsWith('clash:'),
+            notification.source?.startsWith('clash:') ||
+            notification.source?.startsWith('knowledge:'),
     )
 }
 
@@ -340,9 +345,15 @@ function VisionIsland({
                   ? 'running'
                   : activity.level
     const FlashIcon = flash ? LEVEL_ICONS[flash.level] : Bell
-    // Nothing to say: the island shows only its mark.
+    // Nothing to say: the island shows the chosen idle look (a clock by default).
     const idle =
         !summary && !flash && !databaseSwitch && !announcement && !showCompare && activity.level === 'idle'
+    const look = useVisionLook()
+    const showsTime = idle && look.idle !== 'mark'
+    const now = useNow(showsTime)
+    const clockText = formatClock(now, look)
+    // The level class already says is-idle; this says how the idle island looks.
+    const idleClass = idle ? (look.idle === 'mark' ? ' is-mark-only' : ` is-idle-${look.idle}`) : ''
 
     const onClick = () => {
         if (flash && canFollow(flash)) {
@@ -417,17 +428,19 @@ function VisionIsland({
             <button
                 ref={triggerRef}
                 type="button"
-                className={`vision is-${level}${flashing || announcement ? ' is-flash' : ''}${idle ? ' is-idle' : ''}`}
+                className={`vision is-${level}${flashing || announcement ? ' is-flash' : ''}${idleClass}`}
                 onClick={onClick}
                 aria-haspopup="menu"
                 aria-expanded={open}
-                aria-label={idle ? 'Vision' : undefined}
+                aria-label={idle ? (showsTime ? `Vision, ${clockText}` : 'Vision') : undefined}
                 title={
                     flash
                         ? flashText
                         : announcement && !flashing
                           ? announcement.message
-                          : 'Vision: what is running, and new messages'
+                          : showsTime
+                            ? `${formatDay(now)} · ${clockText}. Vision: what is running, and new messages`
+                            : 'Vision: what is running, and new messages'
                 }
             >
                 {summary ? (
@@ -469,6 +482,33 @@ function VisionIsland({
                     <>
                         <VisionMark live={activity.level === 'running'} />
                         <span className="vision-text"><strong>{activity.label}</strong></span>
+                    </>
+                ) : look.idle === 'greeting' ? (
+                    <>
+                        <VisionMark live={false} />
+                        <span className="vision-text" aria-hidden="true">
+                            <strong>{greeting(now)}</strong>
+                            <span className="vision-clock-day">{username}</span>
+                        </span>
+                    </>
+                ) : look.idle === 'clock' || look.idle === 'clock-date' ? (
+                    <>
+                        <VisionClockFace now={now} />
+                        <span className="vision-text" aria-hidden="true">
+                            <time
+                                className={`vision-clock-time${now.getSeconds() % 2 ? ' is-blink-off' : ''}`}
+                                dateTime={now.toISOString()}
+                            >
+                                {clockParts(now, look).map((part, index) =>
+                                    part.separator ? (
+                                        <span key={index} className="vision-clock-colon">{part.text}</span>
+                                    ) : (
+                                        part.text
+                                    ),
+                                )}
+                            </time>
+                            {look.idle === 'clock-date' && <span className="vision-clock-day">{formatDay(now)}</span>}
+                        </span>
                     </>
                 ) : (
                     // Idle: the mark alone; its name is for screen readers.

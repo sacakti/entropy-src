@@ -170,7 +170,7 @@ export type RunMode = 'automated' | 'interactive'
 /** An input of an app plugin's live page (plugin.json "app.inputs"). */
 export interface RunAppInput {
     name: string
-    type: 'text' | 'number' | 'select' | 'toggle' | 'button'
+    type: 'text' | 'number' | 'select' | 'toggle' | 'button' | 'datetime'
     label: string
     description?: string
     placeholder?: string
@@ -183,7 +183,7 @@ export interface RunAppInput {
 /** A view the plugin keeps up to date (plugin.json "app.views"). */
 export interface RunAppView {
     name: string
-    type: 'table' | 'stats' | 'log' | 'keyvalue' | 'text' | 'chart'
+    type: 'table' | 'stats' | 'log' | 'keyvalue' | 'text' | 'chart' | 'files'
     label: string
     title?: string
     description?: string
@@ -198,6 +198,23 @@ export interface RunAppView {
     max_points?: number
     /** Shown as a tab of that view (a table's graph) instead of a panel of its own. */
     tab_of?: string
+    /** Files: the button pressed with a node's id when it is clicked. */
+    open?: string
+    /** Files: buttons shown above the tree (the other buttons act on the open file). */
+    tree_actions?: string[]
+}
+
+/** One entry of a files view's tree; `parent` is another node's id, or null at the top. */
+export interface RunAppFileNode {
+    id: string
+    name: string
+    kind: 'group' | 'folder' | 'file' | 'archive'
+    parent: string | null
+    size?: number | null
+    modified?: string | null
+    /** Its children are known (folders and archives are read when first opened). */
+    loaded?: boolean
+    note?: string | null
 }
 
 export interface RunAppDefinition {
@@ -220,6 +237,11 @@ export interface RunAppViewData {
     metrics?: { key: string; label: string }[]
     series_label?: string
     samples?: { at: string; values: Record<string, (number | null)[]> }[]
+    /** Files: the tree, and the file open in the viewer. */
+    nodes?: RunAppFileNode[]
+    opened?: { id: string; title: string; text: string; notice?: string | null; download_name?: string } | null
+    /** Files: files the plugin offered for download, newest first. */
+    downloads?: { id: number; name: string; size: number; url: string }[]
 }
 
 /** The live page of an app plugin step. */
@@ -474,7 +496,20 @@ export interface EntropyNode {
     server_url: string | null
     agent_version: string | null
     max_jobs: number
+    file_access: NodeFileAccess
 }
+
+/**
+ * How runs on a remote node reach files picked on the main node:
+ * - off: paths are sent as they are;
+ * - fetch: files under `sources` (default: uploaded artifacts and the workspace) are
+ *   copied to the node's `workspace` folder before the run, once per content;
+ * - shared: both mount the same storage; `main` folders are read as `node` folders.
+ */
+export type NodeFileAccess =
+    | { mode: 'off' }
+    | { mode: 'fetch'; workspace: string; sources: string[]; max_gb: number }
+    | { mode: 'shared'; mappings: { main: string; node: string }[] }
 
 export type SshAuth = 'password' | 'key' | 'server'
 
@@ -500,6 +535,8 @@ export interface NodeSetupInput extends NodeCredentials {
     description: string
     /** Also install the `ent` command line, preset to this server. */
     install_cli: boolean
+    /** Saved before the setup, which then prepares or checks the folders on the node. */
+    file_access?: NodeFileAccess
 }
 
 export interface ProvisioningRecord {
@@ -552,6 +589,10 @@ export const nodesApi = {
         values: { description?: string; enabled?: boolean; max_jobs?: number },
     ): Promise<{ node: EntropyNode }> {
         return apiRequest(`/api/nodes/${encodeURIComponent(name)}`, json('PATCH', values))
+    },
+
+    setFileAccess(name: string, value: NodeFileAccess): Promise<{ node: EntropyNode }> {
+        return apiRequest(`/api/nodes/${encodeURIComponent(name)}/file-access`, json('PUT', value))
     },
 
     add(values: NodeSetupInput): Promise<{ provisioning_id: number; node: string }> {

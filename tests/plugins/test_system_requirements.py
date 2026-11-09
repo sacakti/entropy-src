@@ -28,6 +28,7 @@ EXPECTED = {
     "docker.generic": ["docker"],
     "oc.audit": ["git"],
     "oc.generic": ["oc"],
+    "oc.pod_logs": ["oc"],
     "oc.pod_metrics": ["oc"],
     "oc.rsync": ["oc"],
     "oc.sync_yamls": ["oc"],

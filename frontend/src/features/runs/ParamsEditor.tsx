@@ -7,6 +7,16 @@ import RepositorySelect from '../tools/git-repositories/RepositorySelect'
 import { loadVaultKeys, vaultReference } from '../vault/vaultKeys'
 import { display, type ParamRow } from './params'
 
+/** The items of a JSON list value; anything else picks nothing. */
+function pickedChoices(value: string): unknown[] {
+    try {
+        const parsed: unknown = JSON.parse(value)
+        return Array.isArray(parsed) ? parsed : []
+    } catch {
+        return []
+    }
+}
+
 export default function ParamsEditor({
     rows,
     onChange,
@@ -41,6 +51,8 @@ export default function ParamsEditor({
                                 ? 'Optional (interactive runs ask when left empty)'
                                 : 'Optional'
                             : 'Value (text or JSON)'
+                // A list with choices is a multiple choice: check boxes, kept as a JSON list.
+                const multiple = spec?.type === 'list' && Boolean(spec.choices?.length)
                 const choices = spec?.choices?.length
                     ? spec.choices.map(display)
                     : spec?.type === 'boolean'
@@ -88,6 +100,28 @@ export default function ParamsEditor({
                                 label={spec.name}
                                 placeholder={spec.required ? 'Choose a repository' : 'Choose a repository (optional)'}
                             />
+                        ) : spec && multiple && !row.value.trim().startsWith('${') ? (
+                            <div className="params-choices" role="group" aria-label={spec.name}>
+                                {(spec.choices ?? []).map((choice) => {
+                                    const picked = pickedChoices(row.value)
+                                    const checked = picked.includes(choice)
+                                    return (
+                                        <label key={display(choice)} className="params-choice">
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => {
+                                                    const next = (spec.choices ?? []).filter((item) =>
+                                                        item === choice ? !checked : picked.includes(item),
+                                                    )
+                                                    update(index, { value: next.length ? JSON.stringify(next) : '' })
+                                                }}
+                                            />
+                                            {display(choice)}
+                                        </label>
+                                    )
+                                })}
+                            </div>
                         ) : spec && choices ? (
                             <select
                                 value={row.value}

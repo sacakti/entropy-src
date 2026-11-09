@@ -4,6 +4,7 @@ Invalid objects report argument resolution.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 from collections.abc import Mapping
 from typing import Any
@@ -107,6 +108,99 @@ class InvalidObjectsReportResolver:
         return value
 
     @staticmethod
+    def plan_schemas(
+        execution: Any,
+    ) -> list[str]:
+        """
+        The schemas a release changes, from its database context (the `database`
+        output of release.context_builder or consolidate.db_scripts): its `schemas`
+        list when it has one, else every schema its execution plan names.
+        """
+
+        if execution is None:
+            return []
+
+        if not isinstance(execution, Mapping):
+            raise InvalidObjectsReportPluginException(
+                "'execution' must be a database context object, such as "
+                "${steps.BuildReleaseContext.outputs.database}.",
+            )
+
+        listed = execution.get("schemas")
+        if isinstance(listed, list):
+            names = listed
+        else:
+            plan = execution.get("execution_plan") or {}
+            applications = plan.get("applications") if isinstance(plan, Mapping) else None
+            if applications is not None and not isinstance(applications, Mapping):
+                raise InvalidObjectsReportPluginException(
+                    "'execution.execution_plan.applications' must be an object.",
+                )
+            names = [
+                definition.get("schema")
+                for definition in (applications or {}).values()
+                if isinstance(definition, Mapping)
+            ]
+
+        schemas: list[str] = []
+        for name in names:
+            if isinstance(name, str) and name.strip() and name.strip() not in schemas:
+                schemas.append(name.strip())
+        return schemas
+
+    @staticmethod
+    def only_schemas(
+        value: Any,
+    ) -> list[str]:
+        if value is None:
+            return []
+        items = [value] if isinstance(value, str) else value
+        if not isinstance(items, list) or not all(
+            isinstance(item, str) and item.strip() for item in items
+        ):
+            raise InvalidObjectsReportPluginException(
+                "'only_schemas' must be a list of schema names or patterns such as APP*.",
+            )
+        return [item.strip() for item in items]
+
+    @staticmethod
+    def select(
+        schemas: dict[str, Any],
+        wanted: list[str],
+    ) -> tuple[dict[str, Any], list[str], list[str]]:
+        """
+        The schemas to check, in the order asked for: (credentials by schema,
+        schemas asked for that have no credentials, patterns that matched nothing).
+        Names and patterns (APP*) are compared without case.
+        """
+
+        by_name = {name.casefold(): name for name in schemas}
+        selected: dict[str, Any] = {}
+        missing: list[str] = []
+        unmatched: list[str] = []
+
+        for item in wanted:
+            if any(char in item for char in "*?["):
+                found = [
+                    name
+                    for name in schemas
+                    if fnmatch.fnmatchcase(name.casefold(), item.casefold())
+                ]
+                if not found:
+                    unmatched.append(item)
+                for name in found:
+                    selected.setdefault(name, schemas[name])
+                continue
+            known = by_name.get(item.casefold())
+            if known is None:
+                if item not in missing:
+                    missing.append(item)
+            else:
+                selected.setdefault(known, schemas[known])
+
+        return selected, missing, unmatched
+
+    @staticmethod
     def _credential_object(value: Any) -> Any:
         if isinstance(value, Mapping):
             return dict(value)
@@ -178,8 +272,7 @@ class InvalidObjectsReportResolver:
 
         if add_text and not text:
             raise InvalidObjectsReportPluginException(
-                "'report.text' must not be empty when "
-                "'report.add_text' is true.",
+                "'report.text' must not be empty when " "'report.add_text' is true.",
             )
 
         return {

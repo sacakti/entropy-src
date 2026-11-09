@@ -329,6 +329,63 @@ class Agent:
                 manager.install(target, reinstall=manager.exists(name))
             marker.write_text(digest)
 
+    def _ensure_files(self, job_id: int, spec: Dict[str, Any]) -> None:
+        """
+        Copy the main-node files the run needs into this node's file workspace, once
+        per content, and check that the shared folders it uses are mounted.
+        """
+
+        for folder in spec.get("checks", []):
+            if not Path(folder).is_dir():
+                raise RuntimeError(
+                    f"The shared folder {folder} is not mounted on this node; mount it, or "
+                    "change the node's file access."
+                )
+
+        for item in spec.get("files", []):
+            target = Path(item["target"])
+            holder = target.parent
+            done = holder / ".complete"
+            if done.exists():
+                continue
+            holder.mkdir(parents=True, exist_ok=True)
+            partial = holder / ".download"
+            LOGGER.info(
+                "Run #%s: copying %s (%s bytes) from the main node.",
+                job_id,
+                item["name"],
+                item["size"],
+            )
+            size = self.client.download_to(
+                f"/api/agent/jobs/{job_id}/files/{item['index']}", partial
+            )
+            if item["kind"] == "file":
+                if size != int(item["size"]):
+                    partial.unlink()
+                    raise RuntimeError(
+                        f"{item['name']} arrived incomplete ({size} of {item['size']} bytes); "
+                        "retry the run."
+                    )
+                partial.replace(target)
+            else:
+                target.mkdir(exist_ok=True)
+                with tarfile.open(partial, "r") as archive:
+                    root = target.resolve()
+                    for member in archive.getmembers():
+                        resolved = (root / member.name).resolve()
+                        if (
+                            resolved != root and not str(resolved).startswith(str(root) + os.sep)
+                        ) or not (member.isfile() or member.isdir()):
+                            raise RuntimeError(
+                                f"{item['name']} contains an unsafe entry: {member.name}"
+                            )
+                    if hasattr(tarfile, "data_filter"):
+                        archive.extractall(target, filter="data")
+                    else:  # Python before 3.9.17 on an older node
+                        archive.extractall(target)
+                partial.unlink()
+            done.write_text(str(item["size"]), encoding="utf-8")
+
     def _start(self, spec: Dict[str, Any]) -> None:
         from lib.auth.manager import SESSION_TOKEN_ENV
         from lib.models.workflow import WorkflowExecutionOptions
@@ -354,6 +411,7 @@ class Agent:
 
         try:
             self._ensure_plugins(spec.get("plugins", []))
+            self._ensure_files(job_id, spec)
 
             path = self.jobs_directory / f"{job_id}.json"
             path.write_text(spec["definition"], encoding="utf-8")

@@ -614,7 +614,7 @@ The plugin needs no credentials. Do not pass vault values to it.
         }
     },
     "common_paths": [],
-    "database": {"dir": null, "scripts": [], "execution_plan": null}
+    "database": {"dir": null, "scripts": [], "execution_plan": null, "schemas": []}
 }
 ```
 
@@ -629,6 +629,7 @@ The plugin needs no credentials. Do not pass vault values to it.
 | Apply/create/replace lists | `${steps.BuildReleaseContext.outputs.deployment.operations}` |
 | Rsync plan | `${steps.BuildReleaseContext.outputs.common_paths}` |
 | Database plan | `${steps.BuildReleaseContext.outputs.database}` |
+| Schemas the release changes (e.g. for `sqlplus.invalid_objects_report`) | `${steps.BuildReleaseContext.outputs.database.schemas}` |
 | Extracted release root | `${steps.BuildReleaseContext.outputs.release.root}` |
 
 ------------------------------------------------------------------------
@@ -854,6 +855,11 @@ Check the ZIP layout against [Release layouts](#release-layouts).
 ------------------------------------------------------------------------
 
 ## Changelog
+
+### 1.2.0
+
+- `database.schemas` lists the schemas the release's execution plan changes, in
+  plan order, so `sqlplus.invalid_objects_report` can check only those.
 
 ### 1.1.5
 

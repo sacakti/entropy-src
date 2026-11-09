@@ -148,6 +148,8 @@ class RunService:
                 {"qualified_name": qualified_name, "digest": plugin_digest(path, _DIGESTS)}
             )
 
+        staged = self._stage_files(node, definition, dict(variables or {}))
+
         slug = re.sub(r"[^a-z0-9_.-]+", "_", name.lower()).strip("_") or "workflow"
         job = self._context.workflow_job_manager.create(
             execution_id=f"{slug}_{uuid.uuid4().hex[:8]}",
@@ -166,8 +168,15 @@ class RunService:
             {
                 "job_id": job_id,
                 "execution_id": job.execution_id,
-                "definition": definition,
-                "variables": dict(variables or {}),
+                "definition": staged["definition"],
+                "variables": staged["variables"],
+                # Main-node files the node copies first, and shared folders it must see.
+                "files": [
+                    {key: item[key] for key in ("index", "name", "kind", "size", "key", "target")}
+                    for item in staged["files"]
+                ],
+                "checks": staged["checks"],
+                "file_paths": [item["path"] for item in staged["files"]],
                 "user": {
                     "id": user.id,
                     "username": user.username,
@@ -177,6 +186,23 @@ class RunService:
             },
         )
         return job_id
+
+    def _stage_files(
+        self, node: Dict[str, Any], definition: str, variables: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """The run as the node needs it: see lib/nodes/files.py."""
+
+        from lib.nodes.files import FileAccessError, plan
+
+        defaults = [Path(self._context.bootstrap.home) / "artifacts"]
+        paths = getattr(self._context, "paths", None)
+        workspace = getattr(getattr(paths, "workspace", None), "root", None)
+        if workspace:
+            defaults.append(Path(workspace))
+        try:
+            return plan(node.get("file_access") or {"mode": "off"}, definition, variables, defaults)
+        except FileAccessError as exc:
+            raise RunError(f"Node '{node['name']}': {exc}", 409) from exc
 
     def _start(
         self,

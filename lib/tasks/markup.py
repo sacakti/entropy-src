@@ -1,7 +1,8 @@
 """
 What a task description can hold, read from its plain text (Markdown's common forms): headings,
 paragraphs, lists, checklists, tables, code blocks and attachments in place, with bold, italic,
-strikethrough and `code` inside. The browser reads it the same way
+underline (++text++, Markdown has none), strikethrough and `code` inside. Headings go from
+# to #####. The browser reads it the same way
 (frontend/src/features/tools/tasks/markup.ts): change both together.
 tests/tools/test_task_markup.py holds them to the same cases.
 """
@@ -12,16 +13,17 @@ import re
 from typing import Any, Dict, List, Optional
 
 _FENCE = re.compile(r"^\s*```")
-_HEADING = re.compile(r"^(#{1,3})\s+(.+?)\s*$")
+_HEADING = re.compile(r"^(#{1,5})\s+(.+?)\s*$")
 _LIST_ITEM = re.compile(r"^(\s*)([-*+]|\d+\.)\s+(?:\[([ xX])\](?:\s+|$))?(.*)$")
 _TABLE_RULE = re.compile(r"^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$")
 _CELL_BREAK = re.compile(r"(?<!\\)\|")
 ATTACHMENT = re.compile(r"!\[([^\]\n]*)\]\(attachment:(\d+)\)")
 _INLINE = re.compile(
-    r"\\([\\*~`|])|`([^`\n]+)`"
+    r"\\([\\*~`|+#.-])|`([^`\n]+)`"
     r"|\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*"
     r"|\*\*(?=\S)(.+?)(?<=\S)\*\*"
     r"|~~(?=\S)(.+?)(?<=\S)~~"
+    r"|\+\+(?=\S)(.+?)(?<=\S)\+\+"
     r"|\*(?=[^\s*])(.+?)(?<=[^\s*])\*"
 )
 
@@ -140,7 +142,10 @@ def parse_blocks(source: str) -> List[Dict[str, Any]]:
 
 
 def parse_inline(text: str, style: Optional[Dict[str, bool]] = None) -> List[Dict[str, Any]]:
-    """The text in runs of one style: {"text", and any of "bold", "italic", "strike", "code"}."""
+    """
+    The text in runs of one style: {"text", and any of "bold", "italic", "underline",
+    "strike", "code"}.
+    """
 
     style = style or {}
     runs: List[Dict[str, Any]] = []
@@ -148,7 +153,7 @@ def parse_inline(text: str, style: Optional[Dict[str, bool]] = None) -> List[Dic
     for match in _INLINE.finditer(text):
         if match.start() > position:
             runs.append({**style, "text": text[position : match.start()]})
-        escaped, code, both, bold, strike, italic = match.groups()
+        escaped, code, both, bold, strike, underline, italic = match.groups()
         if escaped is not None:
             runs.append({**style, "text": escaped})
         elif code is not None:
@@ -159,6 +164,8 @@ def parse_inline(text: str, style: Optional[Dict[str, bool]] = None) -> List[Dic
             runs.extend(parse_inline(bold, {**style, "bold": True}))
         elif strike is not None:
             runs.extend(parse_inline(strike, {**style, "strike": True}))
+        elif underline is not None:
+            runs.extend(parse_inline(underline, {**style, "underline": True}))
         elif italic is not None:
             runs.extend(parse_inline(italic, {**style, "italic": True}))
         position = match.end()

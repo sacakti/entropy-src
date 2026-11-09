@@ -107,6 +107,7 @@ The structure is loaded through the Entropy normalizer.
 | `kubeconfig` | Yes | `path` | --- | Existing kubeconfig used for OpenShift operations. |
 | `namespace` | Yes | `string` | --- | OpenShift namespace to synchronize. |
 | `yaml_repository` | Yes | `string` | --- | Destination YAML repository. |
+| `exclude_resource_types` | No | `list` | `[]` | Resource types not to synchronize, such as `secrets`. |
 | `ignore_resources` | No | `dictionary` | Built-in defaults | Resources or data keys to exclude from synchronization. |
 
 ------------------------------------------------------------------------
@@ -193,6 +194,24 @@ It also creates:
 ```
 
 for the resource index.
+
+------------------------------------------------------------------------
+
+### `exclude_resource_types`
+
+Resource types to leave out completely: they are not fetched, their access is
+not checked, and the run writes no files for them. Choose any of
+`deployments`, `configmaps`, `secrets`, `services` and `routes`; in the run
+form they are check boxes. At least one type must remain.
+
+```json
+{
+    "exclude_resource_types": ["secrets"]
+}
+```
+
+YAML files already in the repository for an excluded type are left as they
+are. `ignore_resources` still applies to the types that are synchronized.
 
 ------------------------------------------------------------------------
 
@@ -1648,6 +1667,10 @@ them.
 ------------------------------------------------------------------------
 
 ## Changelog
+
+### 1.1.0
+
+- `exclude_resource_types` leaves out whole resource types, such as secrets.
 
 ### 1.0.4
 

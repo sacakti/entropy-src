@@ -66,6 +66,12 @@ export type Group = {
     task_count: number
 }
 export type Member = { username: string; full_name: string | null }
+
+/** A person's full name when the project knows it, else their user name. */
+export function memberName(members: Member[], username: string): string {
+    const member = members.find((item) => item.username.toLowerCase() === username.toLowerCase())
+    return member?.full_name?.trim() || username
+}
 export type TaskSettings = { prefix: string; next_key: string; types: string[]; custom_types: string[] }
 export type TaskData = {
     /** Grows whenever the project's tasks change. */

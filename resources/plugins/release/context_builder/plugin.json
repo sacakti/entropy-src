@@ -1,7 +1,7 @@
 {
     "name": "context_builder",
     "namespace": "release",
-    "version": "1.1.7",
+    "version": "1.2.0",
     "description": "",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
@@ -23,7 +23,7 @@
         {"name": "images", "type": "dictionary", "description": "Images that need building, keyed by image name."},
         {"name": "deployment", "type": "dictionary", "description": "Planned OpenShift changes: required flag, resources by type and operations (create, apply, replace)."},
         {"name": "common_paths", "type": "list", "description": "Common path rsync operations found in the release."},
-        {"name": "database", "type": "dictionary", "description": "Database scripts found in the release: dir, scripts and execution_plan."}
+        {"name": "database", "type": "dictionary", "description": "Database scripts found in the release: dir, scripts, execution_plan and schemas (the schemas its execution plan changes, in plan order)."}
     ],
 
     "tags": [],

@@ -28,6 +28,8 @@ def test_the_common_forms_are_read() -> None:
         (1, "One"),
         (2, "Two"),
         (3, "Three"),
+        (4, "Four"),
+        (5, "Five"),
     ]
     [checklist] = _blocks("checklist")
     assert [item["checked"] for item in checklist["items"]] == [False, True, True, False, None]
@@ -278,3 +280,13 @@ def test_reminders_do_not_show_the_markers() -> None:
 
     assert 'plain_text(task["description"] or "")' in source
     assert "plain_text(task['description'] or '')" in source
+
+
+def test_underline_is_read_between_double_pluses() -> None:
+    [block] = _blocks("underline")
+    runs = parse_inline(block["text"])
+    underlined = [run["text"] for run in runs if run.get("underline")]
+    assert underlined == ["under", "bold under"]
+    assert any(run.get("bold") and run.get("underline") for run in runs)
+    # "C++ is", an escaped mark and spaced pluses stay text.
+    assert "C++ is fine, ++not++ and ++ spaced ++" in "".join(run["text"] for run in runs)

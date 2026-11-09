@@ -8,6 +8,7 @@ import json
 import ssl
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 
@@ -81,3 +82,16 @@ class AgentClient:
     def download(self, path: str, *, timeout: float = 120) -> bytes:
         with self._open("GET", path, None, timeout) as response:
             return response.read()
+
+    def download_to(self, path: str, destination: Path, *, timeout: float = 600) -> int:
+        """Stream a download into a file (packages may be large); returns its size."""
+
+        size = 0
+        with self._open("GET", path, None, timeout) as response, open(destination, "wb") as target:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                target.write(chunk)
+                size += len(chunk)
+        return size

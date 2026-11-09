@@ -120,6 +120,32 @@ endpoint.
 
 ---
 
+# Files for runs on a node
+
+A run often names a file picked on the main node, such as a release package. Each
+remote node says how its runs reach such files (`lib/nodes/files.py`), in the setup
+dialog or later under **Files for runs…** in the node's menu:
+
+| Mode | What happens |
+|---|---|
+| Off (default) | Paths are sent as they are; the files must already be on the node. |
+| Fetch from main | Files under the main-node folders to send from (default: uploaded artifacts and the workspace) are copied to the node's workspace folder before the run, and the run's paths changed to the copies. |
+| Shared folder | Both mount the same storage. Paths under a pair's main folder are changed to its node folder; nothing is copied. |
+
+- Only whole values that are absolute paths are changed (step arguments, nested
+  values and run variables); a path built from parts (`${dir}/SR01.zip`) is not.
+- Fetch: the agent downloads each file over its own connection
+  (`GET /api/agent/jobs/{id}/files/{n}`, only the files named when the run was queued,
+  only to that node). A folder comes as a tar archive. Copies are kept under
+  `<workspace>/<key>/`, the key changing with the path, size and modification time,
+  so the same package is copied once. A run over the size limit (5 GB by default) is
+  refused when it is started.
+- Shared: setting the node up checks each node folder is mounted, and the agent checks
+  again before a run. A run naming a main-node file outside the shared folders is
+  refused when it is started.
+- Setting the node up creates the fetch workspace. Nodes need an agent from this
+  version (Set up again) to use either mode.
+
 # The ent command line on nodes
 
 Setup also installs `ent` for the SSH user, pointed at the main node URL

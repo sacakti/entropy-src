@@ -168,6 +168,16 @@ class _Report:
                     width=0.4,
                 )
             canvas.text(x + offset, y + 0.6, piece, font, word_size, color or _COLORS["text"])
+            if run.get("underline"):
+                base = y + 0.6 + word_size * 0.98
+                canvas.line(
+                    x + offset,
+                    base,
+                    x + offset + measured,
+                    base,
+                    color or _COLORS["text"],
+                    width=0.5,
+                )
             if run.get("strike"):
                 middle = y + 0.6 + word_size * 0.58
                 canvas.line(
@@ -285,10 +295,10 @@ class _Report:
         for block in parse_blocks(text):
             kind = block["type"]
             if kind == "heading":
-                size = {1: 13.0, 2: 11.5, 3: 10.0}[block["level"]]
+                size = {1: 13.0, 2: 11.5, 3: 10.0, 4: 9.5, 5: 9.0}[block["level"]]
                 canvas.need(size * _LINE + 22)
                 canvas.y += 5
-                color = _COLORS["muted"] if block["level"] == 3 else None
+                color = _COLORS["muted"] if block["level"] in (3, 5) else None
                 self.formatted(block["text"], size=size, bold=True, color=color)
                 canvas.y += 2
             elif kind == "paragraph":

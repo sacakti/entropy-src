@@ -4,6 +4,7 @@ import {
     Check,
     ChevronDown,
     Copy,
+    FolderSync,
     Cpu,
     HardDrive,
     MemoryStick,
@@ -28,6 +29,7 @@ import FloatingMenu from '../../components/layout/FloatingMenu'
 import MetricChart from './MetricChart'
 import { missingPermission } from '../administration/permissionReason'
 import { usePermissions } from '../administration/usePermissions'
+import FileAccessDialog from './FileAccessDialog'
 import NodeSetupDialog from './NodeSetupDialog'
 import ProvisioningLog from './ProvisioningLog'
 import RemoveNodeDialog from './RemoveNodeDialog'
@@ -56,7 +58,9 @@ const SAMPLE_COLUMNS: { field: SampleSortField; label: string }[] = [
     { field: 'jobs', label: 'Jobs' },
 ]
 
-type NodeAction = { kind: 'setup' | 'remove' | 'log'; node: EntropyNode }
+type NodeAction = { kind: 'setup' | 'remove' | 'log' | 'files'; node: EntropyNode }
+
+const FILE_ACCESS_LABELS = { off: 'off', fetch: 'fetch from main', shared: 'shared folder' } as const
 
 /** Operations menu of a remote node. */
 function NodeMenu({
@@ -103,6 +107,15 @@ function NodeMenu({
                     onClick={pick(() => onAction({ kind: 'setup', node }), manageReason)}
                 >
                     <ServerCog size={15} /> Set up again
+                </button>
+                <button
+                    type="button"
+                    role="menuitem"
+                    aria-disabled={manageReason ? true : undefined}
+                    title={manageReason ?? `Now: ${FILE_ACCESS_LABELS[node.file_access?.mode ?? 'off']}`}
+                    onClick={pick(() => onAction({ kind: 'files', node }), manageReason)}
+                >
+                    <FolderSync size={15} /> Files for runs…
                 </button>
                 <button type="button" role="menuitem" onClick={pick(() => onAction({ kind: 'log', node }))}>
                     <ScrollText size={15} /> Last setup log
@@ -566,6 +579,9 @@ export default function Nodes() {
                 />
             )}
             {action?.kind === 'log' && <LastSetupDialog node={action.node} onClose={() => setAction(null)} />}
+            {action?.kind === 'files' && (
+                <FileAccessDialog node={action.node} onClose={() => setAction(null)} onSaved={() => void load()} />
+            )}
         </section>
     )
 }

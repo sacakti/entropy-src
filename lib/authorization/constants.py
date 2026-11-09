@@ -95,6 +95,10 @@ MODULES = (
         description="Release tracking, task coordination and environment promotion.",
     ),
     ModuleDefinition(
+        name="knowledge",
+        description="Project knowledge base: what was done, where, when, how and by whom.",
+    ),
+    ModuleDefinition(
         name="artifacts",
         description="Project release packages and deployment artifacts.",
     ),
@@ -460,6 +464,13 @@ PERMISSIONS = (
         "releases.delete",
         "delete",
         "Permanently delete releases and promotion history.",
+    ),
+    PermissionDefinition("knowledge", "knowledge.read", "read", "Read a project's knowledge base."),
+    PermissionDefinition(
+        "knowledge", "knowledge.write", "write", "Add and edit knowledge base entries."
+    ),
+    PermissionDefinition(
+        "knowledge", "knowledge.delete", "delete", "Delete knowledge base entries."
     ),
     PermissionDefinition("artifacts", "artifacts.read", "read", "View release artifacts in a project."),
     PermissionDefinition("artifacts", "artifacts.write", "write", "Upload and register release artifacts in a project."),

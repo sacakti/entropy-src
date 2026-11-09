@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.2.0 - 2026-11-09
+
+### New
+
+- Knowledge base: keep what was done, where, when, how and by whom, with screenshots, versions you can restore, export to PDF, HTML or Word, and import from Word or Markdown
+- Task descriptions are written like a note: bold, underline, headings 1-5, lists, checklists and tables from a toolbar, with no markup and no preview
+- Pod logs app (oc.pod_logs): browse pod log folders and archives, read logs with highlighting and colours, narrow them to a time range, and download them; try it with dry run
+- Runs on another node can reach files picked on the main node: copied there first, or through a shared folder, set per node
+- Database compare can compare named tables, typed or kept in the Vault, beside the name pattern
+- Vision shows a clock with the date when nothing is happening; choose its look in Preferences
+- Invalid objects report checks only the schemas a release changes, from context_builder
+- sync_yamls can leave out whole resource types, such as secrets
+- load_data status checks take a where condition per procedure
+
+### Improved
+
+- A clearer database compare report: a verdict, counts, DDL side by side with changed words marked, and row differences
+- Tasks show people by their full names
+- App pages offer date and time pickers, and downloads while the app runs
+- Plugin arguments with several choices show as checkboxes, in run forms and the workflow editor
+
+### Fixed
+
+- A screenshot pasted into a description no longer shows as removed until the editor is reopened
+
 ## 3.1.3 - 2026-11-08
 
 ### New

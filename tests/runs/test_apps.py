@@ -267,3 +267,74 @@ def test_table_rows_carry_tones_but_not_as_columns(connection, monkeypatch) -> N
     assert page["views"]["pods"]["rows"][0]["_tone"] == "success"
     with pytest.raises(PluginAppError, match="_tone must be one of"):
         app.table("pods", [{"name": "web-1", "_tone": "red"}])
+
+
+FILES_APP = {
+    "inputs": [{"name": "open", "type": "button", "target": "browser"}],
+    "views": [{"name": "browser", "type": "files", "open": "open"}],
+}
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [],
+        [{"name": "open", "type": "button"}],
+        [{"name": "open", "type": "text"}],
+    ],
+)
+def test_a_files_view_needs_an_open_button_aimed_at_it(inputs) -> None:
+    with pytest.raises(ContractError) as caught:
+        normalize_app({**FILES_APP, "inputs": inputs})
+    assert any("a files view needs 'open'" in problem for problem in caught.value.problems)
+
+
+def test_files_publishes_nodes_and_cuts_long_text(connection, monkeypatch) -> None:
+    from lib.plugins.app import MAX_FILE_TEXT
+
+    monkeypatch.setenv(RUN_MODE_ENV, "automated")
+    app = PluginApp(_context(connection), normalize_app(FILES_APP), "oc.logs")
+    nodes = [
+        {"id": "p", "name": "pod", "kind": "group", "parent": None},
+        {"id": "f", "name": "app.log", "kind": "file", "parent": "p", "size": 3},
+    ]
+
+    app.files("browser", nodes, opened={"id": "f", "text": "x" * (MAX_FILE_TEXT + 5)})
+
+    [page] = AppStore(connection).list([7])
+    browser = page["views"]["browser"]
+    assert browser["nodes"] == nodes and browser["total"] == 2
+    assert len(browser["opened"]["text"]) == MAX_FILE_TEXT
+    assert browser["opened"]["title"] == "f" and "newest part" in browser["opened"]["notice"]
+
+    with pytest.raises(PluginAppError, match="kind"):
+        app.files("browser", [{"id": "x", "name": "x", "kind": "disk", "parent": None}])
+
+
+def test_tree_actions_must_be_buttons_aimed_at_the_view() -> None:
+    good = {
+        "inputs": [
+            *FILES_APP["inputs"],
+            {"name": "zip", "type": "button", "target": "browser"},
+            {"name": "when", "type": "datetime"},
+        ],
+        "views": [{**FILES_APP["views"][0], "tree_actions": ["zip"]}],
+    }
+    assert normalize_app(good)["views"][0]["tree_actions"] == ["zip"]
+    with pytest.raises(ContractError) as caught:
+        normalize_app({**good, "views": [{**good["views"][0], "tree_actions": ["open", "x"]}]})
+    assert sum("tree action" in problem for problem in caught.value.problems) == 2
+
+
+def test_datetime_inputs_take_text(connection, monkeypatch) -> None:
+    monkeypatch.setenv(RUN_MODE_ENV, "interactive")
+    definition = normalize_app(
+        {"inputs": [{"name": "when", "type": "datetime"}], "views": [{"name": "t", "type": "text"}]}
+    )
+    app = PluginApp(_context(connection), definition, "x.y")
+    assert app.interactive
+    store = AppStore(connection)
+    [page] = store.list([7])
+    assert store.set_inputs(page["id"], {"when": "2026-11-08T10:30"})["when"] == "2026-11-08T10:30"
+    with pytest.raises(AppError):
+        store.set_inputs(page["id"], {"when": 5})

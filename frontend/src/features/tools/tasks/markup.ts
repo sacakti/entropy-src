@@ -1,7 +1,8 @@
 /**
  * What a task description can hold, read from its plain text (Markdown's common forms):
- * headings, paragraphs, lists, checklists, tables, code blocks and attachments in place, with
- * bold, italic, strikethrough and `code` inside. lib/tasks/markup.py reads it the same way for
+ * headings (# to #####), paragraphs, lists, checklists, tables, code blocks and attachments in
+ * place, with bold, italic, underline (++text++, Markdown has none), strikethrough and `code`
+ * inside. lib/tasks/markup.py reads it the same way for
  * the reports: change both together. Text only ever becomes React text, never HTML.
  */
 
@@ -10,8 +11,11 @@ export interface Run {
     bold?: boolean
     italic?: boolean
     strike?: boolean
+    underline?: boolean
     code?: boolean
 }
+
+export type HeadingLevel = 1 | 2 | 3 | 4 | 5
 
 export interface ListItem {
     text: string
@@ -23,7 +27,7 @@ export interface ListItem {
 }
 
 export type Block =
-    | { type: 'heading'; level: 1 | 2 | 3; text: string }
+    | { type: 'heading'; level: HeadingLevel; text: string }
     | { type: 'paragraph'; text: string }
     | { type: 'list'; ordered: boolean; start: number; items: ListItem[] }
     | { type: 'table'; header: string[]; rows: string[][] }
@@ -31,12 +35,12 @@ export type Block =
     | { type: 'attachment'; id: number; caption: string }
 
 const FENCE = /^\s*```/
-const HEADING = /^(#{1,3})\s+(.+?)\s*$/
+const HEADING = /^(#{1,5})\s+(.+?)\s*$/
 const LIST_ITEM = /^(\s*)([-*+]|\d+\.)\s+(?:\[([ xX])\](?:\s+|$))?(.*)$/
 const TABLE_RULE = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/
 const ATTACHMENT = /!\[([^\]\n]*)\]\(attachment:(\d+)\)/g
 const INLINE =
-    /\\([\\*~`|])|`([^`\n]+)`|\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*|\*\*(?=\S)(.+?)(?<=\S)\*\*|~~(?=\S)(.+?)(?<=\S)~~|\*(?=[^\s*])(.+?)(?<=[^\s*])\*/g
+    /\\([\\*~`|+#.-])|`([^`\n]+)`|\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*|\*\*(?=\S)(.+?)(?<=\S)\*\*|~~(?=\S)(.+?)(?<=\S)~~|\+\+(?=\S)(.+?)(?<=\S)\+\+|\*(?=[^\s*])(.+?)(?<=[^\s*])\*/g
 
 export function tableCells(line: string): string[] {
     const inner = line.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '')
@@ -100,7 +104,7 @@ export function parseBlocks(source: string): Block[] {
         const heading = HEADING.exec(line)
         if (heading) {
             flush()
-            blocks.push({ type: 'heading', level: heading[1].length as 1 | 2 | 3, text: heading[2] })
+            blocks.push({ type: 'heading', level: heading[1].length as HeadingLevel, text: heading[2] })
             index += 1
             continue
         }
@@ -153,12 +157,13 @@ export function parseInline(text: string, style: Omit<Run, 'text'> = {}): Run[] 
     for (const match of text.matchAll(INLINE)) {
         const start = match.index ?? 0
         if (start > position) runs.push({ ...style, text: text.slice(position, start) })
-        const [, escaped, code, both, bold, strike, italic] = match
+        const [, escaped, code, both, bold, strike, underline, italic] = match
         if (escaped !== undefined) runs.push({ ...style, text: escaped })
         else if (code !== undefined) runs.push({ ...style, text: code, code: true })
         else if (both !== undefined) runs.push(...parseInline(both, { ...style, bold: true, italic: true }))
         else if (bold !== undefined) runs.push(...parseInline(bold, { ...style, bold: true }))
         else if (strike !== undefined) runs.push(...parseInline(strike, { ...style, strike: true }))
+        else if (underline !== undefined) runs.push(...parseInline(underline, { ...style, underline: true }))
         else if (italic !== undefined) runs.push(...parseInline(italic, { ...style, italic: true }))
         position = start + match[0].length
     }

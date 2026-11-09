@@ -5,7 +5,7 @@ Plugin runner.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from lib.models.plugin import PluginResult
 from lib.plugins.contract import (
@@ -704,38 +704,50 @@ class PluginRunner:
         # should be visible in the run log without turning a successful plugin
         # execution into a failure.
         try:
-            from lib.artifacts.store import ArtifactStore, ensure_artifacts_schema
-            from lib.authorization.projects import default_project_id
-            from lib.vault.projects import run_project
-            import hashlib
-            import json
-
-            connection = context.database.connection
-            ensure_artifacts_schema(connection)
-            project_id = run_project() or default_project_id(connection)
-            store = ArtifactStore(connection)
-            run_id = PluginRunner._run_execution_id(context, connection)
-            step_name = PluginRunner._current_step(context)
-            run_tag = "run:" + hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:16]
             for name, raw_path in produced.items():
-                path = Path(raw_path).expanduser()
-                if not path.is_absolute():
-                    path = context.workspace / path
-                path = path.resolve(strict=True)
-                if not path.is_file():
-                    continue
-                store.create(
-                    project_id,
-                    path.name or str(name),
-                    "server_path",
-                    path.stat().st_size,
-                    context.user,
-                    server_path=str(path),
-                    tags=json.dumps([run_tag]),
-                    classification="generated",
-                    origin=origin,
-                    run_id=run_id,
-                    step_name=step_name,
-                )
+                PluginRunner.register_artifact(context, raw_path, origin, name=str(name))
         except Exception as error:
             context.logger.warning("plugin", f"Unable to register generated artifacts: {error}")
+
+    @staticmethod
+    def register_artifact(
+        context: ExecutionContext,
+        raw_path: Any,
+        origin: str,
+        name: str | None = None,
+    ) -> dict[str, Any] | None:
+        """
+        Register one generated file in the artifact inventory of the run's project
+        and return its record; None when it is not a file. Raises when it cannot.
+        """
+        import hashlib
+        import json
+
+        from lib.artifacts.store import ArtifactStore, ensure_artifacts_schema
+        from lib.authorization.projects import default_project_id
+        from lib.vault.projects import run_project
+
+        path = Path(raw_path).expanduser()
+        if not path.is_absolute():
+            path = context.workspace / path
+        path = path.resolve(strict=True)
+        if not path.is_file():
+            return None
+        connection = context.database.connection
+        ensure_artifacts_schema(connection)
+        project_id = run_project() or default_project_id(connection)
+        run_id = PluginRunner._run_execution_id(context, connection)
+        run_tag = "run:" + hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:16]
+        return ArtifactStore(connection).create(
+            project_id,
+            path.name or str(name),
+            "server_path",
+            path.stat().st_size,
+            context.user,
+            server_path=str(path),
+            tags=json.dumps([run_tag]),
+            classification="generated",
+            origin=origin,
+            run_id=run_id,
+            step_name=PluginRunner._current_step(context),
+        )

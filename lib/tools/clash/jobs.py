@@ -91,12 +91,17 @@ class CompareJob(CompareProgress):
         object_types: Optional[Sequence[str]],
         run: Runner,
         notify: Optional[Notify],
+        names: Sequence[str] = (),
+        names_source: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.id = secrets.token_hex(16)
         self.user_id = user_id
         self.project_id = project_id
         self.sides = sides
         self.name_filter = name_filter
+        # The tables to compare, and where the list came from (typed, and/or a Vault entry).
+        self.names = list(names)
+        self.names_source = names_source or {}
         self.object_types = list(object_types) if object_types else None
         self.include_ddl = include_ddl
         self.include_data = include_data
@@ -206,6 +211,9 @@ class CompareJob(CompareProgress):
                 "ddl": self.include_ddl,
                 "data": self.include_data,
                 "name_filter": self.name_filter,
+                "tables": self.names_source.get("typed", []),
+                "tables_vault": self.names_source.get("vault"),
+                "table_count": len(self.names),
                 "object_types": self.object_types,
                 "skipped": len(self._skip),
             }
@@ -279,7 +287,7 @@ class CompareJob(CompareProgress):
             self._tables = _on_both(
                 self._left,
                 self._right,
-                lambda side: read_tables(side, self.name_filter, self._run),
+                lambda side: read_tables(side, self.name_filter, self._run, self.names),
             )
             if self._stop.is_set():
                 raise CompareStopped("The comparison was stopped.")
@@ -309,6 +317,7 @@ class CompareJob(CompareProgress):
             tables=self._tables,
             skip_tables=self._skip,
             progress=self,
+            names=self.names,
         )
         self.result = result
         with self._lock:
@@ -362,6 +371,8 @@ class CompareJobs:
         object_types: Optional[Sequence[str]] = None,
         run: Runner = run_sqlplus,
         notify: Optional[Notify] = None,
+        names: Sequence[str] = (),
+        names_source: Optional[Dict[str, Any]] = None,
     ) -> CompareJob:
         """Start a comparison in place of this person's finished one in this project."""
 
@@ -377,6 +388,8 @@ class CompareJobs:
             object_types=object_types,
             run=run,
             notify=notify,
+            names=names,
+            names_source=names_source,
         )
 
         with self._lock:

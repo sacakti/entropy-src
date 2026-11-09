@@ -293,3 +293,17 @@ def test_choices_from_must_be_well_formed() -> None:
                 "outputs": [],
             },
         )
+
+
+def test_list_with_choices_is_a_multiple_choice() -> None:
+    declared = contract.normalize(
+        {
+            "arguments": [{"name": "kinds", "type": "list", "choices": ["a", "b"], "default": []}],
+            "outputs": [],
+        }
+    )
+    assert contract.check_arguments(declared, {"kinds": ["B", "a"]})["kinds"] == ["b", "a"]
+    assert contract.check_arguments(declared, {})["kinds"] == []
+    with pytest.raises(ContractError) as caught:
+        contract.check_arguments(declared, {"kinds": ["a", "c"]})
+    assert caught.value.problems == ["'kinds' items must be among a, b (not c)"]

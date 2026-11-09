@@ -11,6 +11,7 @@ plugin runs a loop with `self.app`:
         self.app.table("pods", [pod for pod in pods if wanted in pod["name"]])
         self.app.stats("summary", {"Pods": len(pods)})
         self.app.chart("usage", {pod["name"]: {"cpu": pod["cpu"]} for pod in pods})
+        self.app.files("browser", nodes, opened={"id": "a", "title": "app.log", "text": "..."})
         for press in self.app.events("restart"):
             self._restart(press.selection)
         self.app.wait()
@@ -33,8 +34,8 @@ from lib.plugins.contract import NAME, ContractError
 if TYPE_CHECKING:
     from lib.plugins.context import PluginContext
 
-INPUT_TYPES = ("text", "number", "select", "toggle", "button")
-VIEW_TYPES = ("table", "stats", "log", "keyvalue", "text", "chart")
+INPUT_TYPES = ("text", "number", "select", "toggle", "button", "datetime")
+VIEW_TYPES = ("table", "stats", "log", "keyvalue", "text", "chart", "files")
 INPUT_KEYS = {"name", "type", "label", "description", "placeholder", "default", "choices", "target"}
 VIEW_KEYS = {
     "name",
@@ -50,6 +51,8 @@ VIEW_KEYS = {
     "series_label",
     "max_points",
     "tab_of",
+    "open",
+    "tree_actions",
 }
 APP_KEYS = {"title", "description", "refresh_seconds", "inputs", "views"}
 DEFAULT_REFRESH = 2.0
@@ -62,6 +65,10 @@ MAX_CHART_SERIES = 200
 ROW_TONE = "_tone"
 ROW_TONE_COLUMN = "_tone_column"
 ROW_TONES = ("success", "warning", "danger", "info")
+# A files view: a tree of nodes beside a read-only viewer of the one opened.
+FILE_KINDS = ("group", "folder", "file", "archive")
+MAX_FILE_NODES = 5000
+MAX_FILE_TEXT = 1_000_000
 
 
 # ----------------------------------------------------------------------
@@ -172,9 +179,37 @@ def normalize_app(data: Any) -> Dict[str, Any]:
                 and 2 <= points <= MAX_CHART_POINTS
                 else DEFAULT_CHART_POINTS
             )
+        if entry["type"] == "files":
+            # The button pressed with a node's id when the user clicks it, and the
+            # buttons shown above the tree (the others act on the open file).
+            entry["open"] = item.get("open")
+            actions = item.get("tree_actions", [])
+            entry["tree_actions"] = (
+                actions
+                if isinstance(actions, list) and all(isinstance(name, str) for name in actions)
+                else []
+            )
         if isinstance(item.get("tab_of"), str):
             entry["tab_of"] = item["tab_of"]
         views.append(entry)
+
+    buttons = {entry["name"]: entry for entry in inputs if entry["type"] == "button"}
+    for entry in views:
+        if entry["type"] != "files":
+            continue
+        opener = buttons.get(entry["open"]) if isinstance(entry["open"], str) else None
+        if opener is None or opener.get("target") != entry["name"]:
+            problems.append(
+                f"app view '{entry['name']}': a files view needs 'open', "
+                "a button whose target is this view"
+            )
+        for action in entry["tree_actions"]:
+            button = buttons.get(action)
+            if button is None or button.get("target") != entry["name"] or action == entry["open"]:
+                problems.append(
+                    f"app view '{entry['name']}': tree action '{action}' is not a button "
+                    "aimed at this view (other than open)"
+                )
 
     # A view may show as a tab of another (a table's graph); one level only.
     by_name = {entry["name"]: entry for entry in views}
@@ -277,8 +312,8 @@ class PluginApp:
     The live page of an app plugin (`self.app`).
 
     Read inputs with `input()`/`inputs`, publish views with `table()`,
-    `stats()`, `log()`, `keyvalue()`, `text()` and `chart()`, handle buttons
-    with `events()`, and pace the loop with `wait()`.
+    `stats()`, `log()`, `keyvalue()`, `text()`, `chart()` and `files()`, handle
+    buttons with `events()`, and pace the loop with `wait()`.
     """
 
     def __init__(
@@ -544,6 +579,88 @@ class PluginApp:
                 "samples": kept_samples[-view["max_points"] :],
             },
         )
+
+    def files(
+        self,
+        name: str,
+        nodes: Sequence[Dict[str, Any]],
+        *,
+        opened: Optional[Dict[str, Any]] = None,
+        downloads: Optional[Sequence[Dict[str, Any]]] = None,
+    ) -> None:
+        """
+        A tree beside a read-only viewer. Nodes are flat, each naming its parent:
+        {"id", "name", "kind" (group, folder, file or archive), "parent" (an id or
+        None), and optionally "size", "modified", "loaded" (children are known)
+        and "note"}. Clicking a node presses the view's `open` button with its id.
+
+        `opened` is the file shown: {"id", "title", "text", and optionally
+        "notice", "download_name"}; text past MAX_FILE_TEXT characters is cut.
+        `downloads` are files offered with `offer()`, shown above the tree.
+        """
+
+        self._view(name, "files")
+        kept: List[Dict[str, Any]] = []
+        for node in list(nodes)[:MAX_FILE_NODES]:
+            if (
+                not isinstance(node, dict)
+                or not isinstance(node.get("id"), str)
+                or not isinstance(node.get("name"), str)
+                or node.get("kind") not in FILE_KINDS
+                or not (node.get("parent") is None or isinstance(node.get("parent"), str))
+            ):
+                raise PluginAppError(
+                    f"Files '{name}': a node needs a text id and name, a kind "
+                    f"({', '.join(FILE_KINDS)}) and a parent id or None."
+                )
+            kept.append(dict(node))
+        shown: Optional[Dict[str, Any]] = None
+        if opened is not None:
+            if not isinstance(opened.get("id"), str) or not isinstance(opened.get("text"), str):
+                raise PluginAppError(f"Files '{name}': the opened file needs a text id and text.")
+            shown = dict(opened)
+            text = shown["text"]
+            if len(text) > MAX_FILE_TEXT:
+                shown["text"] = text[-MAX_FILE_TEXT:]
+                shown["notice"] = " ".join(
+                    filter(None, [shown.get("notice"), "Only the newest part is shown."])
+                )
+            shown.setdefault("title", shown["id"])
+        self._publish(
+            name,
+            {
+                "nodes": kept,
+                "opened": shown,
+                "total": min(len(nodes), MAX_FILE_NODES),
+                "downloads": [dict(item) for item in downloads or []],
+            },
+        )
+
+    def offer(self, path: Any) -> Optional[Dict[str, Any]]:
+        """
+        Make a file the plugin wrote downloadable now, while the app runs: it is
+        registered in the run's artifacts straight away (do not also put it in
+        `self.artifacts`). Returns {"id", "name", "size", "url"}, or None without
+        a run (e.g. `ent plugin run`), where the plugin keeps it as an artifact.
+        """
+
+        self._open()
+        if self._app_id is None:
+            return None
+        from lib.plugins.runner import PluginRunner
+
+        try:
+            record = PluginRunner.register_artifact(self._context._runtime, path, self._plugin)
+        except Exception as error:
+            raise PluginAppError(f"Unable to offer '{path}' for download: {error}") from error
+        if record is None:
+            raise PluginAppError(f"'{path}' is not a file.")
+        return {
+            "id": record["id"],
+            "name": record["name"],
+            "size": record["size_bytes"],
+            "url": f"/api/artifacts/{record['id']}/download",
+        }
 
     def _publish(self, name: str, data: Dict[str, Any]) -> None:
         self._views[name] = data

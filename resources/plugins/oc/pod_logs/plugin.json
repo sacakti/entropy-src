@@ -1,0 +1,231 @@
+{
+    "name": "pod_logs",
+    "namespace": "oc",
+    "version": "1.1.0",
+    "description": "App plugin: browse the log files of an OpenShift namespace's pods like a file explorer, view them read-only with search highlighting, narrow them to a time range, and save them. Opens text files, .zip, .tar.gz and .gz. Read-only.",
+    "author": "Aravinthan Selvaraj",
+    "entropy": ">=1.0.0",
+    "dependencies": [],
+    "system_requirements": [
+        {
+            "name": "oc",
+            "note": "OpenShift command line client (not needed with dry_run)."
+        }
+    ],
+    "arguments": [
+        {
+            "name": "environment",
+            "type": "string",
+            "required": false,
+            "description": "OpenShift environment whose oc.generic login session is used (log in with oc.generic first). Required unless dry_run is set.",
+            "example": "SIT"
+        },
+        {
+            "name": "namespace",
+            "type": "string",
+            "required": false,
+            "description": "OpenShift project to browse; the session's current project when empty. It can be changed on the live page.",
+            "example": "my-project"
+        },
+        {
+            "name": "default_paths",
+            "type": "list",
+            "required": false,
+            "default": [
+                "/var/log"
+            ],
+            "description": "Log folders (or files) shown for every pod, besides each container's console log.",
+            "example": [
+                "/var/log",
+                "/tmp/logs"
+            ]
+        },
+        {
+            "name": "log_paths",
+            "type": "dictionary",
+            "required": false,
+            "default": {},
+            "description": "Log folders or files per deployment: deployment name (or a pattern such as api-*) to a list of absolute paths, shown after the default paths.",
+            "example": {
+                "orders-api": [
+                    "/opt/orders/logs"
+                ],
+                "billing-*": [
+                    "/app/logs/billing.log"
+                ]
+            }
+        },
+        {
+            "name": "timezone",
+            "type": "string",
+            "required": false,
+            "default": "UTC",
+            "description": "Time zone of the From/To times typed on the page and of log timestamps that carry no zone.",
+            "example": "Asia/Dubai"
+        },
+        {
+            "name": "max_read_mb",
+            "type": "integer",
+            "required": false,
+            "default": 20,
+            "minimum": 1,
+            "maximum": 200,
+            "description": "Most MB read from one file: larger logs are read from their end; larger archives are refused."
+        },
+        {
+            "name": "max_lines",
+            "type": "integer",
+            "required": false,
+            "default": 20000,
+            "minimum": 100,
+            "maximum": 200000,
+            "description": "Most lines shown in the viewer (the newest), and read from a console log."
+        },
+        {
+            "name": "max_bundle_mb",
+            "type": "integer",
+            "required": false,
+            "default": 200,
+            "minimum": 1,
+            "maximum": 2000,
+            "description": "Most MB in one download of the listed logs; files past it are left out and named in its README.txt."
+        },
+        {
+            "name": "dry_run",
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Use built-in sample pods, folders and archives instead of OpenShift, to try the page locally; no oc login needed."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "namespace",
+            "type": "string",
+            "description": "Namespace browsed last."
+        },
+        {
+            "name": "pods",
+            "type": "list",
+            "description": "One entry per pod listed: pod, deployment, status and its log paths."
+        },
+        {
+            "name": "opened",
+            "type": "list",
+            "description": "Files opened in the viewer, as pod/container: path."
+        },
+        {
+            "name": "saved",
+            "type": "list",
+            "description": "Files saved for download (single files and bundles of the listed logs), relative to the workspace."
+        }
+    ],
+    "app": {
+        "title": "Pod logs",
+        "description": "Pick a pod to see its console log, the default log paths and the paths configured for its deployment. Click a folder or archive to look inside, and a file to read it. Search highlights matches; the time range narrows what is shown.",
+        "refresh_seconds": 30,
+        "inputs": [
+            {
+                "name": "namespace",
+                "type": "text",
+                "label": "Namespace",
+                "placeholder": "Blank: the argument, else the session's project",
+                "default": ""
+            },
+            {
+                "name": "pod_filter",
+                "type": "text",
+                "label": "Pods",
+                "placeholder": "Pod or deployment name",
+                "default": ""
+            },
+            {
+                "name": "range",
+                "type": "select",
+                "label": "Time range",
+                "choices": [
+                    "Everything",
+                    "Last 15 minutes",
+                    "Last hour",
+                    "Last 6 hours",
+                    "Last 24 hours",
+                    "Last 7 days",
+                    "Between"
+                ],
+                "default": "Everything"
+            },
+            {
+                "name": "from",
+                "type": "datetime",
+                "label": "From",
+                "default": "",
+                "description": "Start of the Between range, in the plugin's timezone argument (UTC by default)."
+            },
+            {
+                "name": "to",
+                "type": "datetime",
+                "label": "To",
+                "default": "",
+                "description": "End of the Between range, in the plugin's timezone argument (UTC by default)."
+            },
+            {
+                "name": "open",
+                "type": "button",
+                "label": "Open",
+                "target": "browser"
+            },
+            {
+                "name": "reload",
+                "type": "button",
+                "label": "Reload",
+                "description": "Read the open file again",
+                "target": "browser"
+            },
+            {
+                "name": "save",
+                "type": "button",
+                "label": "Save",
+                "description": "Save the open file, narrowed to the time range, and download it",
+                "target": "browser"
+            },
+            {
+                "name": "download_filtered",
+                "type": "button",
+                "label": "Download listed (time range)",
+                "description": "One .zip of every listed log, narrowed to the time range: console logs of the listed pods and the files in opened folders",
+                "target": "browser"
+            },
+            {
+                "name": "download_all",
+                "type": "button",
+                "label": "Download listed (everything)",
+                "description": "One .zip of every listed log as it is: console logs of the listed pods and the files in opened folders",
+                "target": "browser"
+            }
+        ],
+        "views": [
+            {
+                "name": "browser",
+                "type": "files",
+                "title": "Logs",
+                "open": "open",
+                "tree_actions": [
+                    "download_filtered",
+                    "download_all"
+                ]
+            },
+            {
+                "name": "activity",
+                "type": "log",
+                "title": "Activity",
+                "max_lines": 200
+            }
+        ]
+    },
+    "tags": [
+        "app",
+        "logs",
+        "openshift"
+    ],
+    "license": ""
+}

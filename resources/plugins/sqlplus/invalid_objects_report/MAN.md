@@ -35,17 +35,51 @@ Examples:
 
 ## Arguments
 
-Document all arguments accepted by the plugin.
+| Argument | Required | Type | Default | Description |
+|---|---|---|---|---|
+| `connection` | Yes | `dictionary` | — | Oracle connection: `IP`, `PORT`, `SID`. |
+| `schemas` | Yes | `dictionary` | — | Credentials of the schemas that may be checked, e.g. `${entv:sit/schemas_*}`. |
+| `execution` | No | `dictionary` | — | A release's database context: check only the schemas it changes. |
+| `only_schemas` | No | `list` | — | Schemas to check by name or pattern (`APP*`), added to those from `execution`. |
+| `report` | No | `dictionary` | — | Text added to the report file name. |
+| `sqlhome` | No | `path` | PATH | Oracle home whose `bin/sqlplus` is used. |
 
-  Argument    Required   Type       Default   Description
-  ----------- ---------- ---------- --------- ------------------------
-  `example`   No         `string`   ---       Describe the argument.
+### Choosing schemas
 
-### Argument Details
+`schemas` is the pool of credentials, so it can stay one Vault pattern for the whole
+environment (`${entv:sit/schemas_*}`). Which of them are checked:
 
-#### `example`
+| Given | Checked |
+|---|---|
+| Neither `execution` nor `only_schemas` | Every schema in `schemas` (as before 1.4.0). |
+| `execution` | The schemas the release changes: the context's `schemas` list, else every `schema` of its execution plan's applications, in plan order. |
+| `only_schemas` | Those names, and the schemas matching those patterns. |
+| Both | The release's schemas, then the named ones. |
 
-Describe the argument in detail.
+Names and patterns are compared without case. A release that changes no schema
+(no execution plan) checks none, and the step still succeeds with an empty report.
+A schema to be checked that has no credentials in `schemas` is listed in the report
+as an error, so the step fails rather than skipping it silently. A pattern that
+matches nothing is a warning.
+
+After a release, check only what it touched:
+
+``` json
+{
+    "name": "Invalid objects",
+    "plugin": "sqlplus.invalid_objects_report",
+    "arguments": {
+        "connection": "${connection}",
+        "schemas": "${entv:sit/schemas_*}",
+        "execution": "${steps.BuildReleaseContext.outputs.database}",
+        "only_schemas": ["COMMON"]
+    }
+}
+```
+
+`release.context_builder` (1.2.0 and later) puts the release's schemas in
+`database.schemas`; an older context, or `consolidate.db_scripts`' `database`
+output, works too, through its execution plan.
 
 Document:
 
@@ -504,6 +538,12 @@ usage instructions.
 ------------------------------------------------------------------------
 
 ## Changelog
+
+### 1.4.0
+
+-   `execution` checks only the schemas a release changes; `only_schemas` names
+    schemas or patterns. Without them every schema is checked, as before.
+-   New output `checked_schemas`.
 
 ### 1.0.0
 

@@ -56,6 +56,8 @@ class NodeSetupRequest(Credentials):
     max_jobs: int = 2
     description: str = Field(default="", max_length=500)
     install_cli: bool = True
+    # How runs on the node reach the main node's files; None keeps the current one.
+    file_access: Optional[Dict[str, Any]] = None
 
 
 class NodeRemoveRequest(Credentials):
@@ -300,6 +302,39 @@ def update_node(
     return {"node": _with_metrics(request, [node])[0]}
 
 
+class FileAccessRequest(BaseModel):
+    mode: str = Field(pattern="^(off|fetch|shared)$")
+    workspace: Optional[str] = Field(default=None, max_length=1024)
+    sources: List[str] = Field(default_factory=list, max_length=10)
+    max_gb: float = 5
+    mappings: List[Dict[str, str]] = Field(default_factory=list, max_length=10)
+
+
+@router.put("/{name}/file-access", dependencies=[Depends(verify_csrf)])
+def set_file_access(
+    name: str,
+    payload: FileAccessRequest,
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """How runs on a remote node reach files picked on the main node."""
+
+    from lib.nodes.files import FileAccessError
+
+    _, _, user = record
+    _require_permission(request, user, "nodes.manage")
+    node = _store(request).get(name)
+    if node is None:
+        raise HTTPException(status_code=404, detail=f"Node '{name}' does not exist.")
+    if node["kind"] == "local":
+        raise HTTPException(status_code=409, detail="The main node reads its own files.")
+    try:
+        node = _store(request).set_file_access(name, payload.model_dump())
+    except FileAccessError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"node": _with_metrics(request, [node])[0]}
+
+
 class NodeAccessRequest(BaseModel):
     # 'shared': every project may run on the node; 'assigned': only `projects`.
     scope: str = Field(pattern="^(shared|assigned)$")
@@ -388,6 +423,15 @@ def _setup(
             status_code=409, detail=f"A node named '{payload.name}' already exists."
         )
 
+    file_access = None
+    if payload.file_access is not None:
+        from lib.nodes.files import FileAccessError, normalize
+
+        try:
+            file_access = normalize(payload.file_access)
+        except FileAccessError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     provision = _provision_request(
         payload,
         name=payload.name.strip(),
@@ -402,6 +446,7 @@ def _setup(
         max_jobs=payload.max_jobs,
         description=payload.description.strip(),
         install_cli=payload.install_cli,
+        file_access=file_access,
     )
     # The request body (and its secrets) is no longer referenced past here.
     payload.password = payload.private_key = payload.passphrase = None

@@ -107,9 +107,21 @@ class SyncYamlsPlugin(BasePlugin):
 
         structure = self._load_structure()
 
+        skipped = [
+            resource_type
+            for resource_type in self.RESOURCE_TYPES
+            if resource_type not in arguments["resource_types"]
+        ]
+
+        if skipped:
+            self.message.info(
+                f"Leaving out {', '.join(skipped)}.",
+            )
+
         self._verify_access(
             arguments["namespace"],
             kubeconfig=arguments["kubeconfig"],
+            resource_types=arguments["resource_types"],
         )
 
         resources = self._sync_resources(
@@ -119,6 +131,7 @@ class SyncYamlsPlugin(BasePlugin):
             ignore_resources=arguments["ignore_resources"],
             resource_index=resource_index,
             kubeconfig=arguments["kubeconfig"],
+            resource_types=arguments["resource_types"],
         )
 
         index_path = self._create_resource_index(
@@ -155,6 +168,12 @@ class SyncYamlsPlugin(BasePlugin):
         )
 
         return {
+            "resource_types": self._resource_types(
+                self.arguments.list(
+                    "exclude_resource_types",
+                    [],
+                ),
+            ),
             "kubeconfig": self.arguments.path(
                 "kubeconfig",
                 required=True,
@@ -171,6 +190,36 @@ class SyncYamlsPlugin(BasePlugin):
                 ignore_resources,
             ),
         }
+
+    @classmethod
+    def _resource_types(
+        cls,
+        excluded: list[Any] | None,
+    ) -> tuple[str, ...]:
+        """
+        The resource types to synchronize: all but the excluded ones.
+        """
+
+        left_out = set()
+
+        for item in excluded or []:
+            if not isinstance(item, str) or item.strip().casefold() not in cls.RESOURCE_TYPES:
+                raise SyncYamlsPluginException(
+                    f"'exclude_resource_types' items must be among "
+                    f"{', '.join(cls.RESOURCE_TYPES)}, got {item!r}.",
+                )
+            left_out.add(item.strip().casefold())
+
+        types = tuple(
+            resource_type for resource_type in cls.RESOURCE_TYPES if resource_type not in left_out
+        )
+
+        if not types:
+            raise SyncYamlsPluginException(
+                "'exclude_resource_types' leaves no resource type to synchronize.",
+            )
+
+        return types
 
     @classmethod
     def _normalize_ignore_resources(
@@ -383,6 +432,7 @@ class SyncYamlsPlugin(BasePlugin):
         self,
         namespace: str,
         kubeconfig: Path,
+        resource_types: tuple[str, ...] = RESOURCE_TYPES,
     ) -> None:
         """
         Verify that the current OpenShift session is authenticated
@@ -422,12 +472,14 @@ class SyncYamlsPlugin(BasePlugin):
         self._verify_namespace_access(
             namespace=namespace,
             kubeconfig=kubeconfig,
+            resource_types=resource_types,
         )
 
     def _verify_namespace_access(
         self,
         namespace: str,
         kubeconfig: Path,
+        resource_types: tuple[str, ...] = RESOURCE_TYPES,
     ) -> None:
         """
         Verify that the current user can read all resources required
@@ -438,7 +490,7 @@ class SyncYamlsPlugin(BasePlugin):
             f"Verifying access to namespace '{namespace}'...",
         )
 
-        for resource_type in self.RESOURCE_TYPES:
+        for resource_type in resource_types:
             result = self._oc(
                 [
                     "auth",
@@ -483,6 +535,7 @@ class SyncYamlsPlugin(BasePlugin):
         ignore_resources: dict[str, dict[str, list[str]]],
         resource_index: dict[str, Any],
         kubeconfig: Path,
+        resource_types: tuple[str, ...] = RESOURCE_TYPES,
     ) -> dict[str, list[str]]:
         """
         Synchronize all supported resource categories.
@@ -490,7 +543,7 @@ class SyncYamlsPlugin(BasePlugin):
 
         resources: dict[str, list[str]] = {}
 
-        for resource_type in self.RESOURCE_TYPES:
+        for resource_type in resource_types:
             resources[resource_type] = self._sync_resource_type(
                 resource_type=resource_type,
                 repository=repository,

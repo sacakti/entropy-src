@@ -27,6 +27,7 @@ from lib.tools.clash.database import (
     Endpoint,
     check_options,
     compare_rows,
+    parse_names,
 )
 from lib.tools.clash.jobs import JOBS, CompareBusy, CompareJob
 from lib.tools.clash.report import render_report
@@ -46,12 +47,20 @@ class SideRequest(BaseModel):
     key: str = Field(min_length=1, max_length=255)
 
 
+class VaultReference(BaseModel):
+    namespace: str = Field(min_length=1, max_length=255)
+    key: str = Field(min_length=1, max_length=255)
+
+
 class CompareRequest(BaseModel):
     left: SideRequest
     right: SideRequest
     ddl: bool = True
     data: bool = True
     name_filter: Optional[str] = Field(default=None, max_length=128)
+    # Tables to compare by name (either list, or the name filter, is enough to be compared).
+    tables: List[str] = Field(default_factory=list, max_length=1000)
+    tables_vault: Optional[VaultReference] = None
     object_types: Optional[List[str]] = Field(default=None, max_length=32)
 
 
@@ -68,19 +77,8 @@ class RowsRequest(BaseModel):
 def _endpoint(request: Request, user: User, project_id: int, side: SideRequest) -> Endpoint:
     """The side's connection, with its credentials read from this project's Vault."""
 
-    from core.web.routes.vault import _require, _vault_components
-
-    _require(request, user, "vault.read", project_id)
-    vault_manager, namespace_manager = _vault_components(request)
     reference = f"{side.namespace}/{side.key}"
-
-    try:
-        namespace = namespace_manager.get(side.namespace, project_id)
-        value = vault_manager.get(namespace.id, side.key)
-    except VaultError:
-        raise HTTPException(
-            status_code=404, detail=f"'{reference}' is not in this project's Vault."
-        ) from None
+    value = _vault_value(request, user, project_id, side.namespace, side.key)
 
     try:
         credentials = json.loads(value) if isinstance(value, str) else value
@@ -103,6 +101,39 @@ def _endpoint(request: Request, user: User, project_id: int, side: SideRequest) 
         password=credentials["password"],
         schema=side.schema_name,
     )
+
+
+def _vault_value(request: Request, user: User, project_id: int, namespace: str, key: str) -> Any:
+    """An entry of this project's Vault, as the person may read it."""
+
+    from core.web.routes.vault import _require, _vault_components
+
+    _require(request, user, "vault.read", project_id)
+    vault_manager, namespace_manager = _vault_components(request)
+    try:
+        found = namespace_manager.get(namespace, project_id)
+        return vault_manager.get(found.id, key)
+    except VaultError:
+        raise HTTPException(
+            status_code=404, detail=f"'{namespace}/{key}' is not in this project's Vault."
+        ) from None
+
+
+def _table_names(request: Request, user: User, project_id: int, payload: Any) -> List[str]:
+    """The tables named on the page and in the chosen Vault entry, each once."""
+
+    names = parse_names(payload.tables)
+    if payload.tables_vault is not None:
+        reference = payload.tables_vault
+        value = _vault_value(request, user, project_id, reference.namespace, reference.key)
+        try:
+            listed = parse_names(value)
+        except DatabaseCompareError as exc:
+            raise DatabaseCompareError(f"'{reference.namespace}/{reference.key}': {exc}") from None
+        names += [name for name in listed if name not in names]
+        if not listed:
+            raise DatabaseCompareError(f"'{reference.namespace}/{reference.key}' lists no tables.")
+    return names
 
 
 def _project_id(request: Request, user: User) -> int:
@@ -144,10 +175,12 @@ def start_compare(
         raise HTTPException(status_code=422, detail="Choose DDL, data or both.")
 
     try:
+        names = _table_names(request, user, project_id, payload)
         check_options(
             include_data=payload.data,
             name_filter=payload.name_filter or None,
             object_types=payload.object_types,
+            names=names,
         )
         job = JOBS.start(
             user_id=int(user.id or 0),
@@ -160,6 +193,11 @@ def start_compare(
             name_filter=payload.name_filter or None,
             object_types=payload.object_types,
             notify=_notifier(request),
+            names=names,
+            names_source={
+                "typed": parse_names(payload.tables),
+                "vault": payload.tables_vault.model_dump() if payload.tables_vault else None,
+            },
         )
     except CompareBusy as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
@@ -258,6 +296,9 @@ def compare_report(
             job.result,
             name_filter=job.name_filter,
             object_types=job.object_types,
+            tables=job.names,
+            tables_vault=job.names_source.get("vault"),
+            sides=job.sides,
         ),
         media_type="text/html; charset=utf-8",
         headers={

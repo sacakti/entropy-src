@@ -922,6 +922,34 @@
     border-radius: 8px;
 }
 
+.entropy-app .tools-db-tables-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px 12px;
+    align-items: start;
+}
+
+.entropy-app .tools-db-tables-grid textarea {
+    width: 100%;
+    min-height: 40px;
+    resize: vertical;
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.entropy-app .tools-db-tables-grid .entropy-select {
+    width: 100%;
+    min-height: 40px;
+}
+
+.entropy-app .tools-db-tables > .tools-db-note {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+}
+
+@media (max-width: 760px) {
+    .entropy-app .tools-db-tables-grid { grid-template-columns: 1fr; }
+}
+
 .entropy-app .tools-db-types legend {
     padding: 0 6px;
     color: var(--app-muted);

@@ -1062,3 +1062,156 @@ def test_routes_are_audited_and_discovered() -> None:
         "/api/clash/database/compare/{job_id}/report",
         "/api/clash/database/rows",
     }
+
+
+# ----------------------------------------------------------------------
+# Comparing only some tables
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "value, names",
+    [
+        ("orders, Customers ,orders", ["ORDERS", "CUSTOMERS"]),
+        ("ORDERS\nITEMS;PAYMENTS", ["ORDERS", "ITEMS", "PAYMENTS"]),
+        ('["orders", "items"]', ["ORDERS", "ITEMS"]),
+        ('{"tables": ["orders"]}', ["ORDERS"]),
+        (["a$1", "b#2"], ["A$1", "B#2"]),
+        ("", []),
+    ],
+)
+def test_table_lists_are_read_from_text_json_or_an_object(value, names) -> None:
+    assert database.parse_names(value) == names
+
+
+@pytest.mark.parametrize("value", ["orders, 1bad", "a'b", '{"tables": "x"}', "[1, oops", 5])
+def test_a_table_list_with_anything_but_names_is_refused(value) -> None:
+    with pytest.raises(DatabaseCompareError):
+        database.parse_names(value)
+
+
+def test_named_tables_and_the_pattern_both_select_and_tables_bring_their_indexes() -> None:
+    fake = FakeDatabases()
+
+    compare(
+        LEFT, RIGHT, include_data=True, name_filter="ord%", names=["ITEMS", "PAYMENTS"], run=fake
+    )
+
+    listing = next(script for script in fake.scripts if "FROM all_objects" in script)
+    assert "object_name IN (\n  'ITEMS', 'PAYMENTS')" in listing
+    assert "object_name LIKE 'ORD%'" in listing
+    assert "FROM all_indexes WHERE owner = 'APP1'" in listing and "FROM all_triggers" in listing
+    tables = next(script for script in fake.scripts if "FROM all_tables" in script)
+    assert "t.table_name IN (\n  'ITEMS', 'PAYMENTS') OR t.table_name LIKE 'ORD%'" in tables
+    # SQL*Plus reads lines of at most 2499 characters.
+    many = [f"TABLE_{index:04d}" for index in range(1000)]
+    clause = database._name_clause("t.table_name", None, many)
+    assert max(len(line) for line in clause.splitlines()) < 2499
+
+
+def test_a_list_that_did_not_come_through_parse_names_is_refused() -> None:
+    with pytest.raises(DatabaseCompareError):
+        database.check_options(names=["orders"])
+    with pytest.raises(DatabaseCompareError):
+        database.check_options(names=["A') OR 1=1 --"])
+
+
+def test_the_tables_can_be_typed_and_kept_in_the_vault(routed, vault, monkeypatch) -> None:
+    started = {}
+    original = routed.start
+
+    def start(**options):
+        started.update(options)
+        return original(**options)
+
+    monkeypatch.setattr(routed, "start", start)
+    vault.value = "items, orders"
+
+    snapshot = clash.start_compare(
+        _payload(
+            ddl=False,
+            tables=["orders", "customers"],
+            tables_vault=clash.VaultReference(namespace="db", key="app1"),
+        ),
+        _route_request(),
+        _record(),
+    )
+
+    assert started["names"] == ["ORDERS", "CUSTOMERS", "ITEMS"]
+    assert ("vault.read", 7) in vault.checked
+    assert snapshot["tables"] == ["ORDERS", "CUSTOMERS"]
+    assert snapshot["tables_vault"] == {"namespace": "db", "key": "app1"}
+    assert snapshot["table_count"] == 3
+
+
+@pytest.mark.parametrize("value, status", [("[]", 422), ("x y'z", 422)])
+def test_an_empty_or_bad_vault_list_is_refused(routed, vault, value, status) -> None:
+    vault.value = value
+    with pytest.raises(HTTPException) as caught:
+        clash.start_compare(
+            _payload(ddl=False, tables_vault=clash.VaultReference(namespace="db", key="app1")),
+            _route_request(),
+            _record(),
+        )
+    assert caught.value.status_code == status
+    assert value not in caught.value.detail or value == "[]"
+
+
+# ----------------------------------------------------------------------
+# Report
+# ----------------------------------------------------------------------
+
+
+def test_the_report_shows_ddl_side_by_side_with_changed_words_marked() -> None:
+    left = "CREATE TABLE T (\n  A NUMBER,\n  B VARCHAR2(10)\n)"
+    right = "CREATE TABLE T (\n  A NUMBER,\n  B VARCHAR2(20),\n  C DATE\n)"
+    table, added, removed = __import__(
+        "lib.tools.clash.report", fromlist=["side_by_side"]
+    ).side_by_side(left, right, "L", "R")
+
+    assert (added, removed) == (2, 1)
+    assert "<del>10</del>" in table and "<ins>20</ins>" in table
+    assert "C DATE" in table and 'class="empty"' in table
+
+
+def test_the_report_gives_a_verdict_counts_and_the_scope() -> None:
+    result = {
+        "left": "SID1-APP1",
+        "right": "SID2-APP1",
+        "ddl": [
+            {"type": "TABLE", "name": "SAME_T", "status": "same"},
+            {"type": "INDEX", "name": "IX", "status": "only_right", "right": "CREATE INDEX IX"},
+        ],
+        "data": [
+            {"table": "BIG", "status": "different", "left_rows": 10, "right_rows": 4},
+            {"table": "OK", "status": "same", "left_rows": 3, "right_rows": 3},
+        ],
+    }
+
+    report = render_report(
+        result,
+        name_filter="ORD%",
+        tables=["ORDERS", "ITEMS"],
+        tables_vault={"namespace": "db", "key": "tables"},
+        sides={"left": {"host": "db1", "port": 1521, "sid": "SID1", "schema_name": "APP1"}},
+    )
+
+    assert "2 differences found." in report
+    assert "ORDERS, ITEMS" in report and "Vault db/tables" in report and "Names like ORD%" in report
+    assert "db1:1521 / SID1" in report
+    assert '<span class="delta down">−6</span>' in report
+    assert "Only in SID2-APP1 (1)" in report and "Tables that match (1)" in report
+    assert "Objects that match (1)" in report and "SAME_T" in report
+    assert "<script" not in report
+
+
+def test_a_matching_comparison_says_so() -> None:
+    report = render_report(
+        {
+            "left": "A",
+            "right": "B",
+            "ddl": [{"type": "VIEW", "name": "V", "status": "same"}],
+            "data": None,
+        }
+    )
+    assert "Everything compared matches." in report

@@ -43,6 +43,7 @@ import {
     type Status,
     type Task,
     type TaskData,
+    memberName,
 } from './model'
 import './tasks.css'
 import { inChunks } from '../../../services/chunks'
@@ -236,7 +237,8 @@ export default function Tasks() {
             if (assigneeFilter === '__none' && task.assignee) return false
             if (assigneeFilter && !assigneeFilter.startsWith('__') && task.assignee !== assigneeFilter) return false
             if (!needle) return true
-            return [task.key, task.title, task.external_ref ?? '', task.description, task.assignee ?? '']
+            const assignee = task.assignee ? [task.assignee, memberName(data.members, task.assignee)] : []
+            return [task.key, task.title, task.external_ref ?? '', task.description, ...assignee]
                 .some((value) => value.toLowerCase().includes(needle))
         })
     }, [data, query, typeFilter, severityFilter, groupFilter, assigneeFilter])
@@ -307,7 +309,7 @@ export default function Tasks() {
     const meta = (task: Task) => (
         <span className="task-card-meta">
             <span className={`task-severity severity-${task.severity ?? 'medium'}`} title="Severity">{severityTitle(task.severity)}</span>
-            {task.assignee && <span><UserRound size={13} /> {task.assignee}</span>}
+            {task.assignee && <span title={task.assignee}><UserRound size={13} /> {memberName(data.members, task.assignee)}</span>}
             {task.comments.length > 0 && <span><MessageSquare size={13} /> {task.comments.length}</span>}
             {task.attachments.length > 0 && <span><Paperclip size={13} /> {task.attachments.length}</span>}
             {task.reminder_at && <span title={`Reminder ${localDate(task.reminder_at)}`}><Bell size={13} /></span>}
@@ -371,7 +373,7 @@ export default function Tasks() {
                         <option value="">Everyone</option>
                         <option value="__me">Assigned to me</option>
                         <option value="__none">Unassigned</option>
-                        {data.members.map((member) => <option key={member.username} value={member.username}>{member.username}</option>)}
+                        {data.members.map((member) => <option key={member.username} value={member.username}>{member.full_name?.trim() || member.username}</option>)}
                     </select>
                 </div>
                 <div className="tasks-actions">
@@ -480,7 +482,7 @@ export default function Tasks() {
                                             {meta(task)}
                                         </button>
                                         <span className={`task-status status-${task.status}`}>{statusTitle(task.status)}</span>
-                                        <span>{task.assignee || <span className="task-muted">Unassigned</span>}</span>
+                                        <span title={task.assignee ?? undefined}>{task.assignee ? memberName(data.members, task.assignee) : <span className="task-muted">Unassigned</span>}</span>
                                         <span>{groupChips(task, 1) ?? <span className="task-muted">—</span>}</span>
                                         <span className="task-muted">{localDate(task.updated_at)}</span>
                                     </div>

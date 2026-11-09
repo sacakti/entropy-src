@@ -174,6 +174,32 @@ export default function ArgumentField({
                 aria-label={name}
             />
         )
+    } else if (type === 'list' && spec?.choices?.length && (value === undefined || Array.isArray(value))) {
+        // A list with choices is a multiple choice: check boxes, none checked leaves the default.
+        const picked: unknown[] = Array.isArray(value) ? value : []
+        const choices = spec.choices
+        editor = (
+            <div className="wf-choices" role="group" aria-label={name}>
+                {choices.map((choice) => {
+                    const checked = picked.includes(choice)
+                    return (
+                        <label key={formatDefault(choice)} className="wf-choice">
+                            <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                    const next = choices.filter((item) =>
+                                        item === choice ? !checked : picked.includes(item),
+                                    )
+                                    onChange(next.length ? next : undefined)
+                                }}
+                            />
+                            {formatDefault(choice)}
+                        </label>
+                    )
+                })}
+            </div>
+        )
     } else if (
         type === 'list' ||
         type === 'dictionary' ||

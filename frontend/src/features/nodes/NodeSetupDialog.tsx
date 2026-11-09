@@ -5,9 +5,12 @@ import {
     nodesApi,
     type EntropyNode,
     type NodeCredentials,
+    type NodeFileAccess,
     type NodeSetupInput,
     type ServerAddress,
 } from '../../api/runs.api'
+import FileAccessFields from './FileAccessFields'
+import { cleanFileAccess, fileAccessProblem } from './fileAccess'
 import Dialog from '../../components/layout/Dialog'
 import { errorMessage } from '../runs/format'
 import CredentialsFields from './CredentialsFields'
@@ -59,6 +62,7 @@ export default function NodeSetupDialog({
         install_cli: true,
     }))
     const [credentials, setCredentials] = useState<NodeCredentials>({ auth: 'password' })
+    const [fileAccess, setFileAccess] = useState<NodeFileAccess>(() => node?.file_access ?? { mode: 'off' })
     const [advanced, setAdvanced] = useState(false)
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -102,13 +106,19 @@ export default function NodeSetupDialog({
         values.host.trim() !== '' &&
         values.ssh_user.trim() !== '' &&
         /^https?:\/\//.test(values.server_url) &&
-        credentialsReady(credentials)
+        credentialsReady(credentials) &&
+        fileAccessProblem(fileAccess) === null
 
     const submit = async () => {
         setSubmitting(true)
         setError(null)
         try {
-            const payload: NodeSetupInput = { ...values, ...credentials, port: Number(values.port) }
+            const payload: NodeSetupInput = {
+                ...values,
+                ...credentials,
+                port: Number(values.port),
+                file_access: cleanFileAccess(fileAccess),
+            }
             const result = node ? await nodesApi.setup(payload) : await nodesApi.add(payload)
             // Credentials are not kept once the setup has them.
             setCredentials({ auth: credentials.auth })
@@ -267,6 +277,14 @@ export default function NodeSetupDialog({
                             </small>
                         )}
                     </label>
+
+                    <div className="admin-field admin-field-wide node-file-heading">
+                        <span>Files for runs</span>
+                        <small className="node-field-hint">
+                            How runs here reach files picked on the main node, such as a release package.
+                        </small>
+                    </div>
+                    <FileAccessFields value={fileAccess} onChange={setFileAccess} installDir={values.install_dir} />
 
                     <button
                         type="button"

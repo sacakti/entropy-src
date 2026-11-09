@@ -171,3 +171,62 @@ def plugin_bundle(
         media_type="application/gzip",
         headers={"X-Entropy-Digest": digest, "Cache-Control": "no-store"},
     )
+
+
+@router.get("/jobs/{job_id}/files/{index}")
+def job_file(
+    job_id: int,
+    index: int,
+    request: Request,
+    node: Dict[str, Any] = Depends(_node),
+) -> Response:
+    """
+    A main-node file a run on this node needs (its file access is 'fetch'). Only the
+    files named when the run was queued, and only to the node it was queued for; a
+    folder comes as a tar archive.
+    """
+
+    import json
+    import os
+    import tarfile
+    import tempfile
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+
+    if index < 0:
+        raise HTTPException(status_code=404, detail="The run names no such file.")
+    try:
+        record = _dispatcher(request)._owned(node, job_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    try:
+        spec = json.loads(record["spec"] or "{}")
+        path = Path(spec.get("file_paths", [])[index])
+    except (ValueError, IndexError, TypeError):
+        raise HTTPException(status_code=404, detail="The run names no such file.") from None
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"'{path}' is no longer on the main node.")
+
+    if path.is_file():
+        return FileResponse(
+            path,
+            media_type="application/octet-stream",
+            headers={"X-Entropy-Size": str(path.stat().st_size), "Cache-Control": "no-store"},
+        )
+
+    handle, archive = tempfile.mkstemp(prefix="entropy-files-", suffix=".tar")
+    os.close(handle)
+    try:
+        with tarfile.open(archive, "w") as bundle:
+            bundle.add(path, arcname=".")
+    except OSError as exc:
+        os.unlink(archive)
+        raise HTTPException(status_code=500, detail=f"Unable to pack '{path}': {exc}") from exc
+    return FileResponse(
+        archive,
+        media_type="application/x-tar",
+        headers={"X-Entropy-Size": str(os.path.getsize(archive)), "Cache-Control": "no-store"},
+        background=BackgroundTask(os.unlink, archive),
+    )

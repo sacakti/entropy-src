@@ -273,6 +273,27 @@
     font-weight: 400;
 }
 
+.entropy-app .wf-choices {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+    min-height: 36px;
+}
+
+.entropy-app .wf-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.entropy-app .wf-choice input {
+    accent-color: var(--app-accent);
+}
+
 .entropy-app textarea.wf-input,
 .entropy-app .wf-json-input textarea {
     resize: vertical;

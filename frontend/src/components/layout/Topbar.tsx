@@ -24,6 +24,7 @@ import type { Profile } from '../../api/profile.api'
 import { requestCreate } from '../../features/quickCreate'
 import { openRun } from '../../features/runs/navigation'
 import { openDatabaseCompare } from '../../features/tools/clashNavigation'
+import { openKnowledgeEntry } from '../../features/tools/knowledge/navigation'
 import { openTask } from '../../features/tools/tasks/navigation'
 import Avatar from '../../features/settings/Avatar'
 import type { PageId } from '../../types/navigation'
@@ -353,6 +354,20 @@ export default function Topbar({
                                                         }}
                                                     >
                                                         Open task
+                                                    </button>
+                                                )}
+
+                                                {notification.source?.startsWith('knowledge:') && (
+                                                    <button
+                                                        type="button"
+                                                        className="notification-link"
+                                                        onClick={() => {
+                                                            setNotificationsOpen(false)
+                                                            openKnowledgeEntry(Number(notification.source?.slice(10)))
+                                                            if (!notification.read) onMarkNotificationRead(notification.id)
+                                                        }}
+                                                    >
+                                                        Open entry
                                                     </button>
                                                 )}
 

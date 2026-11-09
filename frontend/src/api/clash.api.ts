@@ -106,8 +106,18 @@ export interface ClashCompareJob extends ClashCompareBrief {
     ddl: boolean
     data: boolean
     name_filter: string | null
+    /** Tables named on the page, and the Vault entry listing more (either may be empty). */
+    tables: string[]
+    tables_vault: ClashVaultReference | null
+    /** All the tables named, from both. */
+    table_count: number
     object_types: string[] | null
     skipped: number
+}
+
+export interface ClashVaultReference {
+    namespace: string
+    key: string
 }
 
 export function isCompareActive(job: { state: ClashCompareState }): boolean {
@@ -139,6 +149,8 @@ export const clashApi = {
         ddl: boolean
         data: boolean
         name_filter: string | null
+        tables: string[]
+        tables_vault: ClashVaultReference | null
         object_types: string[] | null
     }): Promise<ClashCompareJob> {
         return post('compare', payload)

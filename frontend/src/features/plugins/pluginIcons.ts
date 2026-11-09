@@ -205,6 +205,7 @@ const PLUGIN_DEFAULTS: Record<string, string> = {
     'oc.audit': 'clipboard-check',
     'oc.cm_secret_update': 'key',
     'oc.deployment': 'rocket',
+    'oc.pod_logs': 'file-text',
     'oc.pod_metrics': 'activity',
     'oc.rsync': 'refresh',
     'oc.services_routes': 'route',

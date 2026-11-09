@@ -98,7 +98,8 @@ class LoadDataResolver:
         label: str = "'status_check'",
     ) -> dict[str, str]:
         """
-        Resolve a status check: table, column and success_value.
+        Resolve a status check: table, column, success_value and an optional
+        where condition that limits the rows checked (e.g. JOB_ID LIKE '1%').
         """
 
         if not isinstance(value, dict):
@@ -113,6 +114,15 @@ class LoadDataResolver:
                 f"{label} 'success_value' must be a non-empty string.",
             )
 
+        where = value.get("where") or ""
+
+        # One SQL condition, written by whoever configures the run; ';' or a
+        # new line would let it end the statement or start another.
+        if not isinstance(where, str) or ";" in where or "\n" in where or "\r" in where:
+            raise LoadDataPluginException(
+                f"{label} 'where' must be one SQL condition on a single line, without ';'.",
+            )
+
         return {
             "table": LoadDataResolver._identifier(
                 value.get("table"),
@@ -124,6 +134,7 @@ class LoadDataResolver:
             ),
             # Quoted as an SQL literal.
             "success_value": success_value.replace("'", "''"),
+            "where": where.strip(),
         }
 
     @staticmethod
@@ -156,6 +167,11 @@ class LoadDataResolver:
                 )
 
             check = item.get("status_check", default_check)
+
+            # A procedure's own check takes what it leaves out from the default,
+            # so it may give only a 'where'.
+            if isinstance(check, dict) and isinstance(default_check, dict):
+                check = {**default_check, **check}
 
             if check is None:
                 raise LoadDataPluginException(

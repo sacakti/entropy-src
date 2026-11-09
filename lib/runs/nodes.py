@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from lib.database.connection import DatabaseConnection
+from lib.nodes import files as file_access
 
 from .store import LOCAL_NODE, ensure_run_schema, utcnow
 
@@ -355,6 +356,7 @@ def _node_payload(row: Any) -> Dict[str, Any]:
         "agent_version": column("agent_version"),
         "max_jobs": column("max_jobs", 2),
         "last_metrics": _json(column("last_metrics"), None),
+        "file_access": file_access.parse(column("file_access")),
     }
 
 
@@ -429,6 +431,17 @@ class NodeStore:
                     utcnow(),
                     name,
                 ),
+            )
+        return self.get(name)
+
+    def set_file_access(self, name: str, settings: Any) -> Optional[Dict[str, Any]]:
+        """How runs on the node reach the main node's files; FileAccessError when invalid."""
+
+        normal = file_access.normalize(settings)
+        with self.connection.transaction():
+            self.connection.execute(
+                "UPDATE nodes SET file_access = ?, updated_at = ? WHERE name = ?",
+                (json.dumps(normal), utcnow(), name),
             )
         return self.get(name)
 

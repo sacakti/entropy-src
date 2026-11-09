@@ -83,6 +83,8 @@ class ProvisionRequest:
     forget_host_key: bool = False
     # Also install the `ent` command line, preset to this main node.
     install_cli: bool = True
+    # How runs reach the main node's files (lib/nodes/files.py); None keeps the current one.
+    file_access: Optional[Dict[str, Any]] = None
 
     def validate(self) -> None:
         if not valid_node_name(self.name) or self.name == "local":
@@ -227,6 +229,8 @@ class Provisioner:
                     description=request.description,
                     max_jobs=int(request.max_jobs),
                 )
+                if request.file_access is not None:
+                    self.nodes.set_file_access(request.name, request.file_access)
 
             self._record_id = self._begin(request.name, action, user)
             record_id = self._record_id
@@ -513,6 +517,7 @@ df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print "free_kb=" $4}'
                 what="Preparing the install directory",
             )
             self.log(f"Install directory {base} ready.")
+            self._prepare_file_access(ssh, request.name)
 
             # Python
             if python is None:
@@ -751,6 +756,30 @@ esac
             raise
         finally:
             ssh.close()
+
+    def _prepare_file_access(self, ssh: SSHSession, name: str) -> None:
+        """Make the fetch workspace, or check the shared folders are mounted."""
+
+        settings = (self.nodes.get(name) or {}).get("file_access") or {"mode": "off"}
+        if settings["mode"] == "fetch":
+            folder = settings["workspace"]
+            ssh.check(
+                f"mkdir -p {_q(folder)} && [ -w {_q(folder)} ]",
+                what=f"Preparing the file workspace {folder}",
+            )
+            self.log(f"Files from the main node are copied to {folder}.")
+        elif settings["mode"] == "shared":
+            for pair in settings["mappings"]:
+                rc, _, _ = ssh.run(f"[ -d {_q(pair['node'])} ] && [ -r {_q(pair['node'])} ]")
+                if rc == 0:
+                    self.log(f"Shared folder {pair['node']} is there (main: {pair['main']}).")
+                else:
+                    self.log(
+                        f"Shared folder {pair['node']} is not mounted or not readable on this "
+                        f"node. Mount the share holding {pair['main']} there; runs that use it "
+                        "fail until then.",
+                        "warning",
+                    )
 
     # ------------------------------------------------------------------
     # Uninstall

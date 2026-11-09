@@ -282,6 +282,8 @@ NODE_COLUMNS = (
     ("agent_version", "TEXT"),
     ("last_metrics", "TEXT"),
     ("max_jobs", "INTEGER NOT NULL DEFAULT 2"),
+    # How runs on the node reach the main node's files (JSON; see lib/nodes/files.py).
+    ("file_access", "TEXT"),
 )
 
 

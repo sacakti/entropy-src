@@ -76,3 +76,47 @@ export function subscribeVision(listener: Listener): () => void {
         listeners.delete(listener)
     }
 }
+
+/**
+ * What the island shows while nothing is happening; cosmetic and per browser.
+ * Anything to tell (a message, a run, a broadcast) still takes its place.
+ */
+export type VisionIdle = 'clock' | 'clock-date' | 'greeting' | 'mark'
+
+export interface VisionLook {
+    idle: VisionIdle
+    /** 12-hour time (3:05 PM) instead of 24-hour (15:05). */
+    hour12: boolean
+    seconds: boolean
+}
+
+const LOOK_KEY = 'entropy.vision.look'
+const IDLE_CHOICES: VisionIdle[] = ['clock', 'clock-date', 'greeting', 'mark']
+export const DEFAULT_VISION_LOOK: VisionLook = { idle: 'clock-date', hour12: false, seconds: true }
+
+/** Dispatched on `window` after the look changes. */
+export const VISION_LOOK_EVENT = 'entropy:vision-look'
+
+export function visionLook(): VisionLook {
+    try {
+        const stored: unknown = JSON.parse(window.localStorage.getItem(LOOK_KEY) ?? 'null')
+        if (!stored || typeof stored !== 'object') return DEFAULT_VISION_LOOK
+        const value = stored as Partial<VisionLook>
+        return {
+            idle: IDLE_CHOICES.includes(value.idle as VisionIdle) ? (value.idle as VisionIdle) : DEFAULT_VISION_LOOK.idle,
+            hour12: value.hour12 === true,
+            seconds: typeof value.seconds === 'boolean' ? value.seconds : DEFAULT_VISION_LOOK.seconds,
+        }
+    } catch {
+        return DEFAULT_VISION_LOOK
+    }
+}
+
+export function setVisionLook(look: VisionLook): void {
+    try {
+        window.localStorage.setItem(LOOK_KEY, JSON.stringify(look))
+    } catch {
+        // Storage may be refused (private windows); the look lasts until reload.
+    }
+    window.dispatchEvent(new Event(VISION_LOOK_EVENT))
+}

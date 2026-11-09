@@ -144,6 +144,10 @@ class InvalidObjectsReportPlugin(
 
         reports: list[SchemaReport] = []
 
+        schemas, uncheckable = self._select_schemas(
+            schemas,
+        )
+
         executor = SqlPlusExecutor(
             shell=self.shell,
             activity=self.activity,
@@ -166,6 +170,9 @@ class InvalidObjectsReportPlugin(
 
             reports.append(schema_report)
 
+        # Asked for, but without credentials: listed after the ones checked.
+        reports.extend(uncheckable)
+
         report_path = self._write_report(
             connection=connection,
             reports=reports,
@@ -183,6 +190,10 @@ class InvalidObjectsReportPlugin(
                     "sid": connection["SID"],
                 },
                 "schemas": len(reports),
+                "checked_schemas": [
+                    schema_report.schema
+                    for schema_report in reports
+                ],
                 "clean": sum(
                     schema_report.status == "clean"
                     for schema_report in reports
@@ -203,6 +214,82 @@ class InvalidObjectsReportPlugin(
         )
 
         return reports
+
+    def _select_schemas(
+        self,
+        schemas: dict[str, Any],
+    ) -> tuple[dict[str, Any], list[SchemaReport]]:
+        """
+        Narrow the credentials to the schemas asked for: those a release's
+        database context changes ('execution') and those named in
+        'only_schemas'. Without either, every schema in 'schemas' is checked.
+        A schema asked for without credentials is reported as an error.
+        """
+
+        execution = self.arguments.dictionary(
+            "execution",
+            None,
+        )
+
+        only = InvalidObjectsReportResolver.only_schemas(
+            self.arguments.list(
+                "only_schemas",
+                None,
+            ),
+        )
+
+        if execution is None and not only:
+            return schemas, []
+
+        planned = InvalidObjectsReportResolver.plan_schemas(
+            execution,
+        )
+
+        if execution is not None:
+            self.message.info(
+                "The release changes "
+                + (
+                    f"{len(planned)} schema(s): {', '.join(planned)}."
+                    if planned
+                    else "no schema."
+                ),
+            )
+
+        wanted = planned + [item for item in only if item not in planned]
+
+        selected, missing, unmatched = InvalidObjectsReportResolver.select(
+            schemas,
+            wanted,
+        )
+
+        for pattern in unmatched:
+            self.message.warning(
+                f"'only_schemas' pattern '{pattern}' matches no schema in 'schemas'.",
+            )
+
+        if not wanted:
+            self.message.info(
+                "No schema to check.",
+            )
+        else:
+            self.message.info(
+                f"Checking {len(selected)} of {len(schemas)} schema(s).",
+            )
+
+        errors = [
+            SchemaReport(
+                schema=schema,
+                status="error",
+                error_type="credentials",
+                error_message=(
+                    f"Schema '{schema}' is to be checked, but 'schemas' has no "
+                    "credentials for it."
+                ),
+            )
+            for schema in missing
+        ]
+
+        return selected, errors
 
     def _inspect_schema(
         self,

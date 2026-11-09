@@ -31,11 +31,107 @@
     flex: none;
 }
 
-/* Nothing to say: a round button with the mark alone. */
-.entropy-app .vision.is-idle {
+/* Nothing to say, and the mark alone chosen: a round button. */
+.entropy-app .vision.is-mark-only {
     justify-content: center;
     width: 32px;
     padding: 0;
+}
+
+/* Nothing to say, but a clock (or a greeting) instead of the mark alone. */
+.entropy-app .vision.is-idle-clock,
+.entropy-app .vision.is-idle-clock-date,
+.entropy-app .vision.is-idle-greeting {
+    flex-shrink: 0;
+    gap: 9px;
+    max-width: 300px;
+    height: 34px;
+    padding: 0 16px 0 10px;
+    color: var(--app-text);
+    font-size: 13px;
+}
+
+.entropy-app .vision.is-idle-clock .vision-clock,
+.entropy-app .vision.is-idle-clock-date .vision-clock {
+    width: 20px;
+    height: 20px;
+}
+
+.entropy-app .vision-clock-time {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+}
+
+/* The colon before the seconds blinks with them, like a desk clock. */
+.entropy-app .vision-clock-colon {
+    display: inline-block;
+    padding: 0 1px;
+    transition: opacity 180ms ease;
+}
+
+.entropy-app .vision-clock-time.is-blink-off .vision-clock-colon {
+    opacity: 0.2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .vision-clock-time.is-blink-off .vision-clock-colon { opacity: 1; }
+}
+
+.entropy-app .vision-clock-day {
+    margin-left: 8px;
+    padding-left: 8px;
+    color: var(--app-muted);
+    font-weight: 500;
+    border-left: 1px solid var(--app-line);
+}
+
+.entropy-app .vision-clock {
+    color: var(--app-accent-fg);
+    overflow: visible;
+}
+
+.entropy-app .vision-clock-face {
+    fill: var(--app-accent-soft);
+    stroke: currentColor;
+    stroke-width: 1.8;
+}
+
+.entropy-app .vision-clock-tick,
+.entropy-app .vision-clock-hour,
+.entropy-app .vision-clock-minute {
+    stroke: var(--app-text);
+    stroke-linecap: round;
+}
+
+.entropy-app .vision-clock-tick { stroke-width: 1.4; opacity: 0.55; }
+.entropy-app .vision-clock-hour { stroke-width: 2.4; }
+.entropy-app .vision-clock-minute { stroke-width: 1.7; }
+
+.entropy-app .vision-clock-second {
+    stroke: var(--app-danger);
+    stroke-width: 1.1;
+    stroke-linecap: round;
+}
+
+.entropy-app .vision-clock-pin {
+    fill: var(--app-danger);
+}
+
+/* The second hand sweeps once a minute; its delay starts it at the current second. */
+.entropy-app .vision-clock-sweep {
+    transform-box: view-box;
+    transform-origin: 12px 12px;
+    animation: vision-clock-sweep 60s linear infinite;
+}
+
+@keyframes vision-clock-sweep {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .vision-clock-sweep { display: none; }
 }
 
 .entropy-app .vision:hover {
@@ -372,4 +468,20 @@
     .entropy-app .vision-mark.is-live .vision-mark-live {
         animation: none;
     }
+}
+
+/* Preferences: the idle look's previews and switches. */
+.entropy-app .vision-look-preview {
+    font-variant-numeric: tabular-nums;
+}
+
+.entropy-app .vision-look-switches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-top: 12px;
+}
+
+.entropy-app .vision-look-switches label:has(input:disabled) {
+    opacity: 0.5;
 }

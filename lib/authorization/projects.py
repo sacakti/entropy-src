@@ -54,6 +54,9 @@ PROJECT_PERMISSIONS = frozenset(
         "releases.delete",
         "artifacts.read",
         "artifacts.write",
+        "knowledge.read",
+        "knowledge.write",
+        "knowledge.delete",
         "vault.namespace.read",
         "vault.read",
         "vault.add",
@@ -71,12 +74,12 @@ PROJECT_PERMISSIONS = frozenset(
 # Maintainers also delete entries and manage namespaces.
 _VIEWER = (
     "workflows.read", "schedules.list", "plugins.read", "tasks.read", "releases.read",
-    "artifacts.read", "vault.namespace.read",
+    "artifacts.read", "vault.namespace.read", "knowledge.read",
 )
 _OPERATOR = _VIEWER + (
     "workflows.execute", "plugins.execute", "tasks.create", "tasks.manage",
     "tasks.comment", "tasks.follow", "releases.read", "releases.create",
-    "releases.manage", "releases.promote", "artifacts.write",
+    "releases.manage", "releases.promote", "artifacts.write", "knowledge.write",
 )
 _DEVELOPER = _OPERATOR + (
     "workflows.write", "schedules.manage", "tasks.create", "tasks.comment", "tasks.follow",
@@ -85,6 +88,7 @@ _DEVELOPER = _OPERATOR + (
 _MAINTAINER = _DEVELOPER + (
     "workflows.delete", "schedules.delete", "projects.members", "tasks.manage", "releases.delete",
     "vault.delete", "vault.namespace.create", "vault.namespace.modify", "vault.namespace.delete",
+    "knowledge.delete",
 )
 
 # name -> (title, scope, description, permissions); None means every permission.

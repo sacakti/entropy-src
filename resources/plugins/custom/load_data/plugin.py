@@ -167,12 +167,14 @@ class LoadDataPlugin(BasePlugin):
                 name=f"{index}_status",
                 body=(
                     f"SELECT '{_COUNT_MARKER}|' || COUNT(*) FROM {check['table']}\n"
-                    f"WHERE {check['column']} IS NULL\n"
-                    f"   OR {check['column']} <> '{check['success_value']}';\n"
+                    + (f"WHERE ({check['where']})\n  AND " if check["where"] else "WHERE ")
+                    + f"({check['column']} IS NULL\n"
+                    f"   OR {check['column']} <> '{check['success_value']}');\n"
                 ),
             )
 
             pending = parse_count(stdout)
+            where = f" where {check['where']}" if check["where"] else ""
 
             results.append(
                 {
@@ -184,7 +186,8 @@ class LoadDataPlugin(BasePlugin):
 
             if pending > 0:
                 raise LoadDataPluginException(
-                    f"Stopped after {procedure}: {pending} row(s) in {check['table']} "
+                    f"Stopped after {procedure}: {pending} row(s) in {check['table']}"
+                    f"{where} "
                     f"have {check['column']} other than "
                     f"'{check['success_value']}'. Check them before running again.",
                 )
@@ -192,7 +195,7 @@ class LoadDataPlugin(BasePlugin):
             self.outputs["completed"] = index
 
             self.message.success(
-                f"{check['table']}: all rows are successful after {procedure}.",
+                f"{check['table']}{where}: all rows are successful after {procedure}.",
             )
 
     def _read_sql(

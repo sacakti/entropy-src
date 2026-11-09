@@ -256,6 +256,7 @@ class ReleaseAnalyzer:
                 "dir": None,
                 "scripts": [],
                 "execution_plan": None,
+                "schemas": [],
             },
         }
 
@@ -1716,6 +1717,7 @@ class ReleaseAnalyzer:
             return {
                 "scripts": [],
                 "execution_plan": None,
+                "schemas": [],
             }
 
         scripts_definition = definition.get(
@@ -1784,7 +1786,47 @@ class ReleaseAnalyzer:
             "dir": str(database_root),
             "scripts": scripts,
             "execution_plan": execution_plan,
+            # What the release changes, so later steps (an invalid objects
+            # report, say) can look at these schemas only.
+            "schemas": self._plan_schemas(
+                execution_plan,
+            ),
         }
+
+    @staticmethod
+    def _plan_schemas(
+        execution_plan: Any,
+    ) -> list[str]:
+        """
+        The schemas the execution plan's applications run in, in plan order.
+        """
+
+        if not isinstance(
+            execution_plan,
+            dict,
+        ):
+            return []
+
+        applications = execution_plan.get(
+            "applications",
+        )
+
+        if not isinstance(
+            applications,
+            dict,
+        ):
+            return []
+
+        schemas: list[str] = []
+
+        for definition in applications.values():
+
+            schema = definition.get("schema") if isinstance(definition, dict) else None
+
+            if isinstance(schema, str) and schema.strip() and schema.strip() not in schemas:
+                schemas.append(schema.strip())
+
+        return schemas
 
     # ------------------------------------------------------------------
     # Plan files

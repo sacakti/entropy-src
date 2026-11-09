@@ -26,8 +26,14 @@
                     "password": "1234"
                 },
                 "procedures": [
-                    "procedure1.sql",
-                    "procedure2.sql"
+                    {
+                        "sql": "procedure1.sql",
+                        "status_check": {"where": "JOB_ID LIKE '1%'"}
+                    },
+                    {
+                        "sql": "procedure2.sql",
+                        "status_check": {"where": "JOB_ID LIKE '2%'"}
+                    }
                 ],
                 "status_check": {
                     "table": "LOAD_STATUS",

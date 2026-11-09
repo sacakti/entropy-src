@@ -27,7 +27,7 @@ import Pagination from '../../../components/layout/Pagination'
 import { usePagination } from '../../../components/layout/usePagination'
 import AttachmentViewer from './AttachmentViewer'
 import Description from './Description'
-import MarkupEditor from './MarkupEditor'
+import RichEditor from './RichEditor'
 import MentionInput, { MentionText } from './MentionInput'
 import SchedulePicker from './SchedulePicker'
 import { fromLocal, toLocal } from './schedule'
@@ -213,6 +213,8 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = fa
         external_ref: '', reminder_at: '', due_date: '', due_time: '', due_repeat: '', reminder_repeat: '', group_ids: initialGroup ? [initialGroup] : [],
     }
     const [draft, setDraft] = useState<Draft>(blank)
+    // The description editor owns its text: a new key starts it empty again.
+    const [editorKey, setEditorKey] = useState(0)
     const [busy, setBusy] = useState(false)
     const another = useRef(false)
     const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((current) => ({ ...current, [key]: value }))
@@ -235,7 +237,10 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = fa
             })
             notify.success(`${created.key} created.`, { title: 'Task created' })
             const keep = another.current
-            if (keep) setDraft({ ...blank, type: draft.type, severity: draft.severity, group_ids: draft.group_ids, assignee: draft.assignee })
+            if (keep) {
+                setDraft({ ...blank, type: draft.type, severity: draft.severity, group_ids: draft.group_ids, assignee: draft.assignee })
+                setEditorKey((current) => current + 1)
+            }
             onCreated(created, keep)
         } catch (cause) {
             notify.error(errorText(cause), { title: 'Unable to create the task' })
@@ -290,13 +295,15 @@ export function CreatePanel({ data, onClose, onCreated, initialGroup, popup = fa
                 </div>
                 <div className="task-field">
                     <span>Description</span>
-                    <MarkupEditor
+                    <RichEditor
+                        key={editorKey}
                         value={draft.description}
                         onChange={(value) => set('description', value)}
                         members={data.members}
-                        rows={6}
+                        attachment={(_, caption) => ({ src: null, label: caption || 'attachment' })}
                         ariaLabel="Description"
-                        placeholder="What needs to be done? @mention members to notify them."
+                        placeholder="What needs to be done? Type @ to mention members and notify them."
+                        minHeight={140}
                     />
                 </div>
                 <label>

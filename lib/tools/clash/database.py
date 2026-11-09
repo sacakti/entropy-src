@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import os
 import re
 import secrets
@@ -89,6 +90,11 @@ _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_$#]{0,127}$")
 _HOST = re.compile(r"^[A-Za-z0-9._:\[\]-]{1,255}$")
 _SID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 _FILTER = re.compile(r"^[A-Za-z0-9_$#%]{1,128}$")
+# A table named in a list: an unquoted Oracle name.
+_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_$#]{0,127}$")
+MAX_NAMES = 1000
+# SQL*Plus reads lines of at most 2499 characters: a long list is written over several.
+_NAMES_PER_LINE = 20
 _ERROR_START = re.compile(r"^(ERROR( at line \d+)?:|ORA-\d+:|SP2-\d+:)")
 _ERROR_LINE = re.compile(r"^(ORA-\d+:|SP2-\d+:).*$", re.MULTILINE)
 # A statement Oracle refuses to parse: SQL*Plus prints its line, a "*", then the error.
@@ -285,15 +291,95 @@ def normalize_ddl(text: str, owner: str, object_type: str = "") -> str:
     return "\n".join(lines).strip()
 
 
+def parse_names(value: Any) -> List[str]:
+    """
+    Table names from what someone typed or keeps in the Vault: "A, B" or one per line, a
+    JSON list, or an object with a "tables" list. Upper case, in order, each once.
+    """
+
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith(("[", "{")):
+            try:
+                value = json.loads(text)
+            except ValueError:
+                raise DatabaseCompareError("The table list is not valid JSON.") from None
+        else:
+            value = re.split(r"[,;\s]+", text)
+    if isinstance(value, dict):
+        value = value.get("tables")
+    if not isinstance(value, list):
+        raise DatabaseCompareError(
+            'A table list is names separated by commas, a JSON list, or {"tables": [...]}.'
+        )
+    names: List[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        name = item.strip().upper()
+        if not _NAME.match(name):
+            raise DatabaseCompareError(
+                f"'{item.strip()}' is not a table name: letters, digits, '_', '$' and '#'."
+            )
+        if name not in names:
+            names.append(name)
+    if len(names) > MAX_NAMES:
+        raise DatabaseCompareError(f"Name at most {MAX_NAMES} tables.")
+    return names
+
+
+def _name_list(names: Sequence[str]) -> str:
+    chunks = [
+        ", ".join(_literal(name) for name in names[start : start + _NAMES_PER_LINE])
+        for start in range(0, len(names), _NAMES_PER_LINE)
+    ]
+    return ",\n  ".join(chunks)
+
+
+def _name_clause(
+    column: str,
+    name_filter: Optional[str],
+    names: Sequence[str],
+    owner: str = "",
+    dependents: bool = False,
+) -> str:
+    """
+    " AND (...)" for the objects asked for: those named, or like the filter. With
+    `dependents`, the indexes and triggers of the named tables come too.
+    """
+
+    conditions = []
+    if names:
+        listed = _name_list(names)
+        conditions.append(f"{column} IN (\n  {listed})")
+        if dependents:
+            conditions.append(
+                f"(object_type = 'INDEX' AND {column} IN (SELECT index_name FROM all_indexes"
+                f" WHERE owner = {owner} AND table_owner = {owner}"
+                f" AND table_name IN (\n  {listed})))"
+            )
+            conditions.append(
+                f"(object_type = 'TRIGGER' AND {column} IN (SELECT trigger_name FROM all_triggers"
+                f" WHERE owner = {owner} AND table_owner = {owner}"
+                f" AND table_name IN (\n  {listed})))"
+            )
+    if name_filter:
+        conditions.append(f"{column} LIKE {_literal(name_filter.upper())}")
+    return f"\n AND ({' OR '.join(conditions)})" if conditions else ""
+
+
 def list_objects(
     endpoint: Endpoint,
     name_filter: Optional[str],
     run: Runner,
     object_types: Optional[Sequence[str]] = None,
+    names: Sequence[str] = (),
 ) -> List[Tuple[str, str]]:
     marker = f"#{secrets.token_hex(8)}#"
     types = ", ".join(_literal(item) for item in (object_types or OBJECT_TYPES))
-    pattern = f" AND object_name LIKE {_literal(name_filter.upper())}" if name_filter else ""
+    pattern = _name_clause(
+        "object_name", name_filter, names, _literal(endpoint.owner), dependents=True
+    )
     output = run(
         endpoint,
         f"SELECT {_literal(marker)} || object_type || '|' || object_name FROM all_objects"
@@ -371,10 +457,11 @@ def compare_ddl(
     run: Runner,
     object_types: Optional[Sequence[str]] = None,
     progress: Optional[CompareProgress] = None,
+    names: Sequence[str] = (),
 ) -> List[Dict[str, Any]]:
     progress = progress or CompareProgress()
     listed_left, listed_right = _on_both(
-        left, right, lambda side: list_objects(side, name_filter, run, object_types)
+        left, right, lambda side: list_objects(side, name_filter, run, object_types, names)
     )
     left_objects, right_objects = set(listed_left), set(listed_right)
     keys = sorted(left_objects | right_objects)
@@ -433,7 +520,7 @@ def _is_comparable(data_type: str) -> bool:
 
 
 def read_tables(
-    endpoint: Endpoint, name_filter: Optional[str], run: Runner
+    endpoint: Endpoint, name_filter: Optional[str], run: Runner, names: Sequence[str] = ()
 ) -> Dict[str, Dict[str, Any]]:
     """
     Each table's columns ({name: type}), primary key columns in order, and the row count
@@ -442,7 +529,7 @@ def read_tables(
 
     marker = f"#{secrets.token_hex(8)}#"
     owner = _literal(endpoint.owner)
-    pattern = f" AND t.table_name LIKE {_literal(name_filter.upper())}" if name_filter else ""
+    pattern = _name_clause("t.table_name", name_filter, names)
     output = run(
         endpoint,
         f"""SELECT {_literal(marker)} || 'C|' || t.table_name || '|' || c.column_name || '|'
@@ -592,10 +679,11 @@ def compare_data(
     tables: Optional[Tuple[Dict[str, Any], Dict[str, Any]]] = None,
     skip_tables: Sequence[str] = (),
     progress: Optional[CompareProgress] = None,
+    names: Sequence[str] = (),
 ) -> List[Dict[str, Any]]:
     progress = progress or CompareProgress()
     left_tables, right_tables = tables or _on_both(
-        left, right, lambda side: read_tables(side, name_filter, run)
+        left, right, lambda side: read_tables(side, name_filter, run, names)
     )
     skipped = set(skip_tables)
 
@@ -848,6 +936,7 @@ def check_options(
     include_data: bool = True,
     name_filter: Optional[str] = None,
     object_types: Optional[Sequence[str]] = None,
+    names: Sequence[str] = (),
 ) -> None:
     """Refuse options that would change a script, or that can not mean anything."""
 
@@ -855,6 +944,9 @@ def check_options(
         raise DatabaseCompareError(
             "The name filter can use letters, digits, '_', '$', '#' and '%'.",
         )
+    # Names reach a script: they must be names, whoever made the list.
+    if list(names) != parse_names(list(names)):
+        raise DatabaseCompareError("Table names must be upper-case Oracle names, each once.")
 
     if object_types is None:
         return
@@ -882,21 +974,27 @@ def compare(
     tables: Optional[Tuple[Dict[str, Any], Dict[str, Any]]] = None,
     skip_tables: Sequence[str] = (),
     progress: Optional[CompareProgress] = None,
+    names: Sequence[str] = (),
 ) -> Dict[str, Any]:
-    """Compare the two schemas' DDL and table data."""
+    """
+    Compare the two schemas' DDL and table data: everything, or the tables `names` lists
+    and the objects like `name_filter` (either matching is enough).
+    """
 
-    check_options(include_data=include_data, name_filter=name_filter, object_types=object_types)
+    check_options(
+        include_data=include_data, name_filter=name_filter, object_types=object_types, names=names
+    )
 
     return {
         "left": left.label,
         "right": right.label,
         "ddl": (
-            compare_ddl(left, right, name_filter, run, object_types, progress)
+            compare_ddl(left, right, name_filter, run, object_types, progress, names)
             if include_ddl
             else None
         ),
         "data": (
-            compare_data(left, right, name_filter, run, tables, skip_tables, progress)
+            compare_data(left, right, name_filter, run, tables, skip_tables, progress, names)
             if include_data
             else None
         ),

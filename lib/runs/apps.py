@@ -234,7 +234,7 @@ class AppStore:
             ):
                 raise AppError(f"{item['label']} must be a number.")
             if (
-                item["type"] in ("text", "select")
+                item["type"] in ("text", "select", "datetime")
                 and value is not None
                 and not isinstance(value, str)
             ):

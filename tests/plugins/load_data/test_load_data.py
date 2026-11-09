@@ -153,6 +153,48 @@ class TestLoadDataPlugin:
         assert "FROM OTHER" in self.scripts[3][1]
         assert "STATE <> 'DONE'" in self.scripts[3][1]
 
+    @patch("resources.plugins.custom.load_data.plugin.SqlPlusExecutor")
+    def test_where_per_procedure_uses_default_table(self, executor_class):
+        self._executor(executor_class, [0, 0])
+
+        result = self._plugin(
+            procedures=[
+                {"sql": "procedure1.sql", "status_check": {"where": "JOB_ID LIKE '1%'"}},
+                {"sql": "procedure2.sql", "status_check": {"where": "JOB_ID LIKE '2%'"}},
+            ],
+            status_check={"table": "LOAD_STATUS", "column": "STATUS", "success_value": "SUCCESS"},
+        ).execute()
+
+        assert result.success is True
+        first, second = self.scripts[1][1], self.scripts[3][1]
+        assert "FROM LOAD_STATUS" in first
+        assert "WHERE (JOB_ID LIKE '1%')\n  AND (STATUS IS NULL" in first
+        assert "STATUS <> 'SUCCESS');" in first
+        assert "WHERE (JOB_ID LIKE '2%')" in second
+
+    @patch("resources.plugins.custom.load_data.plugin.SqlPlusExecutor")
+    def test_where_names_the_condition_when_rows_not_successful(self, executor_class):
+        self._executor(executor_class, [3])
+
+        result = self._plugin(
+            procedures=[
+                {"sql": "procedure1.sql", "status_check": {"where": "JOB_ID LIKE '1%'"}},
+                "procedure2.sql",
+            ],
+        ).execute()
+
+        assert result.success is False
+        assert "where JOB_ID LIKE '1%'" in result.errors[0]
+        assert len(self.scripts) == 2
+
+    @patch("resources.plugins.custom.load_data.plugin.SqlPlusExecutor")
+    def test_without_where_checks_every_row(self, executor_class):
+        self._executor(executor_class, [0, 0])
+
+        self._plugin().execute()
+
+        assert "WHERE (STATUS IS NULL\n   OR STATUS <> 'SUCCESS');" in self.scripts[1][1]
+
 
 class TestLoadDataResolver:
 
@@ -173,3 +215,17 @@ class TestLoadDataResolver:
         check = LoadDataResolver.status_check({"table": "T", "success_value": "O'K"})
 
         assert check["success_value"] == "O''K"
+
+    @pytest.mark.parametrize("where", ["1=1; DROP TABLE X", "A = 1\n/", 5])
+    def test_rejects_unsafe_where(self, where):
+        with pytest.raises(LoadDataPluginException):
+            LoadDataResolver.status_check({"table": "T", "where": where})
+
+    def test_procedure_check_can_clear_default_where(self):
+        [step] = LoadDataResolver.procedures(
+            [{"sql": "p.sql", "status_check": {"where": ""}}],
+            {"table": "T", "where": "JOB_ID LIKE '1%'"},
+        )
+
+        assert step["status_check"]["where"] == ""
+        assert step["status_check"]["table"] == "T"

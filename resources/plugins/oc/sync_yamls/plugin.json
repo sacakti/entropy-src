@@ -1,7 +1,7 @@
 {
     "name": "sync_yamls",
     "namespace": "oc",
-    "version": "1.0.5",
+    "version": "1.1.0",
     "description": "Aravinthan Selvaraj",
     "author": "",
     "entropy": ">=1.0.0",
@@ -15,13 +15,14 @@
         {"name": "kubeconfig", "type": "path", "path": "file", "required": true, "description": "Existing kubeconfig file with an authenticated OpenShift context, passed to oc through KUBECONFIG.", "example": "/home/user/.kube/config"},
         {"name": "namespace", "type": "string", "required": true, "description": "OpenShift namespace whose resources are synchronized.", "example": "sit"},
         {"name": "yaml_repository", "type": "path", "path": "directory", "required": true, "description": "YAML repository directory the resources are written into (created when missing).", "example": "/opt/entropy/yamls/SIT"},
+        {"name": "exclude_resource_types", "type": "list", "required": false, "default": [], "choices": ["deployments", "configmaps", "secrets", "services", "routes"], "description": "Resource types not to synchronize (or check access to), such as secrets; the rest are synchronized.", "example": ["secrets"]},
         {"name": "ignore_resources", "type": "dictionary", "required": false, "default": {}, "description": "Resource names or data keys to leave out, keyed by configmaps or secrets with 'names' and 'keys' lists; merged with the built-in defaults.", "example": {"configmaps": {"names": [], "keys": ["kube.crt"]}, "secrets": {"names": [], "keys": []}}}
     ],
 
     "outputs": [
         {"name": "repository", "type": "string", "description": "YAML repository path that was synchronized."},
         {"name": "namespace", "type": "string", "description": "OpenShift namespace that was synchronized."},
-        {"name": "resources", "type": "dictionary", "description": "Repository-relative YAML files written, grouped by resource type (deployments, configmaps, secrets, services, routes)."},
+        {"name": "resources", "type": "dictionary", "description": "Repository-relative YAML files written, grouped by resource type (deployments, configmaps, secrets, services, routes); excluded types are left out."},
         {"name": "deployment_index", "type": "string", "description": "Path to the generated .entropy/resource_index.json."}
     ],
 

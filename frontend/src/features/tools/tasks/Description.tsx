@@ -1,11 +1,11 @@
-import { useRef, useState, type ClipboardEvent } from 'react'
+import { useRef, useState } from 'react'
 import { Check, ImagePlus, LoaderCircle, Paperclip, Pencil, X } from 'lucide-react'
 
-import MarkupEditor from './MarkupEditor'
 import MarkupView from './MarkupView'
+import RichEditor, { type RichEditorHandle } from './RichEditor'
 import { toggleCheckbox } from './markupEdit'
+import type { PlacedAttachment as Placed } from './richText'
 import {
-    attachmentReference,
     previewKind,
     tasksApi,
     type Attachment,
@@ -55,13 +55,26 @@ export default function Description({ task, members, editable, onSave, onAttach,
     onOpen: (attachment: Attachment) => void
 }) {
     const [draft, setDraft] = useState<string | null>(null)
+    // The latest text, for a save from the keyboard before the state has caught up.
+    const latest = useRef('')
     const [busy, setBusy] = useState<'save' | 'upload' | null>(null)
-    const area = useRef<HTMLTextAreaElement>(null)
+    const editor = useRef<RichEditorHandle>(null)
     const images = task.attachments.filter((attachment) => previewKind(attachment) === 'image')
 
     const placed = (id: number, caption: string) => (
         <PlacedAttachment key={`${id}-${caption}`} task={task} id={id} caption={caption} onOpen={onOpen} />
     )
+
+    // How an attachment looks inside the editor: the image, or its name.
+    const inEditor = (id: number, caption: string): Placed => {
+        const attachment = task.attachments.find((item) => item.id === id)
+        const label = caption || attachment?.filename || 'attachment'
+        if (!attachment) return { src: null, label: `${label} (removed)` }
+        return {
+            src: previewKind(attachment) === 'image' ? tasksApi.attachmentUrl(task.id, attachment.id) : null,
+            label,
+        }
+    }
 
     const tick = async (line: number) => {
         setBusy('save')
@@ -72,32 +85,28 @@ export default function Description({ task, members, editable, onSave, onAttach,
         }
     }
 
-    // Each attachment goes on its own line, where the cursor is.
-    const insert = (attachments: Attachment[], value: string) => {
-        if (!attachments.length) return
-        const element = area.current
-        const start = element?.selectionStart ?? value.length
-        const end = element?.selectionEnd ?? value.length
-        const before = value.slice(0, start)
-        const block = attachments.map(attachmentReference).join('\n')
-        const text = `${before && !before.endsWith('\n') ? '\n' : ''}${block}\n`
-        setDraft(before + text + value.slice(end))
-        const caret = start + text.length
-        window.requestAnimationFrame(() => {
-            area.current?.focus()
-            area.current?.setSelectionRange(caret, caret)
-        })
+    const edit = () => {
+        latest.current = task.description
+        setDraft(task.description)
     }
 
-    const paste = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
-        const files = Array.from(event.clipboardData.files)
-        if (!files.length || draft === null) return
-        // Handled here, so the task-wide paste does not attach them again.
-        event.preventDefault()
-        const value = draft
+    const change = (value: string) => {
+        latest.current = value
+        setDraft(value)
+    }
+
+    const attachFiles = async (files: File[]) => {
         setBusy('upload')
         try {
-            insert(await onAttach(files), value)
+            const attachments = await onAttach(files)
+            return attachments.map((attachment) => ({
+                id: attachment.id,
+                caption: attachment.filename,
+                placed: {
+                    src: previewKind(attachment) === 'image' ? tasksApi.attachmentUrl(task.id, attachment.id) : null,
+                    label: attachment.filename,
+                },
+            }))
         } finally {
             setBusy(null)
         }
@@ -105,9 +114,10 @@ export default function Description({ task, members, editable, onSave, onAttach,
 
     const save = async () => {
         if (draft === null) return
+        const text = latest.current
         setBusy('save')
         try {
-            if (draft === task.description || (await onSave(draft))) setDraft(null)
+            if (text === task.description || (await onSave(text))) setDraft(null)
         } finally {
             setBusy(null)
         }
@@ -119,7 +129,7 @@ export default function Description({ task, members, editable, onSave, onAttach,
                 <h4>
                     Description
                     {editable && (
-                        <button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => setDraft(task.description)}>
+                        <button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={edit}>
                             <Pencil size={14} /> Edit
                         </button>
                     )}
@@ -141,22 +151,22 @@ export default function Description({ task, members, editable, onSave, onAttach,
     return (
         <section className="task-description-block is-editing">
             <h4>Description</h4>
-            <MarkupEditor
+            <RichEditor
                 value={draft}
-                onChange={setDraft}
+                onChange={change}
                 members={members}
-                rows={10}
+                attachment={inEditor}
                 ariaLabel="Description"
+                placeholder="Write the description: steps, expected results, a checklist…"
                 autoFocus
-                inputRef={area}
-                attachment={placed}
-                onPaste={(event) => void paste(event)}
+                handleRef={editor}
+                onFiles={attachFiles}
                 onSubmitShortcut={() => void save()}
                 onCancel={() => setDraft(null)}
                 tools={
                     <select className="entropy-select task-editor-style" value="" onChange={(event) => {
                         const attachment = images.find((item) => item.id === Number(event.target.value))
-                        if (attachment) insert([attachment], draft)
+                        if (attachment) editor.current?.insertAttachments([{ id: attachment.id, caption: attachment.filename }])
                     }} disabled={!images.length} aria-label="Insert an attached image">
                         <option value="">{images.length ? 'Insert image…' : 'No images attached'}</option>
                         {images.map((attachment) => <option key={attachment.id} value={attachment.id}>{attachment.filename}</option>)}
@@ -164,7 +174,7 @@ export default function Description({ task, members, editable, onSave, onAttach,
                 }
             />
             <small className="task-muted task-description-hint">
-                {busy === 'upload' ? <><LoaderCircle size={12} className="entropy-spin" /> Attaching…</> : <><ImagePlus size={12} /> Paste a screenshot to place it here · Tab moves between table cells · Enter continues a list</>}
+                {busy === 'upload' ? <><LoaderCircle size={12} className="entropy-spin" /> Attaching…</> : <><ImagePlus size={12} /> Paste a screenshot to place it here · Tab moves between table cells · type @ to mention</>}
             </small>
             <div className="task-description-actions">
                 <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setDraft(null)} disabled={busy !== null}>

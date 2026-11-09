@@ -549,6 +549,17 @@ def check_arguments(contract: dict[str, Any], values: dict[str, Any]) -> dict[st
         if not _type_ok(kind, value) and not (isinstance(value, str) and "${" in value):
             problems.append(f"'{name}' must be a {kind}")
             continue
+        if "choices" in item and kind == "list" and isinstance(value, list):
+            # A list with choices is a multiple choice: each item is one of them.
+            value = [_choice(item["choices"], entry) for entry in value]
+            wrong = [entry for entry in value if entry not in item["choices"]]
+            if wrong:
+                problems.append(
+                    f"'{name}' items must be among {', '.join(map(str, item['choices']))} "
+                    f"(not {', '.join(map(str, wrong))})"
+                )
+            result[name] = value
+            continue
         if "choices" in item and value not in item["choices"] and isinstance(value, str):
             # Plugins compare choices without case; "TAG" is "tag".
             folded = [
@@ -567,6 +578,16 @@ def check_arguments(contract: dict[str, Any], values: dict[str, Any]) -> dict[st
     if problems:
         raise ContractError(problems)
     return result
+
+
+def _choice(choices: list[Any], value: Any) -> Any:
+    """The declared choice a value names, compared without case; else the value."""
+
+    if isinstance(value, str) and value not in choices:
+        for choice in choices:
+            if isinstance(choice, str) and choice.casefold() == value.casefold():
+                return choice
+    return value
 
 
 def check_outputs(contract: dict[str, Any], outputs: dict[str, Any]) -> list[str]:

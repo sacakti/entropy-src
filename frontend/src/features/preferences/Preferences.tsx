@@ -33,7 +33,8 @@ import WallpaperViewer from './WallpaperViewer'
 import Memories from './Memories'
 import WallpaperPicker from './WallpaperPicker'
 import { useNotificationCenter } from '../notifications/context'
-import { messageStyle, setMessageStyle, type MessageStyle } from '../vision/bus'
+import { messageStyle, setMessageStyle, setVisionLook, visionLook, type MessageStyle, type VisionLook } from '../vision/bus'
+import { formatClock, formatDay, greeting, useNow } from '../vision/clock'
 import '../../styles/Preferences.css'
 import { useErrorToast } from '../../components/feedback/useToast'
 
@@ -125,6 +126,12 @@ export default function Preferences({
     const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
     const notifyCenter = useNotificationCenter()
     const [messages, setMessages] = useState<MessageStyle>(messageStyle)
+    const [look, setLook] = useState<VisionLook>(visionLook)
+    const lookNow = useNow(true)
+    const changeLook = (next: VisionLook) => {
+        setLook(next)
+        setVisionLook(next)
+    }
     const uploadInputRef = useRef<HTMLInputElement>(null)
     const { notify, modal } = useFeedback()
     const previewClickTimer = useRef<number | null>(null)
@@ -759,6 +766,64 @@ export default function Preferences({
                             {messages === option.value && <Check className="theme-check" size={16} />}
                         </button>
                     ))}
+                </div>
+            </section>
+
+            {/* What Vision shows while nothing is happening */}
+            <section className="settings-section glass-section">
+                <div className="settings-section-heading">
+                    <h3>Vision when idle</h3>
+                    <p>
+                        What the island in the top bar shows while nothing is running. Messages and runs
+                        still take its place when they come. Saved in this browser.
+                    </p>
+                </div>
+
+                <div className="glass-options" role="radiogroup" aria-label="Vision when idle">
+                    {([
+                        { value: 'clock', title: 'Clock', text: formatClock(lookNow, look) },
+                        { value: 'clock-date', title: 'Clock and date', text: `${formatClock(lookNow, look)} · ${formatDay(lookNow)}` },
+                        { value: 'greeting', title: 'Greeting', text: `${greeting(lookNow)} and your name` },
+                        { value: 'mark', title: 'Mark only', text: 'The Vision icon alone, as before.' },
+                    ] as const).map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={look.idle === option.value}
+                            className={`glass-option ${look.idle === option.value ? 'selected' : ''}`}
+                            onClick={() => changeLook({ ...look, idle: option.value })}
+                        >
+                            <strong>{option.title}</strong>
+                            <small className="vision-look-preview">{option.text}</small>
+                            {look.idle === option.value && <Check className="theme-check" size={16} />}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="vision-look-switches">
+                    <label className="wallpaper-shuffle-switch">
+                        <input
+                            type="checkbox"
+                            role="switch"
+                            checked={look.hour12}
+                            disabled={look.idle === 'mark' || look.idle === 'greeting'}
+                            onChange={(event) => changeLook({ ...look, hour12: event.target.checked })}
+                        />
+                        <span aria-hidden="true" />
+                        12-hour time
+                    </label>
+                    <label className="wallpaper-shuffle-switch">
+                        <input
+                            type="checkbox"
+                            role="switch"
+                            checked={look.seconds}
+                            disabled={look.idle === 'mark' || look.idle === 'greeting'}
+                            onChange={(event) => changeLook({ ...look, seconds: event.target.checked })}
+                        />
+                        <span aria-hidden="true" />
+                        Show seconds
+                    </label>
                 </div>
             </section>
 

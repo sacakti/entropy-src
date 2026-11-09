@@ -12,6 +12,7 @@ import {
     type ClashDdlItem,
     type ClashRowsResult,
     type ClashStatus,
+    type ClashVaultReference,
 } from '../../api/clash.api'
 import { vaultApi, type VaultNamespace } from '../../api/vault.api'
 import { ApiError } from '../../services/api'
@@ -165,6 +166,115 @@ function SideForm({
                     </select>
                 </label>
             </div>
+        </fieldset>
+    )
+}
+
+/** Names typed as "A, B" or one per line, as the server reads them. */
+function typedTables(text: string): string[] {
+    const names = text
+        .split(/[,;\s]+/)
+        .map((name) => name.trim().toUpperCase())
+        .filter(Boolean)
+    return [...new Set(names)]
+}
+
+/**
+ * Which tables to compare by name: typed, or a list kept in the Vault (a comma separated
+ * value, a JSON list, or {"tables": [...]}), or both. With the name pattern, an object in
+ * the list or like the pattern is compared.
+ */
+function TablesPicker({
+    text,
+    onText,
+    vault,
+    onVault,
+    namespaces,
+    disabled,
+}: {
+    text: string
+    onText: (text: string) => void
+    vault: ClashVaultReference | null
+    onVault: (vault: ClashVaultReference | null) => void
+    namespaces: VaultNamespace[]
+    disabled: boolean
+}) {
+    const [keys, setKeys] = useState<string[]>([])
+    const namespace = vault?.namespace ?? ''
+    const typed = typedTables(text)
+
+    useEffect(() => {
+        if (!namespace) return
+        let active = true
+        vaultApi
+            .listEntries(namespace)
+            .then((result) => {
+                if (active) setKeys(result.items.map((item) => item.key))
+            })
+            .catch(() => {
+                if (active) setKeys([])
+            })
+        return () => {
+            active = false
+        }
+    }, [namespace])
+
+    return (
+        <fieldset className="tools-db-types tools-db-tables" disabled={disabled}>
+            <legend>Tables</legend>
+            <div className="tools-db-tables-grid">
+                <label className="admin-field">
+                    <span>
+                        Table names {typed.length > 0 && <small className="tools-db-note">({typed.length})</small>}
+                    </span>
+                    <textarea
+                        rows={2}
+                        value={text}
+                        placeholder="ORDERS, ORDER_ITEMS, CUSTOMERS"
+                        spellCheck={false}
+                        onChange={(event) => onText(event.target.value)}
+                    />
+                </label>
+                <label className="admin-field">
+                    <span>List in the Vault (optional)</span>
+                    <select
+                        className="entropy-select"
+                        value={namespace}
+                        onChange={(event) => {
+                            setKeys([])
+                            onVault(event.target.value ? { namespace: event.target.value, key: '' } : null)
+                        }}
+                    >
+                        <option value="">None</option>
+                        {namespaces.map((item) => (
+                            <option key={item.id} value={item.name}>
+                                {item.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label className="admin-field">
+                    <span>Key</span>
+                    <select
+                        className="entropy-select"
+                        value={vault?.key ?? ''}
+                        disabled={!namespace}
+                        onChange={(event) => onVault({ namespace, key: event.target.value })}
+                    >
+                        <option value="">Choose…</option>
+                        {keys.map((key) => (
+                            <option key={key} value={key}>
+                                {key}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            </div>
+            <p className="tools-db-note">
+                Separate names with commas or new lines; the Vault entry may hold the same, or a JSON list. Leave
+                everything empty to compare the whole schema. A table in the list <em>or</em> like the name pattern
+                is compared; for DDL, its indexes and triggers come too.
+            </p>
         </fieldset>
     )
 }
@@ -446,6 +556,8 @@ export default function DatabaseCompare() {
     const [ddl, setDdl] = useState(true)
     const [data, setData] = useState(true)
     const [nameFilter, setNameFilter] = useState('')
+    const [tablesText, setTablesText] = useState('')
+    const [tablesVault, setTablesVault] = useState<ClashVaultReference | null>(null)
     const [objectTypes, setObjectTypes] = useState<string[]>(ALL_OBJECT_TYPES)
     const [job, setJob] = useState<ClashCompareJob | null>(null)
     const [starting, setStarting] = useState(false)
@@ -491,6 +603,8 @@ export default function DatabaseCompare() {
                 setDdl(current.ddl)
                 setData(current.data)
                 setNameFilter(current.name_filter ?? '')
+                setTablesText((current.tables ?? []).join(', '))
+                setTablesVault(current.tables_vault ?? null)
                 setObjectTypes(current.object_types ?? ALL_OBJECT_TYPES)
             })
             .catch(() => undefined)
@@ -561,6 +675,8 @@ export default function DatabaseCompare() {
         sideIsComplete(left) &&
         sideIsComplete(right) &&
         (ddl ? objectTypes.length > 0 : compareData) &&
+        // A Vault namespace chosen for the table list needs its key too.
+        (!tablesVault || Boolean(tablesVault.key)) &&
         !jobActive &&
         !starting
 
@@ -581,6 +697,8 @@ export default function DatabaseCompare() {
                 ddl,
                 data: compareData,
                 name_filter: nameFilter.trim() || null,
+                tables: typedTables(tablesText),
+                tables_vault: tablesVault?.key ? tablesVault : null,
                 object_types: ddl && objectTypes.length < ALL_OBJECT_TYPES.length ? objectTypes : null,
             })
             setJob(started)
@@ -684,6 +802,15 @@ export default function DatabaseCompare() {
                     {jobActive || starting ? 'Comparing…' : 'Compare'}
                 </button>
             </div>
+
+            <TablesPicker
+                text={tablesText}
+                onText={setTablesText}
+                vault={tablesVault}
+                onVault={setTablesVault}
+                namespaces={namespaces}
+                disabled={jobActive || starting}
+            />
 
             <fieldset className="tools-db-types" disabled={!ddl}>
                 <legend>Object types</legend>

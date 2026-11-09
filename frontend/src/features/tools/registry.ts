@@ -7,7 +7,7 @@
  * main bundle until the tool is opened.
  */
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
-import { Archive, Bird, GitBranch, GitCompareArrows, ListTodo, PackageCheck, type LucideIcon } from 'lucide-react'
+import { Archive, Bird, BookOpen, GitBranch, GitCompareArrows, ListTodo, PackageCheck, type LucideIcon } from 'lucide-react'
 
 export type ToolDefinition = {
     /** Stable identifier, safe to keep in URLs and preferences. */
@@ -45,6 +45,14 @@ export const TOOLS: ToolDefinition[] = [
         icon: ListTodo,
         keywords: ['todo', 'kanban', 'board', 'comments', 'reminders', 'project'],
         component: lazy(() => import('./tasks/Tasks')),
+    },
+    {
+        id: 'knowledge',
+        name: 'Knowledge base',
+        description: 'Keep what was done, where, when, how and by whom, with screenshots and full history.',
+        icon: BookOpen,
+        keywords: ['kb', 'wiki', 'notes', 'runbook', 'how to', 'documentation', 'history', 'what was done', 'knowledge'],
+        component: lazy(() => import('./knowledge/KnowledgeBase')),
     },
     {
         id: 'release-manager',

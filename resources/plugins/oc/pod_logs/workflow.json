@@ -1,0 +1,46 @@
+{
+    "name": "pod_logs",
+    "version": "1.0.0",
+    "description": "Example workflow for oc.pod_logs: log in, then browse a namespace's pod logs. Run it in interactive mode to get the live App tab. Set dry_run to true (and disable Login) to try it without a cluster.",
+    "variables": {
+        "environment": "SIT",
+        "api_url": "https://api.cluster.example.com:6443",
+        "username": "${entv:name}",
+        "password": "${entv:name}",
+        "namespace": "my-project"
+    },
+    "steps": [
+        {
+            "name": "Login",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["openshift"],
+            "arguments": {
+                "environment": "${environment}",
+                "operation": "login",
+                "api_url": "${api_url}",
+                "username": "${username}",
+                "password": "${password}"
+            }
+        },
+        {
+            "name": "Pod logs",
+            "plugin": "oc.pod_logs",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["app", "openshift", "logs"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "default_paths": ["/var/log"],
+                "log_paths": {
+                    "orders-api": ["/opt/orders/logs"],
+                    "billing-*": ["/app/logs/billing.log"]
+                },
+                "timezone": "UTC",
+                "dry_run": false
+            }
+        }
+    ]
+}

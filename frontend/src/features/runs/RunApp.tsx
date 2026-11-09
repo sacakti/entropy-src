@@ -9,6 +9,7 @@ import SortHeader from '../../components/layout/SortHeader'
 import { usePagination } from '../../components/layout/usePagination'
 import { compareText, compareValue, type SortState } from '../../components/layout/useSort'
 import AppChart from './AppChart'
+import AppFiles from './AppFiles'
 import { errorMessage, formatDateTime } from './format'
 
 const TEXT_DELAY_MS = 400
@@ -126,7 +127,18 @@ function RunAppPage({ runId, app, live, onChanged }: { runId: number; app: RunAp
     }
 
     const fields = definition.inputs.filter((input) => input.type !== 'button')
-    const buttons = definition.inputs.filter((input) => input.type === 'button')
+    // Buttons aimed at a files view belong to it: its tree and viewer press them.
+    const filesViews = new Set(definition.views.filter((view) => view.type === 'files').map((view) => view.name))
+    const buttons = definition.inputs.filter((input) => input.type === 'button' && !filesViews.has(input.target ?? ''))
+    const pressFiles = async (name: string, selection: unknown[]) => {
+        try {
+            await runsApi.pressAppButton(runId, app.id, name, selection)
+            onChanged()
+        } catch (cause) {
+            notify.error(errorMessage(cause, 'Unable to send the request.'), { title: 'App' })
+            throw cause
+        }
+    }
     const state = app.state === 'running' && live ? 'live' : app.state === 'stopping' ? 'stopping' : 'finished'
 
     return (
@@ -181,6 +193,8 @@ function RunAppPage({ runId, app, live, onChanged }: { runId: number; app: RunAp
                         selected={selections[view.name] ?? new Set()}
                         onSelect={(next) => setSelections((current) => ({ ...current, [view.name]: next }))}
                         selectable={state === 'live'}
+                        buttons={definition.inputs.filter((input) => input.type === 'button' && input.target === view.name && input.name !== view.open)}
+                        onPress={pressFiles}
                     />
                 ))}
             </div>
@@ -205,7 +219,15 @@ function AppField({ input, value, disabled, onChange }: {
     return (
         <label className="run-app-field" title={input.description}>
             <span>{input.label}</span>
-            {input.type === 'select' ? (
+            {input.type === 'datetime' ? (
+                <input
+                    type="datetime-local"
+                    className="run-app-datetime"
+                    value={display(value)}
+                    disabled={disabled}
+                    onChange={(event) => onChange(event.target.value)}
+                />
+            ) : input.type === 'select' ? (
                 <select className="entropy-select" value={display(value)} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
                     {!input.choices?.includes(display(value)) && <option value="">Choose…</option>}
                     {input.choices?.map((choice) => <option key={choice} value={choice}>{choice}</option>)}
@@ -226,13 +248,16 @@ function AppField({ input, value, disabled, onChange }: {
 }
 
 /** A view's panel; views declared `tab_of` it show as tabs (List / Graph). */
-function AppViewPanel({ view: host, tabs, views, selected, onSelect, selectable }: {
+function AppViewPanel({ view: host, tabs, views, selected, onSelect, selectable, buttons, onPress }: {
     view: RunAppView
     tabs: RunAppView[]
     views: Record<string, RunAppViewData>
     selected: Set<string>
     onSelect: (next: Set<string>) => void
     selectable: boolean
+    /** Files views: the buttons aimed at the view (besides open), and how to press one. */
+    buttons: RunAppInput[]
+    onPress: (name: string, selection: unknown[]) => Promise<void>
 }) {
     const [active, setActive] = useState(host.name)
     const view = tabs.find((item) => item.name === active) ?? host
@@ -259,6 +284,8 @@ function AppViewPanel({ view: host, tabs, views, selected, onSelect, selectable 
                 <AppTable view={view} data={data} selected={selected} onSelect={onSelect} selectable={selectable} />
             ) : view.type === 'chart' ? (
                 <AppChart view={view} data={data} />
+            ) : view.type === 'files' ? (
+                <AppFiles view={view} data={data} buttons={buttons} live={selectable} onPress={onPress} />
             ) : view.type === 'stats' ? (
                 <div className="run-app-stats">
                     {(data.items ?? []).map((item) => (

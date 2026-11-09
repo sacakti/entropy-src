@@ -1,6 +1,6 @@
 [
   {"name": "paragraphs", "text": "First line\nsecond line\n\nNext one"},
-  {"name": "headings", "text": "# One\n## Two\n### Three\n#### Not a heading\n#nospace"},
+  {"name": "headings", "text": "# One\n## Two\n### Three\n#### Four\n##### Five\n###### Not a heading\n#nospace"},
   {"name": "inline", "text": "**bold** *italic* ~~gone~~ `code` ***both*** **a *b* c** 2 * 3 * 4 snake_case_name"},
   {"name": "escapes", "text": "\\*not italic\\* and \\`not code\\` and a\\|b"},
   {"name": "bullets", "text": "- one\n* two\n+ three\n  - nested"},
@@ -14,5 +14,6 @@
   {"name": "windows lines", "text": "# Head\r\n\r\ntext\r\n- item"},
   {"name": "mixed", "text": "## Steps\n1. Open `/etc/app.conf`\n2. Restart\n\n### Expected\nIt **works**.\n\n- [x] Checked it\n\n| Env | Ok |\n|---|---|\n| UAT | yes |"},
   {"name": "empty", "text": ""},
-  {"name": "only spaces", "text": "   \n\t\n "}
+  {"name": "only spaces", "text": "   \n\t\n "},
+  {"name": "underline", "text": "++under++ and ++**bold under**++, C++ is fine, \\++not++ and ++ spaced ++"}
 ]
