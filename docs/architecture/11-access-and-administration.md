@@ -327,8 +327,9 @@ both).
 Entropy runs on SQLite by default, and everything it knows lives in `entropy.db`.
 See *Administration → Settings → Database* and `ent database`.
 
-The same page can switch to PostgreSQL. The switch needs an empty database and no
-active runs. It copies every table and index in one transaction, checks each row
+The same page can switch to PostgreSQL or to Oracle Database (19c or later). The
+switch needs an empty database (on Oracle, an empty schema) and no active runs. It
+copies every table and index in one transaction, checks each row
 count, records the connection in `database-engine.json` beside `entropy.db`
 (password encrypted with the vault key, readable by its owner only) and restarts the
 server. The copy runs in the background: the server keeps answering and Vision shows
@@ -336,8 +337,19 @@ everyone the progress, but `entropy.db` is read-only meanwhile, so changes canno
 saved until it finishes. The file stays in place. A failure
 leaves the target empty and Entropy on SQLite. Switching back resumes that file as
 it was: nothing is copied back. The application's SQL stays written for SQLite and
-`lib/database/dialect.py` translates it. Foreign keys are not created, because
-Entropy never enforces them on SQLite.
+`lib/database/dialect.py` (PostgreSQL) or `lib/database/oracle_dialect.py` (Oracle)
+translates it. Foreign keys are not created, because Entropy never enforces them on
+SQLite.
+
+On Oracle, the driver is `oracledb` in thin mode (no Oracle client to install); the
+connection takes the host, port (1521), service name and, optionally, an existing
+schema, with TCPS when TLS is on. Oracle commits `CREATE TABLE` as it runs, so a
+failed copy drops the tables it created instead of rolling them back. Oracle also
+stores an empty string as NULL: text columns that are NOT NULL on SQLite are created
+nullable, marked with the column comment `entropy:text-not-null`, and read back as
+''. Text becomes `VARCHAR2(4000)`, or `CLOB` for document-like columns and for any
+column whose copied values are longer; columns in a key are shortened so the index
+fits an 8 KB block.
 
 From a terminal, with the web server stopped:
 
@@ -345,7 +357,8 @@ From a terminal, with the web server stopped:
 ent database status
 ent database switch postgresql --host db.example --name entropy --user entropy --ssl
 ent database switch postgresql --use-existing   # the saved connection, nothing copied
-ent database switch sqlite                      # works even if PostgreSQL is unreachable
+ent database switch oracle --host db.example --port 1521 --name ORCLPDB1 --user entropy
+ent database switch sqlite                      # works even if the server is unreachable
 ```
 
 The password is asked for, or read from `ENTROPY_DB_PASSWORD`; it is never an argument.

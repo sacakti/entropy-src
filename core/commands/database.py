@@ -137,16 +137,22 @@ class DatabaseCommand(BaseCommand):
 
         switch.add_argument(
             "engine",
-            choices=("sqlite", "postgresql"),
-            help="sqlite goes back to its file. postgresql copies SQLite to an empty database.",
+            choices=("sqlite", "postgresql", "oracle"),
+            help=(
+                "sqlite goes back to its file. postgresql and oracle copy SQLite to an empty "
+                "database (Oracle 19c or later)."
+            ),
         )
 
         for flag, kwargs in (
-            ("--host", {"help": "PostgreSQL host (default: the saved connection)."}),
-            ("--port", {"type": int, "help": "PostgreSQL port."}),
-            ("--name", {"help": "PostgreSQL database name."}),
-            ("--schema", {"help": "PostgreSQL schema (default: the user's default)."}),
-            ("--user", {"help": "PostgreSQL user; asks for the password."}),
+            ("--host", {"help": "Database host (default: the saved connection)."}),
+            ("--port", {"type": int, "help": "Port (PostgreSQL 5432, Oracle 1521)."}),
+            ("--name", {"help": "PostgreSQL database name, or Oracle service name."}),
+            (
+                "--schema",
+                {"help": "Schema (default: the user's own; on Oracle, an existing schema)."},
+            ),
+            ("--user", {"help": "Database user; asks for the password."}),
         ):
             switch.add_argument(flag, **kwargs)
 
@@ -238,8 +244,9 @@ class DatabaseCommand(BaseCommand):
             return
 
         if self._manager.engine != database_engine.SQLITE and not args.use_existing:
+            current = database_engine.LABELS.get(self._manager.engine, self._manager.engine)
             raise SystemExit(
-                "Entropy already runs on PostgreSQL. Data is only copied from SQLite: switch "
+                f"Entropy already runs on {current}. Data is only copied from SQLite: switch "
                 "back first, or give --use-existing to run on another database as it is."
             )
 
@@ -249,7 +256,7 @@ class DatabaseCommand(BaseCommand):
         except DatabaseLockedError as exc:
             raise SystemExit(f"{exc} (ent web stop)") from None
         try:
-            self._switch_to_postgresql(args)
+            self._switch_to_server(args)
         finally:
             guard.release_server_lock()
 
@@ -261,9 +268,11 @@ class DatabaseCommand(BaseCommand):
         """The saved connection, changed by what the command line gives."""
 
         values: Dict[str, Any] = dict(settings.values("database_target"))
-        if values.get("engine") != database_engine.POSTGRESQL:
-            values["port"] = 5432
-        values["engine"] = database_engine.POSTGRESQL
+        if values.get("engine") != args.engine:
+            # Another engine was saved: its port and schema mean nothing here.
+            values["port"] = 1521 if args.engine == database_engine.ORACLE else 5432
+            values["schema"] = ""
+        values["engine"] = args.engine
         for field, given in (
             ("host", args.host),
             ("port", args.port),
@@ -286,12 +295,11 @@ class DatabaseCommand(BaseCommand):
             raise SystemExit("Give the connection: --host and --name (nothing is saved yet).")
         return values
 
-    def _switch_to_postgresql(
+    def _switch_to_server(
         self,
         args: Namespace,
     ) -> None:
 
-        from lib.database.postgres import PostgresConnection
         from lib.database.switch import SwitchProgress, copy_database
         from lib.runs.store import RunStore
         from lib.system.settings import settings_for
@@ -304,7 +312,8 @@ class DatabaseCommand(BaseCommand):
 
         settings = settings_for(self._context)
         values = self._target_values(args, settings)
-        target = PostgresConnection(values, self._manager.database)
+        target = database_engine.server_connection(values, self._manager.database)
+        label = database_engine.LABELS[args.engine]
         where = f"{values['database']} on {values['host']}:{values['port']}"
         try:
             try:
@@ -348,7 +357,7 @@ class DatabaseCommand(BaseCommand):
         finally:
             target.close()
 
-        self._ui.success(f"Entropy now runs on PostgreSQL ({where}). Start it: ent web start")
+        self._ui.success(f"Entropy now runs on {label} ({where}). Start it: ent web start")
 
     def _copy(
         self,

@@ -240,21 +240,43 @@ def test_progress_starts_once() -> None:
     assert progress.snapshot()["error"] is None
 
 
-def test_oracle_is_refused_for_now(setup) -> None:
+def test_switching_to_oracle_needs_a_saved_oracle_connection(setup) -> None:
     with pytest.raises(HTTPException) as caught:
         _switch(setup, "oracle")
     assert caught.value.status_code == 422
+    assert "not Oracle" in caught.value.detail
     assert setup.saved == []
 
 
-def test_a_saved_oracle_target_cannot_be_switched_to(setup, monkeypatch) -> None:
+def test_a_saved_oracle_target_is_not_used_for_postgresql(setup, monkeypatch) -> None:
     monkeypatch.setattr(
         "lib.system.settings.settings_for",
         lambda _context: SimpleNamespace(values=lambda _section: {**TARGET, "engine": "oracle"}),
     )
     with pytest.raises(HTTPException) as caught:
         _switch(setup, "postgresql")
-    assert "Only PostgreSQL" in caught.value.detail
+    assert "not PostgreSQL" in caught.value.detail
+
+
+def test_switching_to_oracle_copies_to_an_oracle_connection(setup, monkeypatch) -> None:
+    oracle = {**TARGET, "engine": "oracle", "port": 1521, "database": "FREEPDB1"}
+    targets = []
+
+    class FakeOracle(FakeTarget):
+        def __init__(self, values, database):
+            super().__init__(values, database)
+            targets.append(values)
+
+    monkeypatch.setattr(
+        "lib.system.settings.settings_for",
+        lambda _context: SimpleNamespace(values=lambda _section: dict(oracle)),
+    )
+    monkeypatch.setattr("lib.database.oracle.OracleConnection", FakeOracle)
+    monkeypatch.setattr("lib.database.switch.copy_database", _copying(3, 2))
+    assert _switch(setup, "oracle")["engine"] == "oracle"
+    assert targets == [oracle]
+    assert setup.saved[0][1]["engine"] == "oracle"
+    assert PROGRESS.snapshot()["state"] == "restarting"
 
 
 def test_switching_to_the_current_engine_is_refused(setup) -> None:

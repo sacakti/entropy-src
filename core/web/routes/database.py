@@ -97,13 +97,12 @@ def _read_only(connection: Any, value: bool) -> None:
 
 def _copy_and_record(context: Any, values: Dict[str, Any]) -> None:
     """
-    Copy SQLite to PostgreSQL, record it as the engine and restart. Runs beside the
+    Copy SQLite to PostgreSQL or Oracle, record it as the engine and restart. Runs beside the
     server, which keeps answering (Vision and this page report the progress), but
     cannot change anything the copy would miss. SQLite stays read-only once copied.
     """
 
     from lib.database.connection import DatabaseConnection
-    from lib.database.postgres import PostgresConnection
     from lib.database.switch import PROGRESS, copy_database
     from lib.vault.key import VaultKeyProvider
 
@@ -114,7 +113,7 @@ def _copy_and_record(context: Any, values: Dict[str, Any]) -> None:
     try:
         _read_only(manager.connection, True)
         reader.execute("BEGIN")
-        target = PostgresConnection(values, manager.database)
+        target = database_engine.server_connection(values, manager.database)
         copy_database(reader, target, PROGRESS)
         key = VaultKeyProvider(context.executor, context.bootstrap.vault.key).key()
         database_engine.save(manager.database, values, key)
@@ -130,18 +129,22 @@ def _copy_and_record(context: Any, values: Dict[str, Any]) -> None:
             target.close()
 
 
-def _switch_to_postgresql(context: Any) -> None:
+def _switch_to_server(context: Any, engine: str) -> None:
     """Check what the switch needs, then copy in the background."""
 
     from lib.database.switch import PROGRESS
     from lib.system.settings import settings_for
 
+    label = database_engine.LABELS[engine]
     values = settings_for(context).values("database_target")
-    if values.get("engine") != database_engine.POSTGRESQL:
-        raise HTTPException(status_code=422, detail="Only PostgreSQL is supported so far.")
+    if values.get("engine") != engine:
+        raise HTTPException(
+            status_code=422,
+            detail=f"The saved connection is not {label}: save the {label} connection first.",
+        )
     if not values.get("host") or not values.get("database"):
-        raise HTTPException(status_code=422, detail="Save the PostgreSQL connection first.")
-    if not PROGRESS.begin(database_engine.POSTGRESQL):
+        raise HTTPException(status_code=422, detail=f"Save the {label} connection first.")
+    if not PROGRESS.begin(engine):
         raise HTTPException(status_code=409, detail="The database is already being switched.")
     _start_in_background(lambda: _copy_and_record(context, values))
 
@@ -168,7 +171,7 @@ def switch_engine(
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     """
-    Switch the database Entropy runs on. Going to PostgreSQL copies everything
+    Switch the database Entropy runs on. Going to PostgreSQL or Oracle copies everything
     from SQLite once, in the background (see /switch for how far it has come);
     going back resumes the SQLite file as it was left.
     """
@@ -184,11 +187,11 @@ def switch_engine(
     if payload.engine == database_engine.SQLITE:
         database_engine.remove(manager.database)
         return {"engine": payload.engine, "switching": False, "restarting": _restart_after_switch()}
-    if payload.engine != database_engine.POSTGRESQL:
+    if payload.engine not in database_engine.SERVER_ENGINES:
         raise HTTPException(status_code=422, detail=f"Entropy cannot run on '{payload.engine}'.")
     if current != database_engine.SQLITE:
         raise HTTPException(status_code=422, detail="Switch back to SQLite first.")
-    _switch_to_postgresql(context)
+    _switch_to_server(context, payload.engine)
     return {"engine": payload.engine, "switching": True, "restarting": False}
 
 

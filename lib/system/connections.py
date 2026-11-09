@@ -112,7 +112,7 @@ def check_database(values: Dict[str, Any]) -> Dict[str, Any]:
             pass
         return _result(
             f"The Oracle listener at {target} accepts connections.",
-            ["The service name and credentials are not checked: Oracle is not supported yet."],
+            [_oracle_sign_in(values)],
         )
     with _connect(values, False) as sock:
         # SSLRequest: every PostgreSQL server answers it with S or N.
@@ -140,6 +140,25 @@ def _sign_in(values: Dict[str, Any]) -> str:
         return f"Signed in to {values['database']}, PostgreSQL {connection.server_version()}."
     except Exception as error:  # noqa: BLE001 - every failure is the answer to this test
         raise ConnectionCheckError(f"PostgreSQL refused the connection: {error}") from None
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def _oracle_sign_in(values: Dict[str, Any]) -> str:
+    """Sign in with the saved service name and credentials (TCPS when TLS is on)."""
+
+    from lib.database.oracle import OracleConnection
+
+    connection = None
+    try:
+        connection = OracleConnection(values, Path(""))
+        version = connection.server_version()
+        connection.ensure_schema()
+        schema = f", schema {str(values['schema']).upper()}" if values.get("schema") else ""
+        return f"Signed in to {values['database']}{schema}, Oracle {version}."
+    except Exception as error:  # noqa: BLE001 - every failure is the answer to this test
+        raise ConnectionCheckError(f"Oracle refused the connection: {error}") from None
     finally:
         if connection is not None:
             connection.close()

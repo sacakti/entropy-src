@@ -3,7 +3,8 @@ Switch Entropy from SQLite to another database: copy everything once, then
 run on the new one after a restart.
 
 The copy is one transaction, so a failure leaves the target empty and Entropy
-still on SQLite. The SQLite file is left in place, untouched.
+still on SQLite. The SQLite file is left in place, untouched. (Oracle commits
+CREATE TABLE as it runs; there the tables a failed copy created are dropped again.)
 """
 
 from __future__ import annotations
@@ -102,6 +103,7 @@ def _copy_rows(
     progress: Optional[SwitchProgress] = None,
 ) -> int:
     columns = [row["name"] for row in source.fetchall(f"PRAGMA table_info({_quoted(table)})")]
+    insert_rows = getattr(target, "insert_rows", None)
     names = ", ".join(_quoted(column) for column in columns)
     insert = f"INSERT INTO {_quoted(table)} ({names}) VALUES ({', '.join('%s' for _ in columns)})"
     cursor = source.execute(f"SELECT {names} FROM {_quoted(table)}")
@@ -111,7 +113,10 @@ def _copy_rows(
             rows = cursor.fetchmany(BATCH_SIZE)
             if not rows:
                 return copied
-            target.raw_executemany(insert, [tuple(row) for row in rows])
+            if insert_rows is not None:
+                insert_rows(table, columns, [tuple(row) for row in rows])
+            else:
+                target.raw_executemany(insert, [tuple(row) for row in rows])
             copied += len(rows)
             if progress is not None:
                 progress.add_rows(len(rows))
@@ -122,6 +127,10 @@ def _copy_rows(
 def _continue_keys(target: PostgresConnection, table: str) -> None:
     """New rows must get keys after the copied ones."""
 
+    continue_keys = getattr(target, "continue_keys", None)
+    if continue_keys is not None:
+        continue_keys(table)
+        return
     identity = target.catalog.identity(table)
     if identity is None:
         return
@@ -168,10 +177,15 @@ def copy_database(
             source.fetchone(f"SELECT count(*) FROM {_quoted(table['name'])}")[0] for table in tables
         )
         progress.update(tables_total=len(tables), rows_total=total)
+    plan_table = getattr(target, "plan_table", None)
+    created: List[str] = []
     target.begin()
     try:
         for table in tables:
+            if plan_table is not None:
+                plan_table(source, table["name"])
             target.execute(table["sql"])
+            created.append(table["name"])
         for table in tables:
             name = table["name"]
             if progress is not None:
@@ -191,8 +205,12 @@ def copy_database(
                 raise DatabaseSwitchError(
                     f"Creating index {index['name']} failed: {error}"
                 ) from error
+        count_rows = getattr(target, "count_rows", None)
         for name, count in counts.items():
-            copied = target.raw_rows(f"SELECT count(*) FROM {_quoted(name)}")[0][0]
+            if count_rows is not None:
+                copied = count_rows(name)
+            else:
+                copied = target.raw_rows(f"SELECT count(*) FROM {_quoted(name)}")[0][0]
             if copied != count:
                 raise DatabaseSwitchError(
                     f"Table {name} has {copied} rows on the target, expected {count}."
@@ -201,6 +219,9 @@ def copy_database(
         target.commit()
     except Exception as error:
         target.rollback()
+        discard = getattr(target, "discard", None)
+        if discard is not None:
+            discard(created)
         if isinstance(error, DatabaseException):
             raise
         raise DatabaseSwitchError(f"The copy failed: {error}") from error

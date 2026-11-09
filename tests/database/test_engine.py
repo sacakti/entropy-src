@@ -93,9 +93,23 @@ def test_a_damaged_record_stops_entropy_instead_of_falling_back_to_sqlite(
 
 def test_an_engine_not_supported_yet_is_refused(tmp_path) -> None:
     database = tmp_path / "entropy.db"
-    engine.config_path(database).write_text(json.dumps({"engine": "oracle"}))
-    with pytest.raises(DatabaseException, match="oracle"):
+    engine.config_path(database).write_text(json.dumps({"engine": "mssql"}))
+    with pytest.raises(DatabaseException, match="mssql"):
         engine.connection_for(SimpleNamespace(), database)
+
+
+def test_a_saved_oracle_engine_opens_an_oracle_connection(tmp_path, key, monkeypatch) -> None:
+    from lib.database.oracle import OracleConnection
+
+    database = tmp_path / "entropy.db"
+    engine.save(database, {**VALUES, "engine": "oracle", "port": 1521, "schema": ""}, key)
+    monkeypatch.setattr("lib.vault.key.VaultKeyProvider.key", lambda self: key)
+    context = SimpleNamespace(
+        executor=SimpleNamespace(),
+        bootstrap=SimpleNamespace(vault=SimpleNamespace(key=Path("k"))),
+    )
+    # Created without connecting: the server is reached on first use.
+    assert isinstance(engine.connection_for(context, database), OracleConnection)
 
 
 def test_the_manager_runs_without_file_safety_on_another_engine(tmp_path, key, monkeypatch) -> None:

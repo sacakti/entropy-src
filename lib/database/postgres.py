@@ -31,7 +31,7 @@ from lib.database.connection import DatabaseConnection
 from lib.database.dialect import Statement, is_schema_change, split_statements, translate
 from lib.database.exceptions import DatabaseException
 
-_WRITES = ("INSERT", "UPDATE", "DELETE", "REPLACE")
+_WRITES = ("INSERT", "UPDATE", "DELETE", "REPLACE", "MERGE")
 _SCHEMA_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _READERS = 4
 _ENSURE = re.compile(r"\s*CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)\s+IF\s+NOT\s+EXISTS\b", re.I)
@@ -377,13 +377,13 @@ class PostgresConnection(DatabaseConnection):
 
         statement = None
         if not self._in_own_transaction():
-            statement = translate(sql) if _reads(sql) else None
+            statement = self._translate(sql, None) if _reads(sql) else None
         if statement is not None:
             cursor = self._read(statement, values)
         else:
             with self._lock:
                 _ = self.connection  # connect first: translating may read the catalog
-                statement = translate(sql, self.catalog)
+                statement = self._translate(sql, self.catalog)
                 cursor = self._run(sql, statement, values)
 
         if _ENSURE.match(sql):
@@ -441,19 +441,19 @@ class PostgresConnection(DatabaseConnection):
 
     def _give_back(self, reader: Any, generation: int) -> None:
         with self._reader_lock:
-            if generation == self._generation and not reader.closed:
+            if generation == self._generation and not self._is_closed(reader):
                 self._readers.put(reader)
                 return
             self._reader_count -= 1
         reader.close()
 
-    def _read(self, statement: Statement, parameters: tuple) -> _Cursor:
+    def _read(self, statement: Statement, parameters: tuple) -> Any:
         """A read outside any transaction, beside whatever else is running."""
 
         reader, generation = self._borrow()
         try:
             try:
-                cursor = reader.cursor().execute(statement.text, parameters)
+                cursor = self._execute_on(reader, statement, parameters)
             except Exception as error:
                 if not self._lost(error, reader):
                     raise
@@ -461,9 +461,9 @@ class PostgresConnection(DatabaseConnection):
                 reader.close()
                 self._give_back(reader, generation)
                 reader, generation = self._borrow()
-                cursor = reader.cursor().execute(statement.text, parameters)
+                cursor = self._execute_on(reader, statement, parameters)
             # The rows are already here: the result needs no connection, nor any lock.
-            return _Cursor(cursor, threading.RLock(), statement)
+            return self._wrap(cursor, threading.RLock(), statement)
         finally:
             self._give_back(reader, generation)
 
@@ -479,7 +479,7 @@ class PostgresConnection(DatabaseConnection):
                 result = self.execute("SELECT 1 WHERE false")
             return result
 
-    def _run(self, sql: str, statement: Statement, parameters: tuple) -> _Cursor:
+    def _run(self, sql: str, statement: Statement, parameters: tuple) -> Any:
         word = statement.text.lstrip().split(None, 1)[0].upper() if statement.text.strip() else ""
 
         if word == "BEGIN":
@@ -496,13 +496,13 @@ class PostgresConnection(DatabaseConnection):
             self.begin()
 
         try:
-            cursor = self._guarded(statement.text, parameters)
+            cursor = self._guarded(statement, parameters)
         except Exception as error:
             if not self._active and self._lost(error, self._connection):
                 # The server restarted or dropped an idle connection: nothing was in progress.
                 self.close()
                 self.open()
-                cursor = self._guarded(statement.text, parameters)
+                cursor = self._guarded(statement, parameters)
             else:
                 raise
 
@@ -513,9 +513,10 @@ class PostgresConnection(DatabaseConnection):
                 self._forget_schema()
         return self._cursor(cursor, statement)
 
-    def _guarded(self, text: str, parameters: tuple) -> Any:
+    def _guarded(self, statement: Statement, parameters: tuple) -> Any:
         """Run a statement so that its failure leaves the open transaction usable."""
 
+        text = statement.text
         connection = self.connection
         if not self._active:
             return connection.cursor().execute(text, parameters)
@@ -534,10 +535,33 @@ class PostgresConnection(DatabaseConnection):
 
     def _lost(self, error: Exception, connection: Any) -> bool:
         operational = getattr(self._driver(), "OperationalError", ())
-        return isinstance(error, operational) and (connection is None or bool(connection.closed))
+        lost = connection is None or self._is_closed(connection)
+        return isinstance(error, operational) and lost
 
-    def _cursor(self, cursor: Any, statement: Statement) -> _Cursor:
-        return _Cursor(cursor, self._lock, statement)
+    def _cursor(self, cursor: Any, statement: Statement) -> Any:
+        return self._wrap(cursor, self._lock, statement)
+
+    # ------------------------------------------------------------------
+    # Engine specifics, overridden by engines that share this structure
+    # ------------------------------------------------------------------
+
+    def _translate(self, sql: str, catalog: Any) -> Any:
+        """The statement in this engine's SQL; reads outside a transaction get no catalog."""
+
+        return translate(sql, catalog)
+
+    def _execute_on(self, connection: Any, statement: Any, parameters: tuple) -> Any:
+        """Run a translated statement on one of the driver's connections."""
+
+        return connection.cursor().execute(statement.text, parameters)
+
+    def _wrap(self, cursor: Any, lock: Any, statement: Any) -> Any:
+        """The driver's cursor, read like SQLite's."""
+
+        return _Cursor(cursor, lock, statement)
+
+    def _is_closed(self, connection: Any) -> bool:
+        return bool(connection.closed)
 
     # ------------------------------------------------------------------
     # Transaction

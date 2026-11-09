@@ -24,6 +24,10 @@ from lib.database.exceptions import DatabaseException
 CONFIG_FILE = "database-engine.json"
 SQLITE = "sqlite"
 POSTGRESQL = "postgresql"
+ORACLE = "oracle"
+# Engines Entropy can run on besides SQLite; each copies from SQLite when switched to.
+SERVER_ENGINES = (POSTGRESQL, ORACLE)
+LABELS = {SQLITE: "SQLite", POSTGRESQL: "PostgreSQL", ORACLE: "Oracle"}
 
 _FIELDS = ("engine", "host", "port", "database", "schema", "username", "ssl")
 
@@ -142,6 +146,21 @@ def switch_to_sqlite(database: Path, assume_yes: bool = False) -> None:
     print("Entropy now runs on SQLite. Start the server: ent web start")
 
 
+def server_connection(values: Dict[str, Any], database: Path) -> DatabaseConnection:
+    """A connection to a PostgreSQL or Oracle database, from its saved settings."""
+
+    engine = values.get("engine")
+    if engine == POSTGRESQL:
+        from lib.database.postgres import PostgresConnection
+
+        return PostgresConnection(values, database)
+    if engine == ORACLE:
+        from lib.database.oracle import OracleConnection
+
+        return OracleConnection(values, database)
+    raise DatabaseException(f"Entropy cannot run on the '{engine}' engine.")
+
+
 def connection_for(context: Any, database: Path) -> DatabaseConnection:
     """The connection for the engine this installation runs on."""
 
@@ -149,11 +168,10 @@ def connection_for(context: Any, database: Path) -> DatabaseConnection:
     if record is None:
         return DatabaseConnection(database)
 
-    if record["engine"] != POSTGRESQL:
+    if record["engine"] not in SERVER_ENGINES:
         raise DatabaseException(f"Entropy cannot run on the '{record['engine']}' engine yet.")
 
-    from lib.database.postgres import PostgresConnection
     from lib.vault.key import VaultKeyProvider
 
     key = VaultKeyProvider(context.executor, context.bootstrap.vault.key).key()
-    return PostgresConnection(reveal(record, key), database)
+    return server_connection(reveal(record, key), database)

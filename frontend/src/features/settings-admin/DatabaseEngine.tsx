@@ -24,6 +24,24 @@ interface SwitchResult {
 }
 
 const ENGINE_LABELS: Record<string, string> = { sqlite: 'SQLite', postgresql: 'PostgreSQL', oracle: 'Oracle' }
+type ServerEngine = DatabaseTargetSettings['engine']
+const DEFAULT_PORTS: Record<ServerEngine, number> = { postgresql: 5432, oracle: 1521 }
+const FIELD_HINTS: Record<ServerEngine, { database: string; placeholder: string; schema: string; tls: string }> = {
+    postgresql: {
+        database: 'Database name',
+        placeholder: 'entropy',
+        schema: "Optional. Empty uses the user's default, usually public.",
+        tls: 'Require TLS (sslmode=require)',
+    },
+    oracle: {
+        database: 'Service name',
+        placeholder: 'ORCLPDB1',
+        schema: "Optional. An existing schema (Oracle user) the user can create tables in; empty uses the user's own.",
+        tls: 'Use TLS (TCPS)',
+    },
+}
+
+const serverEngine = (engine: string | undefined): ServerEngine => (engine === 'oracle' ? 'oracle' : 'postgresql')
 const PROGRESS_URL = '/api/admin/database/switch'
 const PROGRESS_POLL_MS = 1000
 
@@ -34,8 +52,8 @@ function message(error: unknown, fallback: string): string {
 const isUnderWay = (progress: DatabaseSwitch) => ['copying', 'restarting', 'restart_required'].includes(progress.state)
 
 /**
- * Administration -> Settings -> Database: SQLite by default; PostgreSQL when an
- * administrator switches to it, which copies the data once.
+ * Administration -> Settings -> Database: SQLite by default; PostgreSQL or Oracle when
+ * an administrator switches to it, which copies the data once.
  */
 export default function DatabaseEngine({ info }: { info: EngineInfo }) {
     const { notify, modal } = useFeedback()
@@ -81,7 +99,7 @@ export default function DatabaseEngine({ info }: { info: EngineInfo }) {
         if (!onSqlite) return
         settingsApi
             .all()
-            .then((all) => setTarget({ ...all.database_target, engine: 'postgresql' }))
+            .then((all) => setTarget({ ...all.database_target, engine: serverEngine(all.database_target.engine) }))
             .catch((cause: unknown) => notify.error(message(cause, 'Unable to load the connection.')))
     }, [onSqlite, notify])
 
@@ -101,6 +119,16 @@ export default function DatabaseEngine({ info }: { info: EngineInfo }) {
         setTarget((current) => (current ? { ...current, ...changes } : current))
     }
 
+    // The other engine's default port means nothing here; a port someone typed stays.
+    const chooseEngine = (engine: ServerEngine) => {
+        setTest(null)
+        setTarget((current) => {
+            if (!current || current.engine === engine) return current
+            const port = current.port === DEFAULT_PORTS[current.engine] || !current.port ? DEFAULT_PORTS[engine] : current.port
+            return { ...current, engine, port }
+        })
+    }
+
     const save = async () => {
         if (!target) return
         const saved = await settingsApi.save<DatabaseTargetSettings>('database_target', {
@@ -108,7 +136,7 @@ export default function DatabaseEngine({ info }: { info: EngineInfo }) {
             enabled: true,
             password,
         })
-        setTarget({ ...saved, engine: 'postgresql' })
+        setTarget({ ...saved, engine: serverEngine(saved.engine) })
         setPassword(null)
     }
 
@@ -185,16 +213,31 @@ export default function DatabaseEngine({ info }: { info: EngineInfo }) {
         )
     }
 
+    const engine = serverEngine(target?.engine)
+    const hints = FIELD_HINTS[engine]
+
     return (
         <>
-            <h3 className="database-subhead">Use PostgreSQL instead</h3>
+            <h3 className="database-subhead">Use PostgreSQL or Oracle instead</h3>
             <p className="settings-muted">
-                For larger installations. Give Entropy an empty database: switching copies all data once and restarts
-                the server on it. The SQLite file stays as it is.
+                For larger installations. Give Entropy an empty database (Oracle: an empty schema, Oracle 19c or later):
+                switching copies all data once and restarts the server on it. The SQLite file stays as it is.
             </p>
             {target && (
                 <>
                     <div className="settings-grid">
+                        <label className="admin-field admin-field-wide">
+                            <span>Database engine</span>
+                            <select
+                                className="entropy-select"
+                                value={engine}
+                                disabled={underWay}
+                                onChange={(event) => chooseEngine(event.target.value as ServerEngine)}
+                            >
+                                <option value="postgresql">PostgreSQL</option>
+                                <option value="oracle">Oracle Database (19c or later)</option>
+                            </select>
+                        </label>
                         <label className="admin-field">
                             <span>Host</span>
                             <input value={target.host} spellCheck={false} onChange={(event) => update({ host: event.target.value })} />
@@ -210,13 +253,18 @@ export default function DatabaseEngine({ info }: { info: EngineInfo }) {
                             />
                         </label>
                         <label className="admin-field">
-                            <span>Database name</span>
-                            <input value={target.database} spellCheck={false} onChange={(event) => update({ database: event.target.value })} />
+                            <span>{hints.database}</span>
+                            <input
+                                value={target.database}
+                                spellCheck={false}
+                                placeholder={hints.placeholder}
+                                onChange={(event) => update({ database: event.target.value })}
+                            />
                         </label>
                         <label className="admin-field">
                             <span>Schema</span>
                             <input value={target.schema} spellCheck={false} onChange={(event) => update({ schema: event.target.value })} />
-                            <small>Optional. Empty uses the user's default, usually public.</small>
+                            <small>{hints.schema}</small>
                         </label>
                         <label className="admin-field">
                             <span>User name</span>
@@ -238,7 +286,7 @@ export default function DatabaseEngine({ info }: { info: EngineInfo }) {
                         <label className="admin-field admin-field-wide">
                             <span>
                                 <input type="checkbox" checked={target.ssl} onChange={(event) => update({ ssl: event.target.checked })} />{' '}
-                                Require TLS (sslmode=require)
+                                {hints.tls}
                             </span>
                         </label>
                     </div>
@@ -298,13 +346,13 @@ export default function DatabaseEngine({ info }: { info: EngineInfo }) {
                             title={test || underWay ? undefined : 'Test the connection first.'}
                             onClick={() =>
                                 void confirmSwitch(
-                                    'postgresql',
+                                    engine,
                                     `All data is copied to ${target.database} on ${target.host}, then the server restarts and everyone reconnects. Active runs must have finished. SQLite stays read-only during the copy, and changes after the switch are not copied back.`,
                                 )
                             }
                         >
                             {busy === 'switch' || underWay ? <LoaderCircle size={15} className="entropy-spin" /> : <ArrowRightLeft size={15} />}
-                            {underWay ? 'Switching…' : 'Switch to PostgreSQL'}
+                            {underWay ? 'Switching…' : `Switch to ${ENGINE_LABELS[engine]}`}
                         </button>
                     </div>
                 </>
