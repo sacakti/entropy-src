@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ArrowDown, ArrowUp, Check, Copy, Eye, Folder, FolderOpen, GitBranch, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Copy, Eye, Folder, FolderOpen, GitBranch, KeyRound, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { apiRequest } from '../../../services/api'
 import RepositoryBrowser from './RepositoryBrowser'
+import GitCredentialsDialog from './GitCredentialsDialog'
 import Dialog from '../../../components/layout/Dialog'
 import './git-repositories.css'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
@@ -73,6 +74,7 @@ export default function GitRepositories() {
     const [pathPickerError, setPathPickerError] = useState('')
     useErrorToast(pathPickerError)
     const [pathPickerLoading, setPathPickerLoading] = useState(false)
+    const [credentialsOpen, setCredentialsOpen] = useState(false)
 
     const refresh = useCallback(async () => {
         const result = await apiRequest<RepositoryData>('/api/git-repositories')
@@ -181,7 +183,8 @@ export default function GitRepositories() {
         {browsing ? <RepositoryBrowser repository={browsing} onBack={() => setBrowsing(null)} /> : <>
         <header className="git-repositories-heading">
             <div><span className="git-repositories-mark"><GitBranch size={21} /></span><div><h3>Git repositories</h3><p>Create server-managed repositories and make checkouts available to workflows or plugins.</p></div></div>
-            <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void refresh()} title="Refresh repositories"><RefreshCw size={15} /></button>
+            <div className="git-repositories-heading-actions"><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setCredentialsOpen(true)}><KeyRound size={15} /> Git credentials</button>
+            <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void refresh()} title="Refresh repositories"><RefreshCw size={15} /></button></div>
         </header>
         <form className="git-repository-create" onSubmit={(event) => void createRepository(event)}>
             <label>Repository name<input value={name} onChange={(event) => setName(event.target.value)} placeholder="deployment-scripts" maxLength={80} required /></label>
@@ -189,7 +192,7 @@ export default function GitRepositories() {
             <label>Repository source<select value={sourceType} onChange={(event) => setSourceType(event.target.value as 'managed' | 'local' | 'remote')}><option value="managed">New Entropy repository</option><option value="local">Existing server path</option><option value="remote">Remote Git repository</option></select></label>
             {sourceType !== 'managed' && <label className="git-repository-source-location">{sourceType === 'local' ? 'Git repository path on the Entropy server' : 'HTTPS or SSH clone URL'}<span className="git-repository-source-input"><input value={sourceLocation} onChange={(event) => setSourceLocation(event.target.value)} onBlur={() => { if (!name.trim()) setName(suggestedRepositoryName(sourceLocation)) }} placeholder={sourceType === 'local' ? '/srv/git/deployment-scripts' : 'git@github.com:org/repo.git'} maxLength={2048} required />{sourceType === 'local' && <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={openPathPicker}><FolderOpen size={15} /> Browse server</button>}</span></label>}
             <button type="submit" className="entropy-button entropy-button-primary" disabled={busy || !name.trim() || (sourceType !== 'managed' && !sourceLocation.trim()) || (scope === 'project' && !data?.permissions.project_write)}><Plus size={16} /> {busy ? 'Preparing…' : sourceType === 'managed' ? 'Create repository' : 'Import repository'}</button>
-            <small>Personal repositories are private to your account. Project repositories can be used by members of {data?.project.name ?? 'the active project'} with workflow access. Remote URLs must not contain passwords or tokens. Private remotes use the Entropy server’s SSH key or Git credential helper.</small>
+            <small>Personal repositories are private to your account. Project repositories can be used by members of {data?.project.name ?? 'the active project'} with workflow access. Remote URLs must not contain passwords or tokens. For private HTTPS remotes, save a token under Git credentials; SSH remotes use the Entropy server’s SSH key.</small>
         </form>
 
         {!data ? <EntropyLoader label="Loading repositories…" /> : data.items.length ? <div className="git-repository-list">
@@ -221,6 +224,7 @@ export default function GitRepositories() {
             <Pagination state={repositoryPages} noun="repositories" />
         </div> : <div className="git-repositories-empty"><GitBranch size={28} /><strong>No repositories yet</strong><span>Create a personal or project repository to start.</span></div>}
         </>}
+        {credentialsOpen && <GitCredentialsDialog onClose={() => setCredentialsOpen(false)} />}
         {pathPickerOpen && <Dialog title="Browse Entropy server" subtitle="Choose a Git repository directory on the Entropy host." icon={<FolderOpen size={18} />} onClose={() => setPathPickerOpen(false)} className="git-server-path-dialog" footer={<><button type="button" className="entropy-button entropy-button-secondary" onClick={() => setPathPickerOpen(false)}>Cancel</button><button type="button" className="entropy-button entropy-button-primary" onClick={selectServerPath} disabled={!pathListing?.is_git_repository || pathPickerLoading}>Use this repository</button></>}>
             <div className="git-server-path-picker">
                 <div className="git-server-path-current"><code title={pathListing?.path}>{pathListing?.path ?? 'Loading path…'}</code>{pathListing?.parent_path && <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void loadServerDirectory(pathListing.parent_path!)} disabled={pathPickerLoading}><ArrowUp size={15} /> Up</button>}</div>

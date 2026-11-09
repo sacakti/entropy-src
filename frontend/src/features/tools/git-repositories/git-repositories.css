@@ -144,3 +144,11 @@
     .entropy-app .git-browser-file-table { min-width: 780px; }
     .entropy-app .git-browser-history > button { align-items: flex-start; flex-direction: column; gap: 3px; }
 }
+.entropy-app .git-repositories-heading > .git-repositories-heading-actions { gap: 8px; }
+.entropy-app .git-browser-remote { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 9px 13px; color: var(--app-muted); background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 10px; font-size: .84rem; }
+.entropy-app .git-browser-remote strong { color: var(--app-text); }
+.entropy-app .git-browser-remote-warning { color: var(--app-warning); }
+.entropy-app .git-credentials { display: grid; gap: 18px; }
+.entropy-app .git-credentials h4 { margin: 0; font-size: .95rem; }
+.entropy-app .git-credentials-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.entropy-app .git-credentials-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border: 1px solid var(--app-line); border-radius: 8px; }

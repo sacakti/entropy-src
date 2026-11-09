@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from core.web.projects import current_project, require
 from core.web.routes.auth import _current_session, verify_csrf
+from lib.git_repositories import remote as git_remote
 from lib.git_repositories.store import GitRepositoryStore, ensure_git_repositories_schema
 from lib.models.session import Session
 from lib.models.users import User
@@ -53,10 +54,72 @@ class BranchCreate(BaseModel):
     base_branch: str = Field(min_length=1, max_length=255)
 
 
+class IdentityUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    email: str = Field(min_length=3, max_length=320)
+
+
+class CredentialUpdate(BaseModel):
+    host: str = Field(min_length=1, max_length=255)
+    username: str = Field(min_length=1, max_length=255)
+    token: str = Field(min_length=1, max_length=4096)
+
+
+class BranchPush(BaseModel):
+    branch: str = Field(min_length=1, max_length=255)
+
+
 def _store(request: Request) -> GitRepositoryStore:
     connection = request.app.state.entropy_context.database_manager.connection
     ensure_git_repositories_schema(connection)
     return GitRepositoryStore(connection)
+
+
+def _credentials(request: Request, *, with_key: bool = False) -> git_remote.GitCredentialStore:
+    """The Git identity and token store; *with_key* when tokens are read or written."""
+    context = request.app.state.entropy_context
+    key = None
+    if with_key:
+        from lib.vault.key import VaultKeyProvider
+
+        try:
+            key = VaultKeyProvider(context.executor, context.bootstrap.vault.key).key()
+        except Exception:  # noqa: BLE001 - reported to the browser below
+            raise HTTPException(status_code=503, detail="The vault key is unavailable, so Git tokens cannot be used.") from None
+    return git_remote.GitCredentialStore(context.database_manager.connection, key)
+
+
+def _author(request: Request, user: User) -> Tuple[str, str]:
+    """The name and email the user commits with: their Git identity, else their Entropy login."""
+    assert user.id is not None
+    identity = _credentials(request).identity(user.id)
+    if identity:
+        return identity["name"], identity["email"]
+    return user.username, f"{user.username}@entropy.local"
+
+
+def _remote_credential(request: Request, user: User, url: str) -> Optional[Tuple[str, str]]:
+    """The user's saved HTTPS token for the remote's host, if any."""
+    if not git_remote.is_https(url):
+        return None
+    assert user.id is not None
+    try:
+        host = git_remote.remote_host(url)
+    except git_remote.GitRemoteError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    store = _credentials(request)
+    if not store.has_credential(user.id, host):
+        return None
+    try:
+        return _credentials(request, with_key=True).credential(user.id, host)
+    except Exception:  # noqa: BLE001 - a token sealed with another vault key
+        raise HTTPException(status_code=422, detail=f"Your saved token for {host} cannot be read. Save it again under Git credentials.") from None
+
+
+def _remote_url(repository: Dict[str, Any]) -> str:
+    if repository.get("source_type") != "remote" or not repository.get("source_location"):
+        raise HTTPException(status_code=422, detail="Only repositories imported from a remote Git URL can pull and push.")
+    return str(repository["source_location"])
 
 
 def _repo_root(request: Request) -> Path:
@@ -172,7 +235,7 @@ def _safe_file_path(path: str) -> str:
     return path
 
 
-def _commit_file(repository: Dict[str, Any], branch: str, path: str, data: bytes, username: str) -> None:
+def _commit_file(repository: Dict[str, Any], branch: str, path: str, data: bytes, author: Tuple[str, str]) -> None:
     branch = _branch_name(repository, branch)
     path = _safe_file_path(path)
     if len(data) > 20 * 1024 * 1024:
@@ -180,10 +243,10 @@ def _commit_file(repository: Dict[str, Any], branch: str, path: str, data: bytes
     environment = {
         **os.environ,
         "GIT_TERMINAL_PROMPT": "0",
-        "GIT_AUTHOR_NAME": username,
-        "GIT_AUTHOR_EMAIL": f"{username}@entropy.local",
-        "GIT_COMMITTER_NAME": username,
-        "GIT_COMMITTER_EMAIL": f"{username}@entropy.local",
+        "GIT_AUTHOR_NAME": author[0],
+        "GIT_AUTHOR_EMAIL": author[1],
+        "GIT_COMMITTER_NAME": author[0],
+        "GIT_COMMITTER_EMAIL": author[1],
     }
     with tempfile.TemporaryDirectory(prefix="entropy-git-browser-") as directory:
         checkout = Path(directory) / "checkout"
@@ -395,7 +458,7 @@ def browser_save_file(repository_id: int, payload: FileWrite, request: Request,
     repository = _visible_repo(request, user, repository_id, project["id"])
     if not _can_manage(request, user, repository, project["id"]):
         raise HTTPException(status_code=403, detail="You cannot modify this repository.")
-    _commit_file(repository, payload.branch, payload.path, payload.content.encode("utf-8"), user.username)
+    _commit_file(repository, payload.branch, payload.path, payload.content.encode("utf-8"), _author(request, user))
     return {"message": "File saved as a new commit."}
 
 
@@ -409,7 +472,7 @@ async def browser_upload_file(repository_id: int, request: Request, branch: str 
         raise HTTPException(status_code=403, detail="You cannot modify this repository.")
     path = _safe_file_path(path or file.filename or "")
     data = await file.read(20 * 1024 * 1024 + 1)
-    _commit_file(repository, branch, path, data, user.username)
+    _commit_file(repository, branch, path, data, _author(request, user))
     return {"message": f"{path} added as a new commit."}
 
 
@@ -614,8 +677,10 @@ def create_repository(payload: RepositoryCreate, request: Request,
         raise HTTPException(status_code=422, detail="A source path or URL is only used for imported repositories.")
 
     git_environment = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_PAGER": "cat"}
+    remote_credential = None
     if payload.source_type == "remote":
-        git_environment["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
+        remote_credential = _remote_credential(request, user, source_location or "")
+        git_environment = git_remote.remote_environment(source_location or "", remote_credential)
         initialized = subprocess.run([git, "clone", "--quiet", "--mirror", "--", source_location or "", str(bare_path)], capture_output=True, text=True, timeout=300, check=False, env=git_environment)
     elif payload.source_type == "local":
         initialized = subprocess.run([git, "clone", "--quiet", "--mirror", "--", source_location or "", str(bare_path)], capture_output=True, text=True, timeout=300, check=False, env=git_environment)
@@ -624,9 +689,14 @@ def create_repository(payload: RepositoryCreate, request: Request,
     if initialized.returncode:
         shutil.rmtree(bare_path, ignore_errors=True)
         message = (initialized.stderr or initialized.stdout or "Git could not initialize the repository.").strip()
+        if remote_credential is not None:
+            message = message.replace(remote_credential[1], "****")
         if payload.source_type == "remote":
-            message += " Check the URL and make sure the Entropy server has network access and SSH key or Git credential-helper access."
+            message += (" Check the URL and network access. For a private HTTPS remote, save a token for its host"
+                        " under Git credentials; SSH remotes use the Entropy server's SSH key.")
         raise HTTPException(status_code=422 if payload.source_type != "managed" else 500, detail=message)
+    if payload.source_type == "remote":
+        git_remote.record_tracking(str(bare_path))
     try:
         with connection.transaction():
             cursor = connection.execute(
@@ -687,3 +757,113 @@ def delete_repository(repository_id: int, request: Request,
         raise HTTPException(status_code=409, detail="Repository path is outside Entropy's managed storage.")
     shutil.rmtree(path, ignore_errors=False)
     _store(request).delete(repository_id)
+
+
+# ----------------------------------------------------------------------
+# Git identity, credentials, pull and push
+# ----------------------------------------------------------------------
+
+
+@router.get("/credentials")
+def get_credentials(request: Request, record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    """The signed-in user's commit identity and saved Git hosts (tokens are never returned)."""
+    _, _, user = record
+    assert user.id is not None
+    store = _credentials(request)
+    return {
+        "identity": store.identity(user.id),
+        "default_identity": {"name": user.username, "email": f"{user.username}@entropy.local"},
+        "credentials": store.credentials(user.id),
+    }
+
+
+@router.put("/credentials/identity", dependencies=[Depends(verify_csrf)])
+def update_identity(payload: IdentityUpdate, request: Request,
+                    record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    _, _, user = record
+    assert user.id is not None
+    try:
+        return {"identity": _credentials(request).set_identity(user.id, payload.name, payload.email)}
+    except git_remote.GitRemoteError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+
+
+@router.put("/credentials/hosts", dependencies=[Depends(verify_csrf)])
+def save_credential(payload: CredentialUpdate, request: Request,
+                    record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    _, _, user = record
+    assert user.id is not None
+    store = _credentials(request, with_key=True)
+    try:
+        store.set_credential(user.id, payload.host, payload.username, payload.token)
+    except git_remote.GitRemoteError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    return {"credentials": store.credentials(user.id)}
+
+
+@router.delete("/credentials/hosts/{host}", status_code=204, dependencies=[Depends(verify_csrf)])
+def delete_credential(host: str, request: Request, record: SessionRecord = Depends(_current_session)) -> None:
+    _, _, user = record
+    assert user.id is not None
+    try:
+        _credentials(request).delete_credential(user.id, host)
+    except git_remote.GitRemoteError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+
+
+@router.get("/{repository_id}/remote/status")
+def remote_status(repository_id: int, request: Request, branch: str = Query(..., min_length=1, max_length=255),
+                  record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    """Whether the repository has a remote, the user's token for it, and how *branch* compares."""
+    _, _, user = record
+    assert user.id is not None
+    project = current_project(request, user)
+    repository = _readable_repo(request, user, repository_id, project["id"])
+    if repository.get("source_type") != "remote" or not repository.get("source_location"):
+        return {"remote": False}
+    url = str(repository["source_location"])
+    branch = _branch_name(repository, branch)
+    host = git_remote.remote_host(url)
+    https = git_remote.is_https(url)
+    return {
+        "remote": True, "host": host, "protocol": "https" if https else "ssh",
+        "has_credential": https and _credentials(request).has_credential(user.id, host),
+        **git_remote.branch_status(repository["bare_path"], branch),
+    }
+
+
+@router.post("/{repository_id}/remote/pull", dependencies=[Depends(verify_csrf)])
+def remote_pull(repository_id: int, request: Request,
+                record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    """Fetch the remote and fast-forward branches without discarding local commits."""
+    _, _, user = record
+    project = current_project(request, user)
+    repository = _visible_repo(request, user, repository_id, project["id"])
+    if not _can_manage(request, user, repository, project["id"]):
+        raise HTTPException(status_code=403, detail="You cannot update this repository.")
+    url = _remote_url(repository)
+    try:
+        return git_remote.pull(repository["bare_path"], url, _remote_credential(request, user, url))
+    except git_remote.GitRemoteError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Pulling from the remote took too long.") from None
+
+
+@router.post("/{repository_id}/remote/push", dependencies=[Depends(verify_csrf)])
+def remote_push(repository_id: int, payload: BranchPush, request: Request,
+                record: SessionRecord = Depends(_current_session)) -> Dict[str, Any]:
+    """Push one branch to the remote with the user's credentials (never forced)."""
+    _, _, user = record
+    project = current_project(request, user)
+    repository = _visible_repo(request, user, repository_id, project["id"])
+    if not _can_manage(request, user, repository, project["id"]):
+        raise HTTPException(status_code=403, detail="You cannot push this repository.")
+    url = _remote_url(repository)
+    branch = _branch_name(repository, payload.branch.strip())
+    try:
+        return git_remote.push(repository["bare_path"], url, branch, _remote_credential(request, user, url))
+    except git_remote.GitRemoteError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Pushing to the remote took too long.") from None

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import Editor from '@monaco-editor/react'
-import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, CornerLeftUp, FileCode2, FilePlus2, Folder, FolderGit2, FolderUp, GitBranch, GitCommitHorizontal, Plus, Save, Search, Upload } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, ChevronDown, ChevronRight, ChevronUp, CornerLeftUp, FileCode2, KeyRound, FilePlus2, Folder, FolderGit2, FolderUp, GitBranch, GitCommitHorizontal, Plus, Save, Search, Upload } from 'lucide-react'
 import { ApiError, apiRequest } from '../../../services/api'
 import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import Dialog from '../../../components/layout/Dialog'
@@ -8,6 +8,7 @@ import DiffView from '../../plugins/editor/DiffView'
 import { useMonacoTheme } from '../monacoTools'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../../components/feedback/useToast'
+import GitCredentialsDialog from './GitCredentialsDialog'
 
 type Branches = { branches: string[]; committed_branches: string[]; default_branch: string | null }
 type Commit = { sha: string; short_sha: string; subject: string; author: string; date: string }
@@ -16,6 +17,11 @@ type RepoEntry = { name: string; path: string; type: 'dir' | 'file' | 'symlink' 
 type Listing = { path: string; entries: RepoEntry[]; history_limited: boolean }
 type FileData = { path: string; content: string; binary: boolean; size: number }
 type View = 'files' | 'editor'
+type RemoteStatus = { remote: false } | {
+    remote: true; host: string; protocol: 'https' | 'ssh'; has_credential: boolean
+    tracking: boolean; ahead: number | null; behind: number | null
+}
+type PullSummary = { created: string[]; updated: string[]; up_to_date: string[]; ahead: string[]; diverged: string[] }
 const PAGE_SIZE = 500
 const RECENT_COMMITS = 5
 
@@ -32,6 +38,14 @@ function formatSize(size: number | null) {
     return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 function joinPath(directory: string, name: string) { return directory ? `${directory}/${name}` : name }
+function pullMessage(summary: PullSummary) {
+    const parts = [
+        summary.updated.length && `updated ${summary.updated.join(', ')}`,
+        summary.created.length && `new ${summary.created.join(', ')}`,
+        summary.ahead.length && `unpushed commits on ${summary.ahead.join(', ')}`,
+    ].filter(Boolean)
+    return parts.length ? `${parts.join('; ')}.` : 'Everything is up to date.'
+}
 function formatDate(value: string) {
     if (!value) return '—'
     const date = new Date(value)
@@ -39,7 +53,7 @@ function formatDate(value: string) {
 }
 
 export default function RepositoryBrowser({ repository, onBack }: {
-    repository: { id: number; name: string; clone_path: string; can_manage: boolean; source_display: string }
+    repository: { id: number; name: string; clone_path: string; can_manage: boolean; source_display: string; source_type?: string }
     onBack: () => void
 }) {
     const { notify } = useFeedback()
@@ -79,6 +93,10 @@ export default function RepositoryBrowser({ repository, onBack }: {
     const inputRef = useRef<HTMLInputElement>(null)
     const folderInputRef = useRef<HTMLInputElement>(null)
     const theme = useMonacoTheme()
+    const isRemote = repository.source_type === 'remote'
+    const [remoteStatus, setRemoteStatus] = useState<RemoteStatus | null>(null)
+    const [syncing, setSyncing] = useState<'pull' | 'push' | null>(null)
+    const [credentialsOpen, setCredentialsOpen] = useState(false)
     const filteredEntries = useMemo(() => {
         const needle = filter.trim().toLowerCase()
         return needle ? entries.filter((entry) => entry.name.toLowerCase().includes(needle)) : entries
@@ -119,6 +137,47 @@ export default function RepositoryBrowser({ repository, onBack }: {
         }).catch((reason: Error) => { if (active) { setError(reason.message); setLoading(false) } })
         return () => { active = false }
     }, [repository.id])
+
+    const loadRemoteStatus = useCallback(async (selectedBranch: string) => {
+        if (!isRemote || !selectedBranch) return
+        try {
+            setRemoteStatus(await apiRequest<RemoteStatus>(`/api/git-repositories/${repository.id}/remote/status?${query({ branch: selectedBranch })}`))
+        } catch { setRemoteStatus(null) }
+    }, [repository.id, isRemote])
+    useEffect(() => {
+        if (!isRemote || !branch) return
+        let active = true
+        void apiRequest<RemoteStatus>(`/api/git-repositories/${repository.id}/remote/status?${query({ branch })}`)
+            .then((result) => { if (active) setRemoteStatus(result) }, () => { if (active) setRemoteStatus(null) })
+        return () => { active = false }
+    }, [repository.id, isRemote, branch])
+
+    const pullRemote = async () => {
+        setSyncing('pull'); setError('')
+        try {
+            const summary = await apiRequest<PullSummary>(`/api/git-repositories/${repository.id}/remote/pull`, { method: 'POST' })
+            const result = await apiRequest<Branches>(`/api/git-repositories/${repository.id}/browser/branches`)
+            setBranches(result.branches)
+            setCommittedBranches(result.committed_branches ?? result.branches)
+            await Promise.all([loadBranch(branch, directory), loadRemoteStatus(branch)])
+            if (summary.diverged.length) {
+                notify.error(`${summary.diverged.join(', ')} changed both here and on the remote, so ${summary.diverged.length === 1 ? 'it was' : 'they were'} not updated. Save your changes to a new branch and push that. ${pullMessage(summary)}`, { title: 'Pulled with conflicts' })
+            } else notify.success(pullMessage(summary), { title: 'Pulled latest changes' })
+        } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to pull' }) }
+        finally { setSyncing(null) }
+    }
+
+    const pushRemote = async () => {
+        setSyncing('push'); setError('')
+        try {
+            await apiRequest(`/api/git-repositories/${repository.id}/remote/push`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ branch }),
+            })
+            await loadRemoteStatus(branch)
+            notify.success(`${branch} pushed to ${remoteStatus?.remote ? remoteStatus.host : 'the remote'}.`, { title: 'Pushed' })
+        } catch (reason) { notify.error((reason as Error).message, { title: 'Unable to push' }) }
+        finally { setSyncing(null) }
+    }
     useEffect(() => { setBranchDraft(branch) }, [branch])
     // Load only once the real default branch is known; switching branches returns to the root folder.
     useEffect(() => { if (branch) void loadBranch(branch) }, [branch, loadBranch])
@@ -174,7 +233,7 @@ export default function RepositoryBrowser({ repository, onBack }: {
                 await apiRequest(`/api/git-repositories/${repository.id}/browser/files`, { method: 'POST', body: form })
             }
             setCommittedBranches((current) => current.includes(branch) ? current : [...current, branch].sort())
-            await loadBranch(branch, directory)
+            await Promise.all([loadBranch(branch, directory), loadRemoteStatus(branch)])
             notify.success(`${list.length} file${list.length === 1 ? '' : 's'} added to ${branch}.`, { title: 'Files added' })
         } catch (reason) { setError((reason as Error).message); notify.error((reason as Error).message, { title: 'Unable to add files' }) }
         finally {
@@ -194,7 +253,7 @@ export default function RepositoryBrowser({ repository, onBack }: {
                 body: JSON.stringify({ branch, path: selectedFile.path, content }),
             })
             setCommittedBranches((current) => current.includes(branch) ? current : [...current, branch].sort())
-            await loadBranch(branch, directory)
+            await Promise.all([loadBranch(branch, directory), loadRemoteStatus(branch)])
             await openFile(savedPath)
             notify.success(`${savedPath} saved as a new commit.`, { title: 'File saved' })
         } catch (reason) { setError((reason as Error).message); notify.error((reason as Error).message, { title: 'Unable to save file' }) }
@@ -253,6 +312,15 @@ export default function RepositoryBrowser({ repository, onBack }: {
                     {uploadMenuOpen && <div className="git-browser-upload-menu"><button type="button" onClick={() => { setUploadMenuOpen(false); inputRef.current?.click() }}><FilePlus2 size={15} /> Upload file(s)</button><button type="button" onClick={() => { setUploadMenuOpen(false); folderInputRef.current?.click() }}><FolderUp size={15} /> Upload folder</button></div>}
                 </div></div>}
         </div>
+        {remoteStatus?.remote && <div className="git-browser-remote" role="status">
+            <span><strong>Remote</strong> {remoteStatus.host} · {remoteStatus.tracking ? (remoteStatus.ahead === null ? `${branch} is not on the remote yet` : `${remoteStatus.ahead} to push · ${remoteStatus.behind ?? 0} to pull, as of the last pull`) : 'Pull to compare this branch with the remote'}</span>
+            {remoteStatus.protocol === 'https' && !remoteStatus.has_credential && <span className="git-browser-remote-warning">No token saved for {remoteStatus.host}; private repositories cannot be pulled or pushed.</span>}
+            <div className="git-browser-actions">
+                <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => setCredentialsOpen(true)}><KeyRound size={15} /> {remoteStatus.protocol === 'https' && !remoteStatus.has_credential ? 'Add token' : 'Git credentials'}</button>
+                {repository.can_manage && <><button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void pullRemote()} disabled={syncing !== null || saving}><ArrowDownToLine size={15} /> {syncing === 'pull' ? 'Pulling…' : 'Pull'}</button>
+                <button type="button" className="entropy-button entropy-button-primary entropy-button-sm" onClick={() => void pushRemote()} disabled={syncing !== null || saving || dirty || !committedBranches.includes(branch)} title={dirty ? 'Save your changes before pushing' : `Push ${branch} to ${remoteStatus.host}`}><ArrowUpFromLine size={15} /> {syncing === 'push' ? 'Pushing…' : `Push ${branch}`}</button></>}
+            </div>
+        </div>}
         <div className="git-browser-view-tabs" role="tablist" aria-label="Repository views">
             <button type="button" role="tab" aria-selected={view === 'files'} className={view === 'files' ? 'active' : ''} onClick={() => setView('files')}><FileCode2 size={15} /> Files</button>
             <button type="button" role="tab" aria-selected={view === 'editor'} className={view === 'editor' ? 'active' : ''} onClick={() => setView('editor')} disabled={!selectedFile || selectedFile.binary}><FileCode2 size={15} /> Editor{dirty ? ' •' : ''}</button>
@@ -289,6 +357,7 @@ export default function RepositoryBrowser({ repository, onBack }: {
         {createDialogOpen && <Dialog title="Create new file" subtitle={`Add a new file to the ${branch} branch.`} icon={<FilePlus2 size={18} />} onClose={() => setCreateDialogOpen(false)} footer={<><button type="button" className="entropy-button entropy-button-secondary" onClick={() => setCreateDialogOpen(false)}>Cancel</button><button type="submit" form="git-browser-create-file-form" className="entropy-button entropy-button-primary">Create file</button></>}>
             <form id="git-browser-create-file-form" className="git-browser-create-file-form" onSubmit={(event) => void createNewFile(event)}><label>File path<input autoFocus value={newFilePath} onChange={(event) => { setNewFilePath(event.target.value); setNewFileError('') }} placeholder="src/config.json" maxLength={2048} required /></label><small>Use a relative path. You can create folders by including them in the path.</small>{newFileError && <div className="entropy-alert entropy-alert-error" role="alert">{newFileError}</div>}</form>
         </Dialog>}
+        {credentialsOpen && <GitCredentialsDialog initialHost={remoteStatus?.remote ? remoteStatus.host : ''} onClose={() => setCredentialsOpen(false)} onSaved={() => void loadRemoteStatus(branch)} />}
         {branchCreateOpen && <Dialog title="Create branch" subtitle={`Create “${branchCreateName}” from an existing branch.`} icon={<GitBranch size={18} />} onClose={() => setBranchCreateOpen(false)} footer={<><button type="button" className="entropy-button entropy-button-secondary" onClick={() => setBranchCreateOpen(false)}>Cancel</button><button type="submit" form="git-browser-create-branch-form" className="entropy-button entropy-button-primary" disabled={saving || !baseBranch}>{saving ? 'Creating…' : 'Create branch'}</button></>}>
             <form id="git-browser-create-branch-form" className="git-browser-create-file-form" onSubmit={(event) => void createBranch(event)}><label>New branch<input value={branchCreateName} onChange={(event) => setBranchCreateName(event.target.value)} required maxLength={255} /></label><label>Base branch<select value={baseBranch} onChange={(event) => setBaseBranch(event.target.value)} required>{committedBranches.map((name) => <option key={name} value={name}>{name}</option>)}</select></label><small>The new branch starts at the selected branch’s latest commit.</small>{branchError && <div className="entropy-alert entropy-alert-error" role="alert">{branchError}</div>}</form>
         </Dialog>}
