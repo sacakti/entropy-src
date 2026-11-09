@@ -196,6 +196,59 @@ def parse_rules(
     return parsed
 
 
+RULE_TYPES = {
+    "deployment": "deployments",
+    "deployments": "deployments",
+    "tag": "tags",
+    "tags": "tags",
+    "container": "containers",
+    "containers": "containers",
+}
+
+
+def _split_pipes(value: Any, what: str) -> List[str]:
+    """`a|b|c` into its parts; `\\|` is a literal `|` (for regular expressions)."""
+
+    if value is None:
+        return []
+    if not isinstance(value, str):
+        raise SkopeoRuleError(f"{what} must be text such as 'deployments|tags'.")
+    if not value.strip():
+        return []
+    parts = re.split(r"(?<!\\)\|", value)
+    return [part.replace("\\|", "|").strip() for part in parts]
+
+
+def typed_rule(rule_type: Any, rule_value: Any) -> Optional[Rule]:
+    """
+    One rule from two `|`-separated texts paired by position, e.g. rule_type
+    `deployments|tags` and rule_value `*app1*|*1.2.0*`: deployments matching
+    `*app1*` whose image tag matches `*1.2.0*`. A type given twice accepts
+    either pattern. Both empty: no rule.
+    """
+
+    types = _split_pipes(rule_type, "'rule_type'")
+    values = _split_pipes(rule_value, "'rule_value'")
+    if not types and not values:
+        return None
+    if len(types) != len(values):
+        raise SkopeoRuleError(
+            f"'rule_type' has {len(types)} part(s) and 'rule_value' {len(values)}; "
+            "give one value per type, both separated by '|'."
+        )
+    fields: Dict[str, List[str]] = {"deployments": [], "tags": [], "containers": []}
+    for kind, pattern in zip(types, values):
+        name = RULE_TYPES.get(kind.lower())
+        if name is None:
+            raise SkopeoRuleError(
+                f"'rule_type': unknown type '{kind}'; use deployments, tags or containers."
+            )
+        if not pattern:
+            raise SkopeoRuleError(f"'rule_value': the pattern for '{kind}' is empty.")
+        fields[name].extend(patterns(pattern, f"'rule_value' for '{kind}'"))
+    return Rule(fields["deployments"], fields["tags"], fields["containers"])
+
+
 def selected(
     rules: Sequence[Rule],
     workload: Optional[str],

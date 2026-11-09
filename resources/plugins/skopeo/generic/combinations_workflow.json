@@ -1,0 +1,323 @@
+{
+    "name": "skopeo-generic-combinations",
+    "version": "1.0.0",
+    "description": "Reference for skopeo.generic: one step per way of selecting images (shorthand patterns, rules, rule_type/rule_value from variables, exclude, modes, kinds, direct images, credentials, generate). Every step after Login continues on failure, so one unmatched filter does not stop the rest. Steps that need extra setup (vault entries, an auth file) are disabled; enable them once that setup exists.",
+    "variables": {
+        "environment": "SIT",
+        "api_url": "https://api.sit.example.com:6443",
+        "oc_username": "${entv:sit/oc_user}",
+        "oc_password": "${entv:sit/oc_password}",
+        "namespace": "finance-sit",
+        "deployment_pattern": "app-finance-*",
+        "tag_pattern": "*-1.2.0*",
+        "rule_type": "deployments|tags",
+        "rule_value": "*app1*|*1.2.0*",
+        "registry_credentials": "${entv:quay/robot}",
+        "output_directory": "/tmp/entropy/skopeo-reports"
+    },
+    "steps": [
+        {
+            "name": "S00_Login",
+            "plugin": "oc.generic",
+            "enabled": true,
+            "on_failure": "abort",
+            "tags": ["oc", "login"],
+            "arguments": {
+                "operation": "login",
+                "environment": "${environment}",
+                "api_url": "${api_url}",
+                "username": "${oc_username}",
+                "password": "${oc_password}"
+            }
+        },
+        {
+            "name": "S01_Deployments_Glob",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["shorthand", "deployments"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "deployments": "app-finance-*"
+            }
+        },
+        {
+            "name": "S02_Deployments_List_Any_Of",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["shorthand", "deployments", "list"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "deployments": ["app-finance-api", "app-hr-*"]
+            }
+        },
+        {
+            "name": "S03_Deployments_Regex",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["shorthand", "deployments", "regex"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "deployments": "re:^app-(finance|hr)-api$"
+            }
+        },
+        {
+            "name": "S04_Tags_Only",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["shorthand", "tags"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "tags": "*-1.2.0*"
+            }
+        },
+        {
+            "name": "S05_Containers_Only",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["shorthand", "containers"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "containers": ["app", "re:^api-"]
+            }
+        },
+        {
+            "name": "S06_Deployments_And_Tags",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["shorthand", "deployments", "tags", "and"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "deployments": "app-finance-*",
+                "tags": "*-1.2.0*"
+            }
+        },
+        {
+            "name": "S07_Deployments_Tags_And_Containers",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["shorthand", "deployments", "tags", "containers", "and"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "deployments": ["app-finance-*", "app-hr-*"],
+                "tags": ["*-1.2.0*", "*-1.3.0*"],
+                "containers": "app"
+            }
+        },
+        {
+            "name": "S08_Shorthand_From_Variables",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["shorthand", "variables"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "deployments": "${deployment_pattern}",
+                "tags": "${tag_pattern}"
+            }
+        },
+        {
+            "name": "S09_Rules_Any_Of",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["rules", "or"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "rules": [
+                    {"deployments": "app-finance-*", "tags": "*-1.2.0*"},
+                    {"deployments": "re:^app-hr-(api|ui)$"},
+                    {"tags": "re:-rc\\d+$", "containers": "app"}
+                ]
+            }
+        },
+        {
+            "name": "S10_RuleType_From_Variables",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["rule_type", "variables"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "rule_type": "${rule_type}",
+                "rule_value": "${rule_value}"
+            }
+        },
+        {
+            "name": "S11_RuleType_Same_Type_Twice_Either",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["rule_type", "or"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "rule_type": "deployments|deployments|tag",
+                "rule_value": "*app1*|*app2*|*1.2.0*"
+            }
+        },
+        {
+            "name": "S12_RuleType_All_Three_Fields",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["rule_type", "and"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "rule_type": "deployments|tags|containers",
+                "rule_value": "app-finance-*|*-1.2.0*|app"
+            }
+        },
+        {
+            "name": "S13_RuleType_Regex_With_Escaped_Pipe",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["rule_type", "regex"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "rule_type": "deployments|tags",
+                "rule_value": "re:^app-hr-(api\\|ui)$|re:-rc\\d+$"
+            }
+        },
+        {
+            "name": "S14_Everything_Combined_With_Exclude",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["rules", "shorthand", "rule_type", "exclude"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "rules": [
+                    {"deployments": "app-finance-*", "tags": "*-1.2.0*"}
+                ],
+                "deployments": "app-hr-*",
+                "rule_type": "${rule_type}",
+                "rule_value": "${rule_value}",
+                "exclude": ["*-canary", "re:-test$"]
+            }
+        },
+        {
+            "name": "S15_Selection_From_Vault",
+            "plugin": "skopeo.generic",
+            "enabled": false,
+            "on_failure": "continue",
+            "tags": ["vault", "rules", "rule_type"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "rules": "${entv:skopeo/SKOPEO_RULES}",
+                "rule_type": "${entv:skopeo/RULE_TYPE}",
+                "rule_value": "${entv:skopeo/RULE_VALUE}"
+            }
+        },
+        {
+            "name": "S16_Mode_Pod_Running_Digests_Only",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["mode"],
+            "arguments": {
+                "mode": "pod",
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "deployments": "${deployment_pattern}"
+            }
+        },
+        {
+            "name": "S17_Mode_Skopeo_Registry_Digests",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["mode", "credentials"],
+            "arguments": {
+                "mode": "skopeo",
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "deployments": "${deployment_pattern}",
+                "credentials": "${registry_credentials}",
+                "timeout": 60
+            }
+        },
+        {
+            "name": "S18_Kinds_And_Init_Containers",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["kinds"],
+            "arguments": {
+                "mode": "auto",
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "kinds": ["deployment", "deploymentconfig", "statefulset", "daemonset"],
+                "include_init_containers": true,
+                "tags": "${tag_pattern}"
+            }
+        },
+        {
+            "name": "S19_Direct_Images_No_OpenShift",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["images", "credentials"],
+            "arguments": {
+                "images": [
+                    "quay.example.com/finance/app-finance-api:release-1.2.0",
+                    "quay.example.com/hr/app-hr-api:2.0.0-rc1"
+                ],
+                "tags": "re:-rc\\d+$",
+                "credentials": "${registry_credentials}"
+            }
+        },
+        {
+            "name": "S20_Direct_Images_Authfile_No_TLS",
+            "plugin": "skopeo.generic",
+            "enabled": false,
+            "on_failure": "continue",
+            "tags": ["images", "authfile"],
+            "arguments": {
+                "images": ["registry.internal:5000/tools/base:1.0.0"],
+                "authfile": "/etc/containers/auth.json",
+                "tls_verify": false,
+                "timeout": 30
+            }
+        },
+        {
+            "name": "S21_Generate_File_Tolerate_Errors",
+            "plugin": "skopeo.generic",
+            "enabled": true,
+            "on_failure": "continue",
+            "tags": ["generate"],
+            "arguments": {
+                "environment": "${environment}",
+                "namespace": "${namespace}",
+                "rule_type": "${rule_type}",
+                "rule_value": "${rule_value}",
+                "exclude": "*-canary",
+                "credentials": "${registry_credentials}",
+                "generate": true,
+                "output_directory": "${output_directory}",
+                "fail_on_error": false
+            }
+        }
+    ]
+}

@@ -1,7 +1,7 @@
 {
     "name": "generic",
     "namespace": "skopeo",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "display_name": "Image Tags and Checksums",
     "description": "Full image (registry, repository, tag) and checksum (digest) of OpenShift workloads, from the running pods or skopeo inspect; select workloads by name, tag or container patterns.",
     "author": "Aravinthan Selvaraj",
@@ -90,6 +90,20 @@
                     ]
                 }
             ]
+        },
+        {
+            "name": "rule_type",
+            "type": "string",
+            "required": false,
+            "description": "Rule fields separated by '|' (deployments, tags, containers), paired by position with rule_value to form one more rule whose patterns must all match. Handy as a workflow variable.",
+            "example": "deployments|tags"
+        },
+        {
+            "name": "rule_value",
+            "type": "string",
+            "required": false,
+            "description": "Patterns separated by '|', one per rule_type field (glob, or re:REGEX; write a literal | as \\|). A field given twice accepts either pattern.",
+            "example": "*app1*|*1.2.0*"
         },
         {
             "name": "exclude",

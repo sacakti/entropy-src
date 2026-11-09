@@ -24,6 +24,7 @@ from .images import (
     parse_rules,
     patterns,
     selected,
+    typed_rule,
     workload_selected,
     workloads,
 )
@@ -135,6 +136,11 @@ class SkopeoGenericPlugin(
             tags=self.arguments.get("tags"),
             containers=self.arguments.get("containers"),
         )
+        variable_rule = typed_rule(
+            self.arguments.get("rule_type"), self.arguments.get("rule_value")
+        )
+        if variable_rule is not None:
+            rules.append(variable_rule)
 
         rows: List[Dict[str, Any]] = []
         missing: List[str] = []

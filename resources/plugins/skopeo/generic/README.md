@@ -33,6 +33,7 @@ expressions prefixed with `re:` (`re:^app-(finance|hr)-`).
 | `tags` | Image tags, e.g. `*-1.2.0*`. |
 | `containers` | Container names. |
 | `rules` | Several selections: `[{"deployments": "app-finance-*", "tags": "*-1.2.0*"}, {"deployments": "app-hr-*"}]`. Patterns within a rule must all match; any rule may match. |
+| `rule_type` + `rule_value` | One rule from two `\|`-separated texts paired by position, e.g. `deployments\|tags` and `*app1*\|*1.2.0*` — easy to drive from workflow variables. See MAN.md. |
 | `exclude` | Workload names never read. |
 
 `deployments`/`tags`/`containers` form one more rule. Without any, every

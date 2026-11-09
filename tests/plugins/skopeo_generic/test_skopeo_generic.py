@@ -17,7 +17,13 @@ import pytest
 from lib.plugins import contract
 from lib.plugins.arguments import PluginArguments
 from resources.plugins.skopeo.generic.exceptions import SkopeoRuleError
-from resources.plugins.skopeo.generic.images import ImageReference, digest_of, parse_rules
+from resources.plugins.skopeo.generic.images import (
+    ImageReference,
+    Rule,
+    digest_of,
+    parse_rules,
+    typed_rule,
+)
 from resources.plugins.skopeo.generic.plugin import SkopeoGenericPlugin
 
 PLUGIN_DIRECTORY = (
@@ -77,6 +83,34 @@ def test_digest_of_container_image_ids() -> None:
 def test_bad_rules_are_refused(rules: list, message: str) -> None:
     with pytest.raises(SkopeoRuleError, match=message):
         parse_rules(rules)
+
+
+def test_typed_rule_pairs_types_and_values_by_position() -> None:
+    assert typed_rule("deployments|tag", "*app1*|*1.2.0*") == Rule(["*app1*"], ["*1.2.0*"], [])
+    assert typed_rule(" Deployment | deployments ", "*app1* | *app2*") == Rule(
+        ["*app1*", "*app2*"], [], []
+    )
+    assert typed_rule("deployments", r"re:^app-hr-(api\|ui)$") == Rule(
+        ["re:^app-hr-(api|ui)$"], [], []
+    )
+    assert typed_rule("", "") is None
+    assert typed_rule(None, None) is None
+
+
+@pytest.mark.parametrize(
+    "rule_type, rule_value, message",
+    [
+        ("deployments|tags", "*app1*", "one value per type"),
+        ("", "*app1*", "one value per type"),
+        ("names", "*app1*", "unknown type 'names'"),
+        ("deployments|tags", "*app1*|", "pattern for 'tags' is empty"),
+        ("tags", "re:(", "invalid regular expression"),
+        (["deployments"], "*app1*", "must be text"),
+    ],
+)
+def test_bad_typed_rules_are_refused(rule_type, rule_value, message: str) -> None:
+    with pytest.raises(SkopeoRuleError, match=message):
+        typed_rule(rule_type, rule_value)
 
 
 # ----------------------------------------------------------------------
@@ -249,6 +283,31 @@ class TestSkopeoGenericPlugin:
             "app-finance-batch",
             "app-hr-api",
         ]
+
+    def test_rule_type_and_value_select_like_a_rule(self) -> None:
+        result = self._run(
+            mode="pod",
+            environment="SIT",
+            rule_type="deployments|tags",
+            rule_value="app-finance-*|*-1.2.0*",
+            exclude=["*-canary"],
+        )
+
+        found = {(row["deployment"], row["tag"]) for row in result.outputs["images"]}
+        assert found == {("app-finance-api", "release-1.2.0-b7")}
+        assert result.outputs["missing"] == ["app-finance-batch/app"]
+
+    def test_rule_type_and_value_add_to_the_rules(self) -> None:
+        result = self._run(
+            mode="pod",
+            environment="SIT",
+            rules=[{"deployments": "app-finance-ui"}],
+            rule_type="deployments",
+            rule_value="re:^app-hr-(api\\|ui)$",
+        )
+
+        found = {row["deployment"] for row in result.outputs["images"]}
+        assert found == {"app-finance-ui", "app-hr-api"}
 
     def test_auto_falls_back_to_skopeo_without_a_running_pod(self) -> None:
         result = self._run(environment="SIT", deployments=["app-finance-batch", "app-finance-api"])

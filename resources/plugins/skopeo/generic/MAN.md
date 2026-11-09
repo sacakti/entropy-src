@@ -52,6 +52,24 @@ or several rules (any may match; patterns inside one must all match):
 }
 ```
 
+or one rule from two workflow variables, paired by position with `|`:
+
+```json
+{
+  "variables": {"rule_type": "deployments|tags", "rule_value": "*app1*|*1.2.0*"},
+  "arguments": {"rule_type": "${rule_type}", "rule_value": "${rule_value}"}
+}
+```
+
+reads deployments matching `*app1*` whose image tag matches `*1.2.0*`. Types are
+`deployments`, `tags` and `containers` (singular works too). A type given twice
+accepts either pattern (`deployments|deployments` with `*app1*|*app2*`). Write a
+literal `|` inside a regular expression as `\|` (`re:^app-hr-(api\|ui)$`). This
+rule is added to `rules` and the `deployments`/`tags`/`containers` arguments; any
+of them may match.
+
+`combinations_workflow.json` has one step per way of selecting images, for reference.
+
 Name patterns are checked before anything is inspected, so filtered-out
 workloads cost nothing.
 
