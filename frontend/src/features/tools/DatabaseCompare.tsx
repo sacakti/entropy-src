@@ -651,6 +651,25 @@ export default function DatabaseCompare() {
 
     const finishedId = job?.state === 'done' ? job.id : null
 
+    // While it runs, show what is compared so far: fetched again whenever more arrives.
+    const found = job && isCompareActive(job) ? job.found ?? 0 : 0
+    useEffect(() => {
+        if (!jobId || found === 0) return
+        let alive = true
+        clashApi
+            .result(jobId)
+            .then((response) => {
+                // The complete result is fetched once the job is done.
+                if (!alive || response.complete) return
+                setResult((current) => (current?.complete ? current : response))
+                setView((current) => (response[current] ? current : response.ddl ? 'ddl' : 'data'))
+            })
+            .catch(() => undefined)
+        return () => {
+            alive = false
+        }
+    }, [jobId, found])
+
     useEffect(() => {
         if (!finishedId) return
         let alive = true
@@ -659,7 +678,8 @@ export default function DatabaseCompare() {
             .then((response) => {
                 if (!alive) return
                 setResult(response)
-                setView(response.ddl ? 'ddl' : 'data')
+                // Keep the side shown while it ran.
+                setView((current) => (response[current] ? current : response.ddl ? 'ddl' : 'data'))
             })
             .catch((caught: unknown) => {
                 if (alive) setError(messageOf(caught))
@@ -739,6 +759,11 @@ export default function DatabaseCompare() {
         setRows(null)
         setRowsError('')
         if (item.status !== 'different' || !job) return
+        if (item.rows) {
+            // Read during the comparison: no need to read the databases again.
+            setRows({ table: item.table, ...item.rows })
+            return
+        }
         setRowsLoading(true)
         try {
             // The sides the result was made with: the form may have changed since.
@@ -883,6 +908,14 @@ export default function DatabaseCompare() {
 
             {result && (
                 <>
+                    {result.complete === false && (
+                        <p className="tools-db-note" role="status">
+                            Still comparing: showing the {result.ddl ? `${result.ddl.length.toLocaleString()} objects` : ''}
+                            {result.ddl && result.data ? ' and ' : ''}
+                            {result.data ? `${result.data.length.toLocaleString()} tables` : ''} compared so far. More
+                            appear as each batch finishes.
+                        </p>
+                    )}
                     <div className="tools-folder-summary">
                         <Counts
                             items={view === 'ddl' ? result.ddl ?? [] : result.data ?? []}
@@ -891,7 +924,8 @@ export default function DatabaseCompare() {
                         <button
                             type="button"
                             className="entropy-button entropy-button-secondary entropy-button-sm"
-                            disabled={exporting || !job}
+                            disabled={exporting || !job || result.complete === false}
+                            title={result.complete === false ? 'The report is ready once the comparison finishes.' : undefined}
                             onClick={() => void exportReport()}
                         >
                             {exporting ? <LoaderCircle size={14} className="entropy-spin" /> : <FileDown size={14} />}

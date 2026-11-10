@@ -3,6 +3,8 @@ A database comparison running in the background, so it can report how far it has
 outlive the request and the page that started it.
 
 Jobs live in this server's memory, like a database switch's progress: a restart ends them.
+Results are kept as each batch of objects or tables is compared, so a page shows them
+before the whole comparison ends; DDL is compared before the data is sized and agreed to.
 A person has one job per project: their latest, kept for a day so its result and report can
 be fetched. The credentials are dropped as soon as a job ends.
 """
@@ -23,7 +25,8 @@ from lib.tools.clash.database import (
     Endpoint,
     Runner,
     _on_both,
-    compare,
+    compare_data,
+    compare_ddl,
     estimate_data,
     read_tables,
     run_sqlplus,
@@ -133,6 +136,12 @@ class CompareJob(CompareProgress):
         self._error: Optional[str] = None
         self._estimate: Optional[Dict[str, Any]] = None
         self._summary: Optional[Dict[str, Dict[str, int]]] = None
+        # Results so far, keyed so a later one replaces an earlier (e.g. rows read later).
+        self._found: Dict[str, Dict[Any, Dict[str, Any]]] = {
+            name: {} for name, wanted in (("ddl", include_ddl), ("data", include_data)) if wanted
+        }
+        self._found_count = 0
+        self._ddl: Optional[List[Dict[str, Any]]] = None
 
     # ------------------------------------------------------------------
     # Progress
@@ -157,6 +166,32 @@ class CompareJob(CompareProgress):
             self._done += items
             self._rows_done += rows
             self._touched = time.monotonic()
+
+    def found(self, section: str, items: Sequence[Dict[str, Any]]) -> None:
+        with self._lock:
+            kept = self._found.get(section)
+            if kept is None:
+                return
+            for item in items:
+                key = (item["type"], item["name"]) if section == "ddl" else item["table"]
+                kept[key] = dict(item)
+            self._found_count += len(items)
+
+    def partial(self) -> Optional[Dict[str, Any]]:
+        """What is compared so far, in the result's shape with "complete": False; None yet."""
+
+        with self._lock:
+            if not any(self._found.values()):
+                return None
+            sections: Dict[str, Optional[List[Dict[str, Any]]]] = {"ddl": None, "data": None}
+            for name, kept in self._found.items():
+                sections[name] = [kept[key] for key in sorted(kept)]
+            return {
+                "left": self.left_label,
+                "right": self.right_label,
+                **sections,
+                "complete": False,
+            }
 
     # ------------------------------------------------------------------
     # What can be asked
@@ -207,6 +242,8 @@ class CompareJob(CompareProgress):
                     else None
                 ),
                 "summary": self._summary,
+                # Grows as results arrive: a page fetches them when it changes.
+                "found": self._found_count,
                 "sides": self.sides,
                 "ddl": self.include_ddl,
                 "data": self.include_data,
@@ -283,7 +320,25 @@ class CompareJob(CompareProgress):
 
     def _analyze(self) -> None:
         assert self._left and self._right  # nosec B101 - only dropped when the job ends
+        if self.include_ddl:
+            # Structure first: it is quick, and shows while the data is sized and agreed to.
+            with self._lock:
+                self._state = RUNNING
+            self._ddl = compare_ddl(
+                self._left,
+                self._right,
+                self.name_filter,
+                self._run,
+                self.object_types,
+                self,
+                self.names,
+            )
+            if self._stop.is_set():
+                raise CompareStopped("The comparison was stopped.")
         if self.include_data:
+            with self._lock:
+                # Sizing the data, after the structure.
+                self._state, self._phase, self._current = ANALYZING, "analyze", None
             self._tables = _on_both(
                 self._left,
                 self._right,
@@ -306,19 +361,25 @@ class CompareJob(CompareProgress):
 
     def _compare(self) -> None:
         assert self._left and self._right  # nosec B101 - only dropped when the job ends
-        result = compare(
-            self._left,
-            self._right,
-            include_ddl=self.include_ddl,
-            include_data=self.include_data,
-            name_filter=self.name_filter,
-            object_types=self.object_types,
-            run=self._run,
-            tables=self._tables,
-            skip_tables=self._skip,
-            progress=self,
-            names=self.names,
-        )
+        result: Dict[str, Any] = {
+            "left": self.left_label,
+            "right": self.right_label,
+            "ddl": self._ddl if self.include_ddl else None,
+            "data": (
+                compare_data(
+                    self._left,
+                    self._right,
+                    self.name_filter,
+                    self._run,
+                    self._tables,
+                    self._skip,
+                    self,
+                    self.names,
+                )
+                if self.include_data
+                else None
+            ),
+        }
         self.result = result
         with self._lock:
             self._summary = summarize(result)

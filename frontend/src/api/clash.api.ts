@@ -37,6 +37,10 @@ export interface ClashDataItem {
     columns_only_right?: string[]
     columns_not_compared?: string[]
     error?: string
+    /** Rows differ: which ones, read during the comparison (up to its row limit). */
+    rows?: Omit<ClashRowsResult, 'table'>
+    /** Rows differ, but they were not read (too many tables differ, or the read failed). */
+    rows_error?: string
 }
 
 export interface ClashDatabaseResult {
@@ -44,6 +48,8 @@ export interface ClashDatabaseResult {
     right: string
     ddl: ClashDdlItem[] | null
     data: ClashDataItem[] | null
+    /** False while the comparison runs: what is compared so far. */
+    complete?: boolean
 }
 
 export interface ClashChangedRow {
@@ -74,7 +80,8 @@ export type ClashCompareState = 'analyzing' | 'waiting' | 'running' | 'done' | '
 export interface ClashCompareBrief {
     id: string
     state: ClashCompareState
-    phase: 'analyze' | 'ddl' | 'data'
+    /** rows: reading the rows of the tables whose rows differ. */
+    phase: 'analyze' | 'ddl' | 'data' | 'rows'
     left: string
     right: string
     current: string | null
@@ -113,6 +120,8 @@ export interface ClashCompareJob extends ClashCompareBrief {
     table_count: number
     object_types: string[] | null
     skipped: number
+    /** Grows as results arrive; fetch the result (partial) when it changes. */
+    found?: number
 }
 
 export interface ClashVaultReference {
@@ -129,6 +138,9 @@ export function compareLabel(job: ClashCompareBrief): string {
     if (job.state === 'waiting') return 'Database compare is waiting for you'
     if (job.stopping) return 'Stopping the database compare'
     if (job.phase === 'analyze') return 'Database compare: reading table sizes'
+    if (job.phase === 'rows') {
+        return `Database compare: reading the rows that differ, ${job.done.toLocaleString()} of ${job.total.toLocaleString()} tables`
+    }
     const noun = job.phase === 'ddl' ? 'objects' : 'tables'
     return `Database compare: ${job.done.toLocaleString()} of ${job.total.toLocaleString()} ${noun}`
 }

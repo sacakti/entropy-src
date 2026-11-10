@@ -190,7 +190,8 @@ def test_data_is_compared_by_count_and_hash_without_reading_rows() -> None:
     _tables(fake)
 
     items = {
-        item["table"]: item for item in compare(LEFT, RIGHT, include_ddl=False, run=fake)["data"]
+        item["table"]: item
+        for item in compare(LEFT, RIGHT, include_ddl=False, run=fake, detail=False)["data"]
     }
 
     assert {name: item["status"] for name, item in items.items()} == {
@@ -1215,3 +1216,176 @@ def test_a_matching_comparison_says_so() -> None:
         }
     )
     assert "Everything compared matches." in report
+
+
+# ----------------------------------------------------------------------
+# Results as they come, row details and the detailed report
+# ----------------------------------------------------------------------
+
+
+class Found(CompareProgress):
+    def __init__(self) -> None:
+        self.found_items: List[Tuple[str, List[str]]] = []
+
+    def found(self, section, items):
+        names = [item.get("name") or item.get("table") for item in items]
+        self.found_items.append((section, names))
+
+
+def test_ddl_results_are_published_batch_by_batch(monkeypatch) -> None:
+    monkeypatch.setattr(database, "DDL_BATCH_OBJECTS", 2)
+    fake = FakeDatabases()
+    for sid in ("SID1", "SID2"):
+        fake.objects[sid] = [("VIEW", name) for name in "ABC"]
+        for name in "ABC":
+            fake.ddl[(sid, "VIEW", name)] = f'CREATE VIEW "APP1"."{name}" AS SELECT 1 X FROM DUAL'
+    seen = Found()
+
+    compare(LEFT, RIGHT, include_data=False, run=fake, progress=seen)
+
+    assert seen.found_items == [("ddl", ["A", "B"]), ("ddl", ["C"])]
+
+
+def _different_rows(fake: FakeDatabases) -> None:
+    _tables(fake)
+    fake.rows[("SID1", "DIFF")] = '"1","alpha"\n"2","beta"\n"3","only left"\n'
+    fake.rows[("SID2", "DIFF")] = '"1","alpha"\n"2","BETA"\n"4","<only right>"\n'
+
+
+def test_the_rows_of_tables_that_differ_are_compared(monkeypatch) -> None:
+    fake = FakeDatabases()
+    _different_rows(fake)
+    seen = Found()
+
+    items = {
+        item["table"]: item
+        for item in compare(LEFT, RIGHT, include_ddl=False, run=fake, progress=seen)["data"]
+    }
+
+    rows = items["DIFF"]["rows"]
+    assert rows["key"] == ["ID"] and rows["same"] == 1
+    assert rows["changed"] == [
+        {"key": ["2"], "left": ["2", "beta"], "right": ["2", "BETA"], "columns": ["NAME"]}
+    ]
+    assert rows["only_left"] == [["3", "only left"]] and rows["only_right"] == [
+        ["4", "<only right>"]
+    ]
+    assert "rows" not in items["SAME"]
+    # Known first (one side only), then each hashed batch, then each table's rows.
+    assert seen.found_items[0] == ("data", ["L", "R"])
+    assert ("data", ["DIFF"]) in seen.found_items[-2:]
+
+
+def test_a_table_whose_rows_cannot_be_read_says_why(monkeypatch) -> None:
+    fake = FakeDatabases()
+    _tables(fake)
+    original = fake.__call__
+
+    def failing(endpoint, body):
+        if "MARKUP CSV" in body:
+            raise DatabaseCompareError("ORA-01555: snapshot too old")
+        return original(endpoint, body)
+
+    items = {
+        item["table"]: item for item in compare(LEFT, RIGHT, include_ddl=False, run=failing)["data"]
+    }
+
+    assert "snapshot too old" in items["DIFF"]["rows_error"] and "rows" not in items["DIFF"]
+    assert items["DIFF"]["status"] == "different"
+
+
+def test_only_so_many_tables_are_read_row_by_row(monkeypatch) -> None:
+    monkeypatch.setattr(database, "MAX_DETAILED_TABLES", 1)
+    fake = FakeDatabases()
+    _tables(fake)
+
+    items = {
+        item["table"]: item for item in compare(LEFT, RIGHT, include_ddl=False, run=fake)["data"]
+    }
+
+    # COUNT and DIFF differ: the first is read, the second says why not.
+    assert "rows" in items["COUNT"]
+    assert "more than 1 tables differ" in items["DIFF"]["rows_error"]
+
+
+def _structure(fake: FakeDatabases) -> None:
+    for sid in ("SID1", "SID2"):
+        fake.objects[sid] = [("TABLE", "DIFF")]
+    fake.ddl[("SID1", "TABLE", "DIFF")] = 'CREATE TABLE "APP1"."DIFF" (ID NUMBER);'
+    fake.ddl[("SID2", "TABLE", "DIFF")] = 'CREATE TABLE "APP1"."DIFF" (ID NUMBER(10));'
+
+
+def test_ddl_is_compared_and_shown_while_the_data_waits_for_consent() -> None:
+    fake = FakeDatabases()
+    _different_rows(fake)  # no statistics: the data needs consent
+    _structure(fake)
+    jobs = CompareJobs()
+
+    job = _start(jobs, fake, include_ddl=True)
+    job.wait()
+
+    assert job.state == "waiting" and job.snapshot()["found"] > 0
+    partial = job.partial()
+    assert partial["complete"] is False
+    assert [(item["name"], item["status"]) for item in partial["ddl"]] == [("DIFF", "different")]
+    assert {item["table"] for item in partial["data"]} == set()
+
+
+def test_partial_results_then_the_complete_one() -> None:
+    fake = FakeDatabases()
+    _different_rows(fake)
+    _structure(fake)
+    for sid in ("SID1", "SID2"):
+        for table in ("SAME", "DIFF", "COUNT"):
+            fake.stats[(sid, table)] = "3"
+    jobs = CompareJobs()
+    seen: List[Dict] = []
+
+    def run(endpoint, body):
+        # While the data is hashed, the structure and the one-sided tables are there to show.
+        if "ORA_HASH" in body and not seen:
+            seen.append(jobs.current(1, 7).partial())
+        return fake(endpoint, body)
+
+    job = _start(jobs, run, include_ddl=True)
+    job.wait()
+
+    [early] = seen
+    assert early["complete"] is False
+    assert [item["name"] for item in early["ddl"]] == ["DIFF"]
+    assert {item["table"] for item in early["data"]} == {"L", "R"}
+    assert job.state == "done"
+    diff = next(item for item in job.result["data"] if item["table"] == "DIFF")
+    assert diff["rows"]["changed_count"] == 1
+    assert job.snapshot()["found"] >= 4
+
+
+def test_the_result_route_serves_partial_then_complete_results(routed) -> None:
+    job = clash.start_compare(_payload(), _route_request(), _record())
+    assert job["state"] == "waiting"
+    # Nothing compared yet (no objects, the data waits): nothing to show.
+    with pytest.raises(HTTPException) as caught:
+        clash.compare_result(job["id"], _route_request(), _record())
+    assert caught.value.status_code == 409
+
+    clash.confirm_compare(
+        job["id"], clash.ConfirmRequest(skip_large=True), _route_request(), _record()
+    )
+    routed.current(1, 7).wait()
+
+    assert clash.compare_result(job["id"], _route_request(), _record())["complete"] is True
+
+
+def test_the_report_lists_the_rows_that_differ_with_their_values() -> None:
+    fake = FakeDatabases()
+    _different_rows(fake)
+
+    result = compare(LEFT, RIGHT, include_ddl=False, run=fake)
+    html = render_report(result)
+
+    assert "Changed rows (1)" in html
+    assert '<td class="old">beta</td><td class="new">BETA</td>' in html
+    assert "Only in SID1-APP1 (1)" in html and "only left" in html
+    assert "&lt;only right&gt;" in html and "<only right>" not in html
+    assert "Matched by ID." in html
+    assert "no row values are in this report" not in html

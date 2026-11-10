@@ -119,6 +119,13 @@ pre.ddl { margin: 0; padding: 10px 12px; overflow-x: auto;
 .matches > summary { padding: 9px 12px; cursor: pointer; font-weight: 600; }
 .matches > div { padding: 0 12px 10px; }
 .footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+.object .rows-body { padding: 4px 12px 12px; }
+.object h4 { margin: 12px 0 4px; font-size: 13px; }
+table.rows { font: 12px/1.45 ui-monospace, Consolas, monospace; }
+.rows td.old { background: var(--red-soft); }
+.rows td.new { background: var(--green-soft); }
+.rows td.key { font-weight: 650; }
+.rows td.null { color: #9aa5b1; font-style: italic; }
 @media print {
   body { padding: 0; max-width: none; }
   .object, .matches { break-inside: avoid; }
@@ -446,13 +453,14 @@ def _data_section(items: Sequence[Dict[str, Any]], left: str, right: str) -> str
     parts.append(
         f'<p class="note">Rows counted: {left_total:,} in {escape(left)}, '
         f"{right_total:,} in {escape(right)}. Tables are compared by row count and a hash of "
-        "their rows; no row values are in this report.</p>"
+        "their rows; for the tables whose rows differ, the rows themselves are compared and "
+        "the differing ones are listed below, with their values.</p>"
     )
     shown = [
         (
             "different",
             "Rows differ",
-            "Same columns, different rows. Open the table in Entropy to see which.",
+            "Same columns, different rows: which rows, and which values, follow the table.",
         ),
         ("only_left", f"Only in {left}", f"These tables are missing in {right}."),
         ("only_right", f"Only in {right}", f"These tables are missing in {left}."),
@@ -472,6 +480,8 @@ def _data_section(items: Sequence[Dict[str, Any]], left: str, right: str) -> str
             f'<h3 id="data-{status}">{escape(title)} ({len(group):,})</h3>'
             f'<p class="note">{escape(note)}</p>{_data_table(group, left, right)}'
         )
+        if status == "different":
+            parts.extend(_row_details(item, left, right) for item in group)
     same = [item for item in items if item["status"] == "same"]
     if same:
         parts.append(
@@ -479,6 +489,104 @@ def _data_section(items: Sequence[Dict[str, Any]], left: str, right: str) -> str
             f"{_data_table(same, left, right)}</div></details>"
         )
     return "".join(parts)
+
+
+def _cell(value: str, css: str = "") -> str:
+    if value == "":
+        return f'<td class="null {css}">null</td>'
+    return f'<td class="{css}">{escape(value)}</td>' if css else f"<td>{escape(value)}</td>"
+
+
+def _rows_grid(columns: Sequence[str], rows: Sequence[Sequence[str]], key: Sequence[str]) -> str:
+    head = "".join(f"<th>{escape(name)}</th>" for name in columns)
+    body = "".join(
+        "<tr>"
+        + "".join(_cell(value, "key" if name in key else "") for name, value in zip(columns, row))
+        + "</tr>"
+        for row in rows
+    )
+    return f'<table class="grid rows"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
+
+
+def _changed_grid(
+    changed: Sequence[Dict[str, Any]],
+    key: Sequence[str],
+    columns: Sequence[str],
+    left: str,
+    right: str,
+) -> str:
+    """One line per changed value: the row's key, the column, and both values."""
+
+    head = "".join(f"<th>{escape(name)}</th>" for name in key)
+    lines: List[str] = []
+    for change in changed:
+        values = dict(zip(columns, zip(change["left"], change["right"])))
+        for index, column in enumerate(change["columns"]):
+            keys = (
+                "".join(_cell(value, "key") for value in change["key"])
+                if index == 0
+                else f'<td colspan="{len(key)}"></td>'
+            )
+            one, other = values.get(column, ("", ""))
+            lines.append(
+                f"<tr>{keys}<td>{escape(column)}</td>{_cell(one, 'old')}{_cell(other, 'new')}</tr>"
+            )
+    return (
+        f'<table class="grid rows"><thead><tr>{head}<th>Column</th><th>{escape(left)}</th>'
+        f"<th>{escape(right)}</th></tr></thead><tbody>{''.join(lines)}</tbody></table>"
+    )
+
+
+def _listed(shown: int, total: int, what: str) -> str:
+    if shown >= total:
+        return ""
+    return f'<p class="note">The first {shown:,} of {total:,} {escape(what)} are listed.</p>'
+
+
+def _row_details(item: Dict[str, Any], left: str, right: str) -> str:
+    """Which rows of a table differ, with their values."""
+
+    name = escape(item["table"])
+    rows = item.get("rows")
+    if not rows:
+        reason = item.get("rows_error") or "The rows were not read."
+        return (
+            f'<div class="object" id="{_anchor("rows", item["table"])}"><header>'
+            f'<span class="name">{name}</span><span class="note">{escape(reason)}</span>'
+            "</header></div>"
+        )
+    columns, key = rows["columns"], rows["key"]
+    counts = (
+        f'{rows["changed_count"]:,} changed · {rows["only_left_count"]:,} only in {escape(left)}'
+        f' · {rows["only_right_count"]:,} only in {escape(right)} · {rows["same"]:,} the same'
+    )
+    matched = escape(", ".join(key)) if key else "whole rows (no primary key)"
+    body: List[str] = [f'<p class="note">Matched by {matched}.</p>']
+    if rows.get("truncated"):
+        body.append(
+            f'<p class="note">A side has more than {rows["limit"]:,} rows: only the first '
+            f'{rows["limit"]:,} (in key order) were compared.</p>'
+        )
+    if rows["changed"]:
+        body.append(f"<h4>Changed rows ({rows['changed_count']:,})</h4>")
+        body.append(_changed_grid(rows["changed"], key, columns, left, right))
+        body.append(_listed(len(rows["changed"]), rows["changed_count"], "changed rows"))
+    for side, label in (("only_left", left), ("only_right", right)):
+        if rows[side]:
+            total = rows[f"{side}_count"]
+            body.append(f"<h4>Only in {escape(label)} ({total:,})</h4>")
+            body.append(_rows_grid(columns, rows[side], key))
+            body.append(_listed(len(rows[side]), total, "rows"))
+    if not (rows["changed"] or rows["only_left"] or rows["only_right"]):
+        body.append(
+            '<p class="note">No differing row among those read: the difference is past the rows'
+            " compared.</p>"
+        )
+    return (
+        f'<details class="object" id="{_anchor("rows", item["table"])}" open><summary>'
+        f'<span class="name">{name}</span><span class="counts">{counts}</span></summary>'
+        f'<div class="rows-body">{"".join(body)}</div></details>'
+    )
 
 
 # ----------------------------------------------------------------------
@@ -588,5 +696,7 @@ def render_report(
         + _toc(result)
         + "".join(sections)
         + '<p class="footer">Made by Entropy. DDL is compared after leaving out schema names, '
-        "tablespaces and system-generated names; data by row count and hash.</p>" + "</body></html>"
+        "tablespaces and system-generated names; data by row count and hash, then row by row "
+        "for the tables whose rows differ. This report holds row values: share it as you would "
+        "the data.</p>" + "</body></html>"
     )

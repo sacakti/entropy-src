@@ -166,7 +166,10 @@ def start_compare(
     request: Request,
     record: SessionRecord = Depends(_current_session),  # noqa: B008
 ) -> Dict[str, Any]:
-    """Start comparing DDL and table data (counts and hashes only, no rows) in the background."""
+    """
+    Start comparing DDL and table data in the background: counts and hashes, then the rows
+    of the tables whose rows differ.
+    """
 
     _, _, user = record
     project_id = _project_id(request, user)
@@ -273,11 +276,18 @@ def compare_result(
     request: Request,
     record: SessionRecord = Depends(_current_session),  # noqa: B008
 ) -> Dict[str, Any]:
-    """The result of a finished comparison."""
+    """
+    The result of a comparison ("complete": True), or while it runs, what is compared so
+    far ("complete": False): objects and tables appear as soon as each batch is done.
+    """
 
-    result = _finished(request, record[2], job_id).result
-    assert result is not None  # nosec B101 - _finished checked it
-    return result
+    job = _job(request, record[2], job_id)
+    if job.result is not None:
+        return {**job.result, "complete": True}
+    partial = job.partial()
+    if partial is None:
+        raise HTTPException(status_code=409, detail="This comparison has no result yet.")
+    return partial
 
 
 @router.get("/compare/{job_id}/report")

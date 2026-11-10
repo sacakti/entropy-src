@@ -73,6 +73,9 @@ COMPARABLE_TYPES = (
 MAX_HASHED_COLUMNS = 360
 MAX_ROWS = 5000
 MAX_REPORTED_ROWS = 500
+# Tables whose rows differ are read row by row (up to MAX_ROWS a side) to say which rows
+# differ, for at most this many tables.
+MAX_DETAILED_TABLES = 100
 # For one batch, on one side.
 TIMEOUT_SECONDS = 1800
 
@@ -123,6 +126,9 @@ class CompareProgress:
 
     def advance(self, items: int, rows: int = 0) -> None:
         """A batch finished."""
+
+    def found(self, section: str, items: Sequence[Dict[str, Any]]) -> None:
+        """Results ready before the whole comparison is ("ddl" or "data"); later ones replace."""
 
 
 @dataclass(frozen=True)
@@ -469,6 +475,7 @@ def compare_ddl(
     right_ddl: Dict[Tuple[str, str], Dict[str, str]] = {}
 
     progress.begin("ddl", len(keys))
+    items: List[Dict[str, Any]] = []
 
     for start in range(0, len(keys), DDL_BATCH_OBJECTS):
         batch = keys[start : start + DDL_BATCH_OBJECTS]
@@ -483,31 +490,33 @@ def compare_ddl(
             other = {key: {"error": str(exc)} for key in wanted_right}
         left_ddl.update(one)
         right_ddl.update(other)
+        done = [_ddl_item(key, left_ddl.get(key), right_ddl.get(key)) for key in batch]
+        items.extend(done)
+        # Shown at once: a page need not wait for the other objects.
+        progress.found("ddl", done)
         progress.advance(len(batch))
 
-    items: List[Dict[str, Any]] = []
-
-    for key in keys:
-        one, other = left_ddl.get(key), right_ddl.get(key)
-        item: Dict[str, Any] = {"type": key[0], "name": key[1]}
-
-        if one is None or other is None:
-            present = one or other or {}
-            item["status"] = "only_left" if one else "only_right"
-            item["left" if one else "right"] = present.get("ddl", "")
-            if present.get("error"):
-                item["error"] = present["error"]
-        elif one.get("error") or other.get("error"):
-            item["status"] = "error"
-            item["error"] = one.get("error") or other.get("error")
-        elif one["ddl"] == other["ddl"]:
-            item["status"] = "same"
-        else:
-            item.update(status="different", left=one["ddl"], right=other["ddl"])
-
-        items.append(item)
-
     return items
+
+
+def _ddl_item(
+    key: Tuple[str, str], one: Optional[Dict[str, str]], other: Optional[Dict[str, str]]
+) -> Dict[str, Any]:
+    item: Dict[str, Any] = {"type": key[0], "name": key[1]}
+    if one is None or other is None:
+        present = one or other or {}
+        item["status"] = "only_left" if one else "only_right"
+        item["left" if one else "right"] = present.get("ddl", "")
+        if present.get("error"):
+            item["error"] = present["error"]
+    elif one.get("error") or other.get("error"):
+        item["status"] = "error"
+        item["error"] = one.get("error") or other.get("error")
+    elif one["ddl"] == other["ddl"]:
+        item["status"] = "same"
+    else:
+        item.update(status="different", left=one["ddl"], right=other["ddl"])
+    return item
 
 
 # ----------------------------------------------------------------------
@@ -680,7 +689,13 @@ def compare_data(
     skip_tables: Sequence[str] = (),
     progress: Optional[CompareProgress] = None,
     names: Sequence[str] = (),
+    detail: bool = True,
 ) -> List[Dict[str, Any]]:
+    """
+    Each table's row counts and whether its rows match (by hash). With `detail`, the
+    tables whose rows differ are then read row by row, so `rows` says which rows differ.
+    """
+
     progress = progress or CompareProgress()
     left_tables, right_tables = tables or _on_both(
         left, right, lambda side: read_tables(side, name_filter, run, names)
@@ -732,6 +747,9 @@ def compare_data(
         else:
             hashed[name] = shared
 
+    # Known without reading any row: tables on one side only, and those not compared.
+    progress.found("data", [item for name, item in items.items() if name not in hashed])
+
     estimates = {name: _estimated_rows(left_tables[name], right_tables[name]) for name in hashed}
     weights = {
         name: HASH_BATCH_ROWS if estimate is None else estimate
@@ -752,23 +770,61 @@ def compare_data(
             one = other = {name: {"error": str(exc)} for name in batch}
         left_hashes.update(one)
         right_hashes.update(other)
+        for name in batch:
+            _settle_hashes(items[name], left_hashes.get(name, {}), right_hashes.get(name, {}))
+        progress.found("data", [items[name] for name in batch])
         progress.advance(len(batch), sum(estimates[name] or 0 for name in batch))
 
-    for name in hashed:
-        one, other = left_hashes.get(name, {}), right_hashes.get(name, {})
-        item = items[name]
-        item["left_rows"], item["right_rows"] = one.get("rows"), other.get("rows")
-
-        if one.get("error") or other.get("error"):
-            item.update(status="error", error=one.get("error") or other.get("error"))
-        elif "rows" not in one or "rows" not in other:
-            item.update(status="error", error="The table could not be read.")
-        elif one["rows"] == other["rows"] and one["hash"] == other["hash"]:
-            item["status"] = "same"
-        else:
-            item["status"] = "different"
+    if detail:
+        _detail_rows(left, right, items, left_tables, right_tables, run, progress)
 
     return list(items.values())
+
+
+def _settle_hashes(item: Dict[str, Any], one: Dict[str, Any], other: Dict[str, Any]) -> None:
+    item["left_rows"], item["right_rows"] = one.get("rows"), other.get("rows")
+    if one.get("error") or other.get("error"):
+        item.update(status="error", error=one.get("error") or other.get("error"))
+    elif "rows" not in one or "rows" not in other:
+        item.update(status="error", error="The table could not be read.")
+    elif one["rows"] == other["rows"] and one["hash"] == other["hash"]:
+        item["status"] = "same"
+    else:
+        item["status"] = "different"
+
+
+def _detail_rows(
+    left: Endpoint,
+    right: Endpoint,
+    items: Dict[str, Dict[str, Any]],
+    left_tables: Dict[str, Dict[str, Any]],
+    right_tables: Dict[str, Dict[str, Any]],
+    run: Runner,
+    progress: CompareProgress,
+) -> None:
+    """Which rows differ, in each table whose rows differ (the first MAX_DETAILED_TABLES)."""
+
+    different = [name for name, item in items.items() if item["status"] == "different"]
+    if not different:
+        return
+    progress.begin("rows", min(len(different), MAX_DETAILED_TABLES))
+    for index, name in enumerate(different):
+        item = items[name]
+        if index >= MAX_DETAILED_TABLES:
+            item["rows_error"] = (
+                f"Rows not read: more than {MAX_DETAILED_TABLES} tables differ. "
+                "Open the table in Entropy to see them."
+            )
+            continue
+        progress.step(name)
+        try:
+            item["rows"] = _table_rows(
+                left, right, name, left_tables[name], right_tables[name], run
+            )
+        except DatabaseCompareError as exc:
+            item["rows_error"] = str(exc)
+        progress.found("data", [item])
+        progress.advance(1)
 
 
 # ----------------------------------------------------------------------
@@ -904,7 +960,19 @@ def compare_rows(
         raise DatabaseCompareError(f"Table '{table}' is not in both schemas.")
 
     table = table.upper()
-    one, other = left_tables[table], right_tables[table]
+    return _table_rows(left, right, table, left_tables[table], right_tables[table], run)
+
+
+def _table_rows(
+    left: Endpoint,
+    right: Endpoint,
+    table: str,
+    one: Dict[str, Any],
+    other: Dict[str, Any],
+    run: Runner,
+) -> Dict[str, Any]:
+    """The differing rows of a table whose columns are known on both sides."""
+
     columns = [
         column
         for column, data_type in one["columns"].items()
@@ -975,10 +1043,12 @@ def compare(
     skip_tables: Sequence[str] = (),
     progress: Optional[CompareProgress] = None,
     names: Sequence[str] = (),
+    detail: bool = True,
 ) -> Dict[str, Any]:
     """
     Compare the two schemas' DDL and table data: everything, or the tables `names` lists
-    and the objects like `name_filter` (either matching is enough).
+    and the objects like `name_filter` (either matching is enough). With `detail`, the
+    rows of the tables whose rows differ are compared too.
     """
 
     check_options(
@@ -994,7 +1064,9 @@ def compare(
             else None
         ),
         "data": (
-            compare_data(left, right, name_filter, run, tables, skip_tables, progress, names)
+            compare_data(
+                left, right, name_filter, run, tables, skip_tables, progress, names, detail
+            )
             if include_data
             else None
         ),
