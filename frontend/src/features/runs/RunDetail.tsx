@@ -520,7 +520,7 @@ export default function RunDetail({ runId, onBack }: { runId: number; onBack: ()
                     </div>
                     <div>
                         <dt>Trigger</dt>
-                        <dd>{TRIGGER_LABELS[run.trigger] ?? run.trigger}</dd>
+                        <dd>{TRIGGER_LABELS[run.trigger] ?? run.trigger}{run.trigger_name ? ` · ${run.trigger_name}` : ''}</dd>
                     </div>
                     <div>
                         <dt>{(run.options?.nodes?.length ?? 1) > 1 ? 'Nodes' : 'Node'}</dt>

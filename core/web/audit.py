@@ -20,6 +20,7 @@ import logging
 import re
 import time
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
+from urllib.parse import parse_qsl, urlencode
 
 from fastapi import Request, Response
 from starlette.concurrency import run_in_threadpool
@@ -46,6 +47,17 @@ MAX_BODY = 256 * 1024
 # Old entries are removed at most this often (seconds), as entries are written.
 PURGE_EVERY = 3600
 _last_purge = 0.0
+
+
+# Query parameters whose values are secrets (a webhook's ?token=): never written down.
+SECRET_QUERY = {"token"}
+
+
+def redact_query(query: str) -> str:
+    pairs = parse_qsl(query, keep_blank_values=True)
+    return urlencode(
+        [(key, "***" if key.lower() in SECRET_QUERY else value) for key, value in pairs]
+    )
 
 
 def should_audit(method: str, path: str) -> bool:
@@ -164,7 +176,7 @@ async def audit_middleware(
 
         details: Dict[str, Any] = {"route": f"{method} {template}"}
         if request.url.query:
-            details["query"] = request.url.query[:500]
+            details["query"] = redact_query(request.url.query)[:500]
         entry = dict(
             category=category,
             action=action,

@@ -160,3 +160,16 @@ def test_list_sorts_by_whitelisted_columns(connection) -> None:
     # Unknown columns never reach the SQL: they fall back to the default order.
     hostile, _ = store.list(sort="j.id; DROP TABLE workflow_jobs", order="asc")
     assert [item["id"] for item in hostile] == [first, second]
+
+
+def test_a_run_started_by_a_trigger_says_which(connection) -> None:
+    store = RunStore(connection)
+    job = _job(connection, "completed")
+    store.record(job, node="local", kind="workflow", target="deploy", trigger="manual")
+
+    store.mark_triggered(job, "webhook", 4, "Deploy orders")
+
+    run = store.get(job)
+    assert run["trigger"] == "webhook" and run["trigger_id"] == 4
+    assert run["trigger_name"] == "Deploy orders"
+    store.mark_triggered(10_000, "queue", 1, "x")  # an unknown run is left alone

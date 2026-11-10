@@ -88,7 +88,12 @@ def run_payload(row: Any) -> Dict[str, Any]:
         "node": value("node") or LOCAL_NODE,
         "kind": value("kind") or "workflow",
         "target": value("target") or row["workflow"],
-        "trigger": value("trigger") or "cli",
+        # A run a webhook or queue trigger started says so (its trigger column says manual).
+        "trigger": (_json(value("options")) or {}).get("trigger_source")
+        or value("trigger")
+        or "cli",
+        "trigger_id": (_json(value("options")) or {}).get("trigger_id"),
+        "trigger_name": (_json(value("options")) or {}).get("trigger_name"),
         "schedule_id": value("schedule_id"),
         "options": _json(value("options")),
         # A plugin run started with "Debug": its debug messages are shown.
@@ -422,6 +427,22 @@ class RunStore:
         with self.connection.transaction():
             self.connection.execute(
                 "UPDATE run_metadata SET project_id = ? WHERE job_id = ?", (project_id, job_id)
+            )
+
+    def mark_triggered(self, job_id: int, source: str, trigger_id: int, name: str) -> None:
+        """Record that a webhook or queue trigger started the run, in its options."""
+
+        row = self.connection.fetchone(
+            "SELECT options FROM run_metadata WHERE job_id = ?", (job_id,)
+        )
+        if row is None:
+            return
+        options = _json(row["options"]) or {}
+        options.update({"trigger_source": source, "trigger_id": trigger_id, "trigger_name": name})
+        with self.connection.transaction():
+            self.connection.execute(
+                "UPDATE run_metadata SET options = ? WHERE job_id = ?",
+                (json.dumps(options), job_id),
             )
 
     def counts(self, project_id: Optional[int] = None) -> Dict[str, int]:

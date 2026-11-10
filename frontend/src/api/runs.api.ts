@@ -31,7 +31,10 @@ export interface Run {
     node: string
     kind: 'workflow' | 'plugin'
     target: string
-    trigger: 'manual' | 'schedule' | 'retry' | 'cli'
+    /** webhook and queue: started by a trigger (see trigger_name). */
+    trigger: 'manual' | 'schedule' | 'retry' | 'cli' | 'webhook' | 'queue'
+    trigger_id?: number | null
+    trigger_name?: string | null
     schedule_id: number | null
     /** The run's plan when it started (newer runs only). */
     options?: RunOptionsSnapshot | null

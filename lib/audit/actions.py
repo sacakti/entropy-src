@@ -41,6 +41,7 @@ VERBS = {
     "execute",
     "export",
     "finish",
+    "fire",
     "follow",
     "generate",
     "housekeeping",

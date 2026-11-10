@@ -94,4 +94,6 @@ export const TRIGGER_LABELS: Record<Run['trigger'], string> = {
     schedule: 'Schedule',
     retry: 'Retry',
     cli: 'CLI',
+    webhook: 'Webhook',
+    queue: 'Queue message',
 }

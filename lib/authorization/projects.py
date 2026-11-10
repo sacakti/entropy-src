@@ -39,6 +39,9 @@ PROJECT_PERMISSIONS = frozenset(
         "schedules.list",
         "schedules.manage",
         "schedules.delete",
+        "triggers.list",
+        "triggers.manage",
+        "triggers.delete",
         "plugins.read",
         "plugins.execute",
         "projects.members",
@@ -74,7 +77,7 @@ PROJECT_PERMISSIONS = frozenset(
 # Maintainers also delete entries and manage namespaces.
 _VIEWER = (
     "workflows.read", "schedules.list", "plugins.read", "tasks.read", "releases.read",
-    "artifacts.read", "vault.namespace.read", "knowledge.read",
+    "artifacts.read", "vault.namespace.read", "knowledge.read", "triggers.list",
 )
 _OPERATOR = _VIEWER + (
     "workflows.execute", "plugins.execute", "tasks.create", "tasks.manage",
@@ -83,12 +86,12 @@ _OPERATOR = _VIEWER + (
 )
 _DEVELOPER = _OPERATOR + (
     "workflows.write", "schedules.manage", "tasks.create", "tasks.comment", "tasks.follow",
-    "vault.read", "vault.add", "vault.modify",
+    "vault.read", "vault.add", "vault.modify", "triggers.manage",
 )
 _MAINTAINER = _DEVELOPER + (
     "workflows.delete", "schedules.delete", "projects.members", "tasks.manage", "releases.delete",
     "vault.delete", "vault.namespace.create", "vault.namespace.modify", "vault.namespace.delete",
-    "knowledge.delete",
+    "knowledge.delete", "triggers.delete",
 )
 
 # name -> (title, scope, description, permissions); None means every permission.
@@ -608,10 +611,22 @@ class Projects:
             if _table_exists(self.connection, "schedules")
             else 0
         )
+        triggers = (
+            self.connection.fetchone(
+                "SELECT COUNT(*) AS n FROM triggers WHERE project_id = ?", (project_id,)
+            )["n"]
+            if _table_exists(self.connection, "triggers")
+            else 0
+        )
         members = self.connection.fetchone(
             "SELECT COUNT(*) AS n FROM project_members WHERE project_id = ?", (project_id,)
         )["n"]
-        return {"workflows": workflows, "schedules": schedules, "members": members}
+        return {
+            "workflows": workflows,
+            "schedules": schedules,
+            "triggers": triggers,
+            "members": members,
+        }
 
     def delete(self, key: str) -> None:
         project = self.get(key)
@@ -620,10 +635,11 @@ class Projects:
         if key == DEFAULT_PROJECT:
             raise ValueError("The Default project cannot be deleted.")
         usage = self.usage(project["id"])
-        if usage["workflows"] or usage["schedules"]:
+        if usage["workflows"] or usage["schedules"] or usage["triggers"]:
             raise ValueError(
-                f"Project '{key}' still has {usage['workflows']} workflow(s) and"
-                f" {usage['schedules']} schedule(s); move or delete them first."
+                f"Project '{key}' still has {usage['workflows']} workflow(s),"
+                f" {usage['schedules']} schedule(s) and {usage['triggers']} trigger(s);"
+                " move or delete them first."
             )
         with self.connection.transaction():
             self.connection.execute(

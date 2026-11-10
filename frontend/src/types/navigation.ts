@@ -15,6 +15,7 @@ import {
     UserRound,
     UsersRound,
     Workflow,
+    Webhook,
     Wrench,
 } from 'lucide-react'
 
@@ -27,6 +28,7 @@ export type PageId =
     | 'vault'
     | 'nodes'
     | 'schedulers'
+    | 'triggers'
     | 'tools'
     | 'administration'
     | 'admin-projects'
@@ -49,6 +51,7 @@ export const navigation: NavigationItem[] = [
     { id: 'runs', label: 'Runs', icon: PlayCircle },
     { id: 'vault', label: 'Vault', icon: KeyRound },
     { id: 'schedulers', label: 'Schedulers', icon: Activity },
+    { id: 'triggers', label: 'Triggers', icon: Webhook },
     { id: 'tools', label: 'Tools', icon: Wrench },
     {
         // Managing Entropy itself; shown only to those who may manage part of it.
@@ -89,6 +92,7 @@ const PAGE_IDS: readonly PageId[] = [
     'vault',
     'nodes',
     'schedulers',
+    'triggers',
     'tools',
     'administration',
     'admin-projects',
@@ -121,6 +125,7 @@ export const PAGE_PERMISSIONS: Partial<Record<PageId, string[]>> = {
     runs: ['workflows.read'],
     nodes: ['nodes.list'],
     schedulers: ['schedules.list'],
+    triggers: ['triggers.list'],
     administration: [
         'users.read',
         'groups.read',

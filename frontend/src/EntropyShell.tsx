@@ -55,6 +55,7 @@ const Runs = lazy(() => import('./features/runs/Runs'))
 const RunDetail = lazy(() => import('./features/runs/RunDetail'))
 const Nodes = lazy(() => import('./features/nodes/Nodes'))
 const Schedules = lazy(() => import('./features/schedules/Schedules'))
+const Triggers = lazy(() => import('./features/triggers/Triggers'))
 const Tools = lazy(() => import('./features/tools/Tools'))
 const Plugins = lazy(() => import('./features/plugins/Plugins'))
 const Extensions = lazy(() => import('./features/extensions/Extensions'))
@@ -149,12 +150,12 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
         avatar_url: user.avatar_url ?? null,
         auth_provider: null,
     }))
-    const [helpOpen, setHelpOpen] = useState(false)
     // Times everywhere follow the profile's zone; set before the render that shows them.
     const changeProfile = useCallback((next: Profile) => {
         setDisplayTimeZone(next.effective_timezone)
         setProfile(next)
     }, [])
+    const [helpOpen, setHelpOpen] = useState(false)
     const [tourOpen, setTourOpen] = useState(false)
     const tourOffered = useRef(false)
     const [shellOpen, setShellOpen] = useState(false)
@@ -362,6 +363,7 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
         vault: 'Vault',
         nodes: 'Nodes',
         schedulers: 'Schedulers',
+        triggers: 'Triggers',
         tools: 'Tools',
         extensions: 'Extensions',
         administration: 'Administration',
@@ -605,6 +607,8 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
                             <Nodes />
                         ) : activePage === 'schedulers' ? (
                             <Schedules />
+                        ) : activePage === 'triggers' ? (
+                            <Triggers />
                         ) : activePage === 'tools' ? (
                             <Tools
                                 initialTool={toolFromHash(window.location.hash)}

@@ -83,6 +83,10 @@ MODULES = (
         description="Scheduled workflow and plugin runs.",
     ),
     ModuleDefinition(
+        name="triggers",
+        description="Workflow and plugin runs started by webhooks and queue messages.",
+    ),
+    ModuleDefinition(
         name="projects",
         description="Projects: who may do what with whose workflows, schedules and nodes.",
     ),
@@ -431,6 +435,24 @@ PERMISSIONS = (
         "schedules.delete",
         "delete",
         "Delete schedules.",
+    ),
+    PermissionDefinition(
+        "triggers",
+        "triggers.list",
+        "read",
+        "List triggers and their firings.",
+    ),
+    PermissionDefinition(
+        "triggers",
+        "triggers.manage",
+        "write",
+        "Create, modify, pause and fire triggers, and make new webhook tokens.",
+    ),
+    PermissionDefinition(
+        "triggers",
+        "triggers.delete",
+        "delete",
+        "Delete triggers.",
     ),
     PermissionDefinition(
         "projects",

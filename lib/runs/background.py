@@ -48,6 +48,7 @@ class RunsBackground:
         self._last: Dict[str, float] = {}
         self._metrics: Optional[LocalMetrics] = None
         self.latest_local: Optional[Dict[str, Any]] = None
+        self._listener: Any = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -74,12 +75,19 @@ class RunsBackground:
 
         self._thread = threading.Thread(target=self._loop, name="entropy-runs", daemon=True)
         self._thread.start()
+        # Queue triggers listen in this same process, so one message starts one run.
+        from lib.triggers.stomp import StompListener
+
+        self._listener = StompListener(self._context, self._stop)
+        self._listener.start()
         return True
 
     def stop(self) -> None:
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=5)
+        if self._listener is not None:
+            self._listener.join(timeout=5)
         if self._lock_file is not None:
             self._lock_file.close()
             self._lock_file = None
