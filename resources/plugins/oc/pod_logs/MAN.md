@@ -30,7 +30,7 @@ Not needed with `dry_run`.
 | `namespace` | No | `string` | session project | Project to browse; can be changed on the page. |
 | `default_paths` | No | `list` | `["/var/log"]` | Log folders or files shown for every pod. |
 | `log_paths` | No | `dictionary` | `{}` | Deployment name or pattern to its log folders or files. |
-| `timezone` | No | `string` | `UTC` | Zone of typed From/To times and of log timestamps without one. |
+| `timezone` | No | `string` | `UTC` | Zone of typed From/To times, of log timestamps without one, and of the time in download names. |
 | `max_read_mb` | No | `integer` | `20` | Most MB read from one file (1–200). |
 | `max_lines` | No | `integer` | `20000` | Most lines shown, and read from a console log. |
 | `max_bundle_mb` | No | `integer` | `200` | Most MB in one download of the listed logs (1–2000). |
@@ -68,19 +68,39 @@ A path may name one file; a path missing in a container says so.
   archive to look inside (a folder is read again each time it is opened).
 - Click a file to read it. **Reload** reads it again.
 - **Highlight** marks every match in the open file; Enter and Shift+Enter move
-  between them.
+  between them. The full screen button gives the viewer the whole screen (Esc leaves).
+- **Search** (the box above the tree) finds text, in any case, in every log of the
+  ticked pods, containers, folders and files, or with nothing ticked, of every listed
+  pod: console logs and the files under its paths, read inside the containers with
+  `grep` whether or not they were opened. The matching lines show in the viewer as
+  `<pod>/<container>  <path>:<line>  <text>`, and the files with matches are listed
+  above the pods; click one to open it with the text highlighted. At most 200 matches a
+  file and 2000 in all. Archives and `.gz` files are not searched (open them in the
+  tree), and the time range does not narrow a search. Search with an empty box to clear
+  the results.
 - **Download** (in the viewer) saves what the viewer shows, in the browser.
 - **Save** writes the open file, narrowed to the time range, to
   `pod_logs/<pod>/<container>/` in the workspace and offers it for download at once.
-- **Download listed (time range)** and **Download listed (everything)**, above the
-  tree, make one `.zip` of every listed log:
+- **Download (time range)** and **Download (everything)**, above the tree, make one
+  `.zip` of the ticked entries. Tick a pod, a container, a folder, a console log, a
+  file, an archive or a file in an archive; a ticked entry includes everything under
+  it, and folders are read from the container whether or not they were expanded
+  (up to 8 levels deep and 5000 logs). With nothing ticked, the `.zip` holds every
+  listed log:
   - the console log of each container of every listed pod (the Pods filter applies),
-  - every file in the folders opened so far (folders not opened are not read).
+  - everything in the paths of the pods opened so far, expanded or not.
 
-  With the time range, text files (and `.gz` files, unpacked) are narrowed to it and
-  opened archives give their files, narrowed too; otherwise files go in as they are.
-  Paths in the `.zip` are `<pod>/<container>/<path>`. Its `README.txt` names the range
-  and anything left out (unreadable, or past `max_bundle_mb`).
+  With the time range, text files (and `.gz` files, unpacked) are narrowed to it, files
+  last written before it are left out, and opened archives give their files, narrowed
+  too; otherwise files go in as they are.
+
+  The `.zip` and the folder inside it are named after the pod (or `<namespace>-logs`
+  for several pods) and the time it was made, in the `timezone` argument, e.g.
+  `orders-api-7c9d-x2kqp-2026-11-10_14-30-05`. Inside are `<container>/<path>` for one
+  pod, else `<pod>/<container>/<path>`, and a `README.txt` naming the range, when it
+  was made and anything left out (unreadable, or past `max_bundle_mb`).
+- While a `.zip` is made, the page shows its progress: listing folders, reading each
+  log (n of total), compressing. Downloading a file shows how much has arrived.
 
 Saved files and bundles are listed as **Ready** above the tree, and in the run's
 artifacts straight away.
@@ -120,6 +140,20 @@ containers) have `/var/log` with timestamped logs, an `archive` folder with a
 the page and the time range locally.
 
 ## Changelog
+
+### 1.3.0
+
+- Search finds text in every log of the ticked or listed pods, opened or not, and lists
+  the matches; a match opens its file with the text highlighted.
+- The viewer can go full screen.
+
+### 1.2.0
+
+- Tick pods, containers, folders and files in the tree to download just those.
+- Downloads read folders that were not expanded.
+- The page shows progress while a download is made and while it downloads.
+- Downloads are named after the pod and the time they were made, in the `timezone`
+  argument; the folder inside the `.zip` carries the same name.
 
 ### 1.1.0
 

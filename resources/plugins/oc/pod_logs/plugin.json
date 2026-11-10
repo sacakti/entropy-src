@@ -1,7 +1,7 @@
 {
     "name": "pod_logs",
     "namespace": "oc",
-    "version": "1.1.0",
+    "version": "1.3.0",
     "description": "App plugin: browse the log files of an OpenShift namespace's pods like a file explorer, view them read-only with search highlighting, narrow them to a time range, and save them. Opens text files, .zip, .tar.gz and .gz. Read-only.",
     "author": "Aravinthan Selvaraj",
     "entropy": ">=1.0.0",
@@ -60,7 +60,7 @@
             "type": "string",
             "required": false,
             "default": "UTC",
-            "description": "Time zone of the From/To times typed on the page and of log timestamps that carry no zone.",
+            "description": "Time zone of the From/To times typed on the page, of log timestamps that carry no zone, and of the time in download names.",
             "example": "Asia/Dubai"
         },
         {
@@ -88,7 +88,7 @@
             "default": 200,
             "minimum": 1,
             "maximum": 2000,
-            "description": "Most MB in one download of the listed logs; files past it are left out and named in its README.txt."
+            "description": "Most MB in one download; files past it are left out and named in its README.txt."
         },
         {
             "name": "dry_run",
@@ -122,7 +122,7 @@
     ],
     "app": {
         "title": "Pod logs",
-        "description": "Pick a pod to see its console log, the default log paths and the paths configured for its deployment. Click a folder or archive to look inside, and a file to read it. Search highlights matches; the time range narrows what is shown.",
+        "description": "Pick a pod to see its console log, the default log paths and the paths configured for its deployment. Click a folder or archive to look inside, and a file to read it. Search highlights matches; the time range narrows what is shown. Tick pods, folders or files to download just those, expanded or not. Search finds text in every log of the ticked (or listed) pods.",
         "refresh_seconds": 30,
         "inputs": [
             {
@@ -189,17 +189,31 @@
                 "target": "browser"
             },
             {
+                "name": "search",
+                "type": "text",
+                "label": "Search logs",
+                "placeholder": "Text to find in the logs",
+                "default": ""
+            },
+            {
+                "name": "search_logs",
+                "type": "button",
+                "label": "Search",
+                "description": "Find the text (any case) in the ticked pods, folders and files, or in every listed pod: console logs and the files under its paths, searched inside the containers",
+                "target": "browser"
+            },
+            {
                 "name": "download_filtered",
                 "type": "button",
-                "label": "Download listed (time range)",
-                "description": "One .zip of every listed log, narrowed to the time range: console logs of the listed pods and the files in opened folders",
+                "label": "Download (time range)",
+                "description": "One .zip of the ticked pods, folders and files (or, with nothing ticked, of every listed log), narrowed to the time range; folders need not be expanded",
                 "target": "browser"
             },
             {
                 "name": "download_all",
                 "type": "button",
-                "label": "Download listed (everything)",
-                "description": "One .zip of every listed log as it is: console logs of the listed pods and the files in opened folders",
+                "label": "Download (everything)",
+                "description": "One .zip of the ticked pods, folders and files (or, with nothing ticked, of every listed log) as they are; folders need not be expanded",
                 "target": "browser"
             }
         ],
@@ -212,7 +226,11 @@
                 "tree_actions": [
                     "download_filtered",
                     "download_all"
-                ]
+                ],
+                "search": {
+                    "input": "search",
+                    "button": "search_logs"
+                }
             },
             {
                 "name": "activity",

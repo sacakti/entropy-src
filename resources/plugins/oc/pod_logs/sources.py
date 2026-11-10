@@ -12,6 +12,7 @@ import binascii
 import gzip
 import io
 import json
+import re
 import tarfile
 import zipfile
 from dataclasses import dataclass, field
@@ -38,6 +39,15 @@ READ_SCRIPT = (
     "else exit 4; fi"
 )
 TOO_LARGE_EXIT = 4
+# Lines holding $1 (plain text, any case) in the files under the paths after $3, as
+# "path:line:text": at most $2 per file and $3 in all, each cut to 1000 characters.
+SEARCH_SCRIPT = (
+    'p="$1"; m="$2"; t="$3"; shift 3; '
+    'grep -rHniF -m "$m" -e "$p" -- "$@" 2>/dev/null | head -n "$t" | cut -c 1-1000; exit 0'
+)
+SEARCH_LINE = re.compile(r"^(/.*?):(\d+):(.*)$")
+# Files grep cannot read as text; they are opened in the tree instead.
+UNSEARCHABLE = (".gz", ".tgz", ".zip", ".tar")
 
 
 @dataclass
@@ -55,6 +65,15 @@ class Entry:
     folder: bool
     size: int = 0
     modified: Optional[int] = None
+
+
+@dataclass
+class Match:
+    """One line holding the searched text."""
+
+    path: str
+    line: int
+    text: str
 
 
 @dataclass
@@ -233,6 +252,41 @@ class OcSource:
         arguments.append(f"--tail={max_lines}")
         return self._checked("oc logs", *arguments)
 
+    def search(
+        self,
+        namespace: str,
+        pod: str,
+        container: str,
+        paths: List[str],
+        text: str,
+        per_file: int,
+        limit: int,
+    ) -> List[Match]:
+        """Lines holding `text` in the files under `paths`, searched inside the container."""
+
+        result = self._exec(
+            namespace,
+            pod,
+            container,
+            "sh",
+            "-c",
+            SEARCH_SCRIPT,
+            "sh",
+            text,
+            str(per_file),
+            str(limit),
+            *paths,
+        )
+        if not result.success:
+            detail = (result.stderr or "").strip()
+            raise PodLogsException(f"Unable to search {pod}/{container}: {detail or 'no details'}")
+        found = []
+        for line in str(result.stdout or "").splitlines():
+            match = SEARCH_LINE.match(line)
+            if match and not match.group(1).lower().endswith(UNSEARCHABLE):
+                found.append(Match(match.group(1), int(match.group(2)), match.group(3)))
+        return found[:limit]
+
 
 # ----------------------------------------------------------------------
 # Dry run
@@ -381,3 +435,30 @@ class DemoSource:
             moment += timedelta(minutes=10)
             count += 1
         return "\n".join(lines[-max_lines:])
+
+    def search(
+        self,
+        namespace: str,
+        pod: str,
+        container: str,
+        paths: List[str],
+        text: str,
+        per_file: int,
+        limit: int,
+    ) -> List[Match]:
+        needle = text.casefold()
+        found: List[Match] = []
+        for name, (data, _modified) in sorted(self._files.get(pod, {}).items()):
+            inside = any(name == path or name.startswith(path.rstrip("/") + "/") for path in paths)
+            if not inside or name.lower().endswith(UNSEARCHABLE):
+                continue
+            hits = 0
+            for number, line in enumerate(data.decode("utf-8", "replace").splitlines(), 1):
+                if needle in line.casefold():
+                    found.append(Match(name, number, line[:1000]))
+                    hits += 1
+                    if hits >= per_file or len(found) >= limit:
+                        break
+            if len(found) >= limit:
+                break
+        return found

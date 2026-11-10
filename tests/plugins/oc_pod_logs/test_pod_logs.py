@@ -30,6 +30,7 @@ from resources.plugins.oc.pod_logs.plugin import CONSOLE_NAME, PodLogsPlugin, _n
 from resources.plugins.oc.pod_logs.sources import (
     LIST_SCRIPT,
     READ_SCRIPT,
+    SEARCH_SCRIPT,
     DemoSource,
     OcSource,
     deployment_of,
@@ -209,6 +210,29 @@ def test_an_archive_too_large_says_how_to_open_it() -> None:
         source.read("shop", "api-1", "app", "/l/a.zip", 10, tail=False)
 
 
+def test_search_passes_text_and_paths_as_arguments_and_parses_matches() -> None:
+    run = MagicMock(
+        return_value=_result(
+            "/l/a.log:3:ERROR boom\n/l/b:c.log:12:x:y\n/l/old.gz:1:junk\nBinary file /l/z matches"
+        )
+    )
+    found = OcSource(run).search("shop", "api-1", "app", ["/l", "/x y"], "$(rm -rf /)", 5, 50)
+    command = run.call_args.args
+    assert SEARCH_SCRIPT in command and "$(rm -rf /)" not in SEARCH_SCRIPT
+    assert list(command[command.index(SEARCH_SCRIPT) + 1 :]) == [
+        "sh",
+        "$(rm -rf /)",
+        "5",
+        "50",
+        "/l",
+        "/x y",
+    ]
+    assert [(item.path, item.line, item.text) for item in found] == [
+        ("/l/a.log", 3, "ERROR boom"),
+        ("/l/b:c.log", 12, "x:y"),
+    ]
+
+
 def test_console_log_uses_since_time_and_tail() -> None:
     calls: List[tuple] = []
     OcSource(lambda *arguments: calls.append(arguments) or _result("x")).console(
@@ -238,7 +262,7 @@ class FakeOc:
     def __init__(self) -> None:
         self.calls: List[List[str]] = []
         log = "2026-11-08 09:00:00 INFO old\n2026-11-08 11:30:00 ERROR new\n"
-        self.files = {"/logs/app.log": log.encode()}
+        self.files = {"/logs/app.log": log.encode(), "/logs/old/2026-11-01.log": b"rotated\n"}
 
     def __call__(self, command, timeout=None, env=None) -> SimpleNamespace:
         self.calls.append(command)
@@ -256,8 +280,23 @@ class FakeOc:
         if command[1] == "exec" and LIST_SCRIPT in command:
             path = command[-1]
             if path == "/logs":
-                return _result("@dir\nregular file|60|1762600000|app.log")
+                return _result(
+                    "@dir\nregular file|60|1794138300|app.log\ndirectory|0|1762600000|old"
+                )
+            if path == "/logs/old":
+                return _result("@dir\nregular file|8|1762600000|2026-11-01.log")
             return _result("@missing")
+        if command[1] == "exec" and SEARCH_SCRIPT in command:
+            start = command.index(SEARCH_SCRIPT) + 2
+            text, paths = command[start].lower(), command[start + 3 :]
+            hits = [
+                f"{path}:{number}:{line}"
+                for path, data in sorted(self.files.items())
+                if any(path.startswith(f"{root}/") or path == root for root in paths)
+                for number, line in enumerate(data.decode().splitlines(), 1)
+                if text in line.lower()
+            ]
+            return _result("\n".join(hits))
         if command[1] == "exec" and READ_SCRIPT in command:
             data = self.files[command[-3]]
             return _result(f"{len(data)}\n{base64.b64encode(data).decode()}")
@@ -497,6 +536,10 @@ def test_bad_arguments_never_reach_oc(tmp_path, monkeypatch, arguments, message)
     assert oc.calls == []
 
 
+def _zip(context: Any, download: Dict[str, Any]) -> zipfile.ZipFile:
+    return zipfile.ZipFile(context.workspace / "pod_logs" / download["name"])
+
+
 def test_download_listed_logs_filtered_and_all(tmp_path, monkeypatch) -> None:
     pod = _node_id("pod", POD)
     folder = _node_id("path", POD, "app", "/logs")
@@ -523,14 +566,176 @@ def test_download_listed_logs_filtered_and_all(tmp_path, monkeypatch) -> None:
     assert result.success, result.errors
     downloads = _browser(store)["downloads"]
     everything, filtered = downloads
-    assert "-logs-filtered-" in filtered["name"] and "-logs-all-" in everything["name"]
-    with zipfile.ZipFile(context.workspace / "pod_logs" / filtered["name"]) as bundle:
+    # One pod: named after it, with the time it was made; its folder carries the same name.
+    assert filtered["name"].startswith(f"{POD}-filtered-20")
+    assert everything["name"].startswith(f"{POD}-20") and "filtered" not in everything["name"]
+    root = filtered["name"][: -len(".zip")]
+    with _zip(context, filtered) as bundle:
         names = set(bundle.namelist())
-        assert {f"{POD}/app/console.log", f"{POD}/app/logs/app.log", "README.txt"} <= names
-        assert bundle.read(f"{POD}/app/logs/app.log").decode() == "2026-11-08 11:30:00 ERROR new"
-    with zipfile.ZipFile(context.workspace / "pod_logs" / everything["name"]) as bundle:
-        assert bundle.read(f"{POD}/app/logs/app.log").decode().count("\n") == 2
+        assert {
+            f"{root}/app/console.log",
+            f"{root}/app/logs/app.log",
+            f"{root}/README.txt",
+        } <= names
+        assert bundle.read(f"{root}/app/logs/app.log").decode() == "2026-11-08 11:30:00 ERROR new"
+        # The subfolder was never expanded; its file was written before the range.
+        assert f"{root}/app/logs/old/2026-11-01.log" not in names
+    root = everything["name"][: -len(".zip")]
+    with _zip(context, everything) as bundle:
+        assert bundle.read(f"{root}/app/logs/app.log").decode().count("\n") == 2
+        assert bundle.read(f"{root}/app/logs/old/2026-11-01.log") == b"rotated\n"
+    assert _browser(store)["progress"] is None
     # The staging folders are gone; only the bundles remain.
     assert sorted(path.name for path in (context.workspace / "pod_logs").iterdir()) == sorted(
         item["name"] for item in downloads
     )
+
+
+def test_a_ticked_pod_downloads_its_folders_without_expanding_them(tmp_path, monkeypatch) -> None:
+    plugin, store, context, oc = _page(
+        tmp_path,
+        monkeypatch,
+        "interactive",
+        # The pod is listed but never opened in the tree.
+        [_press("download_all", _node_id("pod", POD))],
+        environment="SIT",
+        namespace="shop",
+        default_paths=[],
+        log_paths={"orders": ["/logs"]},
+    )
+    shown: List[Any] = []
+    publish = plugin._publish
+
+    def recording() -> None:
+        shown.append(plugin._progress)
+        publish()
+
+    plugin._publish = recording  # type: ignore[method-assign]
+
+    result = plugin.execute()
+
+    assert result.success, result.errors
+    [download] = _browser(store)["downloads"]
+    root = download["name"][: -len(".zip")]
+    with _zip(context, download) as bundle:
+        assert set(bundle.namelist()) == {
+            f"{root}/README.txt",
+            f"{root}/app/console.log",
+            f"{root}/app/logs/app.log",
+            f"{root}/app/logs/old/2026-11-01.log",
+        }
+    labels = [item["label"] for item in shown if item]
+    assert labels[0] == "Listing folders..." and "Compressing..." in labels
+    reading = [item for item in shown if item and item["label"] == "Reading logs..."]
+    assert reading[-1]["done"] == reading[-1]["total"] == 3
+    assert shown[-1] is None
+
+
+def test_a_ticked_folder_downloads_only_that_folder(tmp_path, monkeypatch) -> None:
+    pod = _node_id("pod", POD)
+    plugin, store, context, oc = _page(
+        tmp_path,
+        monkeypatch,
+        "interactive",
+        [
+            _press("open", pod),
+            _press("download_all", _node_id("path", POD, "app", "/logs"), "gone"),
+        ],
+        environment="SIT",
+        namespace="shop",
+        default_paths=[],
+        log_paths={"orders": ["/logs"]},
+    )
+
+    result = plugin.execute()
+
+    assert result.success, result.errors
+    [download] = _browser(store)["downloads"]
+    root = download["name"][: -len(".zip")]
+    with _zip(context, download) as bundle:
+        assert set(bundle.namelist()) == {
+            f"{root}/README.txt",
+            f"{root}/app/logs/app.log",
+            f"{root}/app/logs/old/2026-11-01.log",
+        }
+        assert "no longer listed" in bundle.read(f"{root}/README.txt").decode()
+
+
+def _search(text: str, *selection: str) -> Callable:
+    return lambda store, app_id: store.push_event(
+        app_id, "search_logs", {"selection": list(selection), "values": {"search": text}}, "u"
+    )
+
+
+def test_search_lists_matches_above_the_pods_and_opens_them_highlighted(
+    tmp_path, monkeypatch
+) -> None:
+    seen: Dict[str, Any] = {}
+
+    def keep(name: str) -> Callable:
+        def capture(store: AppStore, app_id: int) -> None:
+            seen[name] = _browser(store)
+
+        return capture
+
+    result_file = _node_id("search-file", POD, "app", "/logs/app.log")
+    plugin, store, context, oc = _page(
+        tmp_path,
+        monkeypatch,
+        "interactive",
+        [
+            # The pod was never opened: its paths are searched inside the container.
+            _search("error"),
+            keep("found"),
+            _press("open", result_file),
+            keep("opened"),
+            _search(""),
+            keep("cleared"),
+        ],
+        environment="SIT",
+        namespace="shop",
+        default_paths=[],
+        log_paths={"orders": ["/logs"]},
+    )
+
+    result = plugin.execute()
+
+    assert result.success, result.errors
+    found = seen["found"]
+    first, scope, match = found["nodes"][:3]
+    assert first["name"] == "Search: error" and first["parent"] is None
+    assert first["note"] == "1 in 1 file(s)"
+    assert scope["parent"] == first["id"] and scope["name"] == POD
+    assert match["id"] == result_file and match["note"] == "1 match(es)"
+    assert found["nodes"][3]["name"] == POD
+    assert found["opened"]["text"] == f"{POD}/app  /logs/app.log:2  2026-11-08 11:30:00 ERROR new"
+    assert found["opened"]["highlight"] == "error"
+    assert found["progress"] is None
+    opened = seen["opened"]["opened"]
+    assert opened["id"] == result_file and opened["highlight"] == "error"
+    assert "ERROR new" in opened["text"]
+    assert all(node["name"] != "Search: error" for node in seen["cleared"]["nodes"])
+    # Only reads.
+    assert {call[1] for call in oc.calls} <= {"get", "exec", "logs"}
+
+
+def test_dry_run_search_finds_text_in_the_sample_logs(tmp_path, monkeypatch) -> None:
+    pod = "billing-6f8d7-ab12c"
+    seen: Dict[str, Any] = {}
+
+    def keep(store: AppStore, app_id: int) -> None:
+        seen["browser"] = _browser(store)
+
+    plugin, store, _, oc = _page(
+        tmp_path,
+        monkeypatch,
+        "interactive",
+        [_search("timed out", _node_id("pod", pod)), keep],
+        dry_run=True,
+    )
+
+    assert plugin.execute().success
+    shown = seen["browser"]["opened"]
+    assert shown["id"] == "search" and "SocketTimeoutException" in shown["text"]
+    assert all(line.startswith(f"{pod}/billing  /var/log/") for line in shown["text"].splitlines())
+    assert "not searched" in shown["notice"]

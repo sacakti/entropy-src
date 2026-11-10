@@ -12,8 +12,12 @@ An app plugin to browse, read and save the logs of an OpenShift namespace's pods
   `.gz` files.
 - **Download** saves what the viewer shows; **Save** keeps the open file, narrowed to
   the time range, and offers it for download at once.
-- **Download listed** (above the tree) makes one `.zip` of every listed log, narrowed
-  to the time range or as it is.
+- **Download** (above the tree) makes one `.zip` of the ticked pods, folders and files
+  (folders need not be expanded), or of every listed log, narrowed to the time range
+  or as it is, showing its progress. It is named after the pod and the time it was made.
+- **Search** (above the tree) finds text in every log of the ticked or listed pods,
+  opened or not; click a match's file to open it highlighted. The viewer can go full
+  screen.
 
 It needs an `oc.generic` login first (see `workflow.json`). `dry_run: true` uses
 built-in sample pods instead, so the page can be tried without a cluster.

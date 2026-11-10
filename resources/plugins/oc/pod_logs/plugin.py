@@ -14,9 +14,10 @@ import fnmatch
 import hashlib
 import re
 import subprocess  # nosec B404 - only for the timeout raised by the executor
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from lib.models.plugin import PluginResult
@@ -25,7 +26,7 @@ from lib.plugins.base import BasePlugin
 
 from .archives import gunzip, is_archive, is_gzip, members, read_member
 from .exceptions import PodLogsException
-from .sources import DemoSource, Listing, OcSource, Pod
+from .sources import UNSEARCHABLE, DemoSource, Listing, Match, OcSource, Pod
 from .timefilter import EVERYTHING, Window, filter_lines, window
 
 NAMESPACE = re.compile(r"^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$")
@@ -36,6 +37,18 @@ ACTIVITY = "activity"
 CONSOLE_NAME = "Console log (oc logs)"
 # Bytes that are not text: shown as a notice instead of garbage.
 BINARY_SAMPLE = 8192
+# A download reads folders it was not shown this deep, and at most this many files.
+BUNDLE_DEPTH = 8
+BUNDLE_FILES = 5000
+# The page is told how a download is going at most this often.
+PROGRESS_SECONDS = 0.5
+# Tree entries that can be ticked for a download (folders inside archives cannot).
+DOWNLOADABLE = ("pod", "container", "console", "folder", "file", "member")
+# A search finds at most this many lines in all, and this many in one file.
+SEARCH_MATCHES = 2000
+SEARCH_PER_FILE = 200
+SEARCH_LENGTH = 200
+SEARCH_ID = "search"
 
 Source = Union[OcSource, DemoSource]
 
@@ -201,6 +214,10 @@ class PodLogsPlugin(
         self._opened_titles: List[str] = []
         self._saved: List[str] = []
         self._downloads: List[Dict[str, Any]] = []
+        self._progress: Optional[Dict[str, Any]] = None
+        self._search_text = ""
+        self._search_ids: Set[str] = set()
+        self._progress_at = 0.0
         self._namespace: Optional[str] = None
         self._span = Window()
         session_project: Optional[str] = None
@@ -263,6 +280,8 @@ class PodLogsPlugin(
         self._archives.clear()
         self._opened = None
         self._shown = None
+        self._search_text = ""
+        self._search_ids = set()
         self.app.log(ACTIVITY, f"Namespace {namespace}.")
 
     def _handle_events(
@@ -276,22 +295,30 @@ class PodLogsPlugin(
                 self._show(self._opened["id"], fetch=True)
         for _press in self.app.events("save"):
             self._save()
-        for _press in self.app.events("download_filtered"):
-            self._bundle(filtered=True)
-        for _press in self.app.events("download_all"):
-            self._bundle(filtered=False)
+        for press in self.app.events("search_logs"):
+            self._search(
+                str(press.values.get("search") or "").strip(),
+                [str(item) for item in press.selection],
+            )
+        for press in self.app.events("download_filtered"):
+            self._bundle(filtered=True, selection=[str(item) for item in press.selection])
+        for press in self.app.events("download_all"):
+            self._bundle(filtered=False, selection=[str(item) for item in press.selection])
 
     def _publish(
         self,
     ) -> None:
+        # Search results come first, above the pods.
+        nodes = sorted(self._nodes.values(), key=lambda node: not node.get("_search"))
         self.app.files(
             BROWSER,
             [
                 {key: value for key, value in node.items() if not key.startswith("_")}
-                for node in self._nodes.values()
+                for node in nodes
             ],
             opened=self._shown,
             downloads=self._downloads,
+            progress=self._progress,
         )
         self.outputs.update(
             {
@@ -404,7 +431,17 @@ class PodLogsPlugin(
             parent = node["id"]
             if len(pod.containers) > 1:
                 parent = _node_id("container", pod.name, container)
-                self._add(parent, container, "group", node["id"], note="container", loaded=True)
+                self._add(
+                    parent,
+                    container,
+                    "group",
+                    node["id"],
+                    note="container",
+                    loaded=True,
+                    _role="container",
+                    _pod=pod.name,
+                    _container=container,
+                )
             self._add(
                 _node_id("console", pod.name, container),
                 CONSOLE_NAME,
@@ -611,6 +648,8 @@ class PodLogsPlugin(
             "text": text,
             "notice": " ".join(notes) or None,
             "download_name": f"{node['_pod']}-{name}",
+            # Opened from search results: the viewer marks what was searched for.
+            "highlight": self._search_text if node_id in self._search_ids else None,
         }
 
     def _read_text(
@@ -708,79 +747,473 @@ class PodLogsPlugin(
         )
 
     # ------------------------------------------------------------------
-    # Download all listed logs
+    # Search
     # ------------------------------------------------------------------
+
+    def _search_scopes(
+        self,
+        selection: List[str],
+        notes: List[str],
+    ) -> Dict[Tuple[str, str], Dict[str, Any]]:
+        """Per pod and container: whether its console log is searched, and which paths."""
+
+        scopes: Dict[Tuple[str, str], Dict[str, Any]] = {}
+
+        def scope(pod: str, container: str) -> Dict[str, Any]:
+            return scopes.setdefault((pod, container), {"console": False, "paths": []})
+
+        def everything(pod: Pod, container: str) -> None:
+            entry = scope(pod.name, container)
+            entry["console"] = True
+            entry["paths"].extend(self._pod_paths(pod)[0])
+
+        if not selection:
+            for pod in self._pods.values():
+                for container in pod.containers:
+                    everything(pod, container)
+        for node_id in selection:
+            node = self._nodes.get(node_id)
+            role = node.get("_role") if node else None
+            owner = self._pods.get(node["_pod"]) if node and node.get("_pod") else None
+            if node is None or owner is None:
+                notes.append("Left out: an entry that is no longer listed.")
+            elif role == "pod":
+                for container in owner.containers:
+                    everything(owner, container)
+            elif role == "container":
+                everything(owner, node["_container"])
+            elif role == "console":
+                scope(owner.name, node["_container"])["console"] = True
+            elif role in ("folder", "file") and not node["_path"].lower().endswith(UNSEARCHABLE):
+                scope(owner.name, node["_container"])["paths"].append(node["_path"])
+            else:
+                notes.append(f"Not searched: {node['name']} (open the archive to read it).")
+        for entry in scopes.values():
+            entry["paths"] = list(dict.fromkeys(entry["paths"]))
+        return scopes
+
+    def _search(
+        self,
+        text: str,
+        selection: List[str],
+    ) -> None:
+        """
+        Find `text` (any case) in the ticked pods, containers, folders and files, or with
+        nothing ticked, in every listed pod: its console logs and the files under its
+        paths, searched inside the containers. Results are listed above the pods.
+        """
+
+        assert self._namespace is not None
+        self._remove_children(SEARCH_ID)
+        self._nodes.pop(SEARCH_ID, None)
+        self._search_ids = set()
+        if self._shown is not None and self._shown["id"] == SEARCH_ID:
+            self._shown = None
+        if not text:
+            self._search_text = ""
+            self.app.log(ACTIVITY, "Search cleared.")
+            return
+        text = text[:SEARCH_LENGTH]
+        self._search_text = text
+        notes: List[str] = []
+        found: List[Tuple[str, str, Match]] = []
+        scopes = self._search_scopes(selection, notes)
+        try:
+            for done, ((pod, container), scope) in enumerate(scopes.items()):
+                if len(found) >= SEARCH_MATCHES:
+                    notes.append(f"Only the first {SEARCH_MATCHES} matches are listed.")
+                    break
+                self._report(
+                    "Searching logs...",
+                    done,
+                    len(scopes),
+                    f"{pod}/{container} · {len(found)} found",
+                )
+                try:
+                    if scope["console"]:
+                        found.extend(
+                            (pod, container, match)
+                            for match in self._console_matches(pod, container, text)
+                        )
+                    if scope["paths"]:
+                        found.extend(
+                            (pod, container, match)
+                            for match in self._source.search(
+                                self._namespace,
+                                pod,
+                                container,
+                                scope["paths"],
+                                text,
+                                SEARCH_PER_FILE,
+                                SEARCH_MATCHES - len(found),
+                            )
+                        )
+                except PodLogsException as error:
+                    notes.append(f"Not searched: {pod}/{container}: {error}")
+        finally:
+            self._progress = None
+        found = found[:SEARCH_MATCHES]
+        self._list_matches(text, found, notes)
+        files = len({(pod, container, match.path) for pod, container, match in found})
+        self.app.log(ACTIVITY, f"Search '{text}': {len(found)} match(es) in {files} file(s).")
+
+    def _console_matches(
+        self,
+        pod: str,
+        container: str,
+        text: str,
+    ) -> List[Match]:
+        assert self._namespace is not None
+        needle = text.casefold()
+        log = self._source.console(self._namespace, pod, container, None, self._max_lines)
+        found = []
+        for number, line in enumerate(log.splitlines(), 1):
+            if needle in line.casefold():
+                found.append(Match(CONSOLE_NAME, number, line[:1000]))
+                if len(found) >= SEARCH_PER_FILE:
+                    break
+        return found
+
+    def _list_matches(
+        self,
+        text: str,
+        found: List[Tuple[str, str, Match]],
+        notes: List[str],
+    ) -> None:
+        """The results as a tree above the pods (click a file to open it) and in the viewer."""
+
+        files = {(pod, container, match.path) for pod, container, match in found}
+        self._add(
+            SEARCH_ID,
+            f"Search: {text}",
+            "group",
+            None,
+            note=f"{len(found)} in {len(files)} file(s)",
+            loaded=True,
+            _role="search",
+            _search=True,
+        )
+        counts: Dict[Tuple[str, str, str], int] = {}
+        for pod, container, match in found:
+            counts[(pod, container, match.path)] = counts.get((pod, container, match.path), 0) + 1
+        for (pod, container, path), count in counts.items():
+            listed = self._pods.get(pod)
+            scope = _node_id("search-scope", pod, container)
+            if scope not in self._nodes:
+                several = listed is not None and len(listed.containers) > 1
+                self._add(
+                    scope,
+                    f"{pod} / {container}" if several else pod,
+                    "group",
+                    SEARCH_ID,
+                    loaded=True,
+                    _search=True,
+                )
+            node_id = _node_id("search-file", pod, container, path)
+            self._add(
+                node_id,
+                path,
+                "file",
+                scope,
+                note=f"{count} match(es)",
+                _role="console" if path == CONSOLE_NAME else "file",
+                _search=True,
+                _pod=pod,
+                _container=container,
+                _path=path,
+            )
+            self._search_ids.add(node_id)
+        lines = [
+            f"{pod}/{container}  {match.path}:{match.line}  {match.text}"
+            for pod, container, match in found
+        ]
+        if not found:
+            notes.insert(0, f"No line holds '{text}'.")
+        notes.append(
+            "Archives and .gz files are not searched; open them in the tree. "
+            "The time range does not narrow a search."
+        )
+        self._opened = None
+        self._shown = {
+            "id": SEARCH_ID,
+            "title": f"Search: {text} · {len(found)} match(es) in {len(files)} file(s)",
+            "text": "\n".join(lines),
+            "notice": " ".join(notes),
+            "download_name": f"search-{re.sub(r'[^A-Za-z0-9._-]+', '_', text)[:60]}.txt",
+            "highlight": text,
+        }
+
+    # ------------------------------------------------------------------
+    # Download logs
+    # ------------------------------------------------------------------
+
+    def _report(
+        self,
+        label: str,
+        done: Optional[int] = None,
+        total: Optional[int] = None,
+        detail: Optional[str] = None,
+        force: bool = False,
+    ) -> None:
+        """Show how a download is going; the page hears of it at most every half second."""
+
+        self._progress = {"label": label, "done": done, "total": total, "detail": detail}
+        now = time.monotonic()
+        if force or now - self._progress_at >= PROGRESS_SECONDS:
+            self._progress_at = now
+            self._publish()
 
     def _bundle(
         self,
         filtered: bool,
+        selection: Optional[List[str]] = None,
     ) -> None:
         """
-        One .zip of every log listed: the console log of each listed pod's containers,
-        and the files in the folders opened so far. Filtered, text is narrowed to the
-        time range and archives that were opened give their files; otherwise files are
-        taken as they are.
+        One .zip of the ticked pods, containers, folders and files, or with nothing
+        ticked, of every listed log: each listed pod's console logs, and everything in
+        the paths of the pods opened so far. Folders are read whether or not they were
+        expanded. Filtered, text is narrowed to the time range and archives that were
+        opened give their files; otherwise files are taken as they are.
         """
 
         assert self._namespace is not None
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-        scope = "filtered" if filtered and not self._span.everything else "all"
-        root = Path(self.workspace) / self.SAVE_DIRECTORY
-        staging = root / f".bundle-{stamp}"
-        target = root / f"{self._namespace}-logs-{scope}-{stamp}.zip"
-        notes: List[str] = [
+        notes: List[str] = []
+        try:
+            self._report("Listing folders...", force=True)
+            items = self._bundle_items(selection or [], filtered, notes)
+            pods = sorted({item["_pod"] for item in items})
+            # Named after the pod when there is one, with the time it was made.
+            stamp = datetime.now(self._zone).strftime("%Y-%m-%d_%H-%M-%S")
+            subject = pods[0] if len(pods) == 1 else f"{self._namespace}-logs"
+            scope = "-filtered" if filtered and not self._span.everything else ""
+            name = re.sub(r"[^A-Za-z0-9._-]+", "_", f"{subject}{scope}-{stamp}")
+            root = Path(self.workspace) / self.SAVE_DIRECTORY
+            staging = root / f".bundle-{name}"
+            target = root / f"{name}.zip"
+            self.app.log(ACTIVITY, f"Preparing {target.name}: {len(items)} log(s)...")
+            files = self._write_bundle(items, filtered, staging / name, len(pods) > 1, notes)
+            self._report("Compressing...", files, len(items), target.name, force=True)
+            try:
+                self.filesystem.remove(target)
+                self.archive.compress(staging, target)
+            finally:
+                self.filesystem.remove(staging)
+        finally:
+            self._progress = None
+        self.app.log(ACTIVITY, f"{files} log(s) in {target.name}.")
+        self._deliver(target)
+
+    def _bundle_items(
+        self,
+        selection: List[str],
+        filtered: bool,
+        notes: List[str],
+    ) -> List[Dict[str, Any]]:
+        """What goes in a download: console logs, files and archive members, once each."""
+
+        items: List[Dict[str, Any]] = []
+        seen: Set[Tuple[str, str, str, str]] = set()
+
+        def add(item: Dict[str, Any]) -> None:
+            key = (item["_role"], item["_pod"], item["_container"], item["_path"])
+            if key in seen:
+                return
+            if len(items) >= BUNDLE_FILES:
+                if len(items) == BUNDLE_FILES:
+                    notes.append(f"Only the first {BUNDLE_FILES} logs are included.")
+                return
+            seen.add(key)
+            items.append(item)
+            if len(items) % 25 == 0:
+                self._report("Listing folders...", detail=f"{len(items)} log(s) found")
+
+        def console(pod: str, container: str) -> None:
+            add({"_role": "console", "_pod": pod, "_container": container, "_path": CONSOLE_NAME})
+
+        def container_logs(pod: Pod, container: str) -> None:
+            console(pod.name, container)
+            for path in self._pod_paths(pod)[0]:
+                self._walk(pod.name, container, path, 0, filtered, add, notes)
+
+        if not selection:
+            for pod in self._pods.values():
+                opened = self._nodes.get(_node_id("pod", pod.name), {}).get("loaded")
+                for container in pod.containers:
+                    if opened:
+                        container_logs(pod, container)
+                    else:
+                        console(pod.name, container)
+            return items
+
+        for node_id in selection:
+            node = self._nodes.get(node_id)
+            role = node.get("_role") if node else None
+            owner = self._pods.get(node["_pod"]) if node and node.get("_pod") else None
+            if node is None or (node.get("_pod") and owner is None):
+                notes.append("Left out: an entry that is no longer listed (it was refreshed).")
+            elif owner is None or role not in DOWNLOADABLE:
+                # A folder inside an archive: the archive, or its files, can be ticked.
+                notes.append(f"Left out: {node['name']} (tick the archive or its files instead).")
+            elif role == "pod":
+                for container in owner.containers:
+                    container_logs(owner, container)
+            elif role == "container":
+                container_logs(owner, node["_container"])
+            elif role == "console":
+                console(owner.name, node["_container"])
+            elif role == "folder":
+                self._walk(owner.name, node["_container"], node["_path"], 0, filtered, add, notes)
+            else:
+                add({**node, "_role": role})
+        return items
+
+    def _walk(
+        self,
+        pod: str,
+        container: str,
+        path: str,
+        depth: int,
+        filtered: bool,
+        add: Any,
+        notes: List[str],
+    ) -> None:
+        """Every file under `path`, read from the container whether or not it was expanded."""
+
+        assert self._namespace is not None
+        try:
+            listing = self._source.listing(self._namespace, pod, container, path)
+        except PodLogsException as error:
+            notes.append(f"Not listed: {pod}/{container}: {path}: {error}")
+            return
+        if listing.kind == "missing":
+            if depth == 0:
+                notes.append(f"Not found: {pod}/{container}: {path}")
+            return
+        if listing.kind == "file":
+            entry = listing.entries[0] if listing.entries else None
+            name = entry.name if entry else path.rsplit("/", 1)[-1]
+            add(self._file_item(pod, container, path, name))
+            return
+        start = self._span.start if filtered else None
+        for entry in listing.entries:
+            if entry.folder:
+                if depth + 1 >= BUNDLE_DEPTH:
+                    notes.append(f"Not read (deeper than {BUNDLE_DEPTH}): {pod}/{entry.path}")
+                    continue
+                self._walk(pod, container, entry.path, depth + 1, filtered, add, notes)
+                continue
+            # As in the tree: nothing last written before the range can be inside it.
+            if (
+                start
+                and entry.modified
+                and datetime.fromtimestamp(entry.modified, timezone.utc) < start
+            ):
+                continue
+            add(self._file_item(pod, container, entry.path, entry.name))
+
+    def _file_item(
+        self,
+        pod: str,
+        container: str,
+        path: str,
+        name: str,
+    ) -> Dict[str, Any]:
+        node_id = _node_id("path", pod, container, path)
+        shown = self._nodes.get(node_id) or {}
+        return {
+            "id": node_id,
+            "name": name,
+            "kind": "archive" if is_archive(path) else "file",
+            # An archive opened in the tree is already read: its files can be filtered.
+            "loaded": bool(shown.get("loaded")),
+            "_role": "file",
+            "_pod": pod,
+            "_container": container,
+            "_path": path,
+        }
+
+    def _write_bundle(
+        self,
+        items: List[Dict[str, Any]],
+        filtered: bool,
+        folder: Path,
+        per_pod: bool,
+        notes: List[str],
+    ) -> int:
+        """Write the items under `folder` with a README.txt; returns how many logs were written."""
+
+        assert self._namespace is not None
+        total = 0
+        count = 0
+        notes[:0] = [
             f"Namespace: {self._namespace}",
             f"Time range: {self._span.describe(self._zone) if filtered else 'everything'}"
             f" ({self._zone})",
+            f"Made: {datetime.now(self._zone).strftime('%Y-%m-%d %H:%M:%S')} ({self._zone})",
             "",
         ]
-        total = 0
-        count = 0
-        self.app.log(ACTIVITY, f"Preparing a download of the listed logs ({scope})...")
 
         def add(parts: List[str], data: bytes) -> None:
             nonlocal total, count
             if total + len(data) > self._max_bundle:
                 notes.append(f"Left out (over max_bundle_mb): {'/'.join(parts)}")
                 return
-            path = staging.joinpath(*parts)
+            # One pod: its containers sit at the top of the folder named after it.
+            path = folder.joinpath(*(parts if per_pod else parts[1:]))
             self.filesystem.mkdir(path.parent)
             self.filesystem.write_bytes(path, data)
             total += len(data)
             count += 1
 
-        try:
-            for pod in self._pods.values():
-                for container in pod.containers:
-                    try:
-                        text = self._source.console(
-                            self._namespace,
-                            pod.name,
-                            container,
-                            self._span.start if filtered else None,
-                            self._max_lines,
-                        )
-                        if filtered:
-                            text = filter_lines(text, self._span, self._zone)[0]
-                        add([pod.name, container, "console.log"], text.encode("utf-8"))
-                    except PodLogsException as error:
-                        notes.append(f"Not read: {pod.name}/{container} console log: {error}")
-            for node in list(self._nodes.values()):
-                if node.get("_role") != "file" or node["_pod"] not in self._pods:
-                    continue
-                label = f"{node['_pod']}/{node['_container']}: {node['_path']}"
-                try:
-                    self._bundle_file(node, filtered, add, notes)
-                except PodLogsException as error:
-                    notes.append(f"Not read: {label}: {error}")
-            files = count
-            add(["README.txt"], ("\n".join(notes) + "\n").encode("utf-8"))
-            self.filesystem.remove(target)
-            self.archive.compress(staging, target)
-        finally:
-            self.filesystem.remove(staging)
-        self.app.log(ACTIVITY, f"{files} log(s) in {target.name}.")
-        self._deliver(target)
+        for done, item in enumerate(items):
+            label = f"{item['_pod']}/{item['_container']}: {item['_path']}"
+            self._report("Reading logs...", done, len(items), f"{label} · {_size(total)} so far")
+            try:
+                if item["_role"] == "console":
+                    text = self._source.console(
+                        self._namespace,
+                        item["_pod"],
+                        item["_container"],
+                        self._span.start if filtered else None,
+                        self._max_lines,
+                    )
+                    if filtered:
+                        text = filter_lines(text, self._span, self._zone)[0]
+                    add([item["_pod"], item["_container"], "console.log"], text.encode("utf-8"))
+                elif item["_role"] == "member":
+                    self._bundle_member(item, filtered, add, notes)
+                else:
+                    self._bundle_file(item, filtered, add, notes)
+            except PodLogsException as error:
+                notes.append(f"Not read: {label}: {error}")
+        self._report("Reading logs...", len(items), len(items), _size(total), force=True)
+        self.filesystem.mkdir(folder)
+        self.filesystem.write_text(folder / "README.txt", "\n".join(notes) + "\n")
+        return count
+
+    def _bundle_member(
+        self,
+        node: Dict[str, Any],
+        filtered: bool,
+        add: Any,
+        notes: List[str],
+    ) -> None:
+        """One file inside an archive that was opened in the tree."""
+
+        archive = self._nodes.get(node["_archive"])
+        if archive is None:
+            raise PodLogsException("The archive is no longer listed.")
+        data = read_member(
+            archive["_path"], self._archive_bytes(archive), node["_member"], self._max_read
+        )
+        if filtered and b"\0" not in data[:BINARY_SAMPLE]:
+            text = data.decode("utf-8", errors="replace")
+            data = filter_lines(text, self._span, self._zone)[0].encode("utf-8")
+        folder = [node["_pod"], node["_container"], *_safe_parts(archive["_path"])]
+        add(
+            [*folder[:-1], f"{folder[-1]}.contents", *_safe_parts(node["_member"])],
+            data,
+        )
 
     def _bundle_file(
         self,

@@ -2803,3 +2803,28 @@
 .entropy-app .run-app-chart-legend button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entropy-app .run-app-chart-legend button[aria-pressed="false"] { color: var(--app-muted); opacity: 0.55; }
 .entropy-app .run-app-chart-legend button[aria-pressed="false"] i { background: transparent !important; outline: 1.5px solid var(--app-muted); }
+
+/* Files view: ticks for tree actions, and downloads under way. */
+.entropy-app .run-app-file-row { display: flex; align-items: center; min-width: 0; }
+.entropy-app .run-app-file-row.is-ticked { background: var(--app-accent-soft); }
+.entropy-app .run-app-file-tick { flex: none; width: 14px; height: 14px; margin: 0; accent-color: var(--app-accent); cursor: pointer; }
+.entropy-app .run-app-file-tick:disabled { cursor: default; opacity: 0.7; }
+.entropy-app .run-app-file-row .run-app-file { flex: 1; min-width: 0; }
+.entropy-app .run-app-ticked { display: inline-flex; align-items: center; gap: 4px; color: var(--app-muted); font-size: 12px; }
+.entropy-app .run-app-download:disabled { cursor: progress; opacity: 0.7; }
+.entropy-app .run-app-progress { display: grid; gap: 6px; padding: 8px 10px; background: var(--app-bg); border: 1px solid var(--app-line); border-radius: 8px; }
+.entropy-app .run-app-progress > div:first-child { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12.5px; }
+.entropy-app .run-app-progress > div:first-child svg { flex: none; color: var(--app-accent); }
+.entropy-app .run-app-progress span { color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.entropy-app .run-app-progress small { min-width: 0; margin-left: auto; overflow: hidden; color: var(--app-muted); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+.entropy-app .run-app-progress-bar.is-indeterminate span { animation: run-app-progress-slide 1.2s ease-in-out infinite; }
+@keyframes run-app-progress-slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+@media (prefers-reduced-motion: reduce) {
+    .entropy-app .run-app-progress-bar.is-indeterminate span { animation: none; }
+}
+
+/* Files view: search inside the logs, and the viewer full screen. */
+.entropy-app .run-app-files-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.entropy-app .run-app-files-search .list-search { flex: 1 1 260px; max-width: 520px; }
+.entropy-app .run-app-viewer:fullscreen { max-height: none; width: 100vw; height: 100vh; border: 0; border-radius: 0; }
+.entropy-app .run-app-viewer.is-fullscreen { position: fixed; inset: 0; z-index: 1000; max-height: none; border: 0; border-radius: 0; }

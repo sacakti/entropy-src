@@ -10,6 +10,8 @@ import {
     Folder,
     FolderOpen,
     LoaderCircle,
+    Maximize2,
+    Minimize2,
     Palette,
     Search,
     X,
@@ -20,6 +22,26 @@ import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import { downloadUrl } from '../../services/api'
 
 const EXPANDABLE = new Set(['group', 'folder', 'archive'])
+
+type Transfer = { name: string; received: number; total: number | null }
+
+/** A bar for `done` of `total`; without a total it only shows that work goes on. */
+function ProgressBar({ done, total, label }: { done?: number | null; total?: number | null; label: string }) {
+    const known = typeof done === 'number' && typeof total === 'number' && total > 0
+    const percent = known ? Math.min(100, Math.round(((done as number) / (total as number)) * 100)) : null
+    return (
+        <div
+            className={`run-progress run-app-progress-bar${percent === null ? ' is-indeterminate' : ''}`}
+            role="progressbar"
+            aria-label={label}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent ?? undefined}
+        >
+            <span style={{ width: percent === null ? '35%' : `${percent}%` }} />
+        </div>
+    )
+}
 
 function formatSize(size: number | null | undefined): string {
     if (size === null || size === undefined) return ''
@@ -67,13 +89,16 @@ const COLOURS_KEY = 'entropy.appFiles.colours'
  * node presses the view's `open` button with the node's id; other buttons aimed at
  * the view act on the open file.
  */
-export default function AppFiles({ view, data, buttons, live, onPress }: {
+export default function AppFiles({ view, data, buttons, live, onPress, searchText = '', onSearch }: {
     view: RunAppView
     data: RunAppViewData
     /** Buttons aimed at this view, besides `open`: they act on the open file. */
     buttons: RunAppInput[]
     live: boolean
     onPress: (name: string, selection: unknown[]) => Promise<void>
+    /** With a search box (`view.search`): the text last searched for, and how to search. */
+    searchText?: string
+    onSearch?: (text: string, selection: unknown[]) => Promise<void>
 }) {
     const { notify } = useFeedback()
     const nodes = useMemo(() => data.nodes ?? [], [data.nodes])
@@ -84,6 +109,13 @@ export default function AppFiles({ view, data, buttons, live, onPress }: {
     const [expanded, setExpanded] = useState<Set<string>>(new Set())
     const [waiting, setWaiting] = useState<string | null>(null)
     const [busy, setBusy] = useState<string | null>(null)
+    // Ticked nodes, for the tree actions; a ticked node stands for everything under it.
+    const [ticked, setTicked] = useState<Set<string>>(new Set())
+    const [transfer, setTransfer] = useState<Transfer | null>(null)
+    const searchable = Boolean(view.search && onSearch)
+    const selectable = treeActions.length > 0 || searchable
+    const [query, setQuery] = useState(searchText)
+    const progress = data.progress ?? null
 
     const children = useMemo(() => {
         const map = new Map<string | null, RunAppFileNode[]>()
@@ -94,6 +126,31 @@ export default function AppFiles({ view, data, buttons, live, onPress }: {
         })
         return map
     }, [nodes])
+
+    const parents = useMemo(() => new Map(nodes.map((node) => [node.id, node.parent])), [nodes])
+    // Ticks of nodes that were refreshed away no longer count.
+    const tickedIds = useMemo(() => [...ticked].filter((id) => parents.has(id)), [ticked, parents])
+    const tickedAbove = (id: string) => {
+        for (let parent = parents.get(id); parent; parent = parents.get(parent)) {
+            if (ticked.has(parent)) return true
+        }
+        return false
+    }
+    const toggleTick = (node: RunAppFileNode) => {
+        const next = new Set(ticked)
+        if (next.has(node.id)) {
+            next.delete(node.id)
+        } else {
+            next.add(node.id)
+            // Ticking a node covers what is under it.
+            for (const id of next) {
+                for (let parent = parents.get(id); parent; parent = parents.get(parent)) {
+                    if (parent === node.id) next.delete(id)
+                }
+            }
+        }
+        setTicked(next)
+    }
 
     // The spinner shows until what was asked for arrives: the file, or a folder's contents.
     const waitingNode = waiting ? nodes.find((item) => item.id === waiting) : undefined
@@ -120,21 +177,49 @@ export default function AppFiles({ view, data, buttons, live, onPress }: {
         void onPress(view.open ?? 'open', [node.id]).catch(() => setWaiting(null))
     }
 
-    const run = async (input: RunAppInput, needsFile = true) => {
-        if (needsFile && !opened) return
+    const run = async (input: RunAppInput) => {
+        if (!opened) return
         setBusy(input.name)
         try {
-            await onPress(input.name, opened ? [opened.id] : [])
+            await onPress(input.name, [opened.id])
         } finally {
             setBusy(null)
         }
     }
 
-    const fetchFile = async (item: { url: string; name: string }) => {
+    // Tree actions act on the ticked nodes; none ticked means everything listed.
+    const runTreeAction = async (input: RunAppInput) => {
+        setBusy(input.name)
         try {
-            await downloadUrl(item.url, item.name)
+            await onPress(input.name, tickedIds)
+        } finally {
+            setBusy(null)
+        }
+    }
+
+    const search = async (text: string) => {
+        if (!onSearch) return
+        setQuery(text)
+        setBusy('__search')
+        try {
+            await onSearch(text.trim(), tickedIds)
+        } catch {
+            // The page already said why.
+        } finally {
+            setBusy(null)
+        }
+    }
+
+    const fetchFile = async (item: { url: string; name: string; size?: number }) => {
+        setTransfer({ name: item.name, received: 0, total: item.size ?? null })
+        try {
+            await downloadUrl(item.url, item.name, (received, total) =>
+                setTransfer({ name: item.name, received, total: total ?? item.size ?? null }),
+            )
         } catch (cause) {
             notify.error(cause instanceof Error ? cause.message : 'Unable to download.', { title: 'Download' })
+        } finally {
+            setTransfer(null)
         }
     }
 
@@ -145,26 +230,41 @@ export default function AppFiles({ view, data, buttons, live, onPress }: {
             const Icon =
                 node.kind === 'group' ? Box : node.kind === 'archive' ? FileArchive : node.kind === 'folder' ? (isOpen ? FolderOpen : Folder) : FileText
             const kids = children.get(node.id)
+            const covered = selectable && tickedAbove(node.id)
             return (
                 <li key={node.id} role="treeitem" aria-expanded={expandable ? isOpen : undefined} aria-selected={opened?.id === node.id}>
-                    <button
-                        type="button"
-                        className={`run-app-file${opened?.id === node.id ? ' is-open' : ''}`}
-                        style={{ paddingLeft: 8 + depth * 14 }}
-                        onClick={() => click(node)}
-                        title={[node.name, node.note, node.modified, formatSize(node.size)].filter(Boolean).join(' · ')}
-                    >
-                        {expandable ? (isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />) : <span className="run-app-file-gap" />}
-                        <Icon size={14} aria-hidden="true" />
-                        <span className="run-app-file-name">{node.name}</span>
-                        {pending === node.id ? (
-                            <LoaderCircle size={13} className="entropy-spin" />
-                        ) : (
-                            (node.note || node.size !== undefined) && (
-                                <small>{node.note ?? formatSize(node.size)}</small>
-                            )
+                    <div className={`run-app-file-row${ticked.has(node.id) || covered ? ' is-ticked' : ''}`}>
+                        {selectable && (
+                            <input
+                                type="checkbox"
+                                className="run-app-file-tick"
+                                style={{ marginLeft: 8 + depth * 14 }}
+                                checked={ticked.has(node.id) || covered}
+                                disabled={covered || !live}
+                                onChange={() => toggleTick(node)}
+                                aria-label={`Tick ${node.name} for download`}
+                                title={covered ? 'Included with the folder above' : `Tick ${node.name} for download`}
+                            />
                         )}
-                    </button>
+                        <button
+                            type="button"
+                            className={`run-app-file${opened?.id === node.id ? ' is-open' : ''}`}
+                            style={{ paddingLeft: selectable ? 4 : 8 + depth * 14 }}
+                            onClick={() => click(node)}
+                            title={[node.name, node.note, node.modified, formatSize(node.size)].filter(Boolean).join(' · ')}
+                        >
+                            {expandable ? (isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />) : <span className="run-app-file-gap" />}
+                            <Icon size={14} aria-hidden="true" />
+                            <span className="run-app-file-name">{node.name}</span>
+                            {pending === node.id ? (
+                                <LoaderCircle size={13} className="entropy-spin" />
+                            ) : (
+                                (node.note || node.size !== undefined) && (
+                                    <small>{node.note ?? formatSize(node.size)}</small>
+                                )
+                            )}
+                        </button>
+                    </div>
                     {expandable && isOpen && (
                         <ul role="group">
                             {kids?.length ? (
@@ -182,26 +282,78 @@ export default function AppFiles({ view, data, buttons, live, onPress }: {
 
     return (
         <div className="run-app-files-wrap">
+            {searchable && (
+                <form
+                    className="run-app-files-search"
+                    role="search"
+                    onSubmit={(event) => {
+                        event.preventDefault()
+                        void search(query)
+                    }}
+                >
+                    <label className="list-search">
+                        <Search size={14} aria-hidden="true" />
+                        <input
+                            type="search"
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            placeholder={tickedIds.length ? `Search the ${tickedIds.length} ticked…` : 'Search every listed log…'}
+                            aria-label="Search inside the logs"
+                            maxLength={200}
+                            disabled={!live}
+                        />
+                        {query && (
+                            <button type="button" aria-label="Clear the search" onClick={() => void search('')} disabled={!live || busy !== null}>
+                                <X size={13} />
+                            </button>
+                        )}
+                    </label>
+                    <button
+                        type="submit"
+                        className="entropy-button entropy-button-secondary entropy-button-sm"
+                        disabled={!live || busy !== null || progress !== null || !query.trim()}
+                        title="Find the text, in any case, in the ticked pods, folders and files, or in every listed pod"
+                    >
+                        {busy === '__search' ? <LoaderCircle size={14} className="entropy-spin" /> : <Search size={14} />}
+                        Search{tickedIds.length > 0 && ` (${tickedIds.length})`}
+                    </button>
+                </form>
+            )}
             {(treeActions.length > 0 || downloads.length > 0) && (
                 <div className="run-app-files-bar">
+                    {selectable && (
+                        <span className="run-app-ticked" aria-live="polite">
+                            {tickedIds.length ? (
+                                <>
+                                    {tickedIds.length} ticked
+                                    <button type="button" className="entropy-button entropy-button-ghost entropy-button-sm" onClick={() => setTicked(new Set())}>
+                                        Clear
+                                    </button>
+                                </>
+                            ) : (
+                                'Nothing ticked: everything listed'
+                            )}
+                        </span>
+                    )}
                     {treeActions.map((input) => (
                         <button
                             key={input.name}
                             type="button"
                             className="entropy-button entropy-button-secondary entropy-button-sm"
-                            disabled={!live || busy !== null || nodes.length === 0}
+                            disabled={!live || busy !== null || progress !== null || nodes.length === 0}
                             title={input.description}
-                            onClick={() => void run(input, false)}
+                            onClick={() => void runTreeAction(input)}
                         >
                             {busy === input.name ? <LoaderCircle size={14} className="entropy-spin" /> : <Download size={14} />}
                             {input.label}
+                            {tickedIds.length > 0 && ` (${tickedIds.length})`}
                         </button>
                     ))}
                     {downloads.length > 0 && (
                         <div className="run-app-downloads" aria-label="Ready to download">
                             <small>Ready:</small>
                             {downloads.map((item) => (
-                                <button key={item.id} type="button" className="run-app-download" title={`Download ${item.name}`} onClick={() => void fetchFile(item)}>
+                                <button key={item.id} type="button" className="run-app-download" title={`Download ${item.name}`} disabled={transfer !== null} onClick={() => void fetchFile(item)}>
                                     <FileArchive size={13} aria-hidden="true" />
                                     {item.name}
                                     <small>{formatSize(item.size)}</small>
@@ -209,6 +361,32 @@ export default function AppFiles({ view, data, buttons, live, onPress }: {
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+            {progress && (
+                <div className="run-app-progress" aria-live="polite">
+                    <div>
+                        <LoaderCircle size={13} className="entropy-spin" aria-hidden="true" />
+                        <strong>{progress.label}</strong>
+                        {typeof progress.done === 'number' && typeof progress.total === 'number' && (
+                            <span>{progress.done} of {progress.total}</span>
+                        )}
+                        {progress.detail && <small title={progress.detail}>{progress.detail}</small>}
+                    </div>
+                    <ProgressBar done={progress.done} total={progress.total} label={progress.label} />
+                </div>
+            )}
+            {transfer && (
+                <div className="run-app-progress" aria-live="polite">
+                    <div>
+                        <Download size={13} aria-hidden="true" />
+                        <strong>Downloading {transfer.name}</strong>
+                        <span>
+                            {formatSize(transfer.received)}
+                            {transfer.total ? ` of ${formatSize(transfer.total)}` : ''}
+                        </span>
+                    </div>
+                    <ProgressBar done={transfer.received} total={transfer.total} label={`Downloading ${transfer.name}`} />
                 </div>
             )}
             <div className="run-app-files">
@@ -239,10 +417,57 @@ function FileViewer({ opened, buttons, live, busy, onRun }: {
     busy: string | null
     onRun: (input: RunAppInput) => void
 }) {
-    const [query, setQuery] = useState('')
+    const [query, setQuery] = useState(opened?.highlight ?? '')
     const [current, setCurrent] = useState(0)
     const [colours, setColours] = useState(() => localStorage.getItem(COLOURS_KEY) !== 'off')
     const body = useRef<HTMLDivElement>(null)
+    const frame = useRef<HTMLElement>(null)
+    // Full screen: the browser's own, else the viewer fills the window (Esc leaves both).
+    const [native, setNative] = useState(false)
+    const [filling, setFilling] = useState(false)
+    const fullScreen = native || filling
+
+    // A file opened with text to mark (a search result) starts with it highlighted.
+    const [seen, setSeen] = useState({ id: opened?.id, highlight: opened?.highlight })
+    if (seen.id !== opened?.id || seen.highlight !== opened?.highlight) {
+        setSeen({ id: opened?.id, highlight: opened?.highlight })
+        if (opened?.highlight) {
+            setQuery(opened.highlight)
+            setCurrent(0)
+        }
+    }
+
+    useEffect(() => {
+        const sync = () => setNative(document.fullscreenElement !== null && document.fullscreenElement === frame.current)
+        document.addEventListener('fullscreenchange', sync)
+        return () => document.removeEventListener('fullscreenchange', sync)
+    }, [])
+
+    useEffect(() => {
+        if (!filling) return
+        const leave = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setFilling(false)
+        }
+        window.addEventListener('keydown', leave)
+        return () => window.removeEventListener('keydown', leave)
+    }, [filling])
+
+    const toggleFullScreen = async () => {
+        if (native) {
+            await document.exitFullscreen().catch(() => undefined)
+            return
+        }
+        if (filling) {
+            setFilling(false)
+            return
+        }
+        try {
+            if (!frame.current?.requestFullscreen) throw new Error('unsupported')
+            await frame.current.requestFullscreen()
+        } catch {
+            setFilling(true)
+        }
+    }
     const text = opened?.text ?? ''
     const lines = useMemo(() => (text ? text.split('\n') : []), [text])
     const pattern = useMemo(() => (query.trim() ? new RegExp(escapeRegExp(query.trim()), 'gi') : null), [query])
@@ -332,7 +557,7 @@ function FileViewer({ opened, buttons, live, busy, onRun }: {
     }
 
     return (
-        <section className="run-app-viewer" aria-label={opened.title}>
+        <section ref={frame} className={`run-app-viewer${filling ? ' is-fullscreen' : ''}`} aria-label={opened.title}>
             <header className="run-app-viewer-head">
                 <strong title={opened.title}>{opened.title}</strong>
                 <div className="run-app-viewer-tools">
@@ -381,6 +606,16 @@ function FileViewer({ opened, buttons, live, busy, onRun }: {
                         }}
                     >
                         <Palette size={14} />
+                    </button>
+                    <button
+                        type="button"
+                        className={`entropy-button entropy-button-ghost entropy-button-icon entropy-button-sm${fullScreen ? ' is-active' : ''}`}
+                        aria-pressed={fullScreen}
+                        aria-label={fullScreen ? 'Leave full screen' : 'Full screen'}
+                        title={fullScreen ? 'Leave full screen (Esc)' : 'Full screen'}
+                        onClick={() => void toggleFullScreen()}
+                    >
+                        {fullScreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                     </button>
                     <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={download} disabled={!text} title="Download what is shown">
                         <Download size={14} /> Download

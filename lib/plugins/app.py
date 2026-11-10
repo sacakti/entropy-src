@@ -53,6 +53,7 @@ VIEW_KEYS = {
     "tab_of",
     "open",
     "tree_actions",
+    "search",
 }
 APP_KEYS = {"title", "description", "refresh_seconds", "inputs", "views"}
 DEFAULT_REFRESH = 2.0
@@ -189,6 +190,20 @@ def normalize_app(data: Any) -> Dict[str, Any]:
                 if isinstance(actions, list) and all(isinstance(name, str) for name in actions)
                 else []
             )
+            # A search box above the tree: its text goes to `input` (a text input),
+            # then `button` is pressed with the ticked nodes.
+            search = item.get("search")
+            entry["search"] = (
+                {"input": search["input"], "button": search["button"]}
+                if isinstance(search, dict)
+                and isinstance(search.get("input"), str)
+                and isinstance(search.get("button"), str)
+                else None
+            )
+            if search is not None and entry["search"] is None:
+                problems.append(
+                    f"app view '{entry['name']}': search is {{\"input\": ..., \"button\": ...}}"
+                )
         if isinstance(item.get("tab_of"), str):
             entry["tab_of"] = item["tab_of"]
         views.append(entry)
@@ -209,6 +224,25 @@ def normalize_app(data: Any) -> Dict[str, Any]:
                 problems.append(
                     f"app view '{entry['name']}': tree action '{action}' is not a button "
                     "aimed at this view (other than open)"
+                )
+        search = entry["search"]
+        if search is not None:
+            field = next((item for item in inputs if item["name"] == search["input"]), None)
+            button = buttons.get(search["button"])
+            if field is None or field["type"] != "text":
+                problems.append(
+                    f"app view '{entry['name']}': search input '{search['input']}' "
+                    "is not a text input"
+                )
+            if (
+                button is None
+                or button.get("target") != entry["name"]
+                or search["button"] == entry["open"]
+                or search["button"] in entry["tree_actions"]
+            ):
+                problems.append(
+                    f"app view '{entry['name']}': search button '{search['button']}' is not "
+                    "a button aimed at this view (other than open and the tree actions)"
                 )
 
     # A view may show as a tab of another (a table's graph); one level only.
@@ -587,6 +621,7 @@ class PluginApp:
         *,
         opened: Optional[Dict[str, Any]] = None,
         downloads: Optional[Sequence[Dict[str, Any]]] = None,
+        progress: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         A tree beside a read-only viewer. Nodes are flat, each naming its parent:
@@ -597,6 +632,11 @@ class PluginApp:
         `opened` is the file shown: {"id", "title", "text", and optionally
         "notice", "download_name"}; text past MAX_FILE_TEXT characters is cut.
         `downloads` are files offered with `offer()`, shown above the tree.
+        `progress` is work under way, shown above the tree until it is None:
+        {"label", and optionally "done" and "total" (counts) and "detail"}.
+
+        Tree actions are pressed with the ids of the nodes ticked in the tree
+        (none ticked: an empty selection).
         """
 
         self._view(name, "files")
@@ -633,6 +673,7 @@ class PluginApp:
                 "opened": shown,
                 "total": min(len(nodes), MAX_FILE_NODES),
                 "downloads": [dict(item) for item in downloads or []],
+                "progress": _progress(progress),
             },
         )
 
@@ -666,6 +707,19 @@ class PluginApp:
         self._views[name] = data
         if self._app_id is not None:
             self._store.set_views(self._app_id, self._views)
+
+
+def _progress(value: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not isinstance(value, dict) or not isinstance(value.get("label"), str):
+        return None
+    shown: Dict[str, Any] = {"label": value["label"][:200]}
+    for key in ("done", "total"):
+        count = value.get(key)
+        if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
+            shown[key] = count
+    if isinstance(value.get("detail"), str):
+        shown["detail"] = value["detail"][:200]
+    return shown
 
 
 def _number(value: Any) -> Optional[float]:

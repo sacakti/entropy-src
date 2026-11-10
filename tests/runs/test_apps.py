@@ -326,6 +326,26 @@ def test_tree_actions_must_be_buttons_aimed_at_the_view() -> None:
     assert sum("tree action" in problem for problem in caught.value.problems) == 2
 
 
+def test_a_files_search_needs_a_text_input_and_its_own_button() -> None:
+    good = {
+        "inputs": [
+            *FILES_APP["inputs"],
+            {"name": "query", "type": "text"},
+            {"name": "find", "type": "button", "target": "browser"},
+        ],
+        "views": [{**FILES_APP["views"][0], "search": {"input": "query", "button": "find"}}],
+    }
+    assert normalize_app(good)["views"][0]["search"] == {"input": "query", "button": "find"}
+    assert normalize_app({**good, "views": FILES_APP["views"]})["views"][0]["search"] is None
+    with pytest.raises(ContractError) as caught:
+        normalize_app(
+            {**good, "views": [{**good["views"][0], "search": {"input": "find", "button": "open"}}]}
+        )
+    assert sum("search" in problem for problem in caught.value.problems) == 2
+    with pytest.raises(ContractError, match="search is"):
+        normalize_app({**good, "views": [{**good["views"][0], "search": "query"}]})
+
+
 def test_datetime_inputs_take_text(connection, monkeypatch) -> None:
     monkeypatch.setenv(RUN_MODE_ENV, "interactive")
     definition = normalize_app(

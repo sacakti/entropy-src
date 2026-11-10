@@ -139,14 +139,41 @@ export async function downloadFile(
 }
 
 /** Downloads a file with GET; unlike a plain link, a failure can be reported. */
-export async function downloadUrl(url: string, filename: string): Promise<void> {
+/**
+ * Download a file. `onProgress` hears the bytes received so far and the
+ * total (null when the server does not say).
+ */
+export async function downloadUrl(
+    url: string,
+    filename: string,
+    onProgress?: (received: number, total: number | null) => void,
+): Promise<void> {
     const response = await fetch(url, {
         headers: currentProject() ? { [PROJECT_HEADER]: currentProject() as string } : {},
         credentials: 'same-origin',
         cache: 'no-store',
     })
 
-    await saveResponse(response, filename)
+    if (!onProgress || !response.ok || !response.body) {
+        await saveResponse(response, filename)
+        return
+    }
+
+    const length = Number(response.headers.get('Content-Length'))
+    const total = Number.isFinite(length) && length > 0 ? length : null
+    const reader = response.body.getReader()
+    const chunks: Uint8Array<ArrayBuffer>[] = []
+    let received = 0
+    onProgress(0, total)
+    for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        received += value.length
+        onProgress(received, total)
+    }
+    const type = response.headers.get('Content-Type') ?? 'application/octet-stream'
+    await saveResponse(new Response(new Blob(chunks, { type })), filename)
 }
 
 async function saveResponse(response: Response, filename: string): Promise<void> {

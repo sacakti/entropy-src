@@ -201,8 +201,10 @@ export interface RunAppView {
     tab_of?: string
     /** Files: the button pressed with a node's id when it is clicked. */
     open?: string
-    /** Files: buttons shown above the tree (the other buttons act on the open file). */
+    /** Files: buttons shown above the tree, pressed with the ticked nodes (the other buttons act on the open file). */
     tree_actions?: string[]
+    /** Files: a search box above the tree; its text goes to `input`, then `button` is pressed with the ticked nodes. */
+    search?: { input: string; button: string } | null
 }
 
 /** One entry of a files view's tree; `parent` is another node's id, or null at the top. */
@@ -240,9 +242,19 @@ export interface RunAppViewData {
     samples?: { at: string; values: Record<string, (number | null)[]> }[]
     /** Files: the tree, and the file open in the viewer. */
     nodes?: RunAppFileNode[]
-    opened?: { id: string; title: string; text: string; notice?: string | null; download_name?: string } | null
+    opened?: {
+        id: string
+        title: string
+        text: string
+        notice?: string | null
+        download_name?: string
+        /** Text the viewer marks when the file opens (e.g. what was searched for). */
+        highlight?: string | null
+    } | null
     /** Files: files the plugin offered for download, newest first. */
     downloads?: { id: number; name: string; size: number; url: string }[]
+    /** Files: work under way (a download being made), until it is null. */
+    progress?: { label: string; done?: number; total?: number; detail?: string } | null
 }
 
 /** The live page of an app plugin step. */

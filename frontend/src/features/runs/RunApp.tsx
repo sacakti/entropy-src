@@ -126,7 +126,9 @@ function RunAppPage({ runId, app, live, onChanged }: { runId: number; app: RunAp
         }
     }
 
-    const fields = definition.inputs.filter((input) => input.type !== 'button')
+    // A files view's search box is drawn above its tree, not with the other inputs.
+    const searchInputs = new Set(definition.views.map((view) => view.search?.input).filter(Boolean))
+    const fields = definition.inputs.filter((input) => input.type !== 'button' && !searchInputs.has(input.name))
     // Buttons aimed at a files view belong to it: its tree and viewer press them.
     const filesViews = new Set(definition.views.filter((view) => view.type === 'files').map((view) => view.name))
     const buttons = definition.inputs.filter((input) => input.type === 'button' && !filesViews.has(input.target ?? ''))
@@ -138,6 +140,20 @@ function RunAppPage({ runId, app, live, onChanged }: { runId: number; app: RunAp
             notify.error(errorMessage(cause, 'Unable to send the request.'), { title: 'App' })
             throw cause
         }
+    }
+    // The text is saved first, so the press that follows reaches the plugin with it.
+    const searchFiles = async (view: RunAppView, text: string, selection: unknown[]) => {
+        const search = view.search
+        if (!search) return
+        clearTimeout(timers.current[search.input])
+        setValues((current) => ({ ...current, [search.input]: text }))
+        try {
+            await runsApi.setAppInputs(runId, app.id, { [search.input]: text })
+        } catch (cause) {
+            notify.error(errorMessage(cause, 'Unable to send the search.'), { title: 'App' })
+            throw cause
+        }
+        await pressFiles(search.button, selection)
     }
     const state = app.state === 'running' && live ? 'live' : app.state === 'stopping' ? 'stopping' : 'finished'
 
@@ -193,8 +209,10 @@ function RunAppPage({ runId, app, live, onChanged }: { runId: number; app: RunAp
                         selected={selections[view.name] ?? new Set()}
                         onSelect={(next) => setSelections((current) => ({ ...current, [view.name]: next }))}
                         selectable={state === 'live'}
-                        buttons={definition.inputs.filter((input) => input.type === 'button' && input.target === view.name && input.name !== view.open)}
+                        buttons={definition.inputs.filter((input) => input.type === 'button' && input.target === view.name && input.name !== view.open && input.name !== view.search?.button)}
                         onPress={pressFiles}
+                        searchText={view.search ? String(values[view.search.input] ?? '') : ''}
+                        onSearch={(target, text, selection) => searchFiles(target, text, selection)}
                     />
                 ))}
             </div>
@@ -248,7 +266,7 @@ function AppField({ input, value, disabled, onChange }: {
 }
 
 /** A view's panel; views declared `tab_of` it show as tabs (List / Graph). */
-function AppViewPanel({ view: host, tabs, views, selected, onSelect, selectable, buttons, onPress }: {
+function AppViewPanel({ view: host, tabs, views, selected, onSelect, selectable, buttons, onPress, searchText, onSearch }: {
     view: RunAppView
     tabs: RunAppView[]
     views: Record<string, RunAppViewData>
@@ -258,6 +276,9 @@ function AppViewPanel({ view: host, tabs, views, selected, onSelect, selectable,
     /** Files views: the buttons aimed at the view (besides open), and how to press one. */
     buttons: RunAppInput[]
     onPress: (name: string, selection: unknown[]) => Promise<void>
+    /** Files views with a search box: its saved text, and how to search. */
+    searchText: string
+    onSearch: (view: RunAppView, text: string, selection: unknown[]) => Promise<void>
 }) {
     const [active, setActive] = useState(host.name)
     const view = tabs.find((item) => item.name === active) ?? host
@@ -285,7 +306,7 @@ function AppViewPanel({ view: host, tabs, views, selected, onSelect, selectable,
             ) : view.type === 'chart' ? (
                 <AppChart view={view} data={data} />
             ) : view.type === 'files' ? (
-                <AppFiles view={view} data={data} buttons={buttons} live={selectable} onPress={onPress} />
+                <AppFiles view={view} data={data} buttons={buttons} live={selectable} onPress={onPress} searchText={searchText} onSearch={(text, selection) => onSearch(view, text, selection)} />
             ) : view.type === 'stats' ? (
                 <div className="run-app-stats">
                     {(data.items ?? []).map((item) => (
