@@ -88,6 +88,7 @@ export default function Tasks() {
     const [severityFilter, setSeverityFilter] = useState('')
     const [groupFilter, setGroupFilter] = useState<number | null>(null)
     const [assigneeFilter, setAssigneeFilter] = useState('')
+    const [creatorFilter, setCreatorFilter] = useState('')
     const [selection, setSelection] = useState<number[]>([])
     const checkStatus = useStatusChange()
 
@@ -236,12 +237,21 @@ export default function Tasks() {
             if (assigneeFilter === '__me' && task.assignee?.toLowerCase() !== data.username.toLowerCase()) return false
             if (assigneeFilter === '__none' && task.assignee) return false
             if (assigneeFilter && !assigneeFilter.startsWith('__') && task.assignee !== assigneeFilter) return false
+            if (creatorFilter === '__me' && task.creator.toLowerCase() !== data.username.toLowerCase()) return false
+            if (creatorFilter && creatorFilter !== '__me' && task.creator.toLowerCase() !== creatorFilter.toLowerCase()) return false
             if (!needle) return true
             const assignee = task.assignee ? [task.assignee, memberName(data.members, task.assignee)] : []
             return [task.key, task.title, task.external_ref ?? '', task.description, ...assignee]
                 .some((value) => value.toLowerCase().includes(needle))
         })
-    }, [data, query, typeFilter, severityFilter, groupFilter, assigneeFilter])
+    }, [data, query, typeFilter, severityFilter, groupFilter, assigneeFilter, creatorFilter])
+    // Members first, then anyone else who created a task (e.g. imported from Jira).
+    const creators = useMemo(() => {
+        if (!data) return []
+        const known = new Set(data.members.map((member) => member.username.toLowerCase()))
+        const others = [...new Set(data.items.map((task) => task.creator).filter((name) => name && !known.has(name.toLowerCase())))]
+        return [...data.members.map((member) => member.username), ...others.sort()]
+    }, [data])
     const paging = usePagination(visible, 'tasks')
     const shown = paging.pageItems
 
@@ -302,7 +312,7 @@ export default function Tasks() {
     }
 
     const permissions = data.permissions
-    const filtering = Boolean(query || typeFilter || severityFilter || groupFilter || assigneeFilter)
+    const filtering = Boolean(query || typeFilter || severityFilter || groupFilter || assigneeFilter || creatorFilter)
     const activeGroup = groupFilter ? groupsById.get(groupFilter) : null
     const allSelected = shown.length > 0 && shown.every((task) => selection.includes(task.id))
 
@@ -375,6 +385,11 @@ export default function Tasks() {
                         <option value="__none">Unassigned</option>
                         {data.members.map((member) => <option key={member.username} value={member.username}>{member.full_name?.trim() || member.username}</option>)}
                     </select>
+                    <select value={creatorFilter} onChange={(event) => setCreatorFilter(event.target.value)} aria-label="Filter by creator">
+                        <option value="">Any creator</option>
+                        <option value="__me">Created by me</option>
+                        {creators.map((name) => <option key={name} value={name}>{memberName(data.members, name)}</option>)}
+                    </select>
                 </div>
                 <div className="tasks-actions">
                     <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void refresh()} title="Refresh tasks" aria-label="Refresh tasks"><RefreshCw size={15} /></button>
@@ -409,7 +424,7 @@ export default function Tasks() {
                         <div className="tasks-empty">
                             <Search size={24} />
                             <strong>No task matches</strong>
-                            {filtering && <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => { setQuery(''); setTypeFilter(''); setSeverityFilter(''); setGroupFilter(null); setAssigneeFilter('') }}>Clear filters</button>}
+                            {filtering && <button className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => { setQuery(''); setTypeFilter(''); setSeverityFilter(''); setGroupFilter(null); setAssigneeFilter(''); setCreatorFilter('') }}>Clear filters</button>}
                         </div>
                     ) : view === 'board' ? (
                         <div className="tasks-board">
