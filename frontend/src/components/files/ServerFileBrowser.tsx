@@ -4,6 +4,7 @@ import { ArrowUp, Check, File, Folder, FolderOpen, HardDrive, Home, LoaderCircle
 import { serverFilesApi, type ServerFileEntry, type ServerFolder } from '../../api/serverFiles.api'
 import Dialog from '../layout/Dialog'
 import { useErrorToast } from '../feedback/useToast'
+import { localeString } from '../../services/timezone'
 
 export type PathKind = 'file' | 'directory' | 'any'
 
@@ -215,7 +216,7 @@ export default function ServerFileBrowser({
                                 {entry.kind === 'directory' ? <Folder size={15} /> : <File size={15} />}
                                 <span className="server-files-name">{entry.name}</span>
                                 <span className="server-files-size">{formatSize(entry.size)}</span>
-                                <span className="server-files-date">{new Date(entry.modified).toLocaleString()}</span>
+                                <span className="server-files-date">{localeString(entry.modified)}</span>
                             </button>
                         </li>
                     )

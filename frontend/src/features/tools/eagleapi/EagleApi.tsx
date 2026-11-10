@@ -42,6 +42,7 @@ import { defaultRequest, ENV_STORAGE_KEY, itemPath, itemReadOnlyReason, METHODS,
 import '../../../styles/eagleapi.css'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../../components/feedback/useToast'
+import { localeString } from '../../../services/timezone'
 
 type NameRequest =
     | { kind: 'new-folder' | 'new-request'; parentId: number | null; data?: EagleRequestData; name?: string }
@@ -722,7 +723,7 @@ export default function EagleApi() {
                                         <History size={15} aria-hidden="true" />
                                         <span className="eagle-muted">History ·</span>
                                         <strong>{historyView?.item_name || 'Request'}</strong>
-                                        <span className="eagle-muted">{historyView ? new Date(historyView.created_at).toLocaleString() : ''}</span>
+                                        <span className="eagle-muted">{historyView ? localeString(historyView.created_at) : ''}</span>
                                     </div>
                                 )}
                                 {selected ? (

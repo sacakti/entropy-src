@@ -1,5 +1,6 @@
 import { apiRequest, downloadFile, downloadUrl } from '../services/api'
 import { currentProject } from '../services/project'
+import { displayTimeZone } from '../services/timezone'
 
 export type RunState =
     | 'queued'
@@ -350,7 +351,7 @@ export const runsApi = {
 
     downloadReport(id: number, target: string, format: 'html' | 'pdf'): Promise<void> {
         // Times in the report read as on the run page.
-        const zone = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)
+        const zone = encodeURIComponent(displayTimeZone())
         return downloadUrl(`/api/runs/${id}/report?format=${format}&tz=${zone}`, `run-${id}-${target}.${format}`)
     },
 

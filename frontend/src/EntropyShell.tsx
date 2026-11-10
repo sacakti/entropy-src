@@ -41,6 +41,7 @@ import SessionTimeout from './components/feedback/SessionTimeout'
 import { ReleaseHistory, WhatsNew } from './features/about/ReleaseNotes'
 import Tour, { type TourStep } from './features/tour/Tour'
 import { PROJECT_CHANGED_EVENT } from './services/project'
+import { localeString, setDisplayTimeZone } from './services/timezone'
 
 const ShellPanel = lazy(() => import('./features/shell/ShellPanel'))
 // Pages load when first opened, so the first visit downloads only the shell.
@@ -131,7 +132,7 @@ interface EntropyShellProps {
     onIdle: () => void
 }
 
-const when = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+const when = (value: string) => localeString(value, { dateStyle: 'medium', timeStyle: 'short' })
 
 /** "Nov 1, 2026, 7:13 PM from 10.0.0.4 (browser)" */
 function lastLoginText(login: LastLogin): string {
@@ -149,6 +150,11 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
         auth_provider: null,
     }))
     const [helpOpen, setHelpOpen] = useState(false)
+    // Times everywhere follow the profile's zone; set before the render that shows them.
+    const changeProfile = useCallback((next: Profile) => {
+        setDisplayTimeZone(next.effective_timezone)
+        setProfile(next)
+    }, [])
     const [tourOpen, setTourOpen] = useState(false)
     const tourOffered = useRef(false)
     const [shellOpen, setShellOpen] = useState(false)
@@ -158,7 +164,7 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
 
         getProfile()
             .then((loaded) => {
-                if (active) setProfile(loaded)
+                if (active) changeProfile(loaded)
             })
             .catch(() => {
                 // Older servers lack /api/profile; keep the session's identity.
@@ -167,7 +173,7 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
         return () => {
             active = false
         }
-    }, [])
+    }, [changeProfile])
 
     // Greet once per sign-in (effects run twice in development).
     const greeted = useRef(false)
@@ -578,7 +584,7 @@ function EntropyShell({ user, welcome, onLogout, onIdle }: EntropyShellProps) {
                         ) : activePage === 'preferences' ? (
                             <Preferences {...appearance} />
                         ) : activePage === 'settings' ? (
-                            <Settings profile={profile} onProfileChange={setProfile} />
+                            <Settings profile={profile} onProfileChange={changeProfile} />
                         ) : activePage === 'permissions' ? (
                             <Permissions />
                         ) : activePage === 'vault' ? (

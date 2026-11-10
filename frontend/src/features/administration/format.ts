@@ -1,3 +1,5 @@
+import { dateTimeFormat } from '../../services/timezone'
+
 export function formatDate(value: string | null): string {
     if (!value) return '—'
 
@@ -6,7 +8,7 @@ export function formatDate(value: string | null): string {
 
     return Number.isNaN(date.getTime())
         ? '—'
-        : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+        : dateTimeFormat({ dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
 export function errorMessage(error: unknown, fallback: string): string {

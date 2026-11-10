@@ -57,6 +57,7 @@ import { usePageSize } from '../../components/layout/usePagination'
 
 // Monaco is large; load the editor only when a plugin is opened.
 import PluginIconPicker from './PluginIconPicker'
+import { dateTimeFormat } from '../../services/timezone'
 
 const PluginEditor = lazy(() => import('./editor/PluginEditor'))
 const PluginHelp = lazy(() => import('./PluginHelp'))
@@ -100,7 +101,7 @@ function formatDate(value: string | null): string {
 
     if (Number.isNaN(date.getTime())) return '—'
 
-    return new Intl.DateTimeFormat(undefined, {
+    return dateTimeFormat({
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(date)

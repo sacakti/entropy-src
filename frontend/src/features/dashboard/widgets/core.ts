@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ApiError } from '../../../services/api'
+import { dateTimeFormat } from '../../../services/timezone'
 
 /** What every widget receives from the dashboard. */
 export interface WidgetProps<S = Record<string, unknown>> {
@@ -103,7 +104,7 @@ export function formatWhen(value: string | null | undefined): string {
     if (Math.abs(hours) < 24) return format.format(hours, 'hour')
     const days = Math.round(hours / 24)
     if (Math.abs(days) < 7) return format.format(days, 'day')
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
+    return dateTimeFormat({ dateStyle: 'medium' }).format(date)
 }
 
 export function formatBytes(value: number): string {

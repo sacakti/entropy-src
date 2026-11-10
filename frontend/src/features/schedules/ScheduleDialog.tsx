@@ -15,6 +15,7 @@ import ParamsEditor from '../runs/ParamsEditor'
 import { parseRows, rowsFor, type ParamRow } from '../runs/params'
 import { errorMessage, formatDateTime } from '../runs/format'
 import { useErrorToast } from '../../components/feedback/useToast'
+import { displayTimeZone, timeZoneNames } from '../../services/timezone'
 
 const PRESETS = [
     { label: 'Every 5 minutes', cron: '*/5 * * * *' },
@@ -25,19 +26,6 @@ const PRESETS = [
     { label: 'Monthly', cron: '0 0 1 * *' },
 ]
 
-function browserTimeZone(): string {
-    try {
-        return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-    } catch {
-        return 'UTC'
-    }
-}
-
-function timeZones(current: string): string[] {
-    const intl = Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
-    const zones = intl.supportedValuesOf?.('timeZone') ?? []
-    return Array.from(new Set(['UTC', current, ...zones]))
-}
 
 type Preview = { valid: boolean; error: string | null; next: string[] } | null
 
@@ -55,7 +43,7 @@ export default function ScheduleDialog({
     const [kind, setKind] = useState<'workflow' | 'plugin'>(schedule?.kind ?? 'workflow')
     const [target, setTarget] = useState(schedule?.target ?? '')
     const [cron, setCron] = useState(schedule?.cron ?? '0 2 * * *')
-    const [zone, setZone] = useState(schedule?.timezone ?? browserTimeZone())
+    const [zone, setZone] = useState(schedule?.timezone ?? displayTimeZone())
     const [node, setNode] = useState(schedule?.node ?? 'local')
     const [enabled, setEnabled] = useState(schedule?.enabled ?? true)
     const [rows, setRows] = useState<ParamRow[]>([])
@@ -249,7 +237,7 @@ export default function ScheduleDialog({
                 <label className="admin-field">
                     <span>Time zone</span>
                     <select className="schedule-select" value={zone} onChange={(event) => setZone(event.target.value)}>
-                        {timeZones(zone).map((item) => (
+                        {timeZoneNames(zone).map((item) => (
                             <option key={item} value={item}>
                                 {item}
                             </option>

@@ -3,6 +3,7 @@ import { AlertCircle, Check, Copy, LoaderCircle, Radio, Square } from 'lucide-re
 
 import type { EagleResult } from '../../../api/eagleapi.api'
 import { formatBytes, prettyJson } from './model'
+import { localeTimeString } from '../../../services/timezone'
 
 const CodeEditor = lazy(() => import('./CodeEditor'))
 
@@ -290,7 +291,7 @@ export default function ResponseViewer({
                                 <li key={item.attempt} className={shown === item.attempt ? 'is-selected' : ''}>
                                     <button type="button" onClick={() => onShow(item.attempt)}>
                                         <span className="eagle-timeline-n">#{item.attempt}</span>
-                                        <time>{item.at.toLocaleTimeString()}</time>
+                                        <time>{localeTimeString(item.at)}</time>
                                         <StatusBadge result={item.result} />
                                         <span className="eagle-timeline-ms">{item.result.elapsed_ms} ms</span>
                                         <span className="eagle-timeline-body">{snippet(item.result)}</span>

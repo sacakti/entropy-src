@@ -6,6 +6,7 @@ import { useFeedback } from '../../components/feedback/FeedbackProvider'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import DatabaseEngine, { type EngineInfo } from './DatabaseEngine'
 import { useErrorToast } from '../../components/feedback/useToast'
+import { localeString } from '../../services/timezone'
 
 interface Backup {
     name: string
@@ -35,7 +36,7 @@ function size(bytes: number): string {
 }
 
 function when(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : 'never'
+    return iso ? localeString(iso) : 'never'
 }
 
 function message(error: unknown, fallback: string): string {

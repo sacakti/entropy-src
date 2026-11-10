@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { visionLook, VISION_LOOK_EVENT, type VisionLook } from './bus'
+import { dateTimeFormat, localeDateString, localeTimeString, zonedClock } from '../../services/timezone'
 
 /** The chosen look, following changes made in Preferences (in this or another tab). */
 export function useVisionLook(): VisionLook {
@@ -47,7 +48,7 @@ function clockFormat(look: VisionLook): Intl.DateTimeFormatOptions {
 }
 
 export function formatClock(now: Date, look: VisionLook): string {
-    return now.toLocaleTimeString(undefined, clockFormat(look))
+    return localeTimeString(now, clockFormat(look))
 }
 
 /**
@@ -55,7 +56,7 @@ export function formatClock(now: Date, look: VisionLook): string {
  * the seconds (the second ":" of 20:31:05), in the user's own format.
  */
 export function clockParts(now: Date, look: VisionLook): { text: string; separator: boolean }[] {
-    return new Intl.DateTimeFormat(undefined, clockFormat(look))
+    return dateTimeFormat(clockFormat(look))
         .formatToParts(now)
         .map((part, index, parts) => ({
             text: part.value,
@@ -64,10 +65,10 @@ export function clockParts(now: Date, look: VisionLook): { text: string; separat
 }
 
 export function formatDay(now: Date): string {
-    return now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+    return localeDateString(now, { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
 export function greeting(now: Date): string {
-    const hour = now.getHours()
+    const hour = zonedClock(now).hours
     return hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 }

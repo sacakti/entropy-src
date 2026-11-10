@@ -9,6 +9,7 @@ import { useMonacoTheme } from '../monacoTools'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../../components/feedback/useToast'
 import GitCredentialsDialog from './GitCredentialsDialog'
+import { localeString } from '../../../services/timezone'
 
 type Branches = { branches: string[]; committed_branches: string[]; default_branch: string | null }
 type Commit = { sha: string; short_sha: string; subject: string; author: string; date: string }
@@ -49,7 +50,7 @@ function pullMessage(summary: PullSummary) {
 function formatDate(value: string) {
     if (!value) return '—'
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+    return Number.isNaN(date.getTime()) ? value : localeString(date)
 }
 
 export default function RepositoryBrowser({ repository, onBack }: {

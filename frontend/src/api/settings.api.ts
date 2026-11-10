@@ -9,6 +9,8 @@ export interface GroupMapping {
 
 export interface GeneralSettings {
     public_url: string
+    /** IANA zone times are shown in; empty for the server's zone. */
+    timezone: string
 }
 
 export interface SmtpSettings {
@@ -134,6 +136,8 @@ export interface AllSettings {
     cache: CacheSettings
     queue: QueueSettings
     retention: RetentionSettings
+    /** The server's own zone, the default when `general.timezone` is empty. */
+    server_timezone?: string
 }
 
 export type SectionName = 'general' | 'vision' | 'smtp' | 'ldap' | 'oidc' | 'database_target' | 'cache' | 'queue'

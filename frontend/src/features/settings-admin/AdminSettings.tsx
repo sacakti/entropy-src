@@ -40,6 +40,7 @@ import DatabasePanel from './DatabasePanel'
 import VisionBroadcasts from './VisionBroadcasts'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import { timeZoneNames } from '../../services/timezone'
 
 type Tab = 'general' | 'vision' | 'smtp' | 'ldap' | 'oidc' | 'retention' | 'database' | 'cache' | 'queue'
 
@@ -51,7 +52,7 @@ const TABS: { id: Tab; label: string; icon: typeof Mail; hint: string }[] = [
     { id: 'database', label: 'Database', icon: Database, hint: 'SQLite, PostgreSQL, backups' },
     { id: 'cache', label: 'Cache', icon: Zap, hint: 'Redis server' },
     { id: 'queue', label: 'Message queue', icon: MessagesSquare, hint: 'ActiveMQ, RabbitMQ, MQTT, Kafka' },
-    { id: 'general', label: 'Address', icon: Globe, hint: 'Where people open Entropy' },
+    { id: 'general', label: 'Address and time zone', icon: Globe, hint: 'Where people open Entropy, and its clock' },
     { id: 'vision', label: 'Vision', icon: Megaphone, hint: 'Live status, and messages to everyone' },
 ]
 
@@ -263,7 +264,7 @@ export default function AdminSettings() {
             .catch(() => setGroups([]))
     }, [])
 
-    const update = <K extends keyof AllSettings>(section: K, patch: Partial<AllSettings[K]>) =>
+    const update = <K extends Exclude<keyof AllSettings, 'server_timezone'>>(section: K, patch: Partial<AllSettings[K]>) =>
         setSettings((current) => (current ? { ...current, [section]: { ...current[section], ...patch } } : current))
 
     const secretValue = (key: string) => secrets[key] ?? ''
@@ -890,8 +891,8 @@ export default function AdminSettings() {
                     <>
                         <header className="settings-admin-head">
                             <div>
-                                <h2>Address</h2>
-                                <p>Where people open Entropy; used for links in e-mails.</p>
+                                <h2>Address and time zone</h2>
+                                <p>Where people open Entropy, used for links in e-mails, and the zone times are shown in.</p>
                             </div>
                             {saveButton('general')}
                         </header>
@@ -902,6 +903,17 @@ export default function AdminSettings() {
                                     onChange={(event) => update('general', { public_url: event.target.value })}
                                     placeholder={window.location.origin}
                                 />
+                            </Field>
+                            <Field label="Time zone" hint="The default for everyone; people can choose their own in Settings. Stored times stay UTC.">
+                                <select
+                                    value={settings.general.timezone ?? ''}
+                                    onChange={(event) => update('general', { timezone: event.target.value })}
+                                >
+                                    <option value="">Server time zone ({settings.server_timezone ?? 'unknown'})</option>
+                                    {timeZoneNames(settings.general.timezone || undefined).map((item) => (
+                                        <option key={item} value={item}>{item}</option>
+                                    ))}
+                                </select>
                             </Field>
                         </div>
                     </>

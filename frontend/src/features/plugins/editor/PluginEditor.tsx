@@ -60,6 +60,7 @@ import { registerSdkLanguage, toMarkers } from './sdkLanguage'
 import VisualBuilder from './visual/VisualBuilder'
 import { forSave, withIds, type BuilderModel } from './visual/model'
 import { useErrorToast } from '../../../components/feedback/useToast'
+import { localeString } from '../../../services/timezone'
 
 type FileMap = Record<string, string>
 type EditorMode = 'edit' | 'review'
@@ -1196,7 +1197,7 @@ export default function PluginEditor({
                         : 'LF (Unix)',
             ],
             ['Encoding', 'UTF-8'],
-            ['Modified', saved?.modified ? new Date(saved.modified).toLocaleString() : 'Not saved yet'],
+            ['Modified', saved?.modified ? localeString(saved.modified) : 'Not saved yet'],
             ['Status', !(row.path in originals) ? 'New, not saved yet' : row.path in changes ? 'Unsaved changes' : 'Saved'],
         ]
     }

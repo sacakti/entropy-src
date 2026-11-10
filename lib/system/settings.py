@@ -27,6 +27,8 @@ SECTIONS: Dict[str, Dict[str, Any]] = {
     "general": {
         # Where people open Entropy, e.g. https://entropy.example.com (links in e-mails).
         "public_url": "",
+        # IANA zone times are shown in, e.g. Europe/Berlin; empty for the server's zone.
+        "timezone": "",
     },
     "vision": {
         # The live island in the topbar, for everyone.
@@ -289,6 +291,13 @@ class SystemSettings:
             and not str(values["public_url"]).startswith(("http://", "https://"))
         ):
             raise SettingsError("The address starts with http:// or https://.")
+        if section == "general" and values["timezone"]:
+            from lib.system.timezone import valid_timezone
+
+            if not valid_timezone(str(values["timezone"])):
+                raise SettingsError(
+                    f"'{values['timezone']}' is not a time zone, e.g. Europe/Berlin or UTC."
+                )
 
 
 def _coerce(key: str, value: Any, default: Any) -> Any:

@@ -1,4 +1,5 @@
 import type { Promotion, Release, ReleaseTask } from './ReleaseManager'
+import { localeString } from '../../../services/timezone'
 
 const STAGES: Record<string, string> = {
     workflow_queue: 'Workflow queue',
@@ -109,7 +110,7 @@ export function outlookReport(heading: string, releases: Release[], promotions: 
     const intro = releases.length === 1 ? details(releases[0], promotions) : table(releaseRows(releases, promotions))
     const html =
         `<div style="${FONT}">${title(heading, 14)}` +
-        `<p style="${FONT};color:#595959;margin:0 0 8px">Generated ${escape(new Date().toLocaleString())} from Entropy Release Manager.</p>` +
+        `<p style="${FONT};color:#595959;margin:0 0 8px">Generated ${escape(localeString(new Date()))} from Entropy Release Manager.</p>` +
         (releases.length === 1 ? '' : title(`Releases (${releases.length})`, 12)) +
         intro +
         title(`Tasks (${tasks.length - 1})`, 12) +

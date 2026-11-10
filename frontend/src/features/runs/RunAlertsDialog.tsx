@@ -7,6 +7,7 @@ import Dialog from '../../components/layout/Dialog'
 import { errorMessage } from './format'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
+import { localeString } from '../../services/timezone'
 
 const OUTCOMES: { key: 'on_success' | 'on_failure' | 'on_cancel'; label: string }[] = [
     { key: 'on_success', label: 'Completed' },
@@ -203,7 +204,7 @@ export default function RunAlertsDialog({
                     {values.updated_by && (
                         <p className="run-alerts-meta">
                             Last changed by {values.updated_by}
-                            {values.updated_at ? ` on ${new Date(values.updated_at).toLocaleString()}` : ''}.
+                            {values.updated_at ? ` on ${localeString(values.updated_at)}` : ''}.
                         </p>
                     )}
                 </div>

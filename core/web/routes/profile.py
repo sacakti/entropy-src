@@ -23,6 +23,8 @@ from core.web.routes.auth import _current_session, verify_csrf
 from lib.database.repositories.user_web_settings import UserWebSettingsRepository
 from lib.models.session import Session
 from lib.models.users import User
+from lib.system.settings import settings_for
+from lib.system.timezone import server_timezone, valid_timezone
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 
@@ -40,6 +42,8 @@ class ProfileUpdate(BaseModel):
 
     full_name: Optional[str] = Field(default=None, max_length=120)
     email: Optional[str] = Field(default=None, max_length=254)
+    # IANA zone; null or "" follows the installation's zone. Left out: unchanged.
+    timezone: Optional[str] = Field(default=None, max_length=64)
 
 
 def _repository(request: Request) -> UserWebSettingsRepository:
@@ -49,6 +53,23 @@ def _repository(request: Request) -> UserWebSettingsRepository:
         raise HTTPException(status_code=500, detail="Database is unavailable.")
 
     return UserWebSettingsRepository(context.database_manager.connection)
+
+
+def _timezones(request: Request, user_id: int) -> dict:
+    """The user's own zone (or None), the installation's and the server's."""
+
+    server = server_timezone()
+    installation = settings_for(request.app.state.entropy_context).get("general")["timezone"]
+    own = _repository(request).get_settings(user_id).get("timezone") or None
+    if own is not None and not valid_timezone(str(own)):
+        own = None
+    default = installation if installation and valid_timezone(installation) else server
+    return {
+        "timezone": own,
+        "default_timezone": default,
+        "server_timezone": server,
+        "effective_timezone": own or default,
+    }
 
 
 def _payload(user: User, avatar_version: Optional[str], request: Request) -> dict:
@@ -65,10 +86,9 @@ def _payload(user: User, avatar_version: Optional[str], request: Request) -> dic
         "username": user.username,
         "full_name": user.full_name,
         "email": user.email,
-        "avatar_url": (
-            f"/api/profile/avatar?v={avatar_version}" if avatar_version else None
-        ),
+        "avatar_url": (f"/api/profile/avatar?v={avatar_version}" if avatar_version else None),
         "auth_provider": provider,
+        **(_timezones(request, user.id) if user.id is not None else {}),
     }
 
 
@@ -105,6 +125,15 @@ def update_profile(
 
     if email is not None and not EMAIL_PATTERN.match(email):
         raise HTTPException(status_code=422, detail="Enter a valid email address.")
+
+    if "timezone" in payload.model_fields_set:
+        zone = (payload.timezone or "").strip() or None
+        if zone is not None and not valid_timezone(zone):
+            raise HTTPException(
+                status_code=422,
+                detail=f"'{zone}' is not a time zone, e.g. Europe/Berlin or UTC.",
+            )
+        _repository(request).update_settings(user.id, {"timezone": zone})
 
     stored = request.app.state.entropy_context.user_manager.update_profile(
         user,

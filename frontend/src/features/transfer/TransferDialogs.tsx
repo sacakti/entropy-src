@@ -16,6 +16,7 @@ import { apiRequest, PROJECT_HEADER } from '../../services/api'
 import { currentProject } from '../../services/project'
 import '../../styles/transfer.css'
 import { useErrorToast } from '../../components/feedback/useToast'
+import { localeString } from '../../services/timezone'
 
 const MIN_PASSPHRASE = 12
 
@@ -594,7 +595,7 @@ export function ProjectRestoreDialog({ project, onClose, onDone }: { project: { 
             manifest
                 ? ([
                       ['From', `${manifest.project.name} (${manifest.project.key}), Entropy ${manifest.entropy_version}`],
-                      ['Made', `${new Date(manifest.created_at).toLocaleString()} by ${manifest.created_by}`],
+                      ['Made', `${localeString(manifest.created_at)} by ${manifest.created_by}`],
                       ['Workflows', manifest.workflows.join(', ') || 'None'],
                       ['Schedules', String(manifest.schedules)],
                       ['Plugins', manifest.plugins.join(', ') || 'None'],

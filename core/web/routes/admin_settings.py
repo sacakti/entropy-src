@@ -23,6 +23,7 @@ from lib.runs.housekeeping import Housekeeping
 from lib.system.connections import CHECKS, ConnectionCheckError
 from lib.system.mailer import MailError, addresses, send_mail
 from lib.system.settings import SECTIONS, SettingsError, settings_for
+from lib.system.timezone import server_timezone
 
 router = APIRouter(prefix="/api/admin/settings", tags=["administration"])
 
@@ -72,6 +73,8 @@ def get_settings(
     return {
         **{section: store.get(section) for section in SECTIONS},
         "retention": _retention(request),
+        # Shown as the default when no installation time zone is set.
+        "server_timezone": server_timezone(),
     }
 
 

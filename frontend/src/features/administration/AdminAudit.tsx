@@ -11,6 +11,7 @@ import { usePageSize } from '../../components/layout/usePagination'
 import { useSortState } from '../../components/layout/useSort'
 import { AdminPanel, EmptyRow, SearchField } from './AdminPanel'
 import { errorMessage } from './format'
+import { localeString } from '../../services/timezone'
 
 const SORTS: AuditSortField[] = ['time', 'user', 'category', 'action', 'outcome', 'project']
 /** Where the activity came from. */
@@ -21,7 +22,7 @@ const OUTCOME_LABELS: Record<AuditEntry['outcome'], string> = { success: 'Succes
 
 const when = (value: string) => {
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
+    return Number.isNaN(date.getTime()) ? value : localeString(date, { dateStyle: 'medium', timeStyle: 'medium' })
 }
 
 /** "tasks.comments.create" -> "Tasks · comments · create" */

@@ -44,6 +44,7 @@ import {
 } from './model'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../../components/feedback/useToast'
+import { localeString } from '../../../services/timezone'
 
 type View = 'form' | CodeFormat
 
@@ -375,7 +376,7 @@ export default function WorkflowBuilder({
     const discardDraft = async (target: WorkflowDraftSummary) => {
         const confirmed = await modal.confirm({
             title: 'Discard the draft?',
-            message: `The version saved with errors on ${new Date(target.updated_at).toLocaleString()} is deleted.`,
+            message: `The version saved with errors on ${localeString(target.updated_at)} is deleted.`,
             confirmText: 'Discard draft',
             cancelText: 'Keep it',
             destructive: true,
@@ -604,7 +605,7 @@ export default function WorkflowBuilder({
                                 A version saved with errors exists ({pendingDraft.errors.length} problem
                                 {pendingDraft.errors.length === 1 ? '' : 's'}, by {pendingDraft.updated_by ?? 'someone'}
                                 {' on '}
-                                {new Date(pendingDraft.updated_at).toLocaleString()}).
+                                {localeString(pendingDraft.updated_at)}).
                             </span>
                             <button
                                 type="button"

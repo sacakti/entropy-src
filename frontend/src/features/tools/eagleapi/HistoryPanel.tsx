@@ -6,6 +6,7 @@ import { useFeedback } from '../../../components/feedback/FeedbackProvider'
 import { eagleApi, type EagleHistorySummary } from '../../../api/eagleapi.api'
 import EntropyLoader from '../../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../../components/feedback/useToast'
+import { localeDateString, localeTimeString } from '../../../services/timezone'
 
 function errorText(cause: unknown, fallback: string): string {
     return cause instanceof Error && cause.message ? cause.message : fallback
@@ -14,8 +15,9 @@ function errorText(cause: unknown, fallback: string): string {
 function when(iso: string): string {
     const date = new Date(iso)
     const today = new Date()
-    const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    return date.toDateString() === today.toDateString() ? time : `${date.toLocaleDateString()} ${time}`
+    const time = localeTimeString(date, { hour: '2-digit', minute: '2-digit', second: '2-digit' }, [])
+    const day = localeDateString(date)
+    return day === localeDateString(today) ? time : `${day} ${time}`
 }
 
 function statusClass(entry: EagleHistorySummary): string {

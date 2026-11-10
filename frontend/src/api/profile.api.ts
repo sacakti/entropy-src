@@ -9,6 +9,13 @@ export interface Profile {
     auth_provider: 'ldap' | 'oidc' | null
     /** Versioned URL of the profile picture, or null when none is set. */
     avatar_url: string | null
+    /** The user's own time zone; null follows `default_timezone`. */
+    timezone?: string | null
+    /** The installation's zone (Administration -> Settings), else the server's. */
+    default_timezone?: string
+    server_timezone?: string
+    /** The zone times are shown in. Missing from older servers. */
+    effective_timezone?: string
 }
 
 export function getProfile(): Promise<Profile> {
@@ -18,6 +25,8 @@ export function getProfile(): Promise<Profile> {
 export function updateProfile(changes: {
     full_name: string | null
     email: string | null
+    /** Left out: unchanged; null: follow the installation's zone. */
+    timezone?: string | null
 }): Promise<Profile> {
     return apiRequest<Profile>('/api/profile', {
         method: 'PATCH',

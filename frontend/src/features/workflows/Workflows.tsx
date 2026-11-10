@@ -47,6 +47,7 @@ import EntropyLoader from '../../components/feedback/EntropyLoader'
 import { useErrorToast } from '../../components/feedback/useToast'
 import IconPicker from '../plugins/IconPicker'
 import { iconById } from '../plugins/pluginIcons'
+import { dateTimeFormat } from '../../services/timezone'
 
 // The builder pulls in Monaco and YAML; load it only when opened.
 const WorkflowBuilder = lazy(() => import('./builder/WorkflowBuilder'))
@@ -67,7 +68,7 @@ function formatDate(value: string): string {
 
     return Number.isNaN(date.getTime())
         ? '—'
-        : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+        : dateTimeFormat({ dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
 type WorkflowView = 'list' | 'gallery'

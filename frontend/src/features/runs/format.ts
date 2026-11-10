@@ -1,4 +1,5 @@
 import type { Run, RunState } from '../../api/runs.api'
+import { dateTimeFormat } from '../../services/timezone'
 
 export function errorMessage(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback
@@ -9,7 +10,7 @@ export function formatDateTime(value: string | null | undefined): string {
     const date = new Date(value)
     return Number.isNaN(date.getTime())
         ? '—'
-        : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' }).format(date)
+        : dateTimeFormat({ dateStyle: 'medium', timeStyle: 'medium' }).format(date)
 }
 
 export function formatTime(value: string | null | undefined): string {
@@ -17,7 +18,7 @@ export function formatTime(value: string | null | undefined): string {
     const date = new Date(value)
     return Number.isNaN(date.getTime())
         ? ''
-        : new Intl.DateTimeFormat(undefined, { timeStyle: 'medium' }).format(date)
+        : dateTimeFormat({ timeStyle: 'medium' }).format(date)
 }
 
 export function formatDuration(milliseconds: number | null | undefined): string {

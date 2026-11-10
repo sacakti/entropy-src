@@ -1,13 +1,15 @@
 import { useState } from 'react'
+import { zonedClock } from '../../services/timezone'
 
 /**
  * A small analog clock. The second hand sweeps on its own (a CSS animation started
  * at the current second), so it moves smoothly without redrawing every frame.
  */
 export default function VisionClockFace({ now }: { now: Date }) {
-    const seconds = now.getSeconds() + now.getMilliseconds() / 1000
-    const minutes = now.getMinutes() + seconds / 60
-    const hours = (now.getHours() % 12) + minutes / 60
+    const clock = zonedClock(now)
+    const seconds = clock.seconds + now.getMilliseconds() / 1000
+    const minutes = clock.minutes + seconds / 60
+    const hours = (clock.hours % 12) + minutes / 60
     // Fixed once per mount: the animation keeps time from there.
     const [sweepDelay] = useState(() => `-${seconds.toFixed(2)}s`)
     return (

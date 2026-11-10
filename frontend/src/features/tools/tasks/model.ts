@@ -14,6 +14,7 @@ import {
 import { apiRequest } from '../../../services/api'
 import { currentProject } from '../../../services/project'
 import { isPastDue } from './schedule'
+import { localeString } from '../../../services/timezone'
 
 export type Status = 'todo' | 'in_progress' | 'done' | 'reopened'
 export type Severity = 'critical' | 'high' | 'medium' | 'low'
@@ -166,7 +167,7 @@ export const localDate = (value: string | null) => {
     if (!value) return ''
     // SQLite times are UTC without a zone.
     const date = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(value) ? value : `${value.replace(' ', 'T')}Z`)
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+    return Number.isNaN(date.getTime()) ? value : localeString(date)
 }
 
 export const reminderValue = (value: string) => (value ? new Date(value).toISOString() : null)

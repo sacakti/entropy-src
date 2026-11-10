@@ -3,6 +3,7 @@ import { Megaphone, Send } from 'lucide-react'
 
 import { visionApi, type BroadcastLevel, type VisionBroadcast } from '../../api/vision.api'
 import { useFeedback } from '../../components/feedback/FeedbackProvider'
+import { localeString } from '../../services/timezone'
 
 const MAX_MESSAGE = 500
 
@@ -166,7 +167,7 @@ export default function VisionBroadcasts({ enabled }: { enabled: boolean }) {
                                     <strong>{item.message}</strong>
                                     <small>
                                         Sent by {item.created_by}
-                                        {item.expires_at ? ` · until ${new Date(item.expires_at).toLocaleString()}` : ' · until ended'}
+                                        {item.expires_at ? ` · until ${localeString(item.expires_at)}` : ' · until ended'}
                                     </small>
                                 </div>
                                 <button type="button" className="entropy-button entropy-button-secondary entropy-button-sm" onClick={() => void end(item.id)}>

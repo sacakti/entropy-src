@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import {
     Camera,
+    Globe,
     KeyRound,
     LoaderCircle,
     Mail,
@@ -23,6 +24,7 @@ import Avatar from './Avatar'
 import ChangePasswordForm from './ChangePasswordForm'
 import '../../styles/settings.css'
 import EntropyLoader from '../../components/feedback/EntropyLoader'
+import { timeZoneNames } from '../../services/timezone'
 
 const AVATAR_TYPES = 'image/jpeg,image/png,image/webp'
 
@@ -43,6 +45,8 @@ export default function Settings({
     // Edits start from the loaded profile; `null` means "unchanged".
     const [fullName, setFullName] = useState<string | null>(null)
     const [email, setEmail] = useState<string | null>(null)
+    // '' follows the installation's zone.
+    const [zone, setZone] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
     const [avatarBusy, setAvatarBusy] = useState(false)
     const [passwordOpen, setPasswordOpen] = useState(false)
@@ -55,13 +59,18 @@ export default function Settings({
 
     const nameValue = fullName ?? profile.full_name ?? ''
     const emailValue = email ?? profile.email ?? ''
+    const zoneValue = zone ?? profile.timezone ?? ''
+    // Older servers do not send time zones; then the field is hidden.
+    const zonesSupported = profile.effective_timezone !== undefined
     const dirty =
         nameValue.trim() !== (profile.full_name ?? '') ||
-        emailValue.trim() !== (profile.email ?? '')
+        emailValue.trim() !== (profile.email ?? '') ||
+        zoneValue !== (profile.timezone ?? '')
 
     const reset = () => {
         setFullName(null)
         setEmail(null)
+        setZone(null)
     }
 
     const save = async (event: FormEvent) => {
@@ -75,6 +84,7 @@ export default function Settings({
             const next = await updateProfile({
                 full_name: nameValue.trim() || null,
                 email: emailValue.trim() || null,
+                ...(zonesSupported ? { timezone: zoneValue || null } : {}),
             })
 
             onProfileChange(next)
@@ -214,6 +224,22 @@ export default function Settings({
                             />
                         </div>
                     </label>
+
+                    {zonesSupported && (
+                        <label className="settings-field">
+                            <span>Time zone</span>
+                            <div className="settings-input-icon">
+                                <Globe size={15} aria-hidden="true" />
+                                <select value={zoneValue} onChange={(event) => setZone(event.target.value)}>
+                                    <option value="">Default ({profile.default_timezone})</option>
+                                    {timeZoneNames(profile.timezone ?? undefined).map((item) => (
+                                        <option key={item} value={item}>{item}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <small>Times across Entropy are shown in this zone. The default is set by an administrator, else the server's zone ({profile.server_timezone}).</small>
+                        </label>
+                    )}
 
                     <div className="settings-form-actions">
                         <button
