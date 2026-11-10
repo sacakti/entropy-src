@@ -24,7 +24,14 @@ class BroadcastError(ValueError):
     """A broadcast that cannot be sent; the message is safe to show."""
 
 
+# A countdown shown live with the message, e.g. "Upgrade to 3.3.0 in 4:32".
+COUNTDOWN_COLUMNS = (("countdown_to", "TEXT"), ("countdown_label", "TEXT"))
+
+
 def ensure_broadcasts_schema(connection: DatabaseConnection) -> None:
+    # Once per connection: every open page polls the broadcasts.
+    if getattr(connection, "_entropy_broadcasts_ready", False):
+        return
     connection.execute(
         "CREATE TABLE IF NOT EXISTS vision_broadcasts ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT, message TEXT NOT NULL,"
@@ -32,6 +39,11 @@ def ensure_broadcasts_schema(connection: DatabaseConnection) -> None:
         "created_at TEXT NOT NULL, expires_at TEXT, ended_at TEXT"
         ")"
     )
+    existing = {row["name"] for row in connection.fetchall("PRAGMA table_info(vision_broadcasts)")}
+    for name, declaration in COUNTDOWN_COLUMNS:
+        if name not in existing:
+            connection.execute(f"ALTER TABLE vision_broadcasts ADD COLUMN {name} {declaration}")
+    connection._entropy_broadcasts_ready = True  # type: ignore[attr-defined]
 
 
 def _iso(moment: datetime) -> str:
@@ -50,7 +62,13 @@ class BroadcastStore:
         created_by: str,
         duration_minutes: int,
         now: Optional[datetime] = None,
+        countdown_to: Optional[datetime] = None,
+        countdown_label: Optional[str] = None,
     ) -> Dict[str, Any]:
+        """
+        A message for everyone. With `countdown_to`, pages show the time left to it
+        live, after `countdown_label` (e.g. "Upgrade to 3.3.0 in 4:32").
+        """
         text = message.strip()
         if not text:
             raise BroadcastError("Write the message to send.")
@@ -66,9 +84,17 @@ class BroadcastStore:
 
         with self.connection.transaction():
             cursor = self.connection.execute(
-                "INSERT INTO vision_broadcasts (message, level, created_by, created_at, expires_at)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (text, level, created_by, _iso(moment), expires),
+                "INSERT INTO vision_broadcasts (message, level, created_by, created_at, expires_at,"
+                " countdown_to, countdown_label) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    text,
+                    level,
+                    created_by,
+                    _iso(moment),
+                    expires,
+                    _iso(countdown_to) if countdown_to else None,
+                    (countdown_label or "").strip()[:80] or None,
+                ),
             )
             self.connection.execute(
                 "DELETE FROM vision_broadcasts WHERE id NOT IN"

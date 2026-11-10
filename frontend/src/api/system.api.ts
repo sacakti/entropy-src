@@ -17,10 +17,13 @@ export interface UpgradeLogLine {
 export interface UpgradeJob {
     id?: string
     action?: 'upgrade' | 'rollback'
-    state: 'idle' | 'running' | 'restarting' | 'succeeded' | 'failed'
+    /** waiting: everyone was warned and it starts at `starts_at`; it can still be cancelled. */
+    state: 'idle' | 'waiting' | 'running' | 'restarting' | 'succeeded' | 'failed' | 'cancelled'
     target?: string | null
     by?: string
     started_at?: string
+    starts_at?: string
+    notice_minutes?: number
     finished_at?: string
     error?: string | null
     log: UpgradeLogLine[]
@@ -117,12 +120,19 @@ export const systemApi = {
     info: () => apiRequest<SystemInfo>('/api/system'),
     upload: uploadPackage,
     discard: (id: string) => apiRequest<{ ok: boolean }>(`/api/system/upgrade/package/${id}`, { method: 'DELETE' }),
-    apply: (id: string, allowDowngrade: boolean) =>
+    /** `noticeMinutes`: how long everyone is warned (Vision) before it starts. */
+    apply: (id: string, allowDowngrade: boolean, noticeMinutes: number) =>
         apiRequest<UpgradeJob>('/api/system/upgrade', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, allow_downgrade: allowDowngrade }),
+            body: JSON.stringify({ id, allow_downgrade: allowDowngrade, notice_minutes: noticeMinutes }),
         }),
-    rollback: () => apiRequest<UpgradeJob>('/api/system/rollback', { method: 'POST' }),
+    rollback: (noticeMinutes: number) =>
+        apiRequest<UpgradeJob>('/api/system/rollback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notice_minutes: noticeMinutes }),
+        }),
+    cancel: () => apiRequest<UpgradeJob>('/api/system/upgrade/cancel', { method: 'POST' }),
     status: () => apiRequest<UpgradeJob>('/api/system/upgrade'),
 }

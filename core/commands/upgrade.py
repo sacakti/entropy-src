@@ -4,9 +4,12 @@ Upgrade command.
 
 from __future__ import annotations
 
+import time
 from argparse import ArgumentParser, Namespace
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Iterator, Optional
 
 from core.commands.base import (
     BaseCommand,
@@ -15,6 +18,10 @@ from core.commands.base import (
 
 if TYPE_CHECKING:
     from core.context import EntropyContext
+
+# Minutes people with Entropy open are warned (Vision) before it starts, as on the web.
+DEFAULT_NOTICE_MINUTES = 5
+MAX_NOTICE_MINUTES = 60
 
 
 class UpgradeCommand(
@@ -85,6 +92,18 @@ class UpgradeCommand(
         )
 
         parser.add_argument(
+            "--notice",
+            type=int,
+            default=DEFAULT_NOTICE_MINUTES,
+            metavar="MINUTES",
+            help=(
+                "Warn everyone with Entropy open this many minutes before it starts, so they "
+                f"can save their work (default {DEFAULT_NOTICE_MINUTES}; 0 starts at once). "
+                "Ctrl+C during the wait cancels."
+            ),
+        )
+
+        parser.add_argument(
             "-y",
             "--yes",
             action="store_true",
@@ -106,6 +125,9 @@ class UpgradeCommand(
             session,
             "upgrade.entropy",
         )
+
+        if not 0 <= args.notice <= MAX_NOTICE_MINUTES:
+            raise ValueError(f"--notice is 0 to {MAX_NOTICE_MINUTES} minutes.")
 
         if args.rollback:
             self._rollback(args, session.username)
@@ -129,15 +151,19 @@ class UpgradeCommand(
             f"Upgrade package: {args.source}",
         )
 
-        self._ui.info(
-            "Validating upgrade package...",
-        )
+        with self._notice("upgrade", None, session.username, args.notice) as go:
+            if not go:
+                return
 
-        UpgradeManager(
-            self._context,
-        ).upgrade(
-            args.source,
-        )
+            self._ui.info(
+                "Validating upgrade package...",
+            )
+
+            UpgradeManager(
+                self._context,
+            ).upgrade(
+                args.source,
+            )
 
         self._ui.success(
             "Entropy upgraded successfully.",
@@ -196,16 +222,20 @@ class UpgradeCommand(
             self._ui.info("Cancelled.")
             return
 
-        entry = upgrader.apply(
-            args.source.expanduser(),
-            allow_downgrade=args.allow_downgrade,
-            user=username,
-        )
+        with self._notice("upgrade", info["version"], username, args.notice) as go:
+            if not go:
+                return
 
-        if entry.get("database_backup"):
-            self._ui.info(f"Database backup: {entry['database_backup']}")
+            entry = upgrader.apply(
+                args.source.expanduser(),
+                allow_downgrade=args.allow_downgrade,
+                user=username,
+            )
 
-        self._restart_web()
+            if entry.get("database_backup"):
+                self._ui.info(f"Database backup: {entry['database_backup']}")
+
+            self._restart_web()
 
         self._ui.success(
             f"Entropy upgraded to {entry['to']}.",
@@ -235,15 +265,93 @@ class UpgradeCommand(
             self._ui.info("Cancelled.")
             return
 
-        entry = upgrader.rollback(
-            user=username,
-        )
+        with self._notice("rollback", last["from"], username, args.notice) as go:
+            if not go:
+                return
 
-        self._restart_web()
+            entry = upgrader.rollback(
+                user=username,
+            )
+
+            self._restart_web()
 
         self._ui.success(
             f"Entropy is back at {entry['to']}.",
         )
+
+    # ------------------------------------------------------------------
+    # Telling everyone
+    # ------------------------------------------------------------------
+
+    def _connection(self) -> Any:
+        manager = getattr(self._context, "database_manager", None)
+        return manager.connection if manager is not None else None
+
+    @contextmanager
+    def _notice(
+        self,
+        action: str,
+        target: Optional[str],
+        username: str,
+        minutes: int,
+    ) -> Iterator[bool]:
+        """
+        Warn everyone through Vision, wait `minutes` for them to save their work, then
+        yield True to go ahead (False when Ctrl+C cancelled the wait). The warning is
+        taken down once the block ends, whatever happened in it.
+        """
+
+        from lib.system import upgrade_notice, web
+
+        connection = self._connection()
+        if connection is None or not web.status()["running"]:
+            # No web server: nobody has Entropy open to warn.
+            yield True
+            return
+
+        starts_at = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+        notice = upgrade_notice.announce(
+            connection,
+            action,
+            target,
+            username,
+            starts_at if minutes > 0 else None,
+            minutes,
+        )
+        if notice is None:
+            self._ui.warning("Could not warn everyone through Vision; going ahead.")
+        try:
+            if minutes > 0 and not self._wait(action, starts_at):
+                done = "upgraded" if action == "upgrade" else "rolled back"
+                self._ui.info(f"Cancelled; nothing was {done} and the warning is down.")
+                yield False
+                return
+            yield True
+        finally:
+            upgrade_notice.end(connection, notice)
+
+    def _wait(self, action: str, starts_at: datetime) -> bool:
+        """Count down to `starts_at`; False when Ctrl+C cancelled it."""
+
+        minutes = round((starts_at - datetime.now(timezone.utc)).total_seconds() / 60)
+        self._ui.info(
+            f"Everyone with Entropy open was warned. The {action} starts in {minutes}"
+            f" minute{'' if minutes == 1 else 's'}; press Ctrl+C to cancel."
+        )
+        said = minutes
+        try:
+            while True:
+                left = (starts_at - datetime.now(timezone.utc)).total_seconds()
+                if left <= 0:
+                    return True
+                # Once a minute: "4 minute(s) to go...".
+                whole = int(left // 60)
+                if 0 < whole < said:
+                    said = whole
+                    self._ui.info(f"{whole} minute(s) to go...")
+                time.sleep(min(1.0, left))
+        except KeyboardInterrupt:
+            return False
 
     def _restart_web(self) -> None:
         """A running web server must load the new code."""

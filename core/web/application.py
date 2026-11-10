@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Tuple
@@ -20,6 +21,8 @@ from core.bootstrap import bootstrap
 from core.version import VERSION
 from core.web import routes
 from core.web.session_store import WebSessionStore
+
+LOGGER = logging.getLogger("entropy.web")
 
 
 def _close_context(context: EntropyContext) -> None:
@@ -48,6 +51,17 @@ def _start_background(context: EntropyContext):
 
     background = RunsBackground(context)
     return background if background.start() else None
+
+
+def _settle_upgrade_notice(context: EntropyContext) -> None:
+    """After a restart for an upgrade: replace the broadcast that announced it."""
+
+    try:
+        from core.web.routes.system import settle_after_restart
+
+        settle_after_restart(context)
+    except Exception as error:  # noqa: BLE001 - the notice must never stop the server starting
+        LOGGER.warning("Unable to settle the upgrade notice: %s", error)
 
 
 def _start_wallpaper_move(app: FastAPI, context: EntropyContext) -> None:
@@ -232,6 +246,7 @@ def create_app(context_factory: ContextFactory | None = None) -> FastAPI:
             app.state.database_safety = safety
             background = _start_background(context)
             app.state.runs_background = background
+            _settle_upgrade_notice(context)
             _start_wallpaper_move(app, context)
             yield
         finally:

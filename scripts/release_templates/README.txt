@@ -42,6 +42,7 @@ After installation
     ent web config --host 0.0.0.0 --port 8000   listen on the network (needed for remote nodes)
     ent upgrade --source entropy-<version>-<platform>.tar.gz [--check]
     ent upgrade --rollback                      back to the previous version
+    ent upgrade ... --notice 10                 warn users 10 minutes first (default 5, 0 = now)
     ./install.sh uninstall                      remove Entropy and its data
 
 Upgrades can also be applied from the web interface:

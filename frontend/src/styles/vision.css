@@ -318,6 +318,13 @@
     border-color: var(--app-danger);
 }
 
+.entropy-app .vision-countdown {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
 .entropy-app .vision-broadcast-row p {
     margin: 0;
     overflow-wrap: anywhere;
@@ -484,4 +491,9 @@
 
 .entropy-app .vision-look-switches label:has(input:disabled) {
     opacity: 0.5;
+}
+
+/* A countdown in the island ticks without the text shifting. */
+.entropy-app .vision-text strong {
+    font-variant-numeric: tabular-nums;
 }

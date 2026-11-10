@@ -28,6 +28,25 @@ function formatSize(bytes: number): string {
     return bytes >= 1 << 20 ? `${(bytes / (1 << 20)).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`
 }
 
+/** Minutes everyone is warned through Vision before an upgrade or rollback starts. */
+const NOTICE_CHOICES = [0, 1, 2, 5, 10, 15, 30, 60]
+const DEFAULT_NOTICE = 5
+
+function NoticeChoice({ value, onChange }: { value: number; onChange: (minutes: number) => void }) {
+    return (
+        <label className="system-notice">
+            <span>Warn everyone first</span>
+            <select value={value} onChange={(event) => onChange(Number(event.target.value))}>
+                {NOTICE_CHOICES.map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                        {minutes === 0 ? 'No, start now' : `${minutes} minute${minutes === 1 ? '' : 's'} before`}
+                    </option>
+                ))}
+            </select>
+        </label>
+    )
+}
+
 /** Administration → System: installation details, upgrades and rollback. */
 export default function AdminSystem() {
     const [info, setInfo] = useState<SystemInfo | null>(null)
@@ -38,6 +57,7 @@ export default function AdminSystem() {
     const [allowDowngrade, setAllowDowngrade] = useState(false)
     const [job, setJob] = useState<UpgradeJob | null>(null)
     const [confirmRollback, setConfirmRollback] = useState(false)
+    const [noticeMinutes, setNoticeMinutes] = useState(DEFAULT_NOTICE)
     const [busy, setBusy] = useState(false)
     const [dragging, setDragging] = useState(false)
     const fileRef = useRef<HTMLInputElement>(null)
@@ -53,7 +73,7 @@ export default function AdminSystem() {
             .then((result) => {
                 if (!active) return
                 setInfo(result)
-                if (result.job.state === 'running' || result.job.state === 'restarting') setJob(result.job)
+                if (['waiting', 'running', 'restarting'].includes(result.job.state)) setJob(result.job)
             })
             .catch((cause: unknown) => {
                 if (active) setError(errorMessage(cause, 'Unable to load the system details.'))
@@ -63,7 +83,7 @@ export default function AdminSystem() {
         }
     }, [revision])
 
-    const following = job !== null && (job.state === 'running' || job.state === 'restarting')
+    const following = job !== null && ['waiting', 'running', 'restarting'].includes(job.state)
 
     // Follow the job; requests fail while the server restarts, so keep trying.
     useEffect(() => {
@@ -78,7 +98,7 @@ export default function AdminSystem() {
                     if (result.state === 'succeeded') {
                         // The new server serves a new UI build: load it.
                         window.setTimeout(() => window.location.reload(), 1500)
-                    } else if (result.state === 'failed') {
+                    } else if (result.state === 'failed' || result.state === 'cancelled') {
                         load()
                     }
                 })
@@ -127,7 +147,7 @@ export default function AdminSystem() {
         setBusy(true)
         setError(null)
         try {
-            setJob(await systemApi.apply(selected.id, allowDowngrade))
+            setJob(await systemApi.apply(selected.id, allowDowngrade, noticeMinutes))
             setSelected(null)
         } catch (cause) {
             setError(errorMessage(cause, 'Unable to start the upgrade.'))
@@ -140,11 +160,23 @@ export default function AdminSystem() {
         setBusy(true)
         setError(null)
         try {
-            setJob(await systemApi.rollback())
+            setJob(await systemApi.rollback(noticeMinutes))
             setConfirmRollback(false)
         } catch (cause) {
             setError(errorMessage(cause, 'Unable to start the rollback.'))
             setConfirmRollback(false)
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    const cancel = async () => {
+        setBusy(true)
+        try {
+            await systemApi.cancel()
+            setJob(await systemApi.status())
+        } catch (cause) {
+            setError(errorMessage(cause, 'Unable to cancel the upgrade.'))
         } finally {
             setBusy(false)
         }
@@ -206,13 +238,15 @@ export default function AdminSystem() {
                     <h3>Upgrade</h3>
                     <p className="run-card-muted">
                         Upload a release package (entropy-&lt;version&gt;-&lt;platform&gt;.tar.gz). The database is
-                        backed up and migrated, and the server restarts on the new version. From a terminal:{' '}
+                        backed up and migrated, and the server restarts on the new version. Everyone with Entropy
+                        open is warned through Vision first, so they can save their work; the warning stops once
+                        the upgrade is over. From a terminal:{' '}
                         <code>ent upgrade --source &lt;package&gt;</code>
                     </p>
                 </header>
 
                 {job && job.state !== 'idle' ? (
-                    <UpgradeProgress job={job} logRef={logRef} onDismiss={() => setJob(null)} />
+                    <UpgradeProgress job={job} logRef={logRef} busy={busy} onCancel={() => void cancel()} onDismiss={() => setJob(null)} />
                 ) : info?.container ? (
                     <p className="run-card-muted">
                         This server runs in a container. Upgrade it by deploying a newer image; the
@@ -257,6 +291,7 @@ export default function AdminSystem() {
                             </label>
                         )}
                         <div className="entropy-panel-actions">
+                            <NoticeChoice value={noticeMinutes} onChange={setNoticeMinutes} />
                             <button type="button" className="entropy-button entropy-button-secondary" onClick={() => void discard()}>
                                 Discard
                             </button>
@@ -400,24 +435,47 @@ export default function AdminSystem() {
                             are lost.
                         </span>
                     </div>
+                    <NoticeChoice value={noticeMinutes} onChange={setNoticeMinutes} />
                 </Dialog>
             )}
         </div>
     )
 }
 
+/** "4:05" until `at`, ticking each second. */
+function useCountdown(at: string | undefined, active: boolean): string {
+    const [now, setNow] = useState(() => Date.now())
+    useEffect(() => {
+        if (!active) return
+        const timer = window.setInterval(() => setNow(Date.now()), 1000)
+        return () => window.clearInterval(timer)
+    }, [active])
+    const left = Math.max(0, Math.round(((at ? new Date(at).getTime() : now) - now) / 1000))
+    return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+}
+
 function UpgradeProgress({
     job,
     logRef,
+    busy,
+    onCancel,
     onDismiss,
 }: {
     job: UpgradeJob
     logRef: React.RefObject<HTMLOListElement | null>
+    busy: boolean
+    onCancel: () => void
     onDismiss: () => void
 }) {
     const verb = job.action === 'rollback' ? 'Rolling back' : 'Upgrading'
+    const noun = job.action === 'rollback' ? 'Rollback' : 'Upgrade'
+    const left = useCountdown(job.starts_at, job.state === 'waiting')
     const status =
-        job.state === 'running'
+        job.state === 'waiting'
+            ? `${noun} to ${job.target} starts in ${left}. Everyone has been warned to save their work.`
+            : job.state === 'cancelled'
+              ? `${noun} to ${job.target} was cancelled; the warning was taken down.`
+              : job.state === 'running'
             ? `${verb} to ${job.target}…`
             : job.state === 'restarting'
               ? `Restarting on ${job.target}…`
@@ -428,12 +486,12 @@ function UpgradeProgress({
     return (
         <div className="provision-log">
             <div
-                className={`start-run-check is-${job.state === 'succeeded' ? 'valid' : job.state === 'failed' ? 'invalid' : 'checking'}`}
+                className={`start-run-check is-${job.state === 'succeeded' ? 'valid' : job.state === 'failed' || job.state === 'cancelled' ? 'invalid' : 'checking'}`}
                 role="status"
             >
                 {job.state === 'succeeded' ? (
                     <CheckCircle2 size={16} />
-                ) : job.state === 'failed' ? (
+                ) : job.state === 'failed' || job.state === 'cancelled' ? (
                     <XCircle size={16} />
                 ) : (
                     <LoaderCircle size={16} className="entropy-spin" />
@@ -449,7 +507,15 @@ function UpgradeProgress({
                     </li>
                 ))}
             </ol>
-            {job.state === 'failed' && (
+            {job.state === 'waiting' && (
+                <div className="entropy-panel-actions">
+                    <button type="button" className="entropy-button entropy-button-secondary" onClick={onCancel} disabled={busy}>
+                        {busy && <LoaderCircle size={15} className="entropy-spin" />}
+                        Cancel the {noun.toLowerCase()}
+                    </button>
+                </div>
+            )}
+            {(job.state === 'failed' || job.state === 'cancelled') && (
                 <div className="entropy-panel-actions">
                     <button type="button" className="entropy-button entropy-button-secondary" onClick={onDismiss}>
                         Close

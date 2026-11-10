@@ -1020,6 +1020,29 @@
     font-size: 13.5px;
 }
 
+/* How long everyone is warned (Vision) before an upgrade or rollback starts. */
+.entropy-app .system-notice {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
+    font-size: 13px;
+}
+
+.entropy-app .system-notice select {
+    min-height: 34px;
+    padding: 0 10px;
+    color: var(--app-text);
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 8px;
+    font: inherit;
+}
+
+.entropy-app .entropy-dialog-body .system-notice {
+    margin-top: 12px;
+}
+
 @media (max-width: 640px) {
     .entropy-app .system-facts .system-fact-wide {
         grid-column: 1 / -1;

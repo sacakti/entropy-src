@@ -173,6 +173,12 @@ ent upgrade --source entropy-1.4.0-linux-x86_64.tar.gz           # apply
 ent upgrade --rollback                                           # undo the last upgrade
 ```
 
+While the web server runs, everyone with Entropy open is warned through Vision
+first, so they can save their work: `--notice MINUTES` (default 5, `0` starts at
+once) sets how long before it starts; Ctrl+C during the wait cancels. The
+warning is taken down once the upgrade is over, whatever the outcome. The UI
+asks the same question ("Warn everyone first") and can cancel while it waits.
+
 From the UI: **Administration → System** — upload the package, review
 it, apply it and follow the log. The page reloads itself on the new
 version once the server is back. The same page shows the installation

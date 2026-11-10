@@ -14,18 +14,18 @@ import shutil
 import sys
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.web.routes.auth import _current_session, verify_csrf
 from core.web.routes.workflows import _require_permission
 from lib.models.session import Session
 from lib.models.users import User
-from lib.system import install, web
+from lib.system import install, upgrade_notice, web
 from lib.system.upgrade import MAX_PACKAGE_BYTES, ReleaseUpgrader, UpgradeError
 
 router = APIRouter(prefix="/api/system", tags=["system"])
@@ -39,6 +39,11 @@ _JOB_LOCK = threading.Lock()
 # Jobs only run inside this process; a "running" state left by a process
 # that died is stale.
 _ACTIVE = threading.Event()
+# Set to call off an upgrade still waiting for people to save their work.
+_CANCEL = threading.Event()
+# Minutes people get to save their work before an upgrade begins.
+DEFAULT_NOTICE_MINUTES = 5
+MAX_NOTICE_MINUTES = 60
 
 
 def _uploads() -> Path:
@@ -183,9 +188,14 @@ def discard_package(
 class ApplyRequest(BaseModel):
     id: str
     allow_downgrade: bool = False
+    notice_minutes: int = Field(default=DEFAULT_NOTICE_MINUTES, ge=0, le=MAX_NOTICE_MINUTES)
 
 
-def _run(work) -> None:
+class RollbackRequest(BaseModel):
+    notice_minutes: int = Field(default=DEFAULT_NOTICE_MINUTES, ge=0, le=MAX_NOTICE_MINUTES)
+
+
+def _run(work, connection: Any) -> None:
     """Run an upgrade or rollback, logging to the job file, then restart."""
 
     job = _read_job()
@@ -199,9 +209,12 @@ def _run(work) -> None:
     except Exception as exc:  # noqa: BLE001 - every failure is reported to the UI
         job.update(state="failed", error=str(exc), finished_at=_now())
         progress(f"Failed: {exc}")
+        _end_notice(job, connection)
         return
 
     job.update(state="restarting", target=entry["to"], finished_at=_now())
+    # Ended here, by this server: the new version starting next may not know the notice.
+    _end_notice(job, connection)
     progress("Restarting the web server…")
     web.reexec_current_server()
 
@@ -210,26 +223,121 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _start(action: str, user: User, target: Optional[str], work) -> Dict[str, Any]:
+def _connection(request: Request) -> Any:
+    context = request.app.state.entropy_context
+    manager = getattr(context, "database_manager", None)
+    return manager.connection if manager is not None else None
+
+
+def _end_notice(job: Dict[str, Any], connection: Any) -> None:
+    """Stop broadcasting the job's notice to everyone, once."""
+
+    if connection is None or job.get("notice_ended"):
+        return
+    upgrade_notice.end(connection, job.get("notice"))
+    job["notice_ended"] = True
+    _write_job(job)
+
+
+def settle_after_restart(context: Any) -> None:
+    """
+    On start: the upgrade this server restarted for is over (or died with the old
+    server), so the broadcast that announced it stops.
+    """
+
+    manager = getattr(context, "database_manager", None)
+    job = _read_job()
+    if manager is None or not job.get("notice") or job.get("notice_ended"):
+        return
+    if job.get("state") in ("restarting", "running", "waiting"):
+        _end_notice(job, manager.connection)
+
+
+def _wait_for_people(job: Dict[str, Any], minutes: int) -> bool:
+    """Let people save their work first; False when the upgrade was cancelled."""
+
+    if minutes <= 0:
+        return True
+    _CANCEL.wait(minutes * 60)
+    # Under the lock: a cancel either lands before the job starts, or is refused.
+    with _JOB_LOCK:
+        if _CANCEL.is_set():
+            return False
+        job = _read_job()
+        job.update(state="running", started_at=_now())
+        job["log"].append({"at": _now(), "message": "Starting now."})
+        _write_job(job)
+    return True
+
+
+def _start(
+    action: str,
+    user: User,
+    target: Optional[str],
+    work,
+    connection: Any = None,
+    notice_minutes: int = 0,
+) -> Dict[str, Any]:
+    """
+    Tell everyone through Vision, wait `notice_minutes` for them to save their work
+    (the job is "waiting" and can be cancelled), then run the job.
+    """
+
     with _JOB_LOCK:
         if _ACTIVE.is_set():
             raise HTTPException(status_code=409, detail="An upgrade is already running.")
-        job = {
+        now = datetime.now(timezone.utc)
+        starts_at = now + timedelta(minutes=notice_minutes)
+        what = "upgrade" if action == "upgrade" else "rollback"
+        job: Dict[str, Any] = {
             "id": uuid.uuid4().hex,
             "action": action,
-            "state": "running",
+            "state": "waiting" if notice_minutes > 0 else "running",
             "target": target,
             "by": user.username,
-            "started_at": _now(),
+            "started_at": now.isoformat(),
+            "starts_at": starts_at.isoformat(),
+            "notice_minutes": notice_minutes,
             "error": None,
-            "log": [],
+            "log": (
+                [
+                    {
+                        "at": now.isoformat(),
+                        "message": f"Everyone was told; the {what} starts in"
+                        f" {notice_minutes} minute{'' if notice_minutes == 1 else 's'}.",
+                    }
+                ]
+                if notice_minutes > 0
+                else []
+            ),
+            # The broadcast telling everyone, ended once the job is over.
+            "notice": (
+                upgrade_notice.announce(
+                    connection,
+                    action,
+                    target,
+                    user.username,
+                    starts_at if notice_minutes > 0 else None,
+                    notice_minutes,
+                )
+                if connection is not None
+                else None
+            ),
         }
         _write_job(job)
+        _CANCEL.clear()
         _ACTIVE.set()
 
     def run() -> None:
         try:
-            _run(work)
+            if _wait_for_people(job, notice_minutes):
+                _run(work, connection)
+            else:
+                cancelled = _read_job()
+                cancelled.update(state="cancelled", finished_at=_now())
+                cancelled["log"].append({"at": _now(), "message": f"The {what} was cancelled."})
+                _write_job(cancelled)
+                _end_notice(cancelled, connection)
         finally:
             _ACTIVE.clear()
 
@@ -271,12 +379,15 @@ def apply_upgrade(
         shutil.rmtree(_uploads(), ignore_errors=True)
         return entry
 
-    return _start("upgrade", user, info["version"], work)
+    return _start(
+        "upgrade", user, info["version"], work, _connection(request), payload.notice_minutes
+    )
 
 
 @router.post("/rollback", status_code=202, dependencies=[Depends(verify_csrf)])
 def rollback(
     request: Request,
+    payload: Optional[RollbackRequest] = None,
     record: SessionRecord = Depends(_current_session),
 ) -> Dict[str, Any]:
     """Return to the version before the last upgrade, database included."""
@@ -292,7 +403,27 @@ def rollback(
         user,
         target,
         lambda progress: ReleaseUpgrader(progress).rollback(user=user.username),
+        _connection(request),
+        (payload or RollbackRequest()).notice_minutes,
     )
+
+
+@router.post("/upgrade/cancel", dependencies=[Depends(verify_csrf)])
+def cancel_upgrade(
+    request: Request,
+    record: SessionRecord = Depends(_current_session),
+) -> Dict[str, Any]:
+    """Call off an upgrade or rollback still waiting for people to save their work."""
+
+    _admin(request, record)
+    with _JOB_LOCK:
+        job = _read_job()
+        if job.get("state") != "waiting" or not _ACTIVE.is_set():
+            raise HTTPException(
+                status_code=409, detail="Only an upgrade that has not started can be cancelled."
+            )
+        _CANCEL.set()
+    return job
 
 
 @router.get("/upgrade")
@@ -307,7 +438,7 @@ def upgrade_status(
     from core.version import VERSION
 
     job = _read_job()
-    if job.get("state") == "running" and not _ACTIVE.is_set():
+    if job.get("state") in ("running", "waiting") and not _ACTIVE.is_set():
         job.update(state="failed", error="The server stopped during the upgrade.")
         _write_job(job)
     if job.get("state") == "restarting" and job.get("target") == VERSION:

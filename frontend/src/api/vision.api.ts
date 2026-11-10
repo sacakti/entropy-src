@@ -12,6 +12,19 @@ export interface VisionBroadcast {
     created_at: string
     /** Null: until someone ends it. */
     expires_at: string | null
+    /** Pages count down to this time live, after `countdown_label` (e.g. an upgrade). */
+    countdown_to?: string | null
+    countdown_label?: string | null
+}
+
+/** "Upgrade to 3.3.0 in 4:32", then "Upgrade to 3.3.0: under way"; null without a countdown. */
+export function broadcastCountdown(broadcast: VisionBroadcast, now: Date): string | null {
+    if (!broadcast.countdown_to) return null
+    const label = broadcast.countdown_label || 'Starts'
+    const left = Math.ceil((new Date(broadcast.countdown_to).getTime() - now.getTime()) / 1000)
+    if (Number.isNaN(left)) return null
+    if (left <= 0) return `${label}: under way`
+    return `${label} in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
 }
 
 /** A database switch under way; nothing can be saved until it finishes. */

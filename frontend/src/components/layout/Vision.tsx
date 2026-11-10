@@ -4,7 +4,7 @@ import { AlertTriangle, Bell, CheckCircle2, CircleX, LoaderCircle, Megaphone, ty
 import type { AppNotification, NotificationLevel } from '../../api/notifications.api'
 import { compareLabel, type ClashCompareBrief } from '../../api/clash.api'
 import { runsApi, type Run } from '../../api/runs.api'
-import { databaseSwitchDetail, databaseSwitchLabel, visionApi, type DatabaseSwitch, type VisionBroadcast } from '../../api/vision.api'
+import { broadcastCountdown, databaseSwitchDetail, databaseSwitchLabel, visionApi, type DatabaseSwitch, type VisionBroadcast } from '../../api/vision.api'
 import { openRun, runIdFromHash } from '../../features/runs/navigation'
 import { openDatabaseCompare } from '../../features/tools/clashNavigation'
 import { openKnowledgeEntry } from '../../features/tools/knowledge/navigation'
@@ -350,7 +350,10 @@ function VisionIsland({
         !summary && !flash && !databaseSwitch && !announcement && !showCompare && activity.level === 'idle'
     const look = useVisionLook()
     const showsTime = idle && look.idle !== 'mark'
-    const now = useNow(showsTime)
+    // A broadcast counting down (an upgrade about to start) ticks each second too.
+    const counting = announcements.some((item) => item.countdown_to)
+    const now = useNow(showsTime || counting)
+    const announcementText = announcement ? (broadcastCountdown(announcement, now) ?? announcement.message) : ''
     const clockText = formatClock(now, look)
     // The level class already says is-idle; this says how the idle island looks.
     const idleClass = idle ? (look.idle === 'mark' ? ' is-mark-only' : ` is-idle-${look.idle}`) : ''
@@ -437,7 +440,7 @@ function VisionIsland({
                     flash
                         ? flashText
                         : announcement && !flashing
-                          ? announcement.message
+                          ? `${announcementText === announcement.message ? '' : `${announcementText}. `}${announcement.message}`
                           : showsTime
                             ? `${formatDay(now)} · ${clockText}. Vision: what is running, and new messages`
                             : 'Vision: what is running, and new messages'
@@ -461,7 +464,7 @@ function VisionIsland({
                 ) : announcement ? (
                     <>
                         <Megaphone size={14} aria-hidden="true" />
-                        <span className="vision-text"><strong>{announcement.message}</strong></span>
+                        <span className="vision-text"><strong>{announcementText}</strong></span>
                     </>
                 ) : compareWaiting ? (
                     <>
@@ -550,6 +553,7 @@ function VisionIsland({
                     <div key={item.id} className={`vision-broadcast-row is-${item.level}`}>
                         <Megaphone size={15} aria-hidden="true" />
                         <div>
+                            {item.countdown_to && <strong className="vision-countdown">{broadcastCountdown(item, now)}</strong>}
                             <p>{item.message}</p>
                             <small>From {item.created_by} · {relativeTime(item.created_at)}</small>
                             <div>
